@@ -69,37 +69,34 @@ web-push/
 
 ### 方式一：GitHub Actions 自动部署（推荐）
 
-已配置自动部署 workflow，只需设置 Secrets：
+**Fork 者只需 2 步，零配置部署：**
 
-1. **获取 Cloudflare API Token**
+1. **获取 Cloudflare 凭证**
    - 访问 https://dash.cloudflare.com/profile/api-tokens
-   - 创建 Token，权限：
-     - `Account:Cloudflare Workers:Edit`
-     - `Account:Account:Read`
-   - 复制 Token
+   - 创建 Token，权限：`Account:Cloudflare Workers:Edit`、`Account:Account:Read`
+   - 访问 https://dash.cloudflare.com，复制右侧 **Account ID**
 
-2. **获取 Account ID**
-   - 访问 https://dash.cloudflare.com
-   - 右侧栏找到 **Account ID**，复制
+2. **设置 GitHub Secrets**
+   - 打开 Fork 的仓库 → Settings → Secrets and variables → Actions
+   - 添加 2 个 Secrets：
 
-3. **在 GitHub 仓库设置 Secrets**
-   - 打开仓库 → Settings → Secrets and variables → Actions
-   - 添加以下 Secrets：
+   | Secret Name | Value |
+   |-------------|-------|
+   | `CLOUDFLARE_API_TOKEN` | 你的 API Token |
+   | `CLOUDFLARE_ACCOUNT_ID` | 你的 Account ID |
 
-   | Secret Name | Value | 说明 |
-   |-------------|-------|------|
-   | `CLOUDFLARE_API_TOKEN` | 你的 API Token | Cloudflare 认证 |
-   | `CLOUDFLARE_ACCOUNT_ID` | 你的 Account ID | Cloudflare 账户 |
-   | `ADMIN_PASSWORD` | 自定义密码 | 管理后台密码 |
-   | `VAPID_PUBLIC_KEY` | VAPID 公钥 | 运行 `npm run generate-keys` |
-   | `VAPID_PRIVATE_KEY` | VAPID 私钥 | 同上 |
-   | `KV_NAMESPACE_ID` | KV ID | 你的 KV 命名空间 ID |
-
-4. **推送代码自动部署**
+3. **推送代码，自动完成部署**
    ```bash
    git push origin main
    ```
-   或手动触发：Actions → Deploy → Run workflow
+
+   Workflow 会自动：
+   - ✅ 生成 VAPID 密钥对
+   - ✅ 创建 KV 命名空间
+   - ✅ 生成随机管理密码
+   - ✅ 构建并部署
+
+   **查看部署日志获取管理密码：** Actions → Deploy → 点击最新运行记录
 
 ### 方式二：本地开发
 

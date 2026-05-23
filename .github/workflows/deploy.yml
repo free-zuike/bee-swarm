@@ -1,15 +1,17 @@
 # ============================================
 # 蜂群 (Bee Swarm) - 自动部署到 Cloudflare Workers
 # ============================================
-# 触发条件：推送到 main 分支
-# 需要先在 GitHub 仓库设置中添加 Secrets
+# Fork 者只需设置 2 个 Secrets：
+#   - CLOUDFLARE_API_TOKEN
+#   - CLOUDFLARE_ACCOUNT_ID
+# 其他配置（VAPID、KV）自动生成
 
 name: Deploy to Cloudflare Workers
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -31,6 +33,66 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 生成 VAPID 密钥（如果不存在）
+      - name: Generate VAPID keys
+        id: vapid
+        run: |
+          if [ -z "${{ secrets.VAPID_PUBLIC_KEY }}" ]; then
+            echo "Generating new VAPID keys..."
+            npm run generate-keys > vapid_output.txt
+            PUBLIC_KEY=$(grep "VAPID_PUBLIC_KEY=" vapid_output.txt | cut -d'=' -f2)
+            PRIVATE_KEY=$(grep "VAPID_PRIVATE_KEY=" vapid_output.txt | cut -d'=' -f2)
+            echo "public_key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
+            echo "private_key=$PRIVATE_KEY" >> $GITHUB_OUTPUT
+            echo "⚠️ 请手动设置 GitHub Secrets: VAPID_PUBLIC_KEY 和 VAPID_PRIVATE_KEY"
+            echo "   以便后续部署复用相同的密钥对"
+          else
+            echo "Using existing VAPID keys from secrets"
+            echo "public_key=${{ secrets.VAPID_PUBLIC_KEY }}" >> $GITHUB_OUTPUT
+            echo "private_key=${{ secrets.VAPID_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+          fi
+
+      # 创建或获取 KV 命名空间
+      - name: Setup KV Namespace
+        id: kv
+        run: |
+          # 尝试获取已存在的 KV 命名空间
+          KV_LIST=$(curl -s -X GET \
+            "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/storage/kv/namespaces" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json")
+          
+          KV_ID=$(echo $KV_LIST | jq -r '.result[] | select(.title=="bee-swarm-kv") | .id')
+          
+          if [ -z "$KV_ID" ] || [ "$KV_ID" = "null" ]; then
+            echo "Creating new KV namespace..."
+            KV_CREATE=$(curl -s -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/storage/kv/namespaces" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"title":"bee-swarm-kv"}')
+            KV_ID=$(echo $KV_CREATE | jq -r '.result.id')
+            echo "✅ KV namespace created: $KV_ID"
+          else
+            echo "✅ Using existing KV namespace: $KV_ID"
+          fi
+          
+          echo "kv_id=$KV_ID" >> $GITHUB_OUTPUT
+
+      # 设置默认管理密码（如果没有设置）
+      - name: Setup Admin Password
+        id: admin
+        run: |
+          if [ -z "${{ secrets.ADMIN_PASSWORD }}" ]; then
+            # 生成随机密码
+            RANDOM_PASS=$(openssl rand -base64 12)
+            echo "password=$RANDOM_PASS" >> $GITHUB_OUTPUT
+            echo "⚠️ 使用自动生成的管理密码: $RANDOM_PASS"
+            echo "   请记录此密码，或设置 ADMIN_PASSWORD secret 自定义"
+          else
+            echo "password=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_OUTPUT
+          fi
+
       # 构建前端
       - name: Build frontend
         run: npm run build
@@ -48,7 +110,24 @@ jobs:
             VAPID_PRIVATE_KEY
             KV_NAMESPACE_ID
         env:
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}
+          ADMIN_PASSWORD: ${{ steps.admin.outputs.password }}
+          VAPID_PUBLIC_KEY: ${{ steps.vapid.outputs.public_key }}
+          VAPID_PRIVATE_KEY: ${{ steps.vapid.outputs.private_key }}
+          KV_NAMESPACE_ID: ${{ steps.kv.outputs.kv_id }}
+
+      # 输出部署信息
+      - name: Deployment Info
+        run: |
+          echo "=========================================="
+          echo "🐝 蜂群 (Bee Swarm) 部署完成!"
+          echo "=========================================="
+          echo ""
+          echo "📍 访问地址: https://bee-swarm.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+          echo "🔐 管理密码: ${{ steps.admin.outputs.password }}"
+          echo ""
+          echo "⚠️  重要提示:"
+          echo "   1. 请记录管理密码"
+          echo "   2. 建议设置 GitHub Secrets 固定配置:"
+          echo "      - ADMIN_PASSWORD (自定义密码)"
+          echo "      - VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (固定密钥对)"
+          echo "=========================================="
