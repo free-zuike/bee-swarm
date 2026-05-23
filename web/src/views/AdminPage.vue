@@ -13,6 +13,7 @@ const router = useRouter();
 const password = ref('');
 const isLoggedIn = ref(false);
 const isLoggingIn = ref(false);
+const loginError = ref('');
 
 // 渠道状态
 const channels = ref<ChannelConfig[]>([]);
@@ -33,19 +34,17 @@ const pushResults = ref<PushResult[]>([]);
 const lastPushTime = ref('-');
 const enabledChannelCount = computed(() => channels.value.filter((c) => c.enabled).length);
 
-// 初始化：检查登录状态
+// 初始化：不自动登录，避免页面闪烁
 onMounted(() => {
-  const savedPassword = sessionStorage.getItem('push_hub_token');
-  if (savedPassword) {
-    password.value = savedPassword;
-    login();
-  }
+  // 清除可能存在的旧密码，避免自动登录导致白屏
+  sessionStorage.removeItem('push_hub_token');
 });
 
 // 登录
 async function login() {
   if (!password.value || isLoggingIn.value) return;
   isLoggingIn.value = true;
+  loginError.value = '';
 
   try {
     await loadChannels();
@@ -55,7 +54,7 @@ async function login() {
   } catch (err: any) {
     console.error('Login failed:', err);
     isLoggedIn.value = false;
-    alert('登录失败: ' + (err.message || '请检查密码是否正确'));
+    loginError.value = err.message || '登录失败，请检查密码';
   }
 
   isLoggingIn.value = false;
@@ -66,6 +65,7 @@ function logout() {
   sessionStorage.removeItem('push_hub_token');
   password.value = '';
   isLoggedIn.value = false;
+  loginError.value = '';
 }
 
 // 加载渠道配置
@@ -144,8 +144,9 @@ function formatEndpoint(ep: string): string {
         placeholder="输入密码..."
         @keydown.enter="login"
       />
+      <div v-if="loginError" class="login-error">{{ loginError }}</div>
       <button class="btn btn-primary" :disabled="isLoggingIn" @click="login">
-        登 录
+        {{ isLoggingIn ? '登录中...' : '登 录' }}
       </button>
     </div>
   </div>
@@ -310,6 +311,17 @@ function formatEndpoint(ep: string): string {
 .login-card input:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.login-error {
+  color: #e74c3c;
+  font-size: 13px;
+  margin-bottom: 12px;
+  text-align: left;
+  padding: 8px 12px;
+  background: #fff5f5;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
 }
 
 .page {

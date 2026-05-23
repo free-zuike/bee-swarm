@@ -6,9 +6,23 @@ import type { PushChannel } from '@/types';
 
 const BASE = '/api';
 
-/** 通用请求封装 */
+/** 通用请求封装（带错误处理） */
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
+
+  // 检查 HTTP 状态码
+  if (!res.ok) {
+    let errorMsg = `请求失败 (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body.message) errorMsg = body.message;
+      else if (body.error) errorMsg = body.error;
+    } catch {
+      // JSON 解析失败，使用默认错误信息
+    }
+    throw new Error(errorMsg);
+  }
+
   return res.json();
 }
 
