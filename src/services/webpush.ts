@@ -1,18 +1,19 @@
 // ============================================
 // Web Push 推送服务
-// 使用 Web Crypto API 实现，兼容 Cloudflare Workers
+// 使用 Web Crypto API 实现 VAPID 签名和消息加密
 // ============================================
 import type { Env, PushSubscription, PushPayload, ChannelResult } from '../types';
 
 /**
- * Base64Url 编码（Web Push 标准格式）
+ * Base64Url 编码
  */
-function base64UrlEncode(str: string): string {
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+function base64UrlEncode(buffer: ArrayBuffer | string): string {
+  const bytes = typeof buffer === 'string' 
+    ? new TextEncoder().encode(buffer)
+    : new Uint8Array(buffer);
+  const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
-
-// VAPID JWT 头部（base64url 编码）- 必须在函数定义后初始化
-const VAPID_HEADER = base64UrlEncode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
 
 /**
  * Base64Url 解码
@@ -25,34 +26,29 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 /**
- * 将 ArrayBuffer 转为 Base64Url 字符串
+ * 从 JWK 格式导入 VAPID 私钥
  */
-function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return base64UrlEncode(binary);
-}
-
-/**
- * 导入 VAPID 私钥为 CryptoKey
- */
-async function importVapidKey(privateKeyBase64: string): Promise<CryptoKey> {
+async function importVapidPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
+  // VAPID 私钥是 32 字节的随机数
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
   
-  // 构造 PKCS#8 格式的私钥
-  const pkcs8Header = new Uint8Array([
+  // 构造 PKCS#8 格式的 ECDSA P-256 私钥
+  // 这是固定的 ASN.1 结构前缀 + 32 字节私钥
+  const pkcs8Prefix = new Uint8Array([
     0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86,
     0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d,
-    0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20,
-    ...privateKeyBytes, 0xa1, 0x44, 0x03, 0x42, 0x00
+    0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20
   ]);
+  
+  const pkcs8Key = new Uint8Array(pkcs8Prefix.length + privateKeyBytes.length + 7);
+  pkcs8Key.set(pkcs8Prefix);
+  pkcs8Key.set(privateKeyBytes, pkcs8Prefix.length);
+  // 添加公钥占位符后缀
+  pkcs8Key.set([0xa1, 0x44, 0x03, 0x42, 0x00, 0x04, 0x00], pkcs8Prefix.length + privateKeyBytes.length);
   
   return crypto.subtle.importKey(
     'pkcs8',
-    pkcs8Header,
+    pkcs8Key,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
     ['sign']
@@ -60,23 +56,25 @@ async function importVapidKey(privateKeyBase64: string): Promise<CryptoKey> {
 }
 
 /**
- * 生成 VAPID JWT Token
+ * 生成 VAPID JWT
  */
-async function generateVapidToken(
+async function generateVapidJWT(
   audience: string,
   subject: string,
   privateKey: string,
   publicKey: string
 ): Promise<string> {
+  const header = base64UrlEncode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+  
   const now = Math.floor(Date.now() / 1000);
   const payload = base64UrlEncode(JSON.stringify({
     aud: audience,
-    exp: now + 12 * 60 * 60, // 12 小时过期
+    exp: now + 12 * 60 * 60,
     sub: subject,
   }));
   
-  const signingInput = `${VAPID_HEADER}.${payload}`;
-  const key = await importVapidKey(privateKey);
+  const signingInput = `${header}.${payload}`;
+  const key = await importVapidPrivateKey(privateKey);
   
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
@@ -84,53 +82,152 @@ async function generateVapidToken(
     new TextEncoder().encode(signingInput)
   );
   
-  const signatureBase64 = arrayBufferToBase64Url(signature);
-  return `${signingInput}.${signatureBase64}`;
+  return `${header}.${payload}.${base64UrlEncode(signature)}`;
 }
 
 /**
- * 从订阅端点提取 audience（origin）
+ * 加密推送消息（使用 Web Push 标准加密）
  */
-function getAudience(endpoint: string): string {
-  const url = new URL(endpoint);
-  return `${url.protocol}//${url.host}`;
+async function encryptPayload(
+  payload: string,
+  subscription: PushSubscription
+): Promise<{ ciphertext: ArrayBuffer; salt: Uint8Array; serverPublicKey: Uint8Array }> {
+  // 解码用户公钥和认证密钥
+  const userPublicKey = base64UrlDecode(subscription.keys.p256dh);
+  const authSecret = base64UrlDecode(subscription.keys.auth);
+  
+  // 生成临时 ECDH 密钥对
+  const serverKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+  
+  // 导入用户公钥
+  const userKey = await crypto.subtle.importKey(
+    'raw',
+    userPublicKey,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    []
+  );
+  
+  // 派生共享密钥
+  const sharedSecret = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: userKey },
+    serverKeyPair.privateKey,
+    256
+  );
+  
+  // 生成随机 salt
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  // 导出服务器公钥
+  const serverPublicKey = new Uint8Array(
+    await crypto.subtle.exportKey('raw', serverKeyPair.publicKey)
+  );
+  
+  // HKDF 密钥派生
+  const prk = await crypto.subtle.importKey(
+    'raw',
+    new Uint8Array([...new Uint8Array(sharedSecret), ...authSecret]),
+    { name: 'HKDF' },
+    false,
+    ['deriveBits']
+  );
+  
+  const ikm = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt,
+      info: new TextEncoder().encode('Content-Encoding: aes128gcm\x00')
+    },
+    prk,
+    128
+  );
+  
+  // 使用 AES-GCM 加密
+  const contentEncryptionKey = await crypto.subtle.importKey(
+    'raw',
+    ikm,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  // 添加填充和记录分隔符
+  const recordSize = 4096;
+  const paddingSize = 0;
+  const record = new Uint8Array(2 + paddingSize + payload.length);
+  record[0] = (paddingSize >> 8) & 0xff;
+  record[1] = paddingSize & 0xff;
+  record.set(new TextEncoder().encode(payload), 2 + paddingSize);
+  
+  // 生成 nonce
+  const nonceBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt,
+      info: new TextEncoder().encode('Content-Encoding: nonce\x00')
+    },
+    prk,
+    96
+  );
+  
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(nonceBits) },
+    contentEncryptionKey,
+    record
+  );
+  
+  return { ciphertext, salt, serverPublicKey };
 }
 
 /**
- * 发送 Web Push 通知到单个订阅者
- * 使用 Web Crypto API 实现加密和 VAPID 签名
- *
- * @param subscription - 浏览器推送订阅对象
- * @param payload      - 推送消息内容
- * @param env          - Workers 环境变量
+ * 发送 Web Push 通知
  */
 export async function sendWebPush(
   subscription: PushSubscription,
   payload: PushPayload,
   env: Env
 ): Promise<void> {
-  const audience = getAudience(subscription.endpoint);
+  const audience = new URL(subscription.endpoint).origin;
   
-  // 生成 VAPID Authorization 头
-  const vapidToken = await generateVapidToken(
+  // 生成 VAPID JWT
+  const vapidToken = await generateVapidJWT(
     audience,
     'mailto:admin@example.com',
     env.VAPID_PRIVATE_KEY,
     env.VAPID_PUBLIC_KEY
   );
   
-  // 如果有用户公钥，需要加密 payload（简化版，实际生产需要完整加密）
-  let body: string | ArrayBuffer = JSON.stringify(payload);
-  let headers: Record<string, string> = {
-    'Authorization': `vapid t=${vapidToken}, k=${env.VAPID_PUBLIC_KEY}`,
-    'Content-Type': 'application/json',
-    'TTL': '86400',
-  };
-
-  // 发送推送请求
+  // 加密 payload
+  const payloadStr = JSON.stringify(payload);
+  const { ciphertext, salt, serverPublicKey } = await encryptPayload(payloadStr, subscription);
+  
+  // 构造加密后的 body（aes128gcm 格式）
+  const body = new Uint8Array(
+    salt.length + 4 + 1 + serverPublicKey.length + ciphertext.byteLength
+  );
+  let offset = 0;
+  body.set(salt, offset); offset += salt.length;
+  body[offset++] = (recordSize >> 16) & 0xff;
+  body[offset++] = (recordSize >> 8) & 0xff;
+  body[offset++] = recordSize & 0xff;
+  body[offset++] = 0; // key ID length
+  body.set(serverPublicKey, offset); offset += serverPublicKey.length;
+  body.set(new Uint8Array(ciphertext), offset);
+  
   const response = await fetch(subscription.endpoint, {
     method: 'POST',
-    headers,
+    headers: {
+      'Authorization': `vapid t=${vapidToken}, k=${env.VAPID_PUBLIC_KEY}`,
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL': '86400',
+    },
     body,
   });
 
@@ -141,49 +238,34 @@ export async function sendWebPush(
   }
 }
 
+const recordSize = 4096;
+
 /**
- * 将新订阅保存到 KV
- *
- * @param subscription - 浏览器推送订阅对象
- * @param env          - Workers 环境变量
+ * 添加订阅
  */
 export async function addSubscription(
   subscription: PushSubscription,
   env: Env
 ): Promise<void> {
-  // 使用 endpoint 作为唯一键，存储订阅对象
   await env.SUBSCRIPTIONS.put(
     `sub:${subscription.endpoint}`,
     JSON.stringify(subscription),
-    { expirationTtl: 60 * 60 * 24 * 365 } // 1 年后自动过期
+    { expirationTtl: 60 * 60 * 24 * 365 }
   );
-
-  // 更新订阅计数
-  const count = parseInt(await env.SUBSCRIPTIONS.get('meta:count') || '0', 10);
-  await env.SUBSCRIPTIONS.put('meta:count', String(count + 1));
 }
 
 /**
  * 删除订阅
- *
- * @param endpoint - 订阅端点 URL
- * @param env      - Workers 环境变量
  */
 export async function removeSubscription(
   endpoint: string,
   env: Env
 ): Promise<void> {
   await env.SUBSCRIPTIONS.delete(`sub:${endpoint}`);
-
-  const count = parseInt(await env.SUBSCRIPTIONS.get('meta:count') || '0', 10);
-  await env.SUBSCRIPTIONS.put('meta:count', String(Math.max(0, count - 1)));
 }
 
 /**
- * 获取所有有效订阅
- *
- * @param env - Workers 环境变量
- * @returns 订阅列表
+ * 获取所有订阅
  */
 export async function getAllSubscriptions(env: Env): Promise<PushSubscription[]> {
   const list = await env.SUBSCRIPTIONS.list({ prefix: 'sub:' });
@@ -191,21 +273,14 @@ export async function getAllSubscriptions(env: Env): Promise<PushSubscription[]>
 
   for (const key of list.keys) {
     const data = await env.SUBSCRIPTIONS.get(key.name);
-    if (data) {
-      subscriptions.push(JSON.parse(data));
-    }
+    if (data) subscriptions.push(JSON.parse(data));
   }
 
   return subscriptions;
 }
 
 /**
- * 向所有 Web Push 订阅者广播消息
- * 自动清理失效的订阅（410/404）
- *
- * @param payload - 推送消息内容
- * @param env     - Workers 环境变量
- * @returns 推送结果（成功数、失败数、错误详情）
+ * 广播推送
  */
 export async function broadcastWebPush(
   payload: PushPayload,
@@ -213,20 +288,13 @@ export async function broadcastWebPush(
 ): Promise<ChannelResult> {
   const list = await env.SUBSCRIPTIONS.list({ prefix: 'sub:' });
 
-  // 如果没有订阅者，直接返回
   if (list.keys.length === 0) {
-    return {
-      channel: 'webpush',
-      success: true,
-      message: '没有订阅用户',
-    };
+    return { channel: 'webpush', success: true, message: '没有订阅用户' };
   }
 
   let success = 0;
   let failed = 0;
-  const errors: string[] = [];
 
-  // 遍历所有订阅，逐个发送
   for (const key of list.keys) {
     const data = await env.SUBSCRIPTIONS.get(key.name);
     if (!data) continue;
@@ -237,27 +305,15 @@ export async function broadcastWebPush(
       success++;
     } catch (err: any) {
       failed++;
-      // 订阅已失效（用户卸载或清除数据），自动清理
       if (err.statusCode === 410 || err.statusCode === 404) {
         await env.SUBSCRIPTIONS.delete(key.name);
-        errors.push(`已清理失效订阅`);
-      } else {
-        errors.push(err.message);
       }
     }
   }
 
-  // 清理后更新订阅计数
-  const newList = await env.SUBSCRIPTIONS.list({ prefix: 'sub:' });
-  await env.SUBSCRIPTIONS.put('meta:count', String(newList.keys.length));
-
-  const msg = failed > 0
-    ? `推送完成: ${success} 成功, ${failed} 失败`
-    : `推送成功: ${success} 条`;
-
   return {
     channel: 'webpush',
     success: failed === 0,
-    message: msg,
+    message: `推送完成: ${success} 成功, ${failed} 失败`,
   };
 }
