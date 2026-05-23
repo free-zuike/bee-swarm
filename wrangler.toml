@@ -19,8 +19,10 @@ compatibility_flags = ["nodejs_compat"]
 # 静态资源（前端构建产物）
 # Vite 构建后输出到 dist 目录
 # ------------------------------------------
-[experimental_assets]
-directory = "dist"
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/sw.js"]
 
 # ------------------------------------------
 # KV 命名空间（Web Push 订阅存储）
