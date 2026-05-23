@@ -1,0 +1,99 @@
+# ============================================
+# 蜂群 (Bee Swarm) - 自动部署到 Cloudflare Workers
+# ============================================
+# Fork 者只需设置 2 个 Secrets：
+#   - CLOUDFLARE_API_TOKEN
+#   - CLOUDFLARE_ACCOUNT_ID
+# 其他配置（VAPID、KV）自动生成
+
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate VAPID keys
+        id: vapid
+        run: |
+          if [ -z "${{ secrets.VAPID_PUBLIC_KEY }}" ]; then
+            npm run generate-keys > vapid_output.txt
+            PUBLIC_KEY=$(grep "VAPID_PUBLIC_KEY=" vapid_output.txt | cut -d'=' -f2)
+            PRIVATE_KEY=$(grep "VAPID_PRIVATE_KEY=" vapid_output.txt | cut -d'=' -f2)
+            echo "public_key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
+            echo "private_key=$PRIVATE_KEY" >> $GITHUB_OUTPUT
+          else
+            echo "public_key=${{ secrets.VAPID_PUBLIC_KEY }}" >> $GITHUB_OUTPUT
+            echo "private_key=${{ secrets.VAPID_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup KV Namespace
+        id: kv
+        run: |
+          KV_LIST=$(curl -s -X GET \
+            "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/storage/kv/namespaces" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json")
+          KV_ID=$(echo $KV_LIST | jq -r '.result[] | select(.title=="bee-swarm-kv") | .id')
+          if [ -z "$KV_ID" ] || [ "$KV_ID" = "null" ]; then
+            KV_CREATE=$(curl -s -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/storage/kv/namespaces" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"title":"bee-swarm-kv"}')
+            KV_ID=$(echo $KV_CREATE | jq -r '.result.id')
+          fi
+          echo "kv_id=$KV_ID" >> $GITHUB_OUTPUT
+
+      - name: Setup Admin Password
+        id: admin
+        run: |
+          if [ -z "${{ secrets.ADMIN_PASSWORD }}" ]; then
+            RANDOM_PASS=$(openssl rand -base64 12)
+            echo "password=$RANDOM_PASS" >> $GITHUB_OUTPUT
+          else
+            echo "password=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          secrets: |
+            ADMIN_PASSWORD
+            VAPID_PUBLIC_KEY
+            VAPID_PRIVATE_KEY
+            KV_NAMESPACE_ID
+        env:
+          ADMIN_PASSWORD: ${{ steps.admin.outputs.password }}
+          VAPID_PUBLIC_KEY: ${{ steps.vapid.outputs.public_key }}
+          VAPID_PRIVATE_KEY: ${{ steps.vapid.outputs.private_key }}
+          KV_NAMESPACE_ID: ${{ steps.kv.outputs.kv_id }}
+
+      - name: Deployment Info
+        run: |
+          echo "🐝 蜂群部署完成!"
+          echo "📍 访问地址: https://bee-swarm.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+          echo "🔐 管理密码: ${{ steps.admin.outputs.password }}"
