@@ -10,6 +10,18 @@ import api from './routes/api';
 const app = new Hono<{ Bindings: Env }>();
 
 // ============================================
+// 全局错误处理
+// ============================================
+app.onError((err, c) => {
+  console.error('Application Error:', err);
+  return c.json({ 
+    error: 'Internal Server Error', 
+    message: err.message,
+    stack: err.stack 
+  }, 500);
+});
+
+// ============================================
 // Service Worker 路由
 // ============================================
 app.get('/sw.js', async () => {

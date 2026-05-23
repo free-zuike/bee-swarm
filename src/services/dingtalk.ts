@@ -16,16 +16,19 @@ async function generateSign(secret: string): Promise<{ timestamp: string; sign: 
   const timestamp = String(Date.now());
 
   // 使用 Web Crypto API 计算 HMAC-SHA256
+  // 钉钉加签格式: timestamp + "\n" + secret
   const encoder = new TextEncoder();
+  const signData = encoder.encode(timestamp + '\n' + secret);
+  
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(secret + '\n' + timestamp),
+    encoder.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
 
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(''));
+  const signature = await crypto.subtle.sign('HMAC', key, signData);
   const sign = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
   return { timestamp, sign };
