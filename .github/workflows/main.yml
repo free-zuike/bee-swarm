@@ -75,22 +75,25 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Deploy
+      # 先部署 Worker（不包含 secrets）
+      - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
-          secrets: |
-            ADMIN_PASSWORD
-            VAPID_PUBLIC_KEY
-            VAPID_PRIVATE_KEY
-            KV_NAMESPACE_ID
         env:
-          ADMIN_PASSWORD: ${{ steps.admin.outputs.password }}
-          VAPID_PUBLIC_KEY: ${{ steps.vapid.outputs.public_key }}
-          VAPID_PRIVATE_KEY: ${{ steps.vapid.outputs.private_key }}
           KV_NAMESPACE_ID: ${{ steps.kv.outputs.kv_id }}
+
+      # 再上传 Secrets（使用 wrangler CLI 直接上传）
+      - name: Upload Secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "${{ steps.admin.outputs.password }}" | npx wrangler secret put ADMIN_PASSWORD
+          echo "${{ steps.vapid.outputs.public_key }}" | npx wrangler secret put VAPID_PUBLIC_KEY
+          echo "${{ steps.vapid.outputs.private_key }}" | npx wrangler secret put VAPID_PRIVATE_KEY
 
       - name: Deployment Info
         run: |
