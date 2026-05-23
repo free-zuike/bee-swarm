@@ -19,9 +19,8 @@ compatibility_flags = ["nodejs_compat"]
 # 静态资源（前端构建产物）
 # Vite 构建后输出到 dist 目录
 # ------------------------------------------
-[assets]
+[experimental_assets]
 directory = "dist"
-binding = "ASSETS"
 
 # ------------------------------------------
 # KV 命名空间（Web Push 订阅存储）
