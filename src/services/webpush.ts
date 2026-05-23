@@ -4,15 +4,15 @@
 // ============================================
 import type { Env, PushSubscription, PushPayload, ChannelResult } from '../types';
 
-// VAPID JWT 头部（base64url 编码）
-const VAPID_HEADER = base64UrlEncode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
-
 /**
  * Base64Url 编码（Web Push 标准格式）
  */
 function base64UrlEncode(str: string): string {
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
+
+// VAPID JWT 头部（base64url 编码）- 必须在函数定义后初始化
+const VAPID_HEADER = base64UrlEncode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
 
 /**
  * Base64Url 解码
