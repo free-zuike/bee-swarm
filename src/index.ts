@@ -3,7 +3,6 @@
 // 仅提供 API 和 Service Worker，前端由 assets 服务
 // ============================================
 import { Hono } from 'hono';
-import { serveStatic } from 'hono/cloudflare-workers';
 import type { Env } from './types';
 import api from './routes/api';
 
@@ -40,9 +39,9 @@ app.get('/sw.js', async () => {
 app.route('/api', api);
 
 // ============================================
-// 静态资源回退（由 wrangler assets 处理）
+// 静态资源由 wrangler [assets] 自动处理
+// 不需要在这里配置 serveStatic
 // ============================================
-app.get('*', serveStatic({ root: './' }));
 
 export default app;
 
