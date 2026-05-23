@@ -4,14 +4,22 @@
 // ============================================
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { getChannels, getSubscriptions, sendPush } from '@/api';
+import { getStatus, setupPassword, getChannels, getSubscriptions, sendPush } from '@/api';
 import type { ChannelConfig, PushChannel, PushResult, PushSubscription } from '@/types';
 
 const router = useRouter();
 
-// 认证状态
+// 页面状态：setup / login / dashboard
+const pageState = ref<'loading' | 'setup' | 'login' | 'dashboard'>('loading');
+
+// 初始化设置
+const setupPassword1 = ref('');
+const setupPassword2 = ref('');
+const isSettingUp = ref(false);
+const setupError = ref('');
+
+// 登录
 const password = ref('');
-const isLoggedIn = ref(false);
 const isLoggingIn = ref(false);
 const loginError = ref('');
 
@@ -34,11 +42,66 @@ const pushResults = ref<PushResult[]>([]);
 const lastPushTime = ref('-');
 const enabledChannelCount = computed(() => channels.value.filter((c) => c.enabled).length);
 
-// 初始化：不自动登录，避免页面闪烁
-onMounted(() => {
-  // 清除可能存在的旧密码，避免自动登录导致白屏
-  sessionStorage.removeItem('push_hub_token');
+// 初始化：检查系统状态
+onMounted(async () => {
+  try {
+    const { initialized } = await getStatus();
+
+    if (!initialized) {
+      // 首次访问，需要设置密码
+      pageState.value = 'setup';
+      return;
+    }
+
+    // 已初始化，尝试自动登录
+    const savedPassword = sessionStorage.getItem('push_hub_token');
+    if (savedPassword) {
+      password.value = savedPassword;
+      try {
+        await loadChannels();
+        await loadSubs();
+        pageState.value = 'dashboard';
+        return;
+      } catch {
+        // 自动登录失败，清除旧密码
+        sessionStorage.removeItem('push_hub_token');
+      }
+    }
+
+    pageState.value = 'login';
+  } catch {
+    pageState.value = 'login';
+  }
 });
+
+// 设置密码
+async function doSetup() {
+  if (setupPassword1.value.length < 4) {
+    setupError.value = '密码长度至少 4 位';
+    return;
+  }
+  if (setupPassword1.value !== setupPassword2.value) {
+    setupError.value = '两次输入的密码不一致';
+    return;
+  }
+
+  isSettingUp.value = true;
+  setupError.value = '';
+
+  try {
+    await setupPassword(setupPassword1.value);
+    // 设置成功，自动登录
+    password.value = setupPassword1.value;
+    sessionStorage.setItem('push_hub_token', password.value);
+    await loadChannels();
+    await loadSubs();
+    pageState.value = 'dashboard';
+  } catch (err: any) {
+    setupError.value = err.message || '设置失败';
+  }
+
+  isSettingUp.value = false;
+}
 
 // 登录
 async function login() {
@@ -50,11 +113,9 @@ async function login() {
     await loadChannels();
     await loadSubs();
     sessionStorage.setItem('push_hub_token', password.value);
-    isLoggedIn.value = true;
+    pageState.value = 'dashboard';
   } catch (err: any) {
-    console.error('Login failed:', err);
-    isLoggedIn.value = false;
-    loginError.value = err.message || '登录失败，请检查密码';
+    loginError.value = err.message || '登录失败';
   }
 
   isLoggingIn.value = false;
@@ -64,8 +125,8 @@ async function login() {
 function logout() {
   sessionStorage.removeItem('push_hub_token');
   password.value = '';
-  isLoggedIn.value = false;
   loginError.value = '';
+  pageState.value = 'login';
 }
 
 // 加载渠道配置
@@ -133,8 +194,39 @@ function formatEndpoint(ep: string): string {
 </script>
 
 <template>
-  <!-- 登录遮罩 -->
-  <div v-if="!isLoggedIn" class="login-overlay">
+  <!-- 加载中 -->
+  <div v-if="pageState === 'loading'" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>加载中...</p>
+  </div>
+
+  <!-- 首次设置密码 -->
+  <div v-else-if="pageState === 'setup'" class="login-overlay">
+    <div class="login-card">
+      <h2>🐝 蜂群初始化</h2>
+      <p>首次使用，请设置管理密码</p>
+      <input
+        v-model="setupPassword1"
+        type="password"
+        placeholder="设置密码（至少 4 位）"
+        @keydown.enter="$refs.confirmInput?.focus()"
+      />
+      <input
+        ref="confirmInput"
+        v-model="setupPassword2"
+        type="password"
+        placeholder="确认密码"
+        @keydown.enter="doSetup"
+      />
+      <div v-if="setupError" class="login-error">{{ setupError }}</div>
+      <button class="btn btn-primary" :disabled="isSettingUp" @click="doSetup">
+        {{ isSettingUp ? '设置中...' : '完成设置' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- 登录 -->
+  <div v-else-if="pageState === 'login'" class="login-overlay">
     <div class="login-card">
       <h2>🔐 管理后台</h2>
       <p>请输入管理密码</p>
@@ -269,6 +361,31 @@ function formatEndpoint(ep: string): string {
 </template>
 
 <style scoped>
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .login-overlay {
   position: fixed;
   inset: 0;
@@ -305,7 +422,8 @@ function formatEndpoint(ep: string): string {
   border: 2px solid #e0e0e0;
   border-radius: 8px;
   font-size: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
 }
 
 .login-card input:focus {
@@ -468,6 +586,7 @@ function formatEndpoint(ep: string): string {
   font-size: 14px;
   transition: border-color 0.3s;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,

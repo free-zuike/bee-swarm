@@ -6,6 +6,8 @@
 //   /api/vapid-key          GET   - 获取 VAPID 公钥（公开）
 //   /api/subscribe          POST  - 订阅 Web Push（公开）
 //   /api/unsubscribe        POST  - 取消订阅（公开）
+//   /api/setup              POST  - 首次设置密码（公开，仅一次）
+//   /api/status             GET   - 检查是否已初始化（公开）
 //   /api/admin/channels     GET   - 获取渠道配置（需认证）
 //   /api/admin/subscriptions GET  - 获取订阅列表（需认证）
 //   /api/admin/push         POST  - 发送推送（需认证）
@@ -27,15 +29,43 @@ api.use('/*', cors());
 
 /**
  * 获取 VAPID 公钥
- * 前端订阅页面需要此公钥来生成推送订阅
  */
 api.get('/vapid-key', (c) => {
   return c.json({ publicKey: c.env.VAPID_PUBLIC_KEY });
 });
 
 /**
+ * 检查是否已初始化（是否已设置密码）
+ */
+api.get('/status', async (c) => {
+  const password = await c.env.SUBSCRIPTIONS.get('config:admin_password');
+  return c.json({ initialized: !!password });
+});
+
+/**
+ * 首次设置管理密码
+ * 只能设置一次，设置后无法再调用
+ */
+api.post('/setup', async (c) => {
+  const { password } = await c.req.json<{ password: string }>();
+
+  if (!password || password.length < 4) {
+    return c.json({ error: '密码长度至少 4 位' }, 400);
+  }
+
+  // 检查是否已经设置过
+  const existing = await c.env.SUBSCRIPTIONS.get('config:admin_password');
+  if (existing) {
+    return c.json({ error: '密码已设置，无法重复初始化' }, 403);
+  }
+
+  // 存储密码到 KV
+  await c.env.SUBSCRIPTIONS.put('config:admin_password', password);
+  return c.json({ success: true, message: '密码设置成功' });
+});
+
+/**
  * 订阅 Web Push
- * 浏览器生成订阅对象后，发送到此接口保存
  */
 api.post('/subscribe', async (c) => {
   const subscription: PushSubscription = await c.req.json();
@@ -69,22 +99,28 @@ const adminApi = new Hono<{ Bindings: Env }>();
 
 /**
  * 认证中间件
- * 支持 Authorization Bearer 和 URL 参数两种方式
+ * 从 KV 读取密码进行验证
  */
 adminApi.use('/*', async (c, next) => {
   const authHeader = c.req.header('Authorization');
   const urlPassword = c.req.query('password');
   const token = authHeader?.replace('Bearer ', '') || urlPassword;
 
-  if (token !== c.env.ADMIN_PASSWORD) {
-    return c.json({ error: '未授权' }, 401);
+  // 从 KV 读取存储的密码
+  const storedPassword = await c.env.SUBSCRIPTIONS.get('config:admin_password');
+
+  if (!storedPassword) {
+    return c.json({ error: '系统未初始化，请先设置密码' }, 403);
+  }
+
+  if (token !== storedPassword) {
+    return c.json({ error: '密码错误' }, 401);
   }
   await next();
 });
 
 /**
  * 获取已配置的推送渠道列表
- * 前端管理后台用此接口展示哪些渠道可用
  */
 adminApi.get('/channels', (c) => {
   const channels = getChannelConfigs(c.env);
@@ -104,15 +140,6 @@ adminApi.get('/subscriptions', async (c) => {
 
 /**
  * 发送推送消息
- * 支持指定渠道或推送到所有已启用渠道
- *
- * 请求体:
- * {
- *   "title": "标题",          // 必填
- *   "body": "内容",           // 可选
- *   "url": "https://...",     // 可选
- *   "channels": ["wework"]    // 可选，不填则推送到所有已启用渠道
- * }
  */
 adminApi.post('/push', async (c) => {
   const body: PushRequest = await c.req.json();
@@ -121,10 +148,8 @@ adminApi.post('/push', async (c) => {
     return c.json({ error: '请输入标题' }, 400);
   }
 
-  // 调用推送调度器，分发到各渠道
   const results = await dispatchPush(body, body.channels, c.env);
 
-  // 汇总结果
   const successCount = results.filter((r) => r.success).length;
   const failedCount = results.filter((r) => !r.success).length;
 

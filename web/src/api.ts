@@ -10,7 +10,6 @@ const BASE = '/api';
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
 
-  // 检查 HTTP 状态码
   if (!res.ok) {
     let errorMsg = `请求失败 (${res.status})`;
     try {
@@ -18,7 +17,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
       if (body.message) errorMsg = body.message;
       else if (body.error) errorMsg = body.error;
     } catch {
-      // JSON 解析失败，使用默认错误信息
+      // JSON 解析失败
     }
     throw new Error(errorMsg);
   }
@@ -33,6 +32,20 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 /** 获取 VAPID 公钥 */
 export async function getVapidKey(): Promise<{ publicKey: string }> {
   return request(`${BASE}/vapid-key`);
+}
+
+/** 检查系统是否已初始化 */
+export async function getStatus(): Promise<{ initialized: boolean }> {
+  return request(`${BASE}/status`);
+}
+
+/** 首次设置管理密码 */
+export async function setupPassword(password: string): Promise<{ success: boolean; message: string }> {
+  return request(`${BASE}/setup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
 }
 
 /** 订阅 Web Push */
