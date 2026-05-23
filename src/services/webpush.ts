@@ -26,29 +26,27 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 /**
- * 从 JWK 格式导入 VAPID 私钥
+ * 从 Base64Url 导入 VAPID 私钥（JWK 格式）
  */
-async function importVapidPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
-  // VAPID 私钥是 32 字节的随机数
+async function importVapidPrivateKey(privateKeyBase64: string, publicKeyBase64: string): Promise<CryptoKey> {
+  // 解码私钥（32 字节）
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
+  // 解码公钥（65 字节，uncompressed point format）
+  const publicKeyBytes = base64UrlDecode(publicKeyBase64);
   
-  // 构造 PKCS#8 格式的 ECDSA P-256 私钥
-  // 这是固定的 ASN.1 结构前缀 + 32 字节私钥
-  const pkcs8Prefix = new Uint8Array([
-    0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86,
-    0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d,
-    0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20
-  ]);
-  
-  const pkcs8Key = new Uint8Array(pkcs8Prefix.length + privateKeyBytes.length + 7);
-  pkcs8Key.set(pkcs8Prefix);
-  pkcs8Key.set(privateKeyBytes, pkcs8Prefix.length);
-  // 添加公钥占位符后缀
-  pkcs8Key.set([0xa1, 0x44, 0x03, 0x42, 0x00, 0x04, 0x00], pkcs8Prefix.length + privateKeyBytes.length);
+  // 使用 JWK 格式导入
+  const jwk = {
+    kty: 'EC',
+    crv: 'P-256',
+    d: privateKeyBase64,
+    x: base64UrlEncode(publicKeyBytes.slice(1, 33)), // 公钥的 x 坐标（跳过 0x04 前缀）
+    y: base64UrlEncode(publicKeyBytes.slice(33, 65)), // 公钥的 y 坐标
+    ext: true,
+  };
   
   return crypto.subtle.importKey(
-    'pkcs8',
-    pkcs8Key,
+    'jwk',
+    jwk,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
     ['sign']
@@ -74,7 +72,7 @@ async function generateVapidJWT(
   }));
   
   const signingInput = `${header}.${payload}`;
-  const key = await importVapidPrivateKey(privateKey);
+  const key = await importVapidPrivateKey(privateKey, publicKey);
   
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
@@ -294,6 +292,7 @@ export async function broadcastWebPush(
 
   let success = 0;
   let failed = 0;
+  const errors: string[] = [];
 
   for (const key of list.keys) {
     const data = await env.SUBSCRIPTIONS.get(key.name);
@@ -305,6 +304,9 @@ export async function broadcastWebPush(
       success++;
     } catch (err: any) {
       failed++;
+      const errorMsg = err.message || '未知错误';
+      errors.push(errorMsg);
+      console.error('Web Push failed:', errorMsg, err);
       if (err.statusCode === 410 || err.statusCode === 404) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
@@ -314,6 +316,6 @@ export async function broadcastWebPush(
   return {
     channel: 'webpush',
     success: failed === 0,
-    message: `推送完成: ${success} 成功, ${failed} 失败`,
+    message: `推送完成: ${success} 成功, ${failed} 失败${errors.length > 0 ? ' - ' + errors.join(', ') : ''}`,
   };
 }
