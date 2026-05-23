@@ -151,7 +151,7 @@ function formatEndpoint(ep: string): string {
   <!-- 主界面 -->
   <div v-else class="page">
     <header class="header">
-      <h1>🚀 Push Hub 管理后台</h1>
+      <h1>🐝 蜂群管理后台</h1>
       <span class="logout" @click="logout">退出登录</span>
     </header>
 

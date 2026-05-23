@@ -1,6 +1,8 @@
-# Push Hub - 多渠道推送通知系统
+# 蜂群 (Bee Swarm) 🐝
 
-基于 **Vite + Vue 3 + Hono + Cloudflare Workers** 的多渠道推送通知系统。
+> 多渠道推送通知系统 | Multi-channel notification system
+
+基于 **Vite + Vue 3 + Hono + Cloudflare Workers** 构建，如蜂群般高效协作，使命必达。
 
 ## 🛠 技术栈
 

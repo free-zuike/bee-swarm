@@ -1,8 +1,8 @@
 # ============================================
-# Push Hub - 多渠道推送通知系统
+# 蜂群 (Bee Swarm) - 多渠道推送通知系统
 # ============================================
 
-name = "push-hub"
+name = "bee-swarm"
 main = "src/index.ts"
 compatibility_date = "2024-09-03"
 compatibility_flags = ["nodejs_compat"]

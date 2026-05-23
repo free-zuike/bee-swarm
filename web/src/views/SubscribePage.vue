@@ -106,9 +106,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 <template>
   <div class="page">
     <div class="card">
-      <div class="icon">🔔</div>
-      <h1>Push Hub</h1>
-      <p class="subtitle">订阅后即可接收实时推送通知，支持多渠道同步推送</p>
+      <div class="icon">🐝</div>
+      <h1>蜂群</h1>
+      <p class="subtitle">如蜂群般高效协作，多渠道推送使命必达</p>
 
       <button
         class="btn"
