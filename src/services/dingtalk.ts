@@ -12,7 +12,7 @@ import type { Env, PushPayload, ChannelResult } from '../types';
  * @param secret - 加签密钥
  * @returns 签名和时间戳
  */
-function generateSign(secret: string): { timestamp: string; sign: string } {
+async function generateSign(secret: string): Promise<{ timestamp: string; sign: string }> {
   const timestamp = String(Date.now());
 
   // 使用 Web Crypto API 计算 HMAC-SHA256
