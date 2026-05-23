@@ -1,6 +1,14 @@
 # ============================================
 # 蜂群 (Bee Swarm) - 多渠道推送通知系统
 # ============================================
+# 敏感配置（密码、密钥）请使用 wrangler secret 命令设置，不要写入此文件！
+#
+# 设置 Secrets：
+#   npx wrangler secret put ADMIN_PASSWORD
+#   npx wrangler secret put VAPID_PUBLIC_KEY
+#   npx wrangler secret put VAPID_PRIVATE_KEY
+#
+# 本地开发时，创建 .dev.vars 文件（已加入 .gitignore）
 
 name = "bee-swarm"
 main = "src/index.ts"
@@ -16,29 +24,48 @@ directory = "dist"
 binding = "ASSETS"
 
 # ------------------------------------------
-# KV 命名空间
+# KV 命名空间（Web Push 订阅存储）
+# 创建命令：npx wrangler kv:namespace create "SUBSCRIPTIONS"
+# 然后将返回的 id 填入下方（或使用环境变量 KV_NAMESPACE_ID）
 # ------------------------------------------
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "${KV_NAMESPACE_ID}"
 
 # ------------------------------------------
-# 环境变量
+# 非敏感环境变量（推送渠道配置）
+# 敏感密钥请使用 wrangler secret 设置
 # ------------------------------------------
 [vars]
-ADMIN_PASSWORD = "change_me_in_production"
-VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"
-VAPID_PRIVATE_KEY = "YOUR_VAPID_PRIVATE_KEY"
+# 企业微信机器人 Webhook URL（可选）
 WEWORK_WEBHOOK_URL = ""
+
+# 钉钉机器人 Webhook URL（可选）
 DINGTALK_WEBHOOK_URL = ""
+# 钉钉机器人加签密钥（可选）
 DINGTALK_SECRET = ""
+
+# 飞书机器人 Webhook URL（可选）
 FEISHU_WEBHOOK_URL = ""
+
+# Telegram Bot Token（可选）
 TELEGRAM_BOT_TOKEN = ""
+# Telegram 接收消息的 Chat ID
 TELEGRAM_CHAT_ID = ""
+
+# Bark 推送 Key（可选）
 BARK_KEY = ""
+# Bark 服务器地址（默认官方服务器）
 BARK_SERVER = "https://api.day.app"
+
+# ntfy 主题名称（可选）
 NTFY_TOPIC = ""
+# ntfy 服务器地址（默认官方服务器）
 NTFY_SERVER = "https://ntfy.sh"
+
+# Email - Resend API Key（可选）
 RESEND_API_KEY = ""
+# Email 发件人地址
 EMAIL_FROM = ""
+# Email 收件人地址（多个用逗号分隔）
 EMAIL_TO = ""

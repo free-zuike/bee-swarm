@@ -47,7 +47,8 @@ web-push/
 │       └── email.ts              # Email
 │
 ├── vite.config.ts                # Vite 配置
-├── wrangler.toml                 # Workers 配置
+├── wrangler.toml                 # Workers 配置（不含敏感信息）
+├── .dev.vars.example             # 本地环境变量模板
 └── package.json
 ```
 
@@ -73,7 +74,23 @@ cd web-push
 npm install
 ```
 
-### 2. 本地开发
+### 2. 配置环境变量
+
+**本地开发**：复制模板并填写
+
+```bash
+cp .dev.vars.example .dev.vars
+# 编辑 .dev.vars，填写密码和 VAPID 密钥
+```
+
+**生成 VAPID 密钥**（Web Push 必需）：
+
+```bash
+npm run generate-keys
+# 将输出的公钥和私钥填入 .dev.vars
+```
+
+### 3. 本地开发
 
 ```bash
 # 终端 1：启动 Workers 后端
@@ -85,39 +102,58 @@ npm run dev
 
 访问 `http://localhost:5173`
 
-### 3. 部署到 Cloudflare
+### 4. 部署到 Cloudflare
 
 ```bash
-# 生成 VAPID 密钥
-npm run generate-keys
-# 将输出填入 wrangler.toml
+# 1. 登录 Cloudflare
+npx wrangler login
 
-# 创建 KV 命名空间
-npx wrangler kv:namespace create "SUBSCRIPTIONS"
-# 将返回的 id 填入 wrangler.toml
+# 2. 设置 Secrets（敏感信息，不会存入代码）
+npx wrangler secret put ADMIN_PASSWORD
+# 输入你的管理密码
 
-# 修改管理密码
-# 编辑 wrangler.toml 中的 ADMIN_PASSWORD
+npx wrangler secret put VAPID_PUBLIC_KEY
+# 输入 VAPID 公钥
 
-# 配置推送渠道（可选）
-# 编辑 wrangler.toml 填写各渠道的 Webhook/Token
+npx wrangler secret put VAPID_PRIVATE_KEY
+# 输入 VAPID 私钥
 
-# 部署
+# 3. （可选）配置推送渠道
+# 编辑 wrangler.toml 中的 [vars] 部分，填写各渠道 Webhook URL
+
+# 4. 部署
 npm run deploy
 ```
 
+## 🔐 安全配置
+
+本项目使用 **双重安全策略**：
+
+| 场景 | 方式 | 说明 |
+|------|------|------|
+| **本地开发** | `.dev.vars` 文件 | 已加入 `.gitignore`，不会提交 |
+| **生产部署** | `wrangler secret` | 存储在 Cloudflare 云端，代码中不可见 |
+| **推送渠道配置** | `wrangler.toml` [vars] | 非敏感信息（Webhook URL 等） |
+
+**⚠️ 警告**：永远不要将密码、密钥直接写入 `wrangler.toml` 或提交到 Git！
+
 ## 📝 配置说明
 
-编辑 `wrangler.toml`：
+### 敏感配置（使用 Secrets）
+
+```bash
+# 设置管理密码
+npx wrangler secret put ADMIN_PASSWORD
+
+# 设置 VAPID 密钥（Web Push 必需）
+npx wrangler secret put VAPID_PUBLIC_KEY
+npx wrangler secret put VAPID_PRIVATE_KEY
+```
+
+### 非敏感配置（wrangler.toml）
 
 ```toml
 [vars]
-ADMIN_PASSWORD = "你的密码"          # 必改！
-
-# Web Push（运行 npm run generate-keys 生成）
-VAPID_PUBLIC_KEY = "..."
-VAPID_PRIVATE_KEY = "..."
-
 # 企业微信
 WEWORK_WEBHOOK_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
 
@@ -159,3 +195,4 @@ curl -X POST "https://你的域名/api/admin/push?password=密码" \
 - **Vue 3 Composition API**：逻辑复用更简单
 - **TypeScript**：前后端类型共享
 - **单一部署**：前端构建产物嵌入 Workers，无需单独部署
+- **安全设计**：敏感信息使用 Secrets，不会泄露
