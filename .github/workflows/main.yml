@@ -34,13 +34,19 @@ jobs:
       - name: Generate VAPID keys
         id: vapid
         run: |
-          # 每次部署都重新生成密钥，确保格式正确
-          npm run generate-keys > vapid_output.txt
-          PUBLIC_KEY=$(grep "VAPID_PUBLIC_KEY=" vapid_output.txt | cut -d'=' -f2)
-          PRIVATE_KEY=$(grep "VAPID_PRIVATE_KEY=" vapid_output.txt | cut -d'=' -f2)
-          echo "public_key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
-          echo "private_key=$PRIVATE_KEY" >> $GITHUB_OUTPUT
-          echo "🔑 VAPID keys regenerated (PKCS#8 format)"
+          # 只在未设置时生成密钥（避免每次部署更换密钥导致订阅失效）
+          if [ -n "${{ secrets.VAPID_PUBLIC_KEY }}" ]; then
+            echo "public_key=${{ secrets.VAPID_PUBLIC_KEY }}" >> $GITHUB_OUTPUT
+            echo "private_key=${{ secrets.VAPID_PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+            echo "🔑 Using existing VAPID keys"
+          else
+            npm run generate-keys > vapid_output.txt
+            PUBLIC_KEY=$(grep "VAPID_PUBLIC_KEY=" vapid_output.txt | cut -d'=' -f2)
+            PRIVATE_KEY=$(grep "VAPID_PRIVATE_KEY=" vapid_output.txt | cut -d'=' -f2)
+            echo "public_key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
+            echo "private_key=$PRIVATE_KEY" >> $GITHUB_OUTPUT
+            echo "🔑 New VAPID keys generated (PKCS#8 format)"
+          fi
 
       - name: Setup KV Namespace
         id: kv
