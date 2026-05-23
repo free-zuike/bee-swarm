@@ -67,61 +67,63 @@ export interface ChannelResult {
 }
 
 /**
- * Cloudflare Workers 环境变量绑定
- * 对应 wrangler.toml 中的配置
+ * 渠道配置项定义
+ * 每个渠道需要填写的配置字段
  */
-export interface Env {
-  /** KV 命名空间 - 存储 Web Push 订阅 */
-  SUBSCRIPTIONS: KVNamespace;
-
-  // ---- 管理配置 ----
-  ADMIN_PASSWORD: string;
-
-  // ---- Web Push 配置 ----
-  VAPID_PUBLIC_KEY: string;
-  VAPID_PRIVATE_KEY: string;
-
-  // ---- 企业微信 ----
-  WEWORK_WEBHOOK_URL: string;
-
-  // ---- 钉钉 ----
-  DINGTALK_WEBHOOK_URL: string;
-  DINGTALK_SECRET: string;
-
-  // ---- 飞书 ----
-  FEISHU_WEBHOOK_URL: string;
-
-  // ---- Telegram ----
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_CHAT_ID: string;
-
-  // ---- Bark ----
-  BARK_KEY: string;
-  BARK_SERVER: string;
-
-  // ---- ntfy ----
-  NTFY_TOPIC: string;
-  NTFY_SERVER: string;
-
-  // ---- Email (Resend) ----
-  RESEND_API_KEY: string;
-  EMAIL_FROM: string;
-  EMAIL_TO: string;
+export interface ChannelField {
+  /** 字段名（对应 KV 存储的 key） */
+  key: string;
+  /** 显示名称 */
+  label: string;
+  /** 输入类型 */
+  type: 'text' | 'password' | 'url';
+  /** 占位文本 */
+  placeholder: string;
+  /** 是否必填 */
+  required: boolean;
 }
 
 /**
- * 推送渠道配置信息
- * 用于前端展示哪些渠道已启用
+ * 渠道定义
+ * 包含渠道元信息和需要配置的字段
+ */
+export interface ChannelDefinition {
+  id: PushChannel;
+  name: string;
+  icon: string;
+  /** 该渠道需要填写的配置字段 */
+  fields: ChannelField[];
+}
+
+/**
+ * 渠道配置信息（前端展示用）
  */
 export interface ChannelConfig {
-  /** 渠道标识 */
   id: PushChannel;
-  /** 渠道显示名称 */
   name: string;
-  /** 渠道图标 */
   icon: string;
-  /** 是否已配置（启用） */
   enabled: boolean;
+}
+
+/**
+ * 所有渠道的设置值（存储到 KV）
+ * key: "channel:{channel_id}:{field_key}" → value
+ */
+export type ChannelSettings = Record<string, string>;
+
+/**
+ * Cloudflare Workers 环境变量绑定
+ * 只保留 KV 和 VAPID 密钥（通过 Secrets 设置）
+ */
+export interface Env {
+  /** KV 命名空间 - 存储订阅和配置 */
+  SUBSCRIPTIONS: KVNamespace;
+  /** ASSETS 静态资源绑定 */
+  ASSETS: Fetcher;
+
+  // ---- VAPID 密钥（通过 wrangler secret 设置）----
+  VAPID_PUBLIC_KEY: string;
+  VAPID_PRIVATE_KEY: string;
 }
 
 declare module 'hono' {

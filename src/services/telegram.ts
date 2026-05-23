@@ -2,7 +2,7 @@
 // Telegram Bot 推送服务
 // 通过 Telegram Bot API 发送消息
 // ============================================
-import type { Env, PushPayload, ChannelResult } from '../types';
+import type { PushPayload, ChannelResult } from '../types';
 
 /**
  * 发送 Telegram 消息
@@ -14,10 +14,10 @@ import type { Env, PushPayload, ChannelResult } from '../types';
  */
 export async function sendTelegram(
   payload: PushPayload,
-  env: Env
+  env: Record<string, string>
 ): Promise<ChannelResult> {
   // 检查是否已配置 Bot Token 和 Chat ID
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
+  if (!env.bot_token || !env.chat_id) {
     return {
       channel: 'telegram',
       success: false,
@@ -38,12 +38,12 @@ export async function sendTelegram(
     }
 
     const res = await fetch(
-      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      `https://api.telegram.org/bot${env.bot_token}/sendMessage`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: env.TELEGRAM_CHAT_ID,
+          chat_id: env.chat_id,
           text,
           parse_mode: 'HTML',  // 使用 HTML 解析模式
           disable_web_page_preview: false,

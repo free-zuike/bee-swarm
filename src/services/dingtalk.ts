@@ -3,7 +3,7 @@
 // 通过 Webhook URL 向钉钉群发送消息
 // 支持加签安全验证
 // ============================================
-import type { Env, PushPayload, ChannelResult } from '../types';
+import type { PushPayload, ChannelResult } from '../types';
 
 /**
  * 生成钉钉签名
@@ -44,10 +44,10 @@ async function generateSign(secret: string): Promise<{ timestamp: string; sign: 
  */
 export async function sendDingtalk(
   payload: PushPayload,
-  env: Env
+  env: Record<string, string>
 ): Promise<ChannelResult> {
   // 检查是否已配置 Webhook URL
-  if (!env.DINGTALK_WEBHOOK_URL) {
+  if (!env.webhook_url) {
     return {
       channel: 'dingtalk',
       success: false,
@@ -57,11 +57,11 @@ export async function sendDingtalk(
 
   try {
     // 构建 Webhook URL（带签名参数）
-    let webhookUrl = env.DINGTALK_WEBHOOK_URL;
+    let webhookUrl = env.webhook_url;
 
     // 如果配置了加签密钥，则附加签名参数
-    if (env.DINGTALK_SECRET) {
-      const { timestamp, sign } = await generateSign(env.DINGTALK_SECRET);
+    if (env.secret) {
+      const { timestamp, sign } = await generateSign(env.secret);
       webhookUrl += `&timestamp=${timestamp}&sign=${encodeURIComponent(sign)}`;
     }
 

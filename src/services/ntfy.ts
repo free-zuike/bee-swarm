@@ -3,7 +3,7 @@
 // 开源推送服务，无需注册，基于 HTTP POST 发送
 // 官网: https://ntfy.sh
 // ============================================
-import type { Env, PushPayload, ChannelResult } from '../types';
+import type { PushPayload, ChannelResult } from '../types';
 
 /**
  * 发送 ntfy 推送通知
@@ -15,10 +15,10 @@ import type { Env, PushPayload, ChannelResult } from '../types';
  */
 export async function sendNtfy(
   payload: PushPayload,
-  env: Env
+  env: Record<string, string>
 ): Promise<ChannelResult> {
   // 检查是否已配置 Topic
-  if (!env.NTFY_TOPIC) {
+  if (!env.topic) {
     return {
       channel: 'ntfy',
       success: false,
@@ -27,9 +27,9 @@ export async function sendNtfy(
   }
 
   try {
-    const server = env.NTFY_SERVER || 'https://ntfy.sh';
+    const server = env.server || 'https://ntfy.sh';
 
-    const res = await fetch(`${server}/${env.NTFY_TOPIC}`, {
+    const res = await fetch(`${server}/${env.topic}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

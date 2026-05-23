@@ -3,7 +3,7 @@
 // iOS 专属推送工具，通过 URL Scheme 发送通知
 // 官网: https://github.com/Finb/bark-server
 // ============================================
-import type { Env, PushPayload, ChannelResult } from '../types';
+import type { PushPayload, ChannelResult } from '../types';
 
 /**
  * 发送 Bark 推送通知
@@ -16,10 +16,10 @@ import type { Env, PushPayload, ChannelResult } from '../types';
  */
 export async function sendBark(
   payload: PushPayload,
-  env: Env
+  env: Record<string, string>
 ): Promise<ChannelResult> {
   // 检查是否已配置 Bark Key
-  if (!env.BARK_KEY) {
+  if (!env.key) {
     return {
       channel: 'bark',
       success: false,
@@ -29,8 +29,8 @@ export async function sendBark(
 
   try {
     // 构建推送 URL
-    const server = env.BARK_SERVER || 'https://api.day.app';
-    const url = new URL(`${server}/${env.BARK_KEY}/${encodeURIComponent(payload.title)}`);
+    const server = env.server || 'https://api.day.app';
+    const url = new URL(`${server}/${env.key}/${encodeURIComponent(payload.title)}`);
 
     // 附加可选参数
     if (payload.body) {

@@ -2,7 +2,7 @@
 // 飞书机器人推送服务
 // 通过 Webhook URL 向飞书群发送消息
 // ============================================
-import type { Env, PushPayload, ChannelResult } from '../types';
+import type { PushPayload, ChannelResult } from '../types';
 
 /**
  * 发送飞书机器人消息
@@ -14,10 +14,10 @@ import type { Env, PushPayload, ChannelResult } from '../types';
  */
 export async function sendFeishu(
   payload: PushPayload,
-  env: Env
+  env: Record<string, string>
 ): Promise<ChannelResult> {
   // 检查是否已配置 Webhook URL
-  if (!env.FEISHU_WEBHOOK_URL) {
+  if (!env.webhook_url) {
     return {
       channel: 'feishu',
       success: false,
@@ -59,7 +59,7 @@ export async function sendFeishu(
       ]);
     }
 
-    const res = await fetch(env.FEISHU_WEBHOOK_URL, {
+    const res = await fetch(env.webhook_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

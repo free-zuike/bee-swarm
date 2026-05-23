@@ -1,13 +1,11 @@
 # ============================================
 # 蜂群 (Bee Swarm) - 多渠道推送通知系统
 # ============================================
-# 敏感配置（密码、密钥）请使用 wrangler secret 命令设置，不要写入此文件！
-#
-# 设置 Secrets：
-#   npx wrangler secret put ADMIN_PASSWORD
+# 敏感配置（VAPID 密钥）通过 wrangler secret 设置：
 #   npx wrangler secret put VAPID_PUBLIC_KEY
 #   npx wrangler secret put VAPID_PRIVATE_KEY
 #
+# 管理密码和推送渠道配置在管理后台网页中设置（存储到 KV）
 # 本地开发时，创建 .dev.vars 文件（已加入 .gitignore）
 
 name = "bee-swarm"
@@ -17,8 +15,6 @@ compatibility_flags = ["nodejs_compat"]
 
 # ------------------------------------------
 # 静态资源（前端构建产物）
-# Vite 构建后输出到 dist 目录
-# run_worker_first = true 让所有请求先经过 Worker
 # ------------------------------------------
 [assets]
 directory = "./dist"
@@ -27,26 +23,8 @@ binding = "ASSETS"
 run_worker_first = true
 
 # ------------------------------------------
-# KV 命名空间（Web Push 订阅存储）
+# KV 命名空间（存储订阅和配置）
 # ------------------------------------------
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"
 id = "${KV_NAMESPACE_ID}"
-
-# ------------------------------------------
-# 非敏感环境变量（推送渠道配置）
-# ------------------------------------------
-[vars]
-WEWORK_WEBHOOK_URL = ""
-DINGTALK_WEBHOOK_URL = ""
-DINGTALK_SECRET = ""
-FEISHU_WEBHOOK_URL = ""
-TELEGRAM_BOT_TOKEN = ""
-TELEGRAM_CHAT_ID = ""
-BARK_KEY = ""
-BARK_SERVER = "https://api.day.app"
-NTFY_TOPIC = ""
-NTFY_SERVER = "https://ntfy.sh"
-RESEND_API_KEY = ""
-EMAIL_FROM = ""
-EMAIL_TO = ""

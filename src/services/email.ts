@@ -3,7 +3,7 @@
 // 通过 Resend API 发送邮件（每天 100 封免费）
 // 官网: https://resend.com
 // ============================================
-import type { Env, PushPayload, ChannelResult } from '../types';
+import type { PushPayload, ChannelResult } from '../types';
 
 /**
  * 通过 Resend API 发送邮件
@@ -15,10 +15,10 @@ import type { Env, PushPayload, ChannelResult } from '../types';
  */
 export async function sendEmail(
   payload: PushPayload,
-  env: Env
+  env: Record<string, string>
 ): Promise<ChannelResult> {
   // 检查是否已配置 Resend API Key
-  if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.EMAIL_TO) {
+  if (!env.api_key || !env.from || !env.to) {
     return {
       channel: 'email',
       success: false,
@@ -44,12 +44,12 @@ export async function sendEmail(
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+        'Authorization': `Bearer ${env.api_key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: env.EMAIL_FROM,
-        to: env.EMAIL_TO.split(',').map((e) => e.trim()),  // 支持多个收件人
+        from: env.from,
+        to: env.to.split(',').map((e) => e.trim()),  // 支持多个收件人
         subject: payload.title,
         html,
       }),
@@ -61,7 +61,7 @@ export async function sendEmail(
       return {
         channel: 'email',
         success: true,
-        message: `邮件发送成功 (${env.EMAIL_TO})`,
+        message: `邮件发送成功 (${env.to})`,
       };
     }
 
