@@ -7,10 +7,8 @@ import type { Env, PushSubscription, PushPayload, ChannelResult } from '../types
 /**
  * Base64Url 编码
  */
-function base64UrlEncode(buffer: ArrayBuffer | string): string {
-  const bytes = typeof buffer === 'string' 
-    ? new TextEncoder().encode(buffer)
-    : new Uint8Array(buffer);
+function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
@@ -26,27 +24,30 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 /**
- * 从 Base64Url 导入 VAPID 私钥（JWK 格式）
+ * 将 Base64Url 字符串转为标准 Base64（带填充）
  */
-async function importVapidPrivateKey(privateKeyBase64: string, publicKeyBase64: string): Promise<CryptoKey> {
-  // 解码私钥（32 字节）
+function base64UrlToBase64(str: string): string {
+  const padding = '='.repeat((4 - (str.length % 4)) % 4);
+  return str.replace(/-/g, '+').replace(/_/g, '/') + padding;
+}
+
+/**
+ * 从 Base64Url 导入 VAPID 私钥
+ * 使用完整的 PKCS#8 格式
+ */
+async function importVapidPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
+  // 解码完整的 PKCS#8 私钥
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
-  // 解码公钥（65 字节，uncompressed point format）
-  const publicKeyBytes = base64UrlDecode(publicKeyBase64);
   
-  // 使用 JWK 格式导入
-  const jwk = {
-    kty: 'EC',
-    crv: 'P-256',
-    d: privateKeyBase64,
-    x: base64UrlEncode(publicKeyBytes.slice(1, 33)), // 公钥的 x 坐标（跳过 0x04 前缀）
-    y: base64UrlEncode(publicKeyBytes.slice(33, 65)), // 公钥的 y 坐标
-    ext: true,
-  };
+  // PKCS#8 格式私钥应该是 121 字节（对于 ECDSA P-256）
+  if (privateKeyBytes.length < 100) {
+    throw new Error(`Invalid private key length: ${privateKeyBytes.length}. Please regenerate VAPID keys using the latest script.`);
+  }
   
+  // 使用 PKCS#8 格式导入
   return crypto.subtle.importKey(
-    'jwk',
-    jwk,
+    'pkcs8',
+    privateKeyBytes,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
     ['sign']
@@ -62,25 +63,30 @@ async function generateVapidJWT(
   privateKey: string,
   publicKey: string
 ): Promise<string> {
-  const header = base64UrlEncode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+  const header = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
   
   const now = Math.floor(Date.now() / 1000);
-  const payload = base64UrlEncode(JSON.stringify({
+  const payload = base64UrlEncode(new TextEncoder().encode(JSON.stringify({
     aud: audience,
     exp: now + 12 * 60 * 60,
     sub: subject,
-  }));
+  })));
   
   const signingInput = `${header}.${payload}`;
-  const key = await importVapidPrivateKey(privateKey, publicKey);
   
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    key,
-    new TextEncoder().encode(signingInput)
-  );
-  
-  return `${header}.${payload}.${base64UrlEncode(signature)}`;
+  try {
+    const key = await importVapidPrivateKey(privateKey);
+    
+    const signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      key,
+      new TextEncoder().encode(signingInput)
+    );
+    
+    return `${header}.${payload}.${base64UrlEncode(signature)}`;
+  } catch (err: any) {
+    throw new Error(`VAPID sign failed: ${err.message}`);
+  }
 }
 
 /**
@@ -183,6 +189,8 @@ async function encryptPayload(
   return { ciphertext, salt, serverPublicKey };
 }
 
+const recordSize = 4096;
+
 /**
  * 发送 Web Push 通知
  */
@@ -235,8 +243,6 @@ export async function sendWebPush(
     throw error;
   }
 }
-
-const recordSize = 4096;
 
 /**
  * 添加订阅
