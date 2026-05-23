@@ -18,16 +18,16 @@ compatibility_flags = ["nodejs_compat"]
 # ------------------------------------------
 # 静态资源（前端构建产物）
 # Vite 构建后输出到 dist 目录
+# run_worker_first = true 让所有请求先经过 Worker
 # ------------------------------------------
 [assets]
 directory = "./dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/sw.js"]
+binding = "ASSETS"
+run_worker_first = true
 
 # ------------------------------------------
 # KV 命名空间（Web Push 订阅存储）
-# 创建命令：npx wrangler kv:namespace create "SUBSCRIPTIONS"
-# 然后将返回的 id 填入下方（或使用环境变量 KV_NAMESPACE_ID）
 # ------------------------------------------
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"
@@ -35,38 +35,18 @@ id = "${KV_NAMESPACE_ID}"
 
 # ------------------------------------------
 # 非敏感环境变量（推送渠道配置）
-# 敏感密钥请使用 wrangler secret 设置
 # ------------------------------------------
 [vars]
-# 企业微信机器人 Webhook URL（可选）
 WEWORK_WEBHOOK_URL = ""
-
-# 钉钉机器人 Webhook URL（可选）
 DINGTALK_WEBHOOK_URL = ""
-# 钉钉机器人加签密钥（可选）
 DINGTALK_SECRET = ""
-
-# 飞书机器人 Webhook URL（可选）
 FEISHU_WEBHOOK_URL = ""
-
-# Telegram Bot Token（可选）
 TELEGRAM_BOT_TOKEN = ""
-# Telegram 接收消息的 Chat ID
 TELEGRAM_CHAT_ID = ""
-
-# Bark 推送 Key（可选）
 BARK_KEY = ""
-# Bark 服务器地址（默认官方服务器）
 BARK_SERVER = "https://api.day.app"
-
-# ntfy 主题名称（可选）
 NTFY_TOPIC = ""
-# ntfy 服务器地址（默认官方服务器）
 NTFY_SERVER = "https://ntfy.sh"
-
-# Email - Resend API Key（可选）
 RESEND_API_KEY = ""
-# Email 发件人地址
 EMAIL_FROM = ""
-# Email 收件人地址（多个用逗号分隔）
 EMAIL_TO = ""

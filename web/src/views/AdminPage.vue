@@ -52,8 +52,10 @@ async function login() {
     await loadSubs();
     sessionStorage.setItem('push_hub_token', password.value);
     isLoggedIn.value = true;
-  } catch {
-    alert('密码错误');
+  } catch (err: any) {
+    console.error('Login failed:', err);
+    isLoggedIn.value = false;
+    alert('登录失败: ' + (err.message || '请检查密码是否正确'));
   }
 
   isLoggingIn.value = false;

@@ -1,22 +1,27 @@
 // ============================================
 // Workers 应用入口
-// 仅提供 API 和 Service Worker，前端由 assets 服务
+// API 和 Service Worker 由代码处理，其他请求转发到 ASSETS
 // ============================================
 import { Hono } from 'hono';
 import type { Env } from './types';
 import api from './routes/api';
 
-const app = new Hono<{ Bindings: Env }>();
+// 扩展 Env 类型以包含 ASSETS binding
+interface AppEnv extends Env {
+  ASSETS: Fetcher;
+}
+
+const app = new Hono<{ Bindings: AppEnv }>();
 
 // ============================================
 // 全局错误处理
 // ============================================
 app.onError((err, c) => {
   console.error('Application Error:', err);
-  return c.json({ 
-    error: 'Internal Server Error', 
+  return c.json({
+    error: 'Internal Server Error',
     message: err.message,
-    stack: err.stack 
+    stack: err.stack
   }, 500);
 });
 
@@ -39,9 +44,11 @@ app.get('/sw.js', async () => {
 app.route('/api', api);
 
 // ============================================
-// 静态资源由 wrangler [assets] 自动处理
-// 不需要在这里配置 serveStatic
+// 所有其他请求 → 转发到 ASSETS（静态资源）
 // ============================================
+app.all('*', async (c) => {
+  return c.env.ASSETS.fetch(c.req.raw);
+});
 
 export default app;
 
