@@ -75,17 +75,15 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # 先部署 Worker（不包含 secrets）
+      # 部署 Worker（使用项目中的 wrangler v4）
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           KV_NAMESPACE_ID: ${{ steps.kv.outputs.kv_id }}
+        run: npx wrangler deploy
 
-      # 再上传 Secrets（使用 wrangler CLI 直接上传）
+      # 上传 Secrets（使用项目中的 wrangler v4）
       - name: Upload Secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
