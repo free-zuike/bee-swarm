@@ -11,12 +11,17 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     let errorMsg = `请求失败 (${res.status})`;
     try {
       const body = await res.json();
-      if (body.message) errorMsg = body.message;
-      else if (body.error) errorMsg = body.error;
+      if (body.error) errorMsg = body.error;
+      else if (body.message) errorMsg = body.message;
     } catch { /* ignore */ }
     throw new Error(errorMsg);
   }
   return res.json();
+}
+
+/** 认证参数（用户名+密码） */
+function authQuery(username: string, password: string): string {
+  return `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 }
 
 // -------------------------------------------
@@ -27,15 +32,19 @@ export async function getVapidKey(): Promise<{ publicKey: string }> {
   return request(`${BASE}/vapid-key`);
 }
 
-export async function getStatus(): Promise<{ initialized: boolean }> {
-  return request(`${BASE}/status`);
-}
-
-export async function setupPassword(password: string): Promise<{ success: boolean; message: string }> {
-  return request(`${BASE}/setup`, {
+export async function register(username: string, password: string): Promise<{ success: boolean; message: string }> {
+  return request(`${BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function login(username: string, password: string): Promise<{ success: boolean; message: string; username: string }> {
+  return request(`${BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
   });
 }
 
@@ -56,10 +65,10 @@ export async function unsubscribe(endpoint: string): Promise<{ success: boolean;
 }
 
 // -------------------------------------------
-// 管理接口（需认证）
+// 管理接口（需用户名+密码）
 // -------------------------------------------
 
-export async function getChannels(password: string): Promise<{
+export async function getChannels(username: string, password: string): Promise<{
   channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
   settings: ChannelSettings;
   definitions: Array<{
@@ -67,29 +76,35 @@ export async function getChannels(password: string): Promise<{
     fields: Array<{ key: string; label: string; type: string; placeholder: string; required: boolean }>;
   }>;
 }> {
-  return request(`${BASE}/admin/channels?password=${encodeURIComponent(password)}`);
+  return request(`${BASE}/admin/channels${authQuery(username, password)}`);
 }
 
-export async function saveChannels(password: string, settings: ChannelSettings): Promise<{
+export async function saveChannel(
+  username: string,
+  password: string,
+  channelId: string,
+  fields: Record<string, string>
+): Promise<{
   success: boolean;
   message: string;
   channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
 }> {
-  return request(`${BASE}/admin/channels?password=${encodeURIComponent(password)}`, {
+  return request(`${BASE}/admin/channels/${channelId}${authQuery(username, password)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ settings }),
+    body: JSON.stringify({ fields }),
   });
 }
 
-export async function getSubscriptions(password: string): Promise<{
+export async function getSubscriptions(username: string, password: string): Promise<{
   total: number;
   subscriptions: PushSubscription[];
 }> {
-  return request(`${BASE}/admin/subscriptions?password=${encodeURIComponent(password)}`);
+  return request(`${BASE}/admin/subscriptions${authQuery(username, password)}`);
 }
 
 export async function sendPush(
+  username: string,
   password: string,
   payload: { title: string; body?: string; url?: string; channels?: PushChannel[] }
 ): Promise<{
@@ -97,7 +112,7 @@ export async function sendPush(
   message: string;
   results: Array<{ channel: PushChannel; success: boolean; message: string }>;
 }> {
-  return request(`${BASE}/admin/push?password=${encodeURIComponent(password)}`, {
+  return request(`${BASE}/admin/push${authQuery(username, password)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

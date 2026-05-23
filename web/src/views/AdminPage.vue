@@ -1,55 +1,52 @@
 <script setup lang="ts">
 // ============================================
-// 管理后台 - 多渠道推送管理
+// 管理后台 - 多渠道推送管理（用户名+密码认证）
 // ============================================
-import { ref, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { getStatus, setupPassword, getChannels, saveChannels, getSubscriptions, sendPush } from '@/api';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { register, login, getChannels, saveChannel, getSubscriptions, sendPush } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
-const router = useRouter();
+// ==================== 页面状态 ====================
+const pageState = ref<'loading' | 'auth' | 'dashboard'>('loading');
+const authMode = ref<'login' | 'register'>('login');
 
-// 页面状态：setup / login / dashboard
-const pageState = ref<'loading' | 'setup' | 'login' | 'dashboard'>('loading');
+// ==================== 认证相关 ====================
+const authUsername = ref('');
+const authPassword = ref('');
+const authConfirmPassword = ref('');
+const isAuthing = ref(false);
+const authError = ref('');
 
-// 初始化设置
-const setupPassword1 = ref('');
-const setupPassword2 = ref('');
-const isSettingUp = ref(false);
-const setupError = ref('');
-
-// 登录
+// 登录后的凭证
+const username = ref('');
 const password = ref('');
-const isLoggingIn = ref(false);
-const loginError = ref('');
 
-// 渠道状态
+// ==================== Dashboard Tab ====================
+const activeTab = ref<'push' | 'settings' | 'subs'>('push');
+
+// ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
 const channelDefinitions = ref<ChannelDefinition[]>([]);
 const channelSettings = ref<ChannelSettings>({});
 const selectedChannels = ref<Set<PushChannel>>(new Set());
 
-// 订阅状态
+// ==================== 设置面板 ====================
+const expandedChannels = ref<Set<string>>(new Set());
+const savingChannels = reactive<Record<string, boolean>>({});
+const channelMessages = reactive<Record<string, { text: string; type: 'success' | 'error' }>>({});
+
+// ==================== 订阅状态 ====================
 const subCount = ref(0);
 const subscriptions = ref<PushSubscription[]>([]);
 
-// 推送表单
+// ==================== 推送表单 ====================
 const pushTitle = ref('');
 const pushBody = ref('');
 const pushUrl = ref('');
 const isPushing = ref(false);
 const pushResults = ref<PushResult[]>([]);
 
-// Tab 控制
-const activeTab = ref<'push' | 'settings' | 'subs'>('push');
-
-// 设置面板
-const expandedChannels = ref<Set<string>>(new Set());
-const isSaving = ref(false);
-const saveMessage = ref('');
-const saveMessageType = ref<'success' | 'error'>('success');
-
-// 统计
+// ==================== 统计 ====================
 const lastPushTime = ref('-');
 const enabledChannelCount = computed(() => channels.value.filter((c) => c.enabled).length);
 
@@ -58,7 +55,111 @@ const settingsDefinitions = computed(() =>
   channelDefinitions.value.filter((d) => d.id !== 'webpush')
 );
 
-// 判断渠道是否已配置（至少有一个必填字段有值）
+// ==================== 初始化 ====================
+onMounted(async () => {
+  try {
+    // 尝试从 sessionStorage 恢复凭证
+    const savedUsername = sessionStorage.getItem('push_hub_username');
+    const savedPassword = sessionStorage.getItem('push_hub_password');
+    if (savedUsername && savedPassword) {
+      username.value = savedUsername;
+      password.value = savedPassword;
+      try {
+        await loadChannels();
+        await loadSubs();
+        pageState.value = 'dashboard';
+        return;
+      } catch {
+        // 自动恢复失败，清除凭证
+        sessionStorage.removeItem('push_hub_username');
+        sessionStorage.removeItem('push_hub_password');
+      }
+    }
+    pageState.value = 'auth';
+  } catch {
+    pageState.value = 'auth';
+  }
+});
+
+// ==================== 认证函数 ====================
+async function doLogin() {
+  if (!authUsername.value.trim() || !authPassword.value) {
+    authError.value = '请输入用户名和密码';
+    return;
+  }
+  isAuthing.value = true;
+  authError.value = '';
+
+  try {
+    const res = await login(authUsername.value.trim(), authPassword.value);
+    username.value = res.username || authUsername.value.trim();
+    password.value = authPassword.value;
+    sessionStorage.setItem('push_hub_username', username.value);
+    sessionStorage.setItem('push_hub_password', password.value);
+    await loadChannels();
+    await loadSubs();
+    pageState.value = 'dashboard';
+  } catch (err: any) {
+    authError.value = err.message || '登录失败';
+  }
+
+  isAuthing.value = false;
+}
+
+async function doRegister() {
+  if (!authUsername.value.trim() || !authPassword.value) {
+    authError.value = '请输入用户名和密码';
+    return;
+  }
+  if (authPassword.value.length < 4) {
+    authError.value = '密码长度至少 4 位';
+    return;
+  }
+  if (authPassword.value !== authConfirmPassword.value) {
+    authError.value = '两次输入的密码不一致';
+    return;
+  }
+
+  isAuthing.value = true;
+  authError.value = '';
+
+  try {
+    await register(authUsername.value.trim(), authPassword.value);
+    // 注册成功，自动登录
+    await doLogin();
+  } catch (err: any) {
+    authError.value = err.message || '注册失败';
+    isAuthing.value = false;
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('push_hub_username');
+  sessionStorage.removeItem('push_hub_password');
+  username.value = '';
+  password.value = '';
+  authUsername.value = '';
+  authPassword.value = '';
+  authConfirmPassword.value = '';
+  authError.value = '';
+  pageState.value = 'auth';
+}
+
+// ==================== 数据加载 ====================
+async function loadChannels() {
+  const data = await getChannels(username.value, password.value);
+  channels.value = data.channels;
+  channelSettings.value = data.settings;
+  channelDefinitions.value = data.definitions;
+}
+
+async function loadSubs() {
+  const data = await getSubscriptions(username.value, password.value);
+  subCount.value = data.total;
+  subscriptions.value = data.subscriptions;
+}
+
+// ==================== 设置相关 ====================
 function isChannelConfigured(def: ChannelDefinition): boolean {
   return def.fields.some((f) => {
     const key = `channel:${def.id}:${f.key}`;
@@ -66,17 +167,14 @@ function isChannelConfigured(def: ChannelDefinition): boolean {
   });
 }
 
-// 获取渠道设置值
 function getSettingValue(channelId: string, fieldKey: string): string {
   return channelSettings.value[`channel:${channelId}:${fieldKey}`] || '';
 }
 
-// 设置渠道值
 function setSettingValue(channelId: string, fieldKey: string, value: string) {
   channelSettings.value[`channel:${channelId}:${fieldKey}`] = value;
 }
 
-// 切换渠道卡片展开/折叠
 function toggleChannelExpand(channelId: string) {
   if (expandedChannels.value.has(channelId)) {
     expandedChannels.value.delete(channelId);
@@ -85,109 +183,32 @@ function toggleChannelExpand(channelId: string) {
   }
 }
 
-// 初始化：检查系统状态
-onMounted(async () => {
-  try {
-    const { initialized } = await getStatus();
+async function doSaveChannel(channelId: string) {
+  if (savingChannels[channelId]) return;
+  savingChannels[channelId] = true;
+  delete channelMessages[channelId];
 
-    if (!initialized) {
-      // 首次访问，需要设置密码
-      pageState.value = 'setup';
-      return;
+  try {
+    const def = channelDefinitions.value.find((d) => d.id === channelId);
+    if (!def) throw new Error('渠道不存在');
+
+    // 收集该渠道的字段值
+    const fields: Record<string, string> = {};
+    for (const field of def.fields) {
+      fields[field.key] = getSettingValue(channelId, field.key);
     }
 
-    // 已初始化，尝试自动登录
-    const savedPassword = sessionStorage.getItem('push_hub_token');
-    if (savedPassword) {
-      password.value = savedPassword;
-      try {
-        await loadChannels();
-        await loadSubs();
-        pageState.value = 'dashboard';
-        return;
-      } catch {
-        // 自动登录失败，清除旧密码
-        sessionStorage.removeItem('push_hub_token');
-      }
-    }
-
-    pageState.value = 'login';
-  } catch {
-    pageState.value = 'login';
-  }
-});
-
-// 设置密码
-async function doSetup() {
-  if (setupPassword1.value.length < 4) {
-    setupError.value = '密码长度至少 4 位';
-    return;
-  }
-  if (setupPassword1.value !== setupPassword2.value) {
-    setupError.value = '两次输入的密码不一致';
-    return;
-  }
-
-  isSettingUp.value = true;
-  setupError.value = '';
-
-  try {
-    await setupPassword(setupPassword1.value);
-    // 设置成功，自动登录
-    password.value = setupPassword1.value;
-    sessionStorage.setItem('push_hub_token', password.value);
-    await loadChannels();
-    await loadSubs();
-    pageState.value = 'dashboard';
+    const result = await saveChannel(username.value, password.value, channelId, fields);
+    channels.value = result.channels;
+    channelMessages[channelId] = { text: result.message || '保存成功', type: 'success' };
   } catch (err: any) {
-    setupError.value = err.message || '设置失败';
+    channelMessages[channelId] = { text: err.message || '保存失败', type: 'error' };
   }
 
-  isSettingUp.value = false;
+  savingChannels[channelId] = false;
 }
 
-// 登录
-async function login() {
-  if (!password.value || isLoggingIn.value) return;
-  isLoggingIn.value = true;
-  loginError.value = '';
-
-  try {
-    await loadChannels();
-    await loadSubs();
-    sessionStorage.setItem('push_hub_token', password.value);
-    pageState.value = 'dashboard';
-  } catch (err: any) {
-    loginError.value = err.message || '登录失败';
-  }
-
-  isLoggingIn.value = false;
-}
-
-// 退出登录
-function logout() {
-  sessionStorage.removeItem('push_hub_token');
-  password.value = '';
-  loginError.value = '';
-  pageState.value = 'login';
-}
-
-// 加载渠道配置
-async function loadChannels() {
-  const data = await getChannels(password.value);
-  channels.value = data.channels;
-  channelSettings.value = data.settings;
-  channelDefinitions.value = data.definitions;
-}
-
-// 加载订阅列表
-async function loadSubs() {
-  const data = await getSubscriptions(password.value);
-  subCount.value = data.total;
-  subscriptions.value = data.subscriptions;
-}
-
-// 切换渠道选择
+// ==================== 推送相关 ====================
 function toggleChannel(ch: ChannelConfig) {
   if (!ch.enabled) return;
   if (selectedChannels.value.has(ch.id)) {
@@ -197,7 +218,6 @@ function toggleChannel(ch: ChannelConfig) {
   }
 }
 
-// 发送推送
 async function doPush() {
   if (!pushTitle.value.trim()) {
     alert('请输入标题');
@@ -216,7 +236,7 @@ async function doPush() {
       payload.channels = Array.from(selectedChannels.value);
     }
 
-    const result = await sendPush(password.value, payload);
+    const result = await sendPush(username.value, password.value, payload);
     pushResults.value = result.results;
     lastPushTime.value = new Date().toLocaleTimeString('zh-CN');
 
@@ -232,26 +252,7 @@ async function doPush() {
   isPushing.value = false;
 }
 
-// 保存渠道设置
-async function doSaveSettings() {
-  if (isSaving.value) return;
-  isSaving.value = true;
-  saveMessage.value = '';
-
-  try {
-    const result = await saveChannels(password.value, channelSettings.value);
-    channels.value = result.channels;
-    saveMessage.value = result.message || '保存成功';
-    saveMessageType.value = 'success';
-  } catch (err: any) {
-    saveMessage.value = err.message || '保存失败';
-    saveMessageType.value = 'error';
-  }
-
-  isSaving.value = false;
-}
-
-// 格式化 endpoint 显示
+// ==================== 工具函数 ====================
 function formatEndpoint(ep: string): string {
   return ep.length > 80 ? ep.substring(0, 40) + '...' + ep.substring(ep.length - 30) : ep;
 }
@@ -264,53 +265,87 @@ function formatEndpoint(ep: string): string {
     <p>加载中...</p>
   </div>
 
-  <!-- 首次设置密码 -->
-  <div v-else-if="pageState === 'setup'" class="login-overlay">
+  <!-- 登录/注册 -->
+  <div v-else-if="pageState === 'auth'" class="login-overlay">
     <div class="login-card">
-      <h2>🐝 蜂群初始化</h2>
-      <p>首次使用，请设置管理密码</p>
-      <input
-        v-model="setupPassword1"
-        type="password"
-        placeholder="设置密码（至少 4 位）"
-        @keydown.enter="$refs.confirmInput?.focus()"
-      />
-      <input
-        ref="confirmInput"
-        v-model="setupPassword2"
-        type="password"
-        placeholder="确认密码"
-        @keydown.enter="doSetup"
-      />
-      <div v-if="setupError" class="login-error">{{ setupError }}</div>
-      <button class="btn btn-primary" :disabled="isSettingUp" @click="doSetup">
-        {{ isSettingUp ? '设置中...' : '完成设置' }}
-      </button>
-    </div>
-  </div>
+      <h2>🐝 蜂群</h2>
+      <p>多渠道推送管理系统</p>
 
-  <!-- 登录 -->
-  <div v-else-if="pageState === 'login'" class="login-overlay">
-    <div class="login-card">
-      <h2>🔐 管理后台</h2>
-      <p>请输入管理密码</p>
-      <input
-        v-model="password"
-        type="password"
-        placeholder="输入密码..."
-        @keydown.enter="login"
-      />
-      <div v-if="loginError" class="login-error">{{ loginError }}</div>
-      <button class="btn btn-primary" :disabled="isLoggingIn" @click="login">
-        {{ isLoggingIn ? '登录中...' : '登 录' }}
-      </button>
+      <!-- Tab 切换 -->
+      <div class="auth-tabs">
+        <button
+          class="auth-tab-btn"
+          :class="{ active: authMode === 'login' }"
+          @click="authMode = 'login'; authError = ''"
+        >
+          登录
+        </button>
+        <button
+          class="auth-tab-btn"
+          :class="{ active: authMode === 'register' }"
+          @click="authMode = 'register'; authError = ''"
+        >
+          注册
+        </button>
+      </div>
+
+      <!-- 登录表单 -->
+      <form v-if="authMode === 'login'" @submit.prevent="doLogin">
+        <input
+          v-model="authUsername"
+          type="text"
+          placeholder="用户名"
+          autocomplete="username"
+        />
+        <input
+          v-model="authPassword"
+          type="password"
+          placeholder="密码"
+          autocomplete="current-password"
+          @keydown.enter="doLogin"
+        />
+        <div v-if="authError" class="login-error">{{ authError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isAuthing">
+          {{ isAuthing ? '登录中...' : '登 录' }}
+        </button>
+      </form>
+
+      <!-- 注册表单 -->
+      <form v-else @submit.prevent="doRegister">
+        <input
+          v-model="authUsername"
+          type="text"
+          placeholder="用户名"
+          autocomplete="username"
+        />
+        <input
+          v-model="authPassword"
+          type="password"
+          placeholder="密码（至少 4 位）"
+          autocomplete="new-password"
+        />
+        <input
+          v-model="authConfirmPassword"
+          type="password"
+          placeholder="确认密码"
+          autocomplete="new-password"
+          @keydown.enter="doRegister"
+        />
+        <div v-if="authError" class="login-error">{{ authError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isAuthing">
+          {{ isAuthing ? '注册中...' : '注 册' }}
+        </button>
+      </form>
     </div>
   </div>
 
   <!-- 主界面 -->
   <div v-else class="page">
     <header class="header">
-      <h1>🐝 蜂群管理后台</h1>
+      <div class="header-left">
+        <h1>🐝 蜂群管理后台</h1>
+        <span class="header-username">{{ username }}</span>
+      </div>
       <span class="logout" @click="logout">退出登录</span>
     </header>
 
@@ -367,20 +402,17 @@ function formatEndpoint(ep: string): string {
             <label>选择推送渠道</label>
             <div class="channel-grid">
               <div
-                v-for="ch in channels"
+                v-for="ch in channels.filter(c => c.enabled)"
                 :key="ch.id"
                 class="channel-tag"
-                :class="{
-                  active: selectedChannels.has(ch.id),
-                  disabled: !ch.enabled,
-                }"
+                :class="{ active: selectedChannels.has(ch.id) }"
                 @click="toggleChannel(ch)"
               >
                 <span class="ch-icon">{{ ch.icon }}</span>
                 <span class="ch-name">{{ ch.name }}</span>
               </div>
             </div>
-            <p class="hint">绿色为已启用渠道，点击选择/取消。不选择则推送到所有已启用渠道。</p>
+            <p class="hint">点击选择/取消。不选择则推送到所有已启用渠道。</p>
           </div>
 
           <!-- 消息内容 -->
@@ -419,25 +451,13 @@ function formatEndpoint(ep: string): string {
             </div>
           </div>
         </div>
-
-        <!-- API 文档 -->
-        <div class="panel">
-          <h2>🔌 API 接口文档</h2>
-          <div class="api-doc">
-            <div class="comment">// 发送推送（支持指定渠道）</div>
-            <div><span class="method">POST</span> <span class="url">/api/admin/push?password=密码</span></div>
-            <div>{ "title": "标题", "body": "内容", "channels": ["wework"] }</div>
-            <br />
-            <div class="comment">// 可用渠道: webpush, wework, dingtalk, feishu, telegram, bark, ntfy, email</div>
-          </div>
-        </div>
       </div>
 
       <!-- ==================== 设置 Tab ==================== -->
       <div v-if="activeTab === 'settings'" class="tab-content">
         <div class="panel">
           <h2>⚙️ 渠道设置</h2>
-          <p class="hint" style="margin-bottom: 20px;">配置各推送渠道的连接参数，保存后渠道将自动启用。</p>
+          <p class="hint" style="margin-bottom: 20px;">配置各推送渠道的连接参数，每个渠道可独立保存。</p>
 
           <!-- 渠道卡片列表 -->
           <div class="channel-cards">
@@ -466,7 +486,7 @@ function formatEndpoint(ep: string): string {
                 </span>
               </div>
 
-              <!-- 卡片内容（配置表单） -->
+              <!-- 卡片内容（配置表单 + 独立保存按钮） -->
               <div v-if="expandedChannels.has(def.id)" class="channel-card-body">
                 <div
                   v-for="field in def.fields"
@@ -484,24 +504,26 @@ function formatEndpoint(ep: string): string {
                     @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
                   />
                 </div>
+
+                <!-- 该渠道独立的保存按钮和提示 -->
+                <div class="channel-save-area">
+                  <div
+                    v-if="channelMessages[def.id]"
+                    class="channel-save-message"
+                    :class="channelMessages[def.id].type"
+                  >
+                    {{ channelMessages[def.id].text }}
+                  </div>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    :disabled="savingChannels[def.id]"
+                    @click="doSaveChannel(def.id)"
+                  >
+                    {{ savingChannels[def.id] ? '保存中...' : '💾 保存' }}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-
-          <!-- 保存消息 -->
-          <div
-            v-if="saveMessage"
-            class="save-message"
-            :class="saveMessageType"
-          >
-            {{ saveMessage }}
-          </div>
-
-          <!-- 保存按钮 -->
-          <div class="save-actions">
-            <button class="btn btn-primary" :disabled="isSaving" @click="doSaveSettings">
-              {{ isSaving ? '保存中...' : '💾 保存设置' }}
-            </button>
           </div>
         </div>
       </div>
@@ -532,6 +554,8 @@ function formatEndpoint(ep: string): string {
 </template>
 
 <style scoped>
+/* ==================== 加载中 ==================== */
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -557,10 +581,12 @@ function formatEndpoint(ep: string): string {
   to { transform: rotate(360deg); }
 }
 
+/* ==================== 登录/注册 ==================== */
+
 .login-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -571,20 +597,26 @@ function formatEndpoint(ep: string): string {
   background: white;
   border-radius: 16px;
   padding: 40px;
-  width: 360px;
+  width: 380px;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
 
 .login-card h2 {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: #1a1a2e;
+  font-size: 24px;
 }
 
-.login-card p {
-  color: #666;
-  font-size: 14px;
+.login-card > p {
+  color: #999;
+  font-size: 13px;
   margin-bottom: 24px;
+}
+
+.login-card form {
+  display: flex;
+  flex-direction: column;
 }
 
 .login-card input {
@@ -592,9 +624,10 @@ function formatEndpoint(ep: string): string {
   padding: 12px 16px;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 12px;
   box-sizing: border-box;
+  transition: border-color 0.3s;
 }
 
 .login-card input:focus {
@@ -613,6 +646,42 @@ function formatEndpoint(ep: string): string {
   border: 1px solid #fecaca;
 }
 
+/* ==================== Auth Tabs ==================== */
+
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #999;
+  transition: all 0.2s;
+}
+
+.auth-tab-btn:hover {
+  color: #666;
+}
+
+.auth-tab-btn.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ==================== 主页面 ==================== */
+
 .page {
   min-height: 100vh;
   background: #f0f2f5;
@@ -627,9 +696,23 @@ function formatEndpoint(ep: string): string {
   justify-content: space-between;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .header h1 {
   font-size: 20px;
   color: #1a1a2e;
+}
+
+.header-username {
+  font-size: 13px;
+  color: #999;
+  background: #f5f5f5;
+  padding: 4px 12px;
+  border-radius: 20px;
 }
 
 .logout {
@@ -766,11 +849,6 @@ function formatEndpoint(ep: string): string {
   background: #f0f0ff;
 }
 
-.channel-tag.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .channel-tag .ch-icon {
   font-size: 18px;
   display: block;
@@ -873,8 +951,8 @@ function formatEndpoint(ep: string): string {
 }
 
 .btn-sm {
-  padding: 6px 14px;
-  font-size: 12px;
+  padding: 8px 18px;
+  font-size: 13px;
 }
 
 /* ==================== 推送结果 ==================== */
@@ -914,11 +992,10 @@ function formatEndpoint(ep: string): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 24px;
 }
 
 .channel-card {
-  background: #fafafa;
+  background: white;
   border: 1px solid #eee;
   border-radius: 12px;
   overflow: hidden;
@@ -940,7 +1017,7 @@ function formatEndpoint(ep: string): string {
 }
 
 .channel-card-header:hover {
-  background: #f0f0f5;
+  background: #f8f8fc;
 }
 
 .channel-card-info {
@@ -989,33 +1066,34 @@ function formatEndpoint(ep: string): string {
 
 .channel-card-body {
   padding: 0 20px 20px;
-  border-top: 1px solid #eee;
-  margin-top: 0;
+  border-top: 1px solid #f0f0f0;
   padding-top: 16px;
 }
 
-/* ==================== 保存操作 ==================== */
+/* ==================== 渠道独立保存区域 ==================== */
 
-.save-actions {
+.channel-save-area {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.save-message {
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 13px;
+.channel-save-message {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
-  margin-bottom: 16px;
 }
 
-.save-message.success {
+.channel-save-message.success {
   background: #d4edda;
   color: #155724;
   border: 1px solid #c3e6cb;
 }
 
-.save-message.error {
+.channel-save-message.error {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
@@ -1059,30 +1137,5 @@ function formatEndpoint(ep: string): string {
   padding: 32px;
   color: #999;
   font-size: 14px;
-}
-
-/* ==================== API 文档 ==================== */
-
-.api-doc {
-  background: #1a1a2e;
-  color: #e0e0e0;
-  border-radius: 12px;
-  padding: 20px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.8;
-  overflow-x: auto;
-}
-
-.api-doc .comment {
-  color: #6a9955;
-}
-
-.api-doc .method {
-  color: #569cd6;
-}
-
-.api-doc .url {
-  color: #ce9178;
 }
 </style>

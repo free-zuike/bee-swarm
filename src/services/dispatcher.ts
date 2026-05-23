@@ -1,6 +1,6 @@
 // ============================================
 // 推送调度器
-// 统一管理所有推送渠道，根据 KV 中的配置自动分发消息
+// 渠道配置按用户隔离，存储在 KV 中
 // ============================================
 import type { Env, PushPayload, PushChannel, ChannelResult, ChannelConfig, ChannelDefinition, ChannelSettings } from '../types';
 import { broadcastWebPush } from './webpush';
@@ -12,16 +12,12 @@ import { sendBark } from './bark';
 import { sendNtfy } from './ntfy';
 import { sendEmail } from './email';
 
-/**
- * 渠道定义表
- * 定义每个渠道的元信息和需要配置的字段
- */
 export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
   {
     id: 'webpush',
     name: '浏览器推送',
     icon: '🔔',
-    fields: [], // Web Push 只需要 VAPID 密钥，通过 Secrets 设置
+    fields: [],
   },
   {
     id: 'wework',
@@ -88,16 +84,20 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
 ];
 
 /**
- * 从 KV 读取所有渠道的设置
+ * 从 KV 读取某用户的所有渠道设置
+ * KV key 格式: user:{username}:ch:{channelId}
  */
-export async function loadChannelSettings(env: Env): Promise<ChannelSettings> {
-  const list = await env.SUBSCRIPTIONS.list({ prefix: 'channel:' });
+export async function loadUserChannelSettings(username: string, env: Env): Promise<ChannelSettings> {
+  const prefix = `user:${username}:ch:`;
+  const list = await env.SUBSCRIPTIONS.list({ prefix });
   const settings: ChannelSettings = {};
 
   for (const key of list.keys) {
     const value = await env.SUBSCRIPTIONS.get(key.name);
     if (value !== null) {
-      settings[key.name] = value;
+      // 将 user:xxx:ch:yyy:field_key → channel:yyy:field_key 格式返回给前端
+      const shortKey = key.name.slice(prefix.length);
+      settings[`channel:${shortKey}`] = value;
     }
   }
 
@@ -105,42 +105,39 @@ export async function loadChannelSettings(env: Env): Promise<ChannelSettings> {
 }
 
 /**
- * 保存渠道设置到 KV
+ * 保存单个渠道的设置（按用户隔离）
  */
-export async function saveChannelSettings(env: Env, settings: ChannelSettings): Promise<void> {
-  // 先清除旧的渠道配置
-  const list = await env.SUBSCRIPTIONS.list({ prefix: 'channel:' });
+export async function saveUserChannelSetting(
+  username: string,
+  channelId: string,
+  fields: Record<string, string>,
+  env: Env
+): Promise<void> {
+  const prefix = `user:${username}:ch:${channelId}:`;
+
+  // 先清除该用户该渠道的旧配置
+  const list = await env.SUBSCRIPTIONS.list({ prefix });
   for (const key of list.keys) {
     await env.SUBSCRIPTIONS.delete(key.name);
   }
 
   // 写入新配置
-  for (const [key, value] of Object.entries(settings)) {
+  for (const [fieldKey, value] of Object.entries(fields)) {
     if (value) {
-      await env.SUBSCRIPTIONS.put(key, value);
+      await env.SUBSCRIPTIONS.put(`${prefix}${fieldKey}`, value);
     }
   }
 }
 
-/**
- * 检查渠道是否已配置（必填字段都已填写）
- */
 export function isChannelEnabled(channelId: PushChannel, settings: ChannelSettings): boolean {
-  if (channelId === 'webpush') {
-    return true; // Web Push 始终可用（VAPID 通过 Secrets 设置）
-  }
-
+  if (channelId === 'webpush') return true;
   const def = CHANNEL_DEFINITIONS.find((c) => c.id === channelId);
   if (!def) return false;
-
   return def.fields
     .filter((f) => f.required)
     .every((f) => !!settings[`channel:${channelId}:${f.key}`]);
 }
 
-/**
- * 获取所有渠道的配置状态
- */
 export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
   return CHANNEL_DEFINITIONS.map((ch) => ({
     id: ch.id,
@@ -150,84 +147,55 @@ export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
   }));
 }
 
-/**
- * 从 KV 设置中构建渠道专用的环境变量对象
- * 用于传给各推送服务函数
- */
-function buildChannelEnv(channelId: PushChannel, settings: ChannelSettings, env: Env): Record<string, string> {
+function buildChannelEnv(channelId: PushChannel, settings: ChannelSettings): Record<string, string> {
   const prefix = `channel:${channelId}:`;
   const result: Record<string, string> = {};
-
   for (const [key, value] of Object.entries(settings)) {
     if (key.startsWith(prefix)) {
-      const fieldKey = key.slice(prefix.length);
-      result[fieldKey] = value;
+      result[key.slice(prefix.length)] = value;
     }
   }
-
   return result;
 }
 
 /**
- * 向指定渠道发送推送消息
+ * 推送消息（按用户读取配置）
  */
 export async function dispatchPush(
   payload: PushPayload,
   channels: PushChannel[] | undefined,
+  username: string,
   env: Env
 ): Promise<ChannelResult[]> {
-  // 从 KV 读取渠道设置
-  const settings = await loadChannelSettings(env);
+  const settings = await loadUserChannelSettings(username, env);
 
-  // 确定要推送的渠道列表
   const targetChannels = channels
     ? CHANNEL_DEFINITIONS.filter((ch) => channels.includes(ch.id))
     : CHANNEL_DEFINITIONS.filter((ch) => isChannelEnabled(ch.id, settings));
 
   if (targetChannels.length === 0) {
-    return [{
-      channel: 'webpush' as PushChannel,
-      success: false,
-      message: '没有可用的推送渠道，请先在设置中配置渠道',
-    }];
+    return [{ channel: 'webpush' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置渠道' }];
   }
 
-  const results = await Promise.all(
-    targetChannels.map((ch) => sendToChannel(ch.id, payload, settings, env))
-  );
-
-  return results;
+  return Promise.all(targetChannels.map((ch) => sendToChannel(ch.id, payload, settings, env)));
 }
 
-/**
- * 路由到具体的推送服务
- */
 async function sendToChannel(
   channel: PushChannel,
   payload: PushPayload,
   settings: ChannelSettings,
   env: Env
 ): Promise<ChannelResult> {
-  const channelEnv = buildChannelEnv(channel, settings, env);
-
+  const channelEnv = buildChannelEnv(channel, settings);
   switch (channel) {
-    case 'webpush':
-      return broadcastWebPush(payload, env);
-    case 'wework':
-      return sendWework(payload, channelEnv);
-    case 'dingtalk':
-      return sendDingtalk(payload, channelEnv);
-    case 'feishu':
-      return sendFeishu(payload, channelEnv);
-    case 'telegram':
-      return sendTelegram(payload, channelEnv);
-    case 'bark':
-      return sendBark(payload, channelEnv);
-    case 'ntfy':
-      return sendNtfy(payload, channelEnv);
-    case 'email':
-      return sendEmail(payload, channelEnv);
-    default:
-      return { channel, success: false, message: `未知渠道: ${channel}` };
+    case 'webpush': return broadcastWebPush(payload, env);
+    case 'wework': return sendWework(payload, channelEnv);
+    case 'dingtalk': return sendDingtalk(payload, channelEnv);
+    case 'feishu': return sendFeishu(payload, channelEnv);
+    case 'telegram': return sendTelegram(payload, channelEnv);
+    case 'bark': return sendBark(payload, channelEnv);
+    case 'ntfy': return sendNtfy(payload, channelEnv);
+    case 'email': return sendEmail(payload, channelEnv);
+    default: return { channel, success: false, message: `未知渠道: ${channel}` };
   }
 }
