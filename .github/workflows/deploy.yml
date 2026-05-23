@@ -1,0 +1,54 @@
+# ============================================
+# 蜂群 (Bee Swarm) - 自动部署到 Cloudflare Workers
+# ============================================
+# 触发条件：推送到 main 分支
+# 需要先在 GitHub 仓库设置中添加 Secrets
+
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      # 检出代码
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 设置 Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 安装依赖
+      - name: Install dependencies
+        run: npm ci
+
+      # 构建前端
+      - name: Build frontend
+        run: npm run build
+
+      # 部署到 Cloudflare Workers
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          secrets: |
+            ADMIN_PASSWORD
+            VAPID_PUBLIC_KEY
+            VAPID_PRIVATE_KEY
+            KV_NAMESPACE_ID
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}

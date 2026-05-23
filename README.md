@@ -67,61 +67,70 @@ web-push/
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 方式一：GitHub Actions 自动部署（推荐）
+
+已配置自动部署 workflow，只需设置 Secrets：
+
+1. **获取 Cloudflare API Token**
+   - 访问 https://dash.cloudflare.com/profile/api-tokens
+   - 创建 Token，权限：
+     - `Account:Cloudflare Workers:Edit`
+     - `Account:Account:Read`
+   - 复制 Token
+
+2. **获取 Account ID**
+   - 访问 https://dash.cloudflare.com
+   - 右侧栏找到 **Account ID**，复制
+
+3. **在 GitHub 仓库设置 Secrets**
+   - 打开仓库 → Settings → Secrets and variables → Actions
+   - 添加以下 Secrets：
+
+   | Secret Name | Value | 说明 |
+   |-------------|-------|------|
+   | `CLOUDFLARE_API_TOKEN` | 你的 API Token | Cloudflare 认证 |
+   | `CLOUDFLARE_ACCOUNT_ID` | 你的 Account ID | Cloudflare 账户 |
+   | `ADMIN_PASSWORD` | 自定义密码 | 管理后台密码 |
+   | `VAPID_PUBLIC_KEY` | VAPID 公钥 | 运行 `npm run generate-keys` |
+   | `VAPID_PRIVATE_KEY` | VAPID 私钥 | 同上 |
+   | `KV_NAMESPACE_ID` | KV ID | 你的 KV 命名空间 ID |
+
+4. **推送代码自动部署**
+   ```bash
+   git push origin main
+   ```
+   或手动触发：Actions → Deploy → Run workflow
+
+### 方式二：本地开发
 
 ```bash
-cd web-push
+# 1. 安装依赖
 npm install
-```
 
-### 2. 配置环境变量
-
-**本地开发**：复制模板并填写
-
-```bash
+# 2. 配置本地环境
 cp .dev.vars.example .dev.vars
-# 编辑 .dev.vars，填写密码和 VAPID 密钥
-```
+# 编辑 .dev.vars 填写密码和 VAPID 密钥
 
-**生成 VAPID 密钥**（Web Push 必需）：
-
-```bash
-npm run generate-keys
-# 将输出的公钥和私钥填入 .dev.vars
-```
-
-### 3. 本地开发
-
-```bash
-# 终端 1：启动 Workers 后端
-npm run dev:worker
-
-# 终端 2：启动 Vite 前端（带 HMR）
-npm run dev
+# 3. 本地开发
+npm run dev:worker  # 终端 1：Workers 后端
+npm run dev         # 终端 2：Vite 前端
 ```
 
 访问 `http://localhost:5173`
 
-### 4. 部署到 Cloudflare
+### 方式三：手动部署
 
 ```bash
 # 1. 登录 Cloudflare
 npx wrangler login
 
-# 2. 设置 Secrets（敏感信息，不会存入代码）
+# 2. 设置 Secrets
 npx wrangler secret put ADMIN_PASSWORD
-# 输入你的管理密码
-
 npx wrangler secret put VAPID_PUBLIC_KEY
-# 输入 VAPID 公钥
-
 npx wrangler secret put VAPID_PRIVATE_KEY
-# 输入 VAPID 私钥
+npx wrangler secret put KV_NAMESPACE_ID
 
-# 3. （可选）配置推送渠道
-# 编辑 wrangler.toml 中的 [vars] 部分，填写各渠道 Webhook URL
-
-# 4. 部署
+# 3. 部署
 npm run deploy
 ```
 
