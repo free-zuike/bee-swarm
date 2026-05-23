@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // ============================================
-// 管理后台 - 多渠道推送管理（用户名+密码认证）
+// 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed } from 'vue';
 import { register, login, getChannels, saveChannel, getSubscriptions, sendPush } from '@/api';
@@ -11,14 +11,14 @@ const pageState = ref<'loading' | 'auth' | 'dashboard'>('loading');
 const authMode = ref<'login' | 'register'>('login');
 
 // ==================== 认证相关 ====================
-const authUsername = ref('');
+const authEmail = ref('');
 const authPassword = ref('');
 const authConfirmPassword = ref('');
 const isAuthing = ref(false);
 const authError = ref('');
 
 // 登录后的凭证
-const username = ref('');
+const email = ref('');
 const password = ref('');
 
 // ==================== Dashboard Tab ====================
@@ -59,10 +59,10 @@ const settingsDefinitions = computed(() =>
 onMounted(async () => {
   try {
     // 尝试从 sessionStorage 恢复凭证
-    const savedUsername = sessionStorage.getItem('push_hub_username');
+    const savedUsername = sessionStorage.getItem('push_hub_email');
     const savedPassword = sessionStorage.getItem('push_hub_password');
     if (savedUsername && savedPassword) {
-      username.value = savedUsername;
+      email.value = savedUsername;
       password.value = savedPassword;
       try {
         await loadChannels();
@@ -71,7 +71,7 @@ onMounted(async () => {
         return;
       } catch {
         // 自动恢复失败，清除凭证
-        sessionStorage.removeItem('push_hub_username');
+        sessionStorage.removeItem('push_hub_email');
         sessionStorage.removeItem('push_hub_password');
       }
     }
@@ -83,18 +83,18 @@ onMounted(async () => {
 
 // ==================== 认证函数 ====================
 async function doLogin() {
-  if (!authUsername.value.trim() || !authPassword.value) {
-    authError.value = '请输入用户名和密码';
+  if (!authEmail.value.trim() || !authPassword.value) {
+    authError.value = '请输入邮箱和密码';
     return;
   }
   isAuthing.value = true;
   authError.value = '';
 
   try {
-    const res = await login(authUsername.value.trim(), authPassword.value);
-    username.value = res.username || authUsername.value.trim();
+    const res = await login(authEmail.value.trim(), authPassword.value);
+    email.value = res.email || authEmail.value.trim();
     password.value = authPassword.value;
-    sessionStorage.setItem('push_hub_username', username.value);
+    sessionStorage.setItem('push_hub_email', email.value);
     sessionStorage.setItem('push_hub_password', password.value);
     await loadChannels();
     await loadSubs();
@@ -107,8 +107,8 @@ async function doLogin() {
 }
 
 async function doRegister() {
-  if (!authUsername.value.trim() || !authPassword.value) {
-    authError.value = '请输入用户名和密码';
+  if (!authEmail.value.trim() || !authPassword.value) {
+    authError.value = '请输入邮箱和密码';
     return;
   }
   if (authPassword.value.length < 4) {
@@ -124,7 +124,7 @@ async function doRegister() {
   authError.value = '';
 
   try {
-    await register(authUsername.value.trim(), authPassword.value);
+    await register(authEmail.value.trim(), authPassword.value);
     // 注册成功，自动登录
     await doLogin();
   } catch (err: any) {
@@ -134,11 +134,11 @@ async function doRegister() {
 }
 
 function logout() {
-  sessionStorage.removeItem('push_hub_username');
+  sessionStorage.removeItem('push_hub_email');
   sessionStorage.removeItem('push_hub_password');
-  username.value = '';
+  email.value = '';
   password.value = '';
-  authUsername.value = '';
+  authEmail.value = '';
   authPassword.value = '';
   authConfirmPassword.value = '';
   authError.value = '';
@@ -147,14 +147,14 @@ function logout() {
 
 // ==================== 数据加载 ====================
 async function loadChannels() {
-  const data = await getChannels(username.value, password.value);
+  const data = await getChannels(email.value, password.value);
   channels.value = data.channels;
   channelSettings.value = data.settings;
   channelDefinitions.value = data.definitions;
 }
 
 async function loadSubs() {
-  const data = await getSubscriptions(username.value, password.value);
+  const data = await getSubscriptions(email.value, password.value);
   subCount.value = data.total;
   subscriptions.value = data.subscriptions;
 }
@@ -198,7 +198,7 @@ async function doSaveChannel(channelId: string) {
       fields[field.key] = getSettingValue(channelId, field.key);
     }
 
-    const result = await saveChannel(username.value, password.value, channelId, fields);
+    const result = await saveChannel(email.value, password.value, channelId, fields);
     channels.value = result.channels;
     channelMessages[channelId] = { text: result.message || '保存成功', type: 'success' };
   } catch (err: any) {
@@ -236,7 +236,7 @@ async function doPush() {
       payload.channels = Array.from(selectedChannels.value);
     }
 
-    const result = await sendPush(username.value, password.value, payload);
+    const result = await sendPush(email.value, password.value, payload);
     pushResults.value = result.results;
     lastPushTime.value = new Date().toLocaleTimeString('zh-CN');
 
@@ -292,10 +292,10 @@ function formatEndpoint(ep: string): string {
       <!-- 登录表单 -->
       <form v-if="authMode === 'login'" @submit.prevent="doLogin">
         <input
-          v-model="authUsername"
+          v-model="authEmail"
           type="text"
-          placeholder="用户名"
-          autocomplete="username"
+          placeholder="邮箱"
+          autocomplete="email"
         />
         <input
           v-model="authPassword"
@@ -313,10 +313,10 @@ function formatEndpoint(ep: string): string {
       <!-- 注册表单 -->
       <form v-else @submit.prevent="doRegister">
         <input
-          v-model="authUsername"
+          v-model="authEmail"
           type="text"
-          placeholder="用户名"
-          autocomplete="username"
+          placeholder="邮箱"
+          autocomplete="email"
         />
         <input
           v-model="authPassword"
@@ -344,7 +344,7 @@ function formatEndpoint(ep: string): string {
     <header class="header">
       <div class="header-left">
         <h1>🐝 蜂群管理后台</h1>
-        <span class="header-username">{{ username }}</span>
+        <span class="header-email">{{ email }}</span>
       </div>
       <span class="logout" @click="logout">退出登录</span>
     </header>
@@ -707,7 +707,7 @@ function formatEndpoint(ep: string): string {
   color: #1a1a2e;
 }
 
-.header-username {
+.header-email {
   font-size: 13px;
   color: #999;
   background: #f5f5f5;

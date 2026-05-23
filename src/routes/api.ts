@@ -57,54 +57,56 @@ api.get('/vapid-key', (c) => {
   return c.json({ publicKey: c.env.VAPID_PUBLIC_KEY });
 });
 
+/** 邮箱格式验证 */
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 /** 注册 */
 api.post('/register', async (c) => {
-  const { username, password } = await c.req.json<{ username: string; password: string }>();
+  const { email, password } = await c.req.json<{ email: string; password: string }>();
 
-  if (!username || username.length < 2) {
-    return c.json({ error: '用户名至少 2 个字符' }, 400);
+  if (!email || !isValidEmail(email)) {
+    return c.json({ error: '请输入有效的邮箱地址' }, 400);
   }
   if (!password || password.length < 4) {
     return c.json({ error: '密码长度至少 4 位' }, 400);
   }
-  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    return c.json({ error: '用户名只能包含字母、数字和下划线' }, 400);
-  }
 
-  // 检查用户名是否已存在
-  const existing = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
+  // 检查邮箱是否已存在
+  const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
   if (existing) {
-    return c.json({ error: '用户名已存在' }, 409);
+    return c.json({ error: '该邮箱已被注册' }, 409);
   }
 
   // 存储用户（密码哈希）
   const hashed = await hashPassword(password);
-  await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify({ password: hashed }));
+  await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
 
   return c.json({ success: true, message: '注册成功' });
 });
 
 /** 登录 */
 api.post('/login', async (c) => {
-  const { username, password } = await c.req.json<{ username: string; password: string }>();
+  const { email, password } = await c.req.json<{ email: string; password: string }>();
 
-  if (!username || !password) {
-    return c.json({ error: '请输入用户名和密码' }, 400);
+  if (!email || !password) {
+    return c.json({ error: '请输入邮箱和密码' }, 400);
   }
 
-  const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
+  const userData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
   if (!userData) {
-    return c.json({ error: '用户名或密码错误' }, 401);
+    return c.json({ error: '邮箱或密码错误' }, 401);
   }
 
   const { password: hashed } = JSON.parse(userData);
   const inputHashed = await hashPassword(password);
 
   if (inputHashed !== hashed) {
-    return c.json({ error: '用户名或密码错误' }, 401);
+    return c.json({ error: '邮箱或密码错误' }, 401);
   }
 
-  return c.json({ success: true, message: '登录成功', username });
+  return c.json({ success: true, message: '登录成功', email });
 });
 
 /** 订阅 Web Push */

@@ -32,19 +32,19 @@ export async function getVapidKey(): Promise<{ publicKey: string }> {
   return request(`${BASE}/vapid-key`);
 }
 
-export async function register(username: string, password: string): Promise<{ success: boolean; message: string }> {
+export async function register(email: string, password: string): Promise<{ success: boolean; message: string }> {
   return request(`${BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),
   });
 }
 
-export async function login(username: string, password: string): Promise<{ success: boolean; message: string; username: string }> {
+export async function login(email: string, password: string): Promise<{ success: boolean; message: string; email: string }> {
   return request(`${BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),
   });
 }
 
