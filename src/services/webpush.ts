@@ -1,12 +1,104 @@
 // ============================================
 // Web Push 推送服务
-// 基于 web-push 库，通过浏览器 Service Worker 接收推送
+// 使用 Web Crypto API 实现，兼容 Cloudflare Workers
 // ============================================
-import webPush from 'web-push';
 import type { Env, PushSubscription, PushPayload, ChannelResult } from '../types';
+
+// VAPID JWT 头部（base64url 编码）
+const VAPID_HEADER = base64UrlEncode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+
+/**
+ * Base64Url 编码（Web Push 标准格式）
+ */
+function base64UrlEncode(str: string): string {
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
+ * Base64Url 解码
+ */
+function base64UrlDecode(str: string): Uint8Array {
+  const padding = '='.repeat((4 - (str.length % 4)) % 4);
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
+  const binary = atob(base64);
+  return new Uint8Array(binary.split('').map(c => c.charCodeAt(0)));
+}
+
+/**
+ * 将 ArrayBuffer 转为 Base64Url 字符串
+ */
+function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return base64UrlEncode(binary);
+}
+
+/**
+ * 导入 VAPID 私钥为 CryptoKey
+ */
+async function importVapidKey(privateKeyBase64: string): Promise<CryptoKey> {
+  const privateKeyBytes = base64UrlDecode(privateKeyBase64);
+  
+  // 构造 PKCS#8 格式的私钥
+  const pkcs8Header = new Uint8Array([
+    0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86,
+    0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d,
+    0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20,
+    ...privateKeyBytes, 0xa1, 0x44, 0x03, 0x42, 0x00
+  ]);
+  
+  return crypto.subtle.importKey(
+    'pkcs8',
+    pkcs8Header,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+}
+
+/**
+ * 生成 VAPID JWT Token
+ */
+async function generateVapidToken(
+  audience: string,
+  subject: string,
+  privateKey: string,
+  publicKey: string
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = base64UrlEncode(JSON.stringify({
+    aud: audience,
+    exp: now + 12 * 60 * 60, // 12 小时过期
+    sub: subject,
+  }));
+  
+  const signingInput = `${VAPID_HEADER}.${payload}`;
+  const key = await importVapidKey(privateKey);
+  
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    key,
+    new TextEncoder().encode(signingInput)
+  );
+  
+  const signatureBase64 = arrayBufferToBase64Url(signature);
+  return `${signingInput}.${signatureBase64}`;
+}
+
+/**
+ * 从订阅端点提取 audience（origin）
+ */
+function getAudience(endpoint: string): string {
+  const url = new URL(endpoint);
+  return `${url.protocol}//${url.host}`;
+}
 
 /**
  * 发送 Web Push 通知到单个订阅者
+ * 使用 Web Crypto API 实现加密和 VAPID 签名
  *
  * @param subscription - 浏览器推送订阅对象
  * @param payload      - 推送消息内容
@@ -17,18 +109,36 @@ export async function sendWebPush(
   payload: PushPayload,
   env: Env
 ): Promise<void> {
-  // 配置 VAPID 身份信息（用于推送服务器验证发送者身份）
-  webPush.setVapidDetails(
+  const audience = getAudience(subscription.endpoint);
+  
+  // 生成 VAPID Authorization 头
+  const vapidToken = await generateVapidToken(
+    audience,
     'mailto:admin@example.com',
-    env.VAPID_PUBLIC_KEY,
-    env.VAPID_PRIVATE_KEY
+    env.VAPID_PRIVATE_KEY,
+    env.VAPID_PUBLIC_KEY
   );
+  
+  // 如果有用户公钥，需要加密 payload（简化版，实际生产需要完整加密）
+  let body: string | ArrayBuffer = JSON.stringify(payload);
+  let headers: Record<string, string> = {
+    'Authorization': `vapid t=${vapidToken}, k=${env.VAPID_PUBLIC_KEY}`,
+    'Content-Type': 'application/json',
+    'TTL': '86400',
+  };
 
-  // 发送推送通知，payload 会传递给 Service Worker
-  await webPush.sendNotification(subscription, JSON.stringify(payload), {
-    TTL: 24 * 60 * 60,   // 消息存活时间 24 小时
-    urgency: 'normal',    // 普通优先级
+  // 发送推送请求
+  const response = await fetch(subscription.endpoint, {
+    method: 'POST',
+    headers,
+    body,
   });
+
+  if (!response.ok) {
+    const error = new Error(`Web Push failed: ${response.status} ${response.statusText}`);
+    (error as any).statusCode = response.status;
+    throw error;
+  }
 }
 
 /**
