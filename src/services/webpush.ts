@@ -64,6 +64,28 @@ async function generateVapidJWT(
 }
 
 /**
+ * 将公钥转为 base64url 格式（uncompressed point: 04 + x + y）
+ * 支持两种输入：
+ * 1. JWK JSON: {"kty":"EC","crv":"P-256","x":"...","y":"..."}
+ * 2. 已是 base64url 格式（直接返回）
+ */
+function publicKeyToBase64Url(publicKey: string): string {
+  if (publicKey.startsWith('{')) {
+    const jwk = JSON.parse(publicKey);
+    const x = b64urlToBytes(jwk.x);
+    const y = b64urlToBytes(jwk.y);
+    const uncompressed = new Uint8Array([0x04, ...x, ...y]);
+    return bytesToB64url(uncompressed);
+  }
+  return publicKey; // 已是 base64url 格式
+}
+
+function bytesToB64url(bytes: Uint8Array): string {
+  return btoa(Array.from(bytes).map(b => String.fromCharCode(b)).join(''))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
  * 发送 Web Push 通知
  */
 export async function sendWebPush(
@@ -80,10 +102,13 @@ export async function sendWebPush(
     env.VAPID_PUBLIC_KEY
   );
 
+  // k= 参数需要 base64url 格式的公钥
+  const publicKeyB64url = publicKeyToBase64Url(env.VAPID_PUBLIC_KEY);
+
   const response = await fetch(subscription.endpoint, {
     method: 'POST',
     headers: {
-      'Authorization': `vapid t=${vapidToken}, k=${env.VAPID_PUBLIC_KEY}`,
+      'Authorization': `vapid t=${vapidToken}, k=${publicKeyB64url}`,
       'Content-Type': 'application/json',
       'TTL': '86400',
     },
