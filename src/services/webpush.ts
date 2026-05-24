@@ -69,7 +69,8 @@ async function importVapidPrivateKey(privateKeyBase64: string, publicKeyBase64: 
 async function generateVapidJWT(
   audience: string,
   subject: string,
-  privateKey: string
+  privateKey: string,
+  publicKey: string
 ): Promise<string> {
   const header = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
   
