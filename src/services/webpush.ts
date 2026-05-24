@@ -24,18 +24,43 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 /**
- * 从 PKCS#8 导入 VAPID 私钥
+ * 从 Base64Url 导入 VAPID 私钥
+ * 自动检测格式：32字节(raw) 或 PKCS#8
  */
-async function importVapidPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
+async function importVapidPrivateKey(privateKeyBase64: string, publicKeyBase64: string): Promise<CryptoKey> {
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
   
-  return crypto.subtle.importKey(
-    'pkcs8',
-    privateKeyBytes,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
+  if (privateKeyBytes.length === 32) {
+    // 旧格式：32字节 raw 私钥，需要构造 PKCS#8
+    const pubKeyBytes = base64UrlDecode(publicKeyBase64);
+    
+    // PKCS#8 ECDSA P-256 私钥结构（固定前缀 + 私钥 + 公钥）
+    const pkcs8 = new Uint8Array([
+      0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86,
+      0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d,
+      0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20,
+      ...privateKeyBytes,
+      0xa1, 0x44, 0x03, 0x42, 0x00, 0x04,
+      ...pubKeyBytes,
+    ]);
+    
+    return crypto.subtle.importKey(
+      'pkcs8',
+      pkcs8,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    );
+  } else {
+    // 新格式：完整 PKCS#8
+    return crypto.subtle.importKey(
+      'pkcs8',
+      privateKeyBytes,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    );
+  }
 }
 
 /**
@@ -57,7 +82,7 @@ async function generateVapidJWT(
   
   const signingInput = `${header}.${payload}`;
   
-  const key = await importVapidPrivateKey(privateKey);
+  const key = await importVapidPrivateKey(privateKey, publicKey);
   
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
@@ -82,7 +107,8 @@ export async function sendWebPush(
   const vapidToken = await generateVapidJWT(
     audience,
     'mailto:admin@example.com',
-    env.VAPID_PRIVATE_KEY
+    env.VAPID_PRIVATE_KEY,
+    env.VAPID_PUBLIC_KEY
   );
   
   // 发送明文 payload（简化测试）
