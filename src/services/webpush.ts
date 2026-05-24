@@ -1,6 +1,6 @@
 // ============================================
 // Web Push 推送服务
-// 使用 Web Crypto API 实现 VAPID 签名和消息加密
+// 使用 Web Crypto API 实现 VAPID 签名
 // ============================================
 import type { Env, PushSubscription, PushPayload, ChannelResult } from '../types';
 
@@ -24,27 +24,11 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 /**
- * 将 Base64Url 字符串转为标准 Base64（带填充）
- */
-function base64UrlToBase64(str: string): string {
-  const padding = '='.repeat((4 - (str.length % 4)) % 4);
-  return str.replace(/-/g, '+').replace(/_/g, '/') + padding;
-}
-
-/**
- * 从 Base64Url 导入 VAPID 私钥
- * 使用完整的 PKCS#8 格式
+ * 从 PKCS#8 导入 VAPID 私钥
  */
 async function importVapidPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
-  // 解码完整的 PKCS#8 私钥
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
   
-  // PKCS#8 格式私钥应该是 121 字节（对于 ECDSA P-256）
-  if (privateKeyBytes.length < 100) {
-    throw new Error(`Invalid private key length: ${privateKeyBytes.length}. Please regenerate VAPID keys using the latest script.`);
-  }
-  
-  // 使用 PKCS#8 格式导入
   return crypto.subtle.importKey(
     'pkcs8',
     privateKeyBytes,
@@ -60,8 +44,7 @@ async function importVapidPrivateKey(privateKeyBase64: string): Promise<CryptoKe
 async function generateVapidJWT(
   audience: string,
   subject: string,
-  privateKey: string,
-  publicKey: string
+  privateKey: string
 ): Promise<string> {
   const header = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
   
@@ -74,125 +57,19 @@ async function generateVapidJWT(
   
   const signingInput = `${header}.${payload}`;
   
-  try {
-    const key = await importVapidPrivateKey(privateKey);
-    
-    const signature = await crypto.subtle.sign(
-      { name: 'ECDSA', hash: 'SHA-256' },
-      key,
-      new TextEncoder().encode(signingInput)
-    );
-    
-    return `${header}.${payload}.${base64UrlEncode(signature)}`;
-  } catch (err: any) {
-    throw new Error(`VAPID sign failed: ${err.message}`);
-  }
+  const key = await importVapidPrivateKey(privateKey);
+  
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    key,
+    new TextEncoder().encode(signingInput)
+  );
+  
+  return `${header}.${payload}.${base64UrlEncode(signature)}`;
 }
 
 /**
- * 加密推送消息（使用 Web Push 标准加密）
- */
-async function encryptPayload(
-  payload: string,
-  subscription: PushSubscription
-): Promise<{ ciphertext: ArrayBuffer; salt: Uint8Array; serverPublicKey: Uint8Array }> {
-  // 解码用户公钥和认证密钥
-  const userPublicKey = base64UrlDecode(subscription.keys.p256dh);
-  const authSecret = base64UrlDecode(subscription.keys.auth);
-  
-  // 生成临时 ECDH 密钥对
-  const serverKeyPair = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true,
-    ['deriveBits']
-  );
-  
-  // 导入用户公钥
-  const userKey = await crypto.subtle.importKey(
-    'raw',
-    userPublicKey,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false,
-    []
-  );
-  
-  // 派生共享密钥
-  const sharedSecret = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: userKey },
-    serverKeyPair.privateKey,
-    256
-  );
-  
-  // 生成随机 salt
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  
-  // 导出服务器公钥
-  const serverPublicKey = new Uint8Array(
-    await crypto.subtle.exportKey('raw', serverKeyPair.publicKey)
-  );
-  
-  // HKDF 密钥派生
-  const prk = await crypto.subtle.importKey(
-    'raw',
-    new Uint8Array([...new Uint8Array(sharedSecret), ...authSecret]),
-    { name: 'HKDF' },
-    false,
-    ['deriveBits']
-  );
-  
-  const ikm = await crypto.subtle.deriveBits(
-    {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt: salt,
-      info: new TextEncoder().encode('Content-Encoding: aes128gcm\x00')
-    },
-    prk,
-    128
-  );
-  
-  // 使用 AES-GCM 加密
-  const contentEncryptionKey = await crypto.subtle.importKey(
-    'raw',
-    ikm,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-  
-  // 添加填充和记录分隔符
-  const recordSize = 4096;
-  const paddingSize = 0;
-  const record = new Uint8Array(2 + paddingSize + payload.length);
-  record[0] = (paddingSize >> 8) & 0xff;
-  record[1] = paddingSize & 0xff;
-  record.set(new TextEncoder().encode(payload), 2 + paddingSize);
-  
-  // 生成 nonce
-  const nonceBits = await crypto.subtle.deriveBits(
-    {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt: salt,
-      info: new TextEncoder().encode('Content-Encoding: nonce\x00')
-    },
-    prk,
-    96
-  );
-  
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: new Uint8Array(nonceBits) },
-    contentEncryptionKey,
-    record
-  );
-  
-  return { ciphertext, salt, serverPublicKey };
-}
-
-const recordSize = 4096;
-
-/**
- * 发送 Web Push 通知
+ * 发送 Web Push 通知（简化版，先不加密测试 VAPID）
  */
 export async function sendWebPush(
   subscription: PushSubscription,
@@ -205,36 +82,18 @@ export async function sendWebPush(
   const vapidToken = await generateVapidJWT(
     audience,
     'mailto:admin@example.com',
-    env.VAPID_PRIVATE_KEY,
-    env.VAPID_PUBLIC_KEY
+    env.VAPID_PRIVATE_KEY
   );
   
-  // 加密 payload
-  const payloadStr = JSON.stringify(payload);
-  const { ciphertext, salt, serverPublicKey } = await encryptPayload(payloadStr, subscription);
-  
-  // 构造加密后的 body（aes128gcm 格式）
-  const body = new Uint8Array(
-    salt.length + 4 + 1 + serverPublicKey.length + ciphertext.byteLength
-  );
-  let offset = 0;
-  body.set(salt, offset); offset += salt.length;
-  body[offset++] = (recordSize >> 16) & 0xff;
-  body[offset++] = (recordSize >> 8) & 0xff;
-  body[offset++] = recordSize & 0xff;
-  body[offset++] = 0; // key ID length
-  body.set(serverPublicKey, offset); offset += serverPublicKey.length;
-  body.set(new Uint8Array(ciphertext), offset);
-  
+  // 发送明文 payload（简化测试）
   const response = await fetch(subscription.endpoint, {
     method: 'POST',
     headers: {
       'Authorization': `vapid t=${vapidToken}, k=${env.VAPID_PUBLIC_KEY}`,
-      'Content-Type': 'application/octet-stream',
-      'Content-Encoding': 'aes128gcm',
+      'Content-Type': 'application/json',
       'TTL': '86400',
     },
-    body,
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -312,7 +171,6 @@ export async function broadcastWebPush(
       failed++;
       const errorMsg = err.message || '未知错误';
       errors.push(errorMsg);
-      console.error('Web Push failed:', errorMsg, err);
       if (err.statusCode === 410 || err.statusCode === 404) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
@@ -322,6 +180,6 @@ export async function broadcastWebPush(
   return {
     channel: 'webpush',
     success: failed === 0,
-    message: `推送完成: ${success} 成功, ${failed} 失败${errors.length > 0 ? ' - ' + errors.join(', ') : ''}`,
+    message: `推送完成: ${success} 成功, ${failed} 失败${errors.length > 0 ? ' - ' + errors.slice(0, 2).join(', ') : ''}`,
   };
 }
