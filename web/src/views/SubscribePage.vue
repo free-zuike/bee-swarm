@@ -54,20 +54,7 @@ async function doSubscribe() {
   if (!swRegistration) return;
 
   const { publicKey } = await getVapidKey();
-  
-  // 支持两种公钥格式：
-  // 1. JWK JSON: {"kty":"EC","crv":"P-256","x":"...","y":"..."}
-  // 2. 旧格式 base64url（65字节 uncompressed point）
-  let applicationServerKey: Uint8Array;
-  if (publicKey.startsWith('{')) {
-    const jwk = JSON.parse(publicKey);
-    // JWK → uncompressed point: 0x04 + x(32) + y(32)
-    const x = base64UrlToBytes(jwk.x);
-    const y = base64UrlToBytes(jwk.y);
-    applicationServerKey = new Uint8Array([0x04, ...x, ...y]);
-  } else {
-    applicationServerKey = urlBase64ToUint8Array(publicKey);
-  }
+  const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
   const subscription = await swRegistration.pushManager.subscribe({
     userVisibleOnly: true,
@@ -113,10 +100,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
-}
-
-function base64UrlToBytes(str: string): Uint8Array {
-  return urlBase64ToUint8Array(str);
 }
 </script>
 

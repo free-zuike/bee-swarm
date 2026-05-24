@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "hono": "^4.6.0",
-    "jose": "^6.2.3",
     "pinia": "^2.1.0",
     "vue": "^3.4.0",
-    "vue-router": "^4.3.0"
+    "vue-router": "^4.3.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240903.0",
