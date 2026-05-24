@@ -1,65 +1,51 @@
 // ============================================
 // Web Push 推送服务
-// 使用 Web Crypto API 实现 VAPID 签名
+// 使用 jose 库处理 VAPID JWT 签名
 // ============================================
+import { SignJWT, importPKCS8, importJWK } from 'jose';
 import type { Env, PushSubscription, PushPayload, ChannelResult } from '../types';
 
-/**
- * Base64Url 编码
- */
-function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
-  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+/** Base64Url → Uint8Array */
+function b64urlToBytes(str: string): Uint8Array {
+  const pad = '='.repeat((4 - (str.length % 4)) % 4);
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/') + pad;
+  const bin = atob(b64);
+  return new Uint8Array(bin.split('').map(c => c.charCodeAt(0)));
+}
+
+/** Base64Url → standard Base64 */
+function b64urlToB64(str: string): string {
+  return str.replace(/-/g, '+').replace(/_/g, '/');
 }
 
 /**
- * Base64Url 解码
+ * 导入 VAPID 私钥
+ * 支持 PKCS#8 格式（jose 标准）和 raw 32 字节格式
  */
-function base64UrlDecode(str: string): Uint8Array {
-  const padding = '='.repeat((4 - (str.length % 4)) % 4);
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
-  const binary = atob(base64);
-  return new Uint8Array(binary.split('').map(c => c.charCodeAt(0)));
-}
+async function importVapidKey(privateKeyB64url: string, publicKeyB64url: string) {
+  const raw = b64urlToBytes(privateKeyB64url);
 
-/**
- * 从 Base64Url 导入 VAPID 私钥
- * 自动检测格式：32字节(raw) 或 PKCS#8
- */
-async function importVapidPrivateKey(privateKeyBase64: string, publicKeyBase64: string): Promise<CryptoKey> {
-  const privateKeyBytes = base64UrlDecode(privateKeyBase64);
-  
-  if (privateKeyBytes.length === 32) {
-    // 旧格式：32字节 raw 私钥，需要构造 PKCS#8
-    const pubKeyBytes = base64UrlDecode(publicKeyBase64);
-    
-    // PKCS#8 ECDSA P-256 私钥结构（固定前缀 + 私钥 + 公钥）
-    const pkcs8 = new Uint8Array([
-      0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86,
-      0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d,
-      0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20,
-      ...privateKeyBytes,
-      0xa1, 0x44, 0x03, 0x42, 0x00, 0x04,
-      ...pubKeyBytes,
-    ]);
-    
-    return crypto.subtle.importKey(
-      'pkcs8',
-      pkcs8,
-      { name: 'ECDSA', namedCurve: 'P-256' },
-      false,
-      ['sign']
-    );
+  if (raw.length === 32) {
+    // raw 32 字节私钥 → 构造 JWK
+    const pubRaw = b64urlToBytes(publicKeyB64url);
+    if (pubRaw.length !== 65 || pubRaw[0] !== 0x04) {
+      throw new Error('Invalid public key format');
+    }
+    // 提取 x, y 坐标并编码为 base64url
+    const xBytes = pubRaw.slice(1, 33);
+    const yBytes = pubRaw.slice(33, 65);
+    const toB64url = (bytes: Uint8Array) => btoa(Array.from(bytes).map(b => String.fromCharCode(b)).join('')).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+    return importJWK({
+      kty: 'EC',
+      crv: 'P-256',
+      d: privateKeyB64url,
+      x: toB64url(xBytes),
+      y: toB64url(yBytes),
+    }, 'ES256');
   } else {
-    // 新格式：完整 PKCS#8
-    return crypto.subtle.importKey(
-      'pkcs8',
-      privateKeyBytes,
-      { name: 'ECDSA', namedCurve: 'P-256' },
-      false,
-      ['sign']
-    );
+    // PKCS#8 格式
+    return importPKCS8(b64urlToB64(privateKeyB64url), 'ES256');
   }
 }
 
@@ -72,30 +58,19 @@ async function generateVapidJWT(
   privateKey: string,
   publicKey: string
 ): Promise<string> {
-  const header = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
-  
-  const now = Math.floor(Date.now() / 1000);
-  const payload = base64UrlEncode(new TextEncoder().encode(JSON.stringify({
-    aud: audience,
-    exp: now + 12 * 60 * 60,
-    sub: subject,
-  })));
-  
-  const signingInput = `${header}.${payload}`;
-  
-  const key = await importVapidPrivateKey(privateKey, publicKey);
-  
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    key,
-    new TextEncoder().encode(signingInput)
-  );
-  
-  return `${header}.${payload}.${base64UrlEncode(signature)}`;
+  const key = await importVapidKey(privateKey, publicKey);
+
+  return new SignJWT({})
+    .setProtectedHeader({ alg: 'ES256', typ: 'JWT' })
+    .setIssuedAt()
+    .setSubject(subject)
+    .setAudience(audience)
+    .setExpirationTime('12h')
+    .sign(key);
 }
 
 /**
- * 发送 Web Push 通知（简化版，先不加密测试 VAPID）
+ * 发送 Web Push 通知
  */
 export async function sendWebPush(
   subscription: PushSubscription,
@@ -103,16 +78,14 @@ export async function sendWebPush(
   env: Env
 ): Promise<void> {
   const audience = new URL(subscription.endpoint).origin;
-  
-  // 生成 VAPID JWT
+
   const vapidToken = await generateVapidJWT(
     audience,
     'mailto:admin@example.com',
     env.VAPID_PRIVATE_KEY,
     env.VAPID_PUBLIC_KEY
   );
-  
-  // 发送明文 payload（简化测试）
+
   const response = await fetch(subscription.endpoint, {
     method: 'POST',
     headers: {
