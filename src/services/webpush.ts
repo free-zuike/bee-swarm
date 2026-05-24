@@ -13,9 +13,10 @@ function b64urlToBytes(str: string): Uint8Array {
   return new Uint8Array(bin.split('').map(c => c.charCodeAt(0)));
 }
 
-/** Base64Url → standard Base64 */
+/** Base64Url → standard Base64（带填充） */
 function b64urlToB64(str: string): string {
-  return str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = '='.repeat((4 - (str.length % 4)) % 4);
+  return str.replace(/-/g, '+').replace(/_/g, '/') + pad;
 }
 
 /**
