@@ -22,7 +22,10 @@ const email = ref('');
 const password = ref('');
 
 // ==================== Dashboard Tab ====================
-const activeTab = ref<'push' | 'settings' | 'history'>('push');
+const activeTab = ref<'push' | 'history'>('push');
+
+// ==================== 设置面板 ====================
+const showSettings = ref(false);
 
 // ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
@@ -113,7 +116,7 @@ onMounted(async () => {
 
 // ==================== Tab 切换软刷新 ====================
 watch(activeTab, (newTab) => {
-  if (newTab === 'push' || newTab === 'settings') {
+  if (newTab === 'push') {
     loadChannels();
   }
   if (newTab === 'history') {
@@ -476,121 +479,20 @@ function formatEndpoint(ep: string): string {
   <div v-else class="page">
     <header class="header">
       <div class="header-left">
-        <h1>🐝 蜂群管理后台</h1>
+        <h1>🐝 蜂群</h1>
         <span class="header-email">{{ email }}</span>
       </div>
-      <span class="logout" @click="logout">退出登录</span>
+      <div class="header-right">
+        <button class="btn btn-sm" @click="showSettings = !showSettings">
+          {{ showSettings ? '收起设置' : '⚙️ 设置' }}
+        </button>
+        <span class="logout" @click="logout">退出</span>
+      </div>
     </header>
 
     <div class="container">
-      <!-- Tab 导航 -->
-      <div class="tab-nav">
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'push' }"
-          @click="activeTab = 'push'"
-        >
-          📤 推送
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'settings' }"
-          @click="activeTab = 'settings'"
-        >
-          ⚙️ 设置
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'history' }"
-          @click="activeTab = 'history'"
-        >
-          推送历史
-        </button>
-      </div>
-
-      <!-- ==================== 推送 Tab ==================== -->
-      <div v-if="activeTab === 'push'" class="tab-content">
-        <!-- 统计概览 -->
-        <div class="stats">
-
-          <div class="stat-card">
-            <div class="label">已启用渠道</div>
-            <div class="value">{{ enabledChannelCount }}</div>
-          </div>
-          <div class="stat-card">
-            <div class="label">最近推送</div>
-            <div class="value">{{ lastPushTime }}</div>
-          </div>
-        </div>
-
-        <!-- 发送推送 -->
-        <div class="panel">
-          <h2>📤 发送推送通知</h2>
-
-          <!-- 渠道选择 -->
-          <div class="form-group">
-            <label>选择推送渠道</label>
-            <div class="channel-grid">
-              <div
-                v-for="ch in channels.filter(c => c.enabled)"
-                :key="ch.id"
-                class="channel-tag"
-                :class="{ active: selectedChannels.has(ch.id) }"
-                @click="toggleChannel(ch)"
-              >
-                <span class="ch-icon">{{ ch.icon }}</span>
-                <span class="ch-name">{{ ch.name }}</span>
-              </div>
-            </div>
-            <p class="hint">点击选择/取消。不选择则不推送。</p>
-          </div>
-
-          <!-- 消息内容 -->
-          <div class="form-group">
-            <label>标题 *</label>
-            <input v-model="pushTitle" type="text" placeholder="通知标题" />
-          </div>
-          <div class="form-group">
-            <label>内容</label>
-            <textarea v-model="pushBody" placeholder="通知内容..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>跳转 URL（可选）</label>
-            <input v-model="pushUrl" type="url" placeholder="https://example.com" />
-          </div>
-
-          <button class="btn btn-primary" :disabled="isPushing" @click="doPush">
-            🚀 发送推送
-          </button>
-          <button class="btn btn-secondary" @click="loadChannels">刷新渠道</button>
-
-          <!-- 推送结果 -->
-          <div v-if="pushResults.length" class="result-list">
-            <template v-if="isNoChannelSelectedError(pushResults)">
-              <div class="result-item error">
-                <span>⚠️ 未选择任何推送渠道，请先选择后再推送</span>
-              </div>
-            </template>
-            <template v-else>
-              <div
-                v-for="r in pushResults"
-                :key="r.channel"
-                class="result-item"
-                :class="r.success ? 'success' : 'error'"
-              >
-                <span class="ch-label">
-                  {{ channels.find((c) => c.id === r.channel)?.icon || '❓' }}
-                  {{ channels.find((c) => c.id === r.channel)?.name || r.channel }}
-                </span>
-                <span>{{ r.message }}</span>
-              </div>
-            </template>
-          </div>
-        </div>
-      </div>
-
-      <!-- ==================== 设置 Tab ==================== -->
-      <div v-if="activeTab === 'settings'" class="tab-content">
+      <!-- 设置面板 -->
+      <div v-if="showSettings" class="tab-content">
         <!-- API Key 面板 -->
         <div class="panel">
           <div class="api-key-panel">
@@ -686,50 +588,151 @@ function formatEndpoint(ep: string): string {
         </div>
       </div>
 
-      <!-- ==================== 历史记录 Tab ==================== -->
-      <div v-if="activeTab === 'history'" class="tab-content">
-        <div class="panel">
-          <h2>📜 推送历史</h2>
+      <!-- 推送/历史 Tab（当设置面板关闭时显示） -->
+      <template v-else>
+        <!-- Tab 导航 -->
+        <div class="tab-nav">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'push' }"
+            @click="activeTab = 'push'"
+          >
+            📤 推送
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'history' }"
+            @click="activeTab = 'history'"
+          >
+            推送历史
+          </button>
+        </div>
 
-          <div v-if="isLoadingHistory" class="loading-placeholder">
-            <div class="loading-spinner"></div>
-            <p>加载中...</p>
+        <!-- ==================== 推送 Tab ==================== -->
+        <div v-if="activeTab === 'push'" class="tab-content">
+          <!-- 统计概览 -->
+          <div class="stats">
+            <div class="stat-card">
+              <div class="label">已启用渠道</div>
+              <div class="value">{{ enabledChannelCount }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="label">最近推送</div>
+              <div class="value">{{ lastPushTime }}</div>
+            </div>
           </div>
 
-          <div v-else-if="pushHistory.length === 0" class="empty">
-            <p>暂无推送记录</p>
-          </div>
+          <!-- 发送推送 -->
+          <div class="panel">
+            <h2>📤 发送推送通知</h2>
 
-          <div v-else class="history-list">
-            <div
-              v-for="(record, index) in pushHistory"
-              :key="index"
-              class="history-item"
-            >
-              <div class="history-header">
-                <div class="history-title">{{ record.title }}</div>
-                <div class="history-time">{{ new Date(record.time).toLocaleString('zh-CN') }}</div>
-              </div>
-              <div v-if="record.body" class="history-body">{{ record.body }}</div>
-              <div v-if="record.url" class="history-url">
-                <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
-              </div>
-              <div class="history-results">
+            <!-- 渠道选择 -->
+            <div class="form-group">
+              <label>选择推送渠道</label>
+              <div class="channel-grid">
                 <div
-                  v-for="result in record.results"
-                  :key="result.channel"
-                  class="history-result"
-                  :class="result.success ? 'success' : 'error'"
+                  v-for="ch in channels.filter(c => c.enabled)"
+                  :key="ch.id"
+                  class="channel-tag"
+                  :class="{ active: selectedChannels.has(ch.id) }"
+                  @click="toggleChannel(ch)"
                 >
-                  <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
-                  <span class="result-channel">{{ channels.find((c) => c.id === result.channel)?.icon || '' }} {{ result.channel }}</span>
-                  <span class="result-message">{{ result.message }}</span>
+                  <span class="ch-icon">{{ ch.icon }}</span>
+                  <span class="ch-name">{{ ch.name }}</span>
+                </div>
+              </div>
+              <p class="hint">点击选择/取消。不选择则不推送。</p>
+            </div>
+
+            <!-- 消息内容 -->
+            <div class="form-group">
+              <label>标题 *</label>
+              <input v-model="pushTitle" type="text" placeholder="通知标题" />
+            </div>
+            <div class="form-group">
+              <label>内容</label>
+              <textarea v-model="pushBody" placeholder="通知内容..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>跳转 URL（可选）</label>
+              <input v-model="pushUrl" type="url" placeholder="https://example.com" />
+            </div>
+
+            <button class="btn btn-primary" :disabled="isPushing" @click="doPush">
+              🚀 发送推送
+            </button>
+            <button class="btn btn-secondary" @click="loadChannels">刷新渠道</button>
+
+            <!-- 推送结果 -->
+            <div v-if="pushResults.length" class="result-list">
+              <template v-if="isNoChannelSelectedError(pushResults)">
+                <div class="result-item error">
+                  <span>⚠️ 未选择任何推送渠道，请先选择后再推送</span>
+                </div>
+              </template>
+              <template v-else>
+                <div
+                  v-for="r in pushResults"
+                  :key="r.channel"
+                  class="result-item"
+                  :class="r.success ? 'success' : 'error'"
+                >
+                  <span class="ch-label">
+                    {{ channels.find((c) => c.id === r.channel)?.icon || '❓' }}
+                    {{ channels.find((c) => c.id === r.channel)?.name || r.channel }}
+                  </span>
+                  <span>{{ r.message }}</span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== 历史记录 Tab ==================== -->
+        <div v-if="activeTab === 'history'" class="tab-content">
+          <div class="panel">
+            <h2>📜 推送历史</h2>
+
+            <div v-if="isLoadingHistory" class="loading-placeholder">
+              <div class="loading-spinner"></div>
+              <p>加载中...</p>
+            </div>
+
+            <div v-else-if="pushHistory.length === 0" class="empty">
+              <p>暂无推送记录</p>
+            </div>
+
+            <div v-else class="history-list">
+              <div
+                v-for="(record, index) in pushHistory"
+                :key="index"
+                class="history-item"
+              >
+                <div class="history-header">
+                  <div class="history-title">{{ record.title }}</div>
+                  <div class="history-time">{{ new Date(record.time).toLocaleString('zh-CN') }}</div>
+                </div>
+                <div v-if="record.body" class="history-body">{{ record.body }}</div>
+                <div v-if="record.url" class="history-url">
+                  <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
+                </div>
+                <div class="history-results">
+                  <div
+                    v-for="result in record.results"
+                    :key="result.channel"
+                    class="history-result"
+                    :class="result.success ? 'success' : 'error'"
+                  >
+                    <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
+                    <span class="result-channel">{{ channels.find((c) => c.id === result.channel)?.icon || '' }} {{ result.channel }}</span>
+                    <span class="result-message">{{ result.message }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </template>
 
     </div>
   </div>
@@ -874,14 +877,20 @@ function formatEndpoint(ep: string): string {
   padding: 16px 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .header h1 {
