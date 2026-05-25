@@ -181,6 +181,14 @@ function setSettingValue(channelId: string, fieldKey: string, value: string) {
   editingValues.value[`channel:${channelId}:${fieldKey}`] = value;
 }
 
+function isFieldEdited(channelId: string, fieldKey: string): boolean {
+  const key = `channel:${channelId}:${fieldKey}`;
+  const edited = editingValues.value[key];
+  const saved = channelSettings.value[key];
+  // 有编辑值且与保存值不同
+  return edited !== undefined && edited !== saved;
+}
+
 function toggleChannelExpand(channelId: string) {
   if (expandedChannels.value.has(channelId)) {
     expandedChannels.value.delete(channelId);
@@ -539,11 +547,13 @@ function formatEndpoint(ep: string): string {
                   <label>
                     {{ field.label }}
                     <span v-if="field.required" class="required-mark">*</span>
+                    <span v-if="isFieldEdited(def.id, field.key)" class="unsaved-mark">*</span>
                   </label>
                   <input
                     :type="field.type === 'password' ? 'password' : 'text'"
                     :value="getSettingValue(def.id, field.key)"
                     :placeholder="field.placeholder || `请输入${field.label}`"
+                    :class="{ 'input-unsaved': isFieldEdited(def.id, field.key) }"
                     @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
                   />
                 </div>
@@ -558,17 +568,17 @@ function formatEndpoint(ep: string): string {
                     {{ channelMessages[def.id].text }}
                   </div>
                   <button
+                    class="btn btn-secondary btn-sm"
+                    @click="doTestChannel(def.id)"
+                  >
+                    测试
+                  </button>
+                  <button
                     class="btn btn-primary btn-sm"
                     :disabled="savingChannels[def.id]"
                     @click="doSaveChannel(def.id)"
                   >
                     {{ savingChannels[def.id] ? '保存中...' : '💾 保存' }}
-                  </button>
-                  <button
-                    class="btn btn-secondary btn-sm"
-                    @click="doTestChannel(def.id)"
-                  >
-                    测试
                   </button>
                 </div>
               </div>
@@ -934,6 +944,17 @@ function formatEndpoint(ep: string): string {
 .required-mark {
   color: #e74c3c;
   margin-left: 2px;
+}
+
+.unsaved-mark {
+  color: #f59e0b;
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.input-unsaved {
+  border-color: #f59e0b !important;
+  background-color: #fffbeb;
 }
 
 .hint {
