@@ -97,13 +97,13 @@ export async function saveUserChannelSetting(
   env: Env
 ): Promise<void> {
   const prefix = `user:${username}:ch:${channelId}:`;
-  const list = await env.SUBSCRIPTIONS.list({ prefix });
-  for (const key of list.keys) {
-    await env.SUBSCRIPTIONS.delete(key.name);
-  }
+  // 只更新传入的字段，不删除已有的
   for (const [fieldKey, value] of Object.entries(fields)) {
     if (value) {
       await env.SUBSCRIPTIONS.put(`${prefix}${fieldKey}`, value);
+    } else {
+      // 空值则删除该字段
+      await env.SUBSCRIPTIONS.delete(`${prefix}${fieldKey}`);
     }
   }
 }
