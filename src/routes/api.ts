@@ -80,27 +80,56 @@ api.post('/login', async (c) => {
 
 /** 获取或生成 API Key */
 api.get('/apikey', async (c) => {
-  const username = c.req.query('username');
-  const password = c.req.query('password');
+  // 优先使用 Token 认证
+  const token = c.req.header('X-Token') || c.req.query('token');
+  let username: string | null = null;
 
-  if (!username || !password) {
-    return c.json({ error: '请提供用户名和密码' }, 401);
+  if (token) {
+    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
+    for (const key of list.keys) {
+      const data = await c.env.SUBSCRIPTIONS.get(key.name);
+      if (data) {
+        const user = JSON.parse(data);
+        if (user.token === token && user.expiresAt > Date.now()) {
+          username = key.name.replace('user:', '');
+          break;
+        }
+      }
+    }
   }
 
-  // 验证用户
+  // 回退到用户名密码认证
+  if (!username) {
+    const queryUsername = c.req.query('username');
+    const queryPassword = c.req.query('password');
+
+    if (!queryUsername || !queryPassword) {
+      return c.json({ error: '请提供认证信息' }, 401);
+    }
+
+    const userData = await c.env.SUBSCRIPTIONS.get(`user:${queryUsername}`);
+    if (!userData) {
+      return c.json({ error: '用户不存在' }, 401);
+    }
+
+    const user = JSON.parse(userData);
+    const inputHashed = await hashPassword(queryPassword);
+    if (inputHashed !== user.password) {
+      return c.json({ error: '密码错误' }, 401);
+    }
+
+    username = queryUsername;
+  }
+
+  if (!username) {
+    return c.json({ error: '认证失败' }, 401);
+  }
+
+  // 获取或生成 API Key
   const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
-  if (!userData) {
-    return c.json({ error: '用户不存在' }, 401);
-  }
+  const user = JSON.parse(userData!);
+  const { apikey } = user;
 
-  const user = JSON.parse(userData);
-  const { password: hashed, apikey } = user;
-  const inputHashed = await hashPassword(password);
-  if (inputHashed !== hashed) {
-    return c.json({ error: '密码错误' }, 401);
-  }
-
-  // 如果已有 API Key 则返回，否则生成新的
   if (apikey) {
     return c.json({ apikey });
   }
