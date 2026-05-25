@@ -83,7 +83,8 @@ export async function loadUserChannelSettings(username: string, env: Env): Promi
   for (const key of list.keys) {
     const value = await env.SUBSCRIPTIONS.get(key.name);
     if (value !== null) {
-      settings[key.name.slice(prefix.length)] = value;
+      // user:xxx:ch:wework:webhook_url → channel:wework:webhook_url
+      settings[`channel:${key.name.slice(prefix.length)}`] = value;
     }
   }
   return settings;
@@ -110,7 +111,7 @@ export async function saveUserChannelSetting(
 export function isChannelEnabled(channelId: PushChannel, settings: ChannelSettings): boolean {
   const def = CHANNEL_DEFINITIONS.find((c) => c.id === channelId);
   if (!def) return false;
-  return def.fields.filter((f) => f.required).every((f) => !!settings[`${channelId}:${f.key}`]);
+  return def.fields.filter((f) => f.required).every((f) => !!settings[`channel:${channelId}:${f.key}`]);
 }
 
 export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
@@ -123,7 +124,7 @@ export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
 }
 
 function buildChannelEnv(channelId: PushChannel, settings: ChannelSettings): Record<string, string> {
-  const prefix = `${channelId}:`;
+  const prefix = `channel:${channelId}:`;
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(settings)) {
     if (key.startsWith(prefix)) {
