@@ -296,7 +296,13 @@ function isChannelEnabled(channelId: string): boolean {
 }
 
 function canToggleChannel(def: ChannelDefinition): boolean {
-  // 只有已配置的渠道才能切换启用状态
+  // 只要有任何配置（包括 enabled 字段）或已配置过，就能切换启用状态
+  const prefix = `channel:${def.id}:`;
+  for (const key of Object.keys(channelSettings.value)) {
+    if (key.startsWith(prefix)) {
+      return true;
+    }
+  }
   return isChannelConfigured(def);
 }
 
@@ -644,7 +650,7 @@ function formatEndpoint(ep: string): string {
                   <span class="channel-card-icon">{{ def.icon }}</span>
                   <span class="channel-card-name">{{ def.name }}</span>
                   <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
-                  <span v-if="!isChannelConfigured(def)" class="status-tag status-unconfigured">
+                  <span v-if="!canToggleChannel(def)" class="status-tag status-unconfigured">
                     未配置
                   </span>
                   <span
