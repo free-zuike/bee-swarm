@@ -298,13 +298,16 @@ adminApi.put('/channels/:id', async (c) => {
 
   await saveUserChannelSetting(username, channelId, body.fields, c.env);
 
-  // 检查必填字段是否都清空了，如果是则自动禁用
+  // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
   const def = CHANNEL_DEFINITIONS.find((d) => d.id === channelId);
   if (def) {
     const requiredFields = def.fields.filter((f) => f.required);
     const allEmpty = requiredFields.every((f) => !body.fields[f.key]);
+    const allFilled = requiredFields.every((f) => !!body.fields[f.key]);
     if (allEmpty) {
       await saveUserChannelSetting(username, channelId, { enabled: 'false' }, c.env);
+    } else if (allFilled) {
+      await saveUserChannelSetting(username, channelId, { enabled: 'true' }, c.env);
     }
   }
 
