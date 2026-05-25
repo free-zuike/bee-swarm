@@ -23,7 +23,7 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
   {
     id: 'dingtalk',
     name: '钉钉',
-    icon: '💬',
+    icon: '🅰️',
     fields: [
       { key: 'webhook_url', label: 'Webhook URL', type: 'url', placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=xxx', required: true },
       { key: 'secret', label: '加签密钥', type: 'text', placeholder: 'SEC...', required: false },
@@ -49,7 +49,7 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
   {
     id: 'bark',
     name: 'Bark',
-    icon: '🐕',
+    icon: '📱',
     fields: [
       { key: 'key', label: 'Bark Key', type: 'text', placeholder: 'https://api.day.app/xxx 中的 xxx', required: true },
       { key: 'server', label: '服务器地址', type: 'url', placeholder: 'https://api.day.app（默认官方服务器）', required: false },
