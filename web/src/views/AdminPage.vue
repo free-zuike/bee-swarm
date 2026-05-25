@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { register, login, getChannels, saveChannel, sendPush } from '@/api';
+import { register, login, getChannels, saveChannel, sendPush, getHistory } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
 // ==================== 页面状态 ====================
@@ -22,7 +22,7 @@ const email = ref('');
 const password = ref('');
 
 // ==================== Dashboard Tab ====================
-const activeTab = ref<'push' | 'settings' | 'subs'>('push');
+const activeTab = ref<'push' | 'settings' | 'history'>('push');
 
 // ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
@@ -46,6 +46,21 @@ const pushBody = ref('');
 const pushUrl = ref('');
 const isPushing = ref(false);
 const pushResults = ref<PushResult[]>([]);
+
+// ==================== 历史记录 ====================
+const pushHistory = ref<any[]>([]);
+const isLoadingHistory = ref(false);
+
+async function loadHistory() {
+  isLoadingHistory.value = true;
+  try {
+    const data = await getHistory(email.value, password.value);
+    pushHistory.value = data.history || [];
+  } catch (err: any) {
+    console.error('加载历史记录失败:', err);
+  }
+  isLoadingHistory.value = false;
+}
 
 // ==================== 统计 ====================
 const lastPushTime = ref('-');
@@ -85,6 +100,9 @@ onMounted(async () => {
 watch(activeTab, (newTab) => {
   if (newTab === 'push' || newTab === 'settings') {
     loadChannels();
+  }
+  if (newTab === 'history') {
+    loadHistory();
   }
 });
 
@@ -317,6 +335,8 @@ async function doPush() {
       pushBody.value = '';
       pushUrl.value = '';
     }
+    // 刷新历史记录
+    await loadHistory();
   } catch (err: any) {
     pushResults.value = [{ channel: 'webpush', success: false, message: err.message }];
   }
@@ -438,7 +458,13 @@ function formatEndpoint(ep: string): string {
         >
           ⚙️ 设置
         </button>
-
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'history' }"
+          @click="activeTab = 'history'"
+        >
+          推送历史
+        </button>
       </div>
 
       <!-- ==================== 推送 Tab ==================== -->
@@ -597,6 +623,50 @@ function formatEndpoint(ep: string): string {
         </div>
       </div>
 
+      <!-- ==================== 历史记录 Tab ==================== -->
+      <div v-if="activeTab === 'history'" class="tab-content">
+        <div class="panel">
+          <h2>📜 推送历史</h2>
+
+          <div v-if="isLoadingHistory" class="loading-placeholder">
+            <div class="loading-spinner"></div>
+            <p>加载中...</p>
+          </div>
+
+          <div v-else-if="pushHistory.length === 0" class="empty">
+            <p>暂无推送记录</p>
+          </div>
+
+          <div v-else class="history-list">
+            <div
+              v-for="(record, index) in pushHistory"
+              :key="index"
+              class="history-item"
+            >
+              <div class="history-header">
+                <div class="history-title">{{ record.title }}</div>
+                <div class="history-time">{{ new Date(record.time).toLocaleString('zh-CN') }}</div>
+              </div>
+              <div v-if="record.body" class="history-body">{{ record.body }}</div>
+              <div v-if="record.url" class="history-url">
+                <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
+              </div>
+              <div class="history-results">
+                <div
+                  v-for="result in record.results"
+                  :key="result.channel"
+                  class="history-result"
+                  :class="result.success ? 'success' : 'error'"
+                >
+                  <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
+                  <span class="result-channel">{{ channels.find((c) => c.id === result.channel)?.icon || '' }} {{ result.channel }}</span>
+                  <span class="result-message">{{ result.message }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -1193,5 +1263,111 @@ function formatEndpoint(ep: string): string {
   padding: 32px;
   color: #999;
   font-size: 14px;
+}
+
+/* ==================== 历史记录 ==================== */
+
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  gap: 12px;
+  color: #999;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.history-item {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid #eee;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #1a1a2e;
+}
+
+.history-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.history-body {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.history-url {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.history-url a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.history-url a:hover {
+  text-decoration: underline;
+}
+
+.history-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.history-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.history-result.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.history-result.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.result-status {
+  font-weight: bold;
+}
+
+.result-channel {
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.result-message {
+  color: inherit;
+  opacity: 0.9;
 }
 </style>

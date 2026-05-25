@@ -150,7 +150,30 @@ export async function dispatchPush(
     return [{ channel: 'wework' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置' }];
   }
 
-  return Promise.all(targetChannels.map((ch) => sendToChannel(ch.id, payload, settings)));
+  const results = await Promise.all(targetChannels.map((ch) => sendToChannel(ch.id, payload, settings)));
+
+  // 保存推送记录
+  const recordKey = `user:${username}:push:${Date.now()}`;
+  await env.SUBSCRIPTIONS.put(recordKey, JSON.stringify({
+    time: new Date().toISOString(),
+    title: payload.title,
+    body: payload.body,
+    url: payload.url,
+    results: results,
+  }));
+
+  return results;
+}
+
+export async function getPushHistory(username: string, env: Env, limit = 50): Promise<any[]> {
+  const prefix = `user:${username}:push:`;
+  const list = await env.SUBSCRIPTIONS.list({ prefix, limit: limit });
+  const records: any[] = [];
+  for (const key of list.keys.sort((a, b) => b.name.localeCompare(a.name))) {
+    const data = await env.SUBSCRIPTIONS.get(key.name);
+    if (data) records.push(JSON.parse(data));
+  }
+  return records;
 }
 
 async function sendToChannel(

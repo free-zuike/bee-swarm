@@ -91,3 +91,15 @@ export async function sendPush(
     body: JSON.stringify(payload),
   });
 }
+
+export async function getHistory(username: string, password: string): Promise<{
+  history: Array<{
+    time: string;
+    title: string;
+    body: string;
+    url: string;
+    results: Array<{ channel: PushChannel; success: boolean; message: string }>;
+  }>;
+}> {
+  return request(`${BASE}/admin/history${authQuery(username, password)}`);
+}

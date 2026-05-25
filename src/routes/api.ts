@@ -10,6 +10,7 @@ import {
   loadUserChannelSettings,
   saveUserChannelSetting,
   CHANNEL_DEFINITIONS,
+  getPushHistory,
 } from '../services/dispatcher';
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
@@ -160,6 +161,13 @@ adminApi.post('/push', async (c) => {
     message: `推送完成: ${successCount} 成功, ${failedCount} 失败`,
     results,
   });
+});
+
+/** 获取推送记录 */
+adminApi.get('/history', async (c) => {
+  const username = c.get('username');
+  const history = await getPushHistory(username, c.env);
+  return c.json({ history });
 });
 
 // ============================================
