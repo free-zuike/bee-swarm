@@ -2,7 +2,7 @@
 // ============================================
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { register, login, getChannels, saveChannel, sendPush } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
@@ -29,6 +29,9 @@ const channels = ref<ChannelConfig[]>([]);
 const channelDefinitions = ref<ChannelDefinition[]>([]);
 const channelSettings = ref<ChannelSettings>({});
 const selectedChannels = ref<Set<PushChannel>>(new Set());
+
+// ==================== 编辑状态（未保存的值） ====================
+const editingValues = ref<ChannelSettings>({});
 
 // ==================== 设置面板 ====================
 const expandedChannels = ref<Set<string>>(new Set());
@@ -75,6 +78,13 @@ onMounted(async () => {
     pageState.value = 'auth';
   } catch {
     pageState.value = 'auth';
+  }
+});
+
+// ==================== Tab 切换软刷新 ====================
+watch(activeTab, (newTab) => {
+  if (newTab === 'push' || newTab === 'settings') {
+    loadChannels();
   }
 });
 
@@ -153,6 +163,7 @@ async function loadChannels() {
 
 // ==================== 设置相关 ====================
 function isChannelConfigured(def: ChannelDefinition): boolean {
+  // 只检查已保存的配置（channelSettings），不包含编辑中的值
   return def.fields.some((f) => {
     const key = `channel:${def.id}:${f.key}`;
     return channelSettings.value[key] && channelSettings.value[key].trim() !== '';
@@ -160,11 +171,14 @@ function isChannelConfigured(def: ChannelDefinition): boolean {
 }
 
 function getSettingValue(channelId: string, fieldKey: string): string {
-  return channelSettings.value[`channel:${channelId}:${fieldKey}`] || '';
+  const key = `channel:${channelId}:${fieldKey}`;
+  // 优先从编辑中的值读取，没有则从已保存的配置读取
+  return editingValues.value[key] ?? channelSettings.value[key] ?? '';
 }
 
 function setSettingValue(channelId: string, fieldKey: string, value: string) {
-  channelSettings.value[`channel:${channelId}:${fieldKey}`] = value;
+  // 只修改编辑中的值，不影响已保存的配置状态
+  editingValues.value[`channel:${channelId}:${fieldKey}`] = value;
 }
 
 function toggleChannelExpand(channelId: string) {
@@ -184,7 +198,7 @@ async function doSaveChannel(channelId: string) {
     const def = channelDefinitions.value.find((d) => d.id === channelId);
     if (!def) throw new Error('渠道不存在');
 
-    // 收集该渠道的字段值
+    // 收集该渠道的字段值（从 editingValues 或 channelSettings）
     const fields: Record<string, string> = {};
     for (const field of def.fields) {
       fields[field.key] = getSettingValue(channelId, field.key);
@@ -196,6 +210,11 @@ async function doSaveChannel(channelId: string) {
     const data = await getChannels(email.value, password.value);
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
+    // 保存成功后，清空该渠道的编辑值
+    for (const field of def.fields) {
+      const key = `channel:${channelId}:${field.key}`;
+      delete editingValues.value[key];
+    }
     channelMessages[channelId] = { text: result.message || '保存成功', type: 'success' };
   } catch (err: any) {
     channelMessages[channelId] = { text: err.message || '保存失败', type: 'error' };

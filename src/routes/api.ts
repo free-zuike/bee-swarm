@@ -162,5 +162,45 @@ adminApi.post('/push', async (c) => {
   });
 });
 
+// ============================================
+// 测试接口（无需认证）
+// ============================================
+
+/** 测试 Bark 配置 */
+api.get('/test/bark', async (c) => {
+  const key = c.req.query('key');
+  const server = c.req.query('server') || 'https://api.day.app';
+
+  if (!key) {
+    return c.json({ error: '请提供 Bark Key' }, 400);
+  }
+
+  try {
+    // 发送测试请求（不实际推送，只验证 key 是否有效）
+    const testUrl = `${server}/${key}/测试标题/这是一条测试消息`;
+    const res = await fetch(testUrl);
+    const data = await res.json() as { code: number; message: string };
+
+    if (data.code === 200) {
+      return c.json({
+        success: true,
+        message: 'Bark Key 有效',
+        note: '请确保 iOS 设备已安装 Bark App 并启用推送',
+      });
+    }
+
+    return c.json({
+      success: false,
+      message: `Bark 测试失败: ${data.message}`,
+      code: data.code,
+    });
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      message: `请求异常: ${err.message}`,
+    });
+  }
+});
+
 api.route('/admin', adminApi);
 export default api;
