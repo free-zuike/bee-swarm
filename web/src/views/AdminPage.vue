@@ -292,7 +292,8 @@ function isChannelConfigured(def: ChannelDefinition): boolean {
 function isChannelEnabled(channelId: string): boolean {
   const key = `channel:${channelId}:enabled`;
   const value = channelSettings.value[key];
-  return value !== 'false'; // 未设置或为 true 都视为启用
+  // 转换为字符串比较
+  return String(value) !== 'false'; // 未设置或为 true 都视为启用
 }
 
 function canToggleChannel(def: ChannelDefinition): boolean {
@@ -314,15 +315,14 @@ async function toggleChannelEnabled(channelId: string) {
 
   const key = `channel:${channelId}:enabled`;
   const current = channelSettings.value[key];
-  const newValue = current === 'false' ? 'true' : 'false';
-
-  console.log('Toggle channel:', channelId, 'current:', current, 'new:', newValue);
+  // 转换为字符串比较
+  const currentStr = String(current);
+  const newValue = currentStr === 'false' ? 'true' : 'false';
 
   try {
     await saveChannelWithToken(accessToken.value, channelId, { enabled: newValue });
     // 重新加载 channels 和 settings 以确保数据同步
     const data = await getChannelsWithToken(accessToken.value);
-    console.log('Reloaded settings:', data.settings);
     channels.value = data.channels;
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
