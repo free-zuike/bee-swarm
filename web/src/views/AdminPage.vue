@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { register, login, getChannels, saveChannel, sendPush, getHistory } from '@/api';
+import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
 // ==================== 页面状态 ====================
@@ -20,6 +20,11 @@ const authError = ref('');
 // 登录后的凭证
 const email = ref('');
 const password = ref('');
+
+// Token 相关
+const accessToken = ref('');
+const refreshTokenValue = ref('');
+const tokenExpiresAt = ref(0);
 
 // ==================== Dashboard Tab ====================
 const activeTab = ref<'push' | 'history'>('push');
@@ -59,8 +64,7 @@ const apiKey = ref('');
 
 async function loadApiKey() {
   try {
-    const res = await fetch(`/api/apikey?username=${email.value}&password=${password.value}`);
-    const data = await res.json();
+    const data = await getApiKeyWithToken(accessToken.value);
     if (data.apikey) {
       apiKey.value = data.apikey;
     }
@@ -72,7 +76,7 @@ async function loadApiKey() {
 async function loadHistory() {
   isLoadingHistory.value = true;
   try {
-    const data = await getHistory(email.value, password.value);
+    const data = await getHistoryWithToken(accessToken.value);
     pushHistory.value = data.history || [];
   } catch (err: any) {
     console.error('加载历史记录失败:', err);
@@ -93,17 +97,68 @@ const settingsDefinitions = computed(() =>
 onMounted(async () => {
   try {
     // 尝试从 sessionStorage 恢复凭证
-    const savedUsername = sessionStorage.getItem('push_hub_email');
+    const savedEmail = sessionStorage.getItem('push_hub_email');
     const savedPassword = sessionStorage.getItem('push_hub_password');
-    if (savedUsername && savedPassword) {
-      email.value = savedUsername;
-      password.value = savedPassword;
+    const savedToken = sessionStorage.getItem('push_hub_token');
+    const savedRefreshToken = sessionStorage.getItem('push_hub_refresh_token');
+    const savedExpiresAt = sessionStorage.getItem('push_hub_expires_at');
+
+    if (savedEmail && savedToken && savedRefreshToken && savedExpiresAt) {
+      email.value = savedEmail;
+      accessToken.value = savedToken;
+      refreshTokenValue.value = savedRefreshToken;
+      tokenExpiresAt.value = parseInt(savedExpiresAt, 10);
+
+      // 检查 token 是否过期
+      if (tokenExpiresAt.value > Date.now()) {
+        try {
+          await loadChannels();
+          pageState.value = 'dashboard';
+          return;
+        } catch {
+          // token 可能过期，尝试刷新
+        }
+      }
+
+      // 尝试刷新 token
       try {
+        const tokenData = await refreshToken(refreshTokenValue.value);
+        accessToken.value = tokenData.token;
+        refreshTokenValue.value = tokenData.refreshToken;
+        tokenExpiresAt.value = tokenData.expiresAt;
+        sessionStorage.setItem('push_hub_token', tokenData.token);
+        sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
+        sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
         await loadChannels();
         pageState.value = 'dashboard';
         return;
       } catch {
-        // 自动恢复失败，清除凭证
+        // 刷新失败，清除凭证
+        sessionStorage.removeItem('push_hub_email');
+        sessionStorage.removeItem('push_hub_password');
+        sessionStorage.removeItem('push_hub_token');
+        sessionStorage.removeItem('push_hub_refresh_token');
+        sessionStorage.removeItem('push_hub_expires_at');
+      }
+    } else if (savedEmail && savedPassword) {
+      // 旧版本只有 email/password，尝试获取新 token
+      email.value = savedEmail;
+      password.value = savedPassword;
+      try {
+        const tokenData = await getToken(savedEmail, savedPassword);
+        accessToken.value = tokenData.token;
+        refreshTokenValue.value = tokenData.refreshToken;
+        tokenExpiresAt.value = tokenData.expiresAt;
+        sessionStorage.setItem('push_hub_email', savedEmail);
+        sessionStorage.setItem('push_hub_password', savedPassword);
+        sessionStorage.setItem('push_hub_token', tokenData.token);
+        sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
+        sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
+        await loadChannels();
+        pageState.value = 'dashboard';
+        return;
+      } catch {
+        // 获取 token 失败，清除凭证
         sessionStorage.removeItem('push_hub_email');
         sessionStorage.removeItem('push_hub_password');
       }
@@ -134,11 +189,24 @@ async function doLogin() {
   authError.value = '';
 
   try {
+    // 登录验证
     const res = await login(authEmail.value.trim(), authPassword.value);
     email.value = res.email || authEmail.value.trim();
     password.value = authPassword.value;
+
+    // 获取 Token
+    const tokenData = await getToken(authEmail.value.trim(), authPassword.value);
+    accessToken.value = tokenData.token;
+    refreshTokenValue.value = tokenData.refreshToken;
+    tokenExpiresAt.value = tokenData.expiresAt;
+
+    // 保存凭证到 sessionStorage
     sessionStorage.setItem('push_hub_email', email.value);
     sessionStorage.setItem('push_hub_password', password.value);
+    sessionStorage.setItem('push_hub_token', tokenData.token);
+    sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
+    sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
+
     await loadChannels();
     pageState.value = 'dashboard';
   } catch (err: any) {
@@ -178,8 +246,14 @@ async function doRegister() {
 function logout() {
   sessionStorage.removeItem('push_hub_email');
   sessionStorage.removeItem('push_hub_password');
+  sessionStorage.removeItem('push_hub_token');
+  sessionStorage.removeItem('push_hub_refresh_token');
+  sessionStorage.removeItem('push_hub_expires_at');
   email.value = '';
   password.value = '';
+  accessToken.value = '';
+  refreshTokenValue.value = '';
+  tokenExpiresAt.value = 0;
   authEmail.value = '';
   authPassword.value = '';
   authConfirmPassword.value = '';
@@ -189,7 +263,7 @@ function logout() {
 
 // ==================== 数据加载 ====================
 async function loadChannels() {
-  const data = await getChannels(email.value, password.value);
+  const data = await getChannelsWithToken(accessToken.value);
   channels.value = data.channels;
   channelSettings.value = data.settings;
   channelDefinitions.value = data.definitions;
@@ -227,7 +301,7 @@ async function toggleChannelEnabled(channelId: string) {
   channelSettings.value[key] = newValue;
   // 保存到后端
   try {
-    await saveChannel(email.value, password.value, channelId, { enabled: newValue });
+    await saveChannelWithToken(accessToken.value, channelId, { enabled: newValue });
   } catch (err) {
     console.error('保存渠道启用状态失败:', err);
   }
@@ -288,10 +362,10 @@ async function doSaveChannel(channelId: string) {
       fields[field.key] = getSettingValue(channelId, field.key);
     }
 
-    const result = await saveChannel(email.value, password.value, channelId, fields);
+    const result = await saveChannelWithToken(accessToken.value, channelId, fields);
     channels.value = result.channels;
     // 重新加载设置以确保同步
-    const data = await getChannels(email.value, password.value);
+    const data = await getChannelsWithToken(accessToken.value);
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
     // 保存成功后，清空该渠道的编辑值
@@ -310,24 +384,24 @@ async function doSaveChannel(channelId: string) {
 async function doTestChannel(channelId: string) {
   const def = channelDefinitions.value.find((d) => d.id === channelId);
   if (!def) return;
-  
+
   // 优先使用编辑中的值，没有则用已保存的值
   const fields: Record<string, string> = {};
   for (const field of def.fields) {
     const editKey = `channel:${channelId}:${field.key}`;
     fields[field.key] = editingValues.value[editKey] ?? channelSettings.value[editKey] ?? '';
   }
-  
+
   // 检查是否已配置
   const isConfigured = def.fields.filter(f => f.required).every(f => !!fields[f.key]);
   if (!isConfigured) {
     channelMessages[channelId] = { text: '请先配置必填项', type: 'error' };
     return;
   }
-  
+
   // 调用 sendPush 发送测试
   try {
-    const result = await sendPush(email.value, password.value, {
+    const result = await sendPushWithToken(accessToken.value, {
       title: '测试消息',
       body: '这是一条来自蜂群的测试消息',
       channels: [channelId as any],
@@ -389,7 +463,7 @@ async function doPush() {
       payload.channels = Array.from(selectedChannels.value);
     }
 
-    const result = await sendPush(email.value, password.value, payload);
+    const result = await sendPushWithToken(accessToken.value, payload);
     pushResults.value = result.results;
     lastPushTime.value = new Date().toLocaleTimeString('zh-CN');
 

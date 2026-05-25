@@ -93,7 +93,8 @@ api.get('/apikey', async (c) => {
     return c.json({ error: '用户不存在' }, 401);
   }
 
-  const { password: hashed, apikey } = JSON.parse(userData);
+  const user = JSON.parse(userData);
+  const { password: hashed, apikey } = user;
   const inputHashed = await hashPassword(password);
   if (inputHashed !== hashed) {
     return c.json({ error: '密码错误' }, 401);
@@ -106,8 +107,74 @@ api.get('/apikey', async (c) => {
 
   // 生成新的 API Key
   const newApikey = crypto.randomUUID().replace(/-/g, '');
-  await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify({ password: hashed, apikey: newApikey }));
+  user.apikey = newApikey;
+  await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify(user));
   return c.json({ apikey: newApikey });
+});
+
+/** 获取访问 Token */
+api.post('/token', async (c) => {
+  const { email, password } = await c.req.json();
+
+  if (!email || !password) {
+    return c.json({ error: '请提供邮箱和密码' }, 400);
+  }
+
+  const userData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
+  if (!userData) {
+    return c.json({ error: '用户不存在' }, 401);
+  }
+
+  const user = JSON.parse(userData);
+  const inputHashed = await hashPassword(password);
+  if (inputHashed !== user.password) {
+    return c.json({ error: '密码错误' }, 401);
+  }
+
+  // 生成 token
+  const token = crypto.randomUUID().replace(/-/g, '');
+  const refreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 天后过期
+
+  user.token = token;
+  user.refreshToken = refreshToken;
+  user.expiresAt = expiresAt;
+  await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify(user));
+
+  return c.json({ token, refreshToken, expiresAt });
+});
+
+/** 刷新 Token */
+api.post('/refresh', async (c) => {
+  const { refreshToken } = await c.req.json();
+
+  if (!refreshToken) {
+    return c.json({ error: '请提供 refresh token' }, 400);
+  }
+
+  // 查找用户
+  const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
+  for (const key of list.keys) {
+    const data = await c.env.SUBSCRIPTIONS.get(key.name);
+    if (data) {
+      const user = JSON.parse(data);
+      if (user.refreshToken === refreshToken) {
+        // 生成新 token
+        const token = crypto.randomUUID().replace(/-/g, '');
+        const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+        const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+
+        user.token = token;
+        user.refreshToken = newRefreshToken;
+        user.expiresAt = expiresAt;
+        await c.env.SUBSCRIPTIONS.put(key.name, JSON.stringify(user));
+
+        return c.json({ token, refreshToken: newRefreshToken, expiresAt });
+      }
+    }
+  }
+
+  return c.json({ error: '无效的 refresh token' }, 401);
 });
 
 // ============================================
@@ -116,18 +183,16 @@ api.get('/apikey', async (c) => {
 const adminApi = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
 adminApi.use('/*', async (c, next) => {
-  // 优先使用 API Key 认证
+  // 1. 优先使用 API Key
   const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
   if (apiKey) {
-    // 遍历所有用户查找匹配的 API Key
     const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
     for (const key of list.keys) {
       const data = await c.env.SUBSCRIPTIONS.get(key.name);
       if (data) {
         const user = JSON.parse(data);
         if (user.apikey === apiKey) {
-          const username = key.name.replace('user:', '');
-          c.set('username', username);
+          c.set('username', key.name.replace('user:', ''));
           await next();
           return;
         }
@@ -136,7 +201,25 @@ adminApi.use('/*', async (c, next) => {
     return c.json({ error: '无效的 API Key' }, 401);
   }
 
-  // 回退到用户名密码认证
+  // 2. 使用 Token
+  const token = c.req.header('X-Token') || c.req.query('token');
+  if (token) {
+    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
+    for (const key of list.keys) {
+      const data = await c.env.SUBSCRIPTIONS.get(key.name);
+      if (data) {
+        const user = JSON.parse(data);
+        if (user.token === token && user.expiresAt > Date.now()) {
+          c.set('username', key.name.replace('user:', ''));
+          await next();
+          return;
+        }
+      }
+    }
+    return c.json({ error: '无效或已过期的 Token' }, 401);
+  }
+
+  // 3. 回退到用户名密码
   const username = c.req.query('username');
   const password = c.req.query('password') || c.req.header('X-Password') || '';
 

@@ -9,6 +9,13 @@ export interface PushPayload {
   icon?: string;
 }
 
+/** 用户 Token 信息 */
+export interface UserToken {
+  token: string;         // 访问 token
+  refreshToken: string;   // 刷新 token
+  expiresAt: number;      // 过期时间戳
+}
+
 export type PushChannel =
   | 'wework'
   | 'dingtalk'
