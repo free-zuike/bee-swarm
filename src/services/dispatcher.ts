@@ -153,7 +153,17 @@ export async function dispatchPush(
     return [{ channel: 'wework' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置' }];
   }
 
-  const results = await Promise.all(targetChannels.map((ch) => sendToChannel(ch.id, payload, settings)));
+  // 检查是否有已启用且已配置的渠道
+  const enabledChannels = targetChannels.filter((ch) => {
+    const enabled = settings[`channel:${ch.id}:enabled`];
+    return enabled !== 'false'; // 未设置或设置为 true 都视为启用
+  });
+
+  if (enabledChannels.length === 0) {
+    return [{ channel: 'wework' as PushChannel, success: false, message: '没有已启用的推送渠道' }];
+  }
+
+  const results = await Promise.all(enabledChannels.map((ch) => sendToChannel(ch.id, payload, settings)));
 
   // 保存推送记录
   const recordKey = `user:${username}:push:${Date.now()}`;

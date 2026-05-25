@@ -208,6 +208,26 @@ function isChannelConfigured(def: ChannelDefinition): boolean {
   });
 }
 
+function isChannelEnabled(channelId: string): boolean {
+  const key = `channel:${channelId}:enabled`;
+  const value = channelSettings.value[key];
+  return value !== 'false'; // 未设置或为 true 都视为启用
+}
+
+async function toggleChannelEnabled(channelId: string) {
+  const key = `channel:${channelId}:enabled`;
+  const current = channelSettings.value[key];
+  // 切换状态
+  const newValue = current === 'false' ? 'true' : 'false';
+  channelSettings.value[key] = newValue;
+  // 保存到后端
+  try {
+    await saveChannel(email.value, password.value, channelId, { enabled: newValue });
+  } catch (err) {
+    console.error('保存渠道启用状态失败:', err);
+  }
+}
+
 function getSettingValue(channelId: string, fieldKey: string): string {
   const key = `channel:${channelId}:${fieldKey}`;
   // 优先从编辑中的值读取，没有则从已保存的配置读取
@@ -529,10 +549,10 @@ function formatEndpoint(ep: string): string {
                   <span class="channel-card-name">{{ def.name }}</span>
                   <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
                   <span
-                    class="channel-status-tag"
-                    :class="isChannelConfigured(def) ? 'configured' : 'unconfigured'"
+                    :class="isChannelConfigured(def) ? 'channel-status-tag configured' : 'channel-status-tag unconfigured'"
+                    @click.stop="toggleChannelEnabled(def.id)"
                   >
-                    {{ isChannelConfigured(def) ? '已配置' : '未配置' }}
+                    {{ isChannelEnabled(def.id) ? '已启用' : '已禁用' }}
                   </span>
                 </div>
                 <span class="expand-arrow" :class="{ expanded: expandedChannels.has(def.id) }">
@@ -1251,6 +1271,7 @@ function formatEndpoint(ep: string): string {
   padding: 3px 10px;
   border-radius: 20px;
   letter-spacing: 0.5px;
+  cursor: pointer;
 }
 
 .channel-status-tag.configured {
@@ -1261,6 +1282,22 @@ function formatEndpoint(ep: string): string {
 .channel-status-tag.unconfigured {
   background: #f0f0f0;
   color: #999;
+}
+
+.status-configured,
+.status-unconfigured {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.status-configured {
+  background: #d1fae5;
+  color: #065f46;
+}
+.status-unconfigured {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .expand-arrow {
