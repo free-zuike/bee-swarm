@@ -326,7 +326,9 @@ async function toggleChannelEnabled(channelId: string) {
     console.log('Save result:', saveResult);
     // 重新加载 channels 和 settings 以确保数据同步
     const data = await getChannelsWithToken(accessToken.value);
-    console.log('Reloaded settings:', data.settings, 'key value:', data.settings[key]);
+    const settingsKey = `channel:${channelId}:enabled`;
+    console.log('Reloaded settings key:', settingsKey, 'value:', data.settings[settingsKey]);
+    console.log('All settings:', JSON.stringify(data.settings));
     channels.value = data.channels;
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
