@@ -595,10 +595,10 @@ function formatEndpoint(ep: string): string {
         <div class="panel">
           <div class="api-key-panel">
             <h3>🔑 API Key</h3>
-            <p class="hint">使用 API Key 调用推送接口，无需暴露账号密码</p>
+            <p class="hint">使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。</p>
             <div v-if="apiKey" class="api-key-display">
               <code>{{ apiKey }}</code>
-              <button class="btn btn-sm" @click="loadApiKey">刷新</button>
+              <button class="btn btn-sm btn-warning" @click="loadApiKey">重新生成</button>
             </div>
             <div v-else>
               <button class="btn btn-secondary" @click="loadApiKey">生成 API Key</button>
@@ -1142,6 +1142,17 @@ function formatEndpoint(ep: string): string {
 .btn-sm {
   padding: 8px 18px;
   font-size: 13px;
+}
+
+.btn-warning {
+  background-color: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.btn-warning:hover {
+  background-color: #d97706;
+  border-color: #d97706;
 }
 
 /* ==================== 推送结果 ==================== */
