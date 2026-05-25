@@ -299,8 +299,9 @@ adminApi.put('/channels/:id', async (c) => {
   await saveUserChannelSetting(username, channelId, body.fields, c.env);
 
   // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
+  // 注意：只传 enabled 时不触发此逻辑
   const def = CHANNEL_DEFINITIONS.find((d) => d.id === channelId);
-  if (def) {
+  if (def && Object.keys(body.fields).some(k => k !== 'enabled')) {
     const requiredFields = def.fields.filter((f) => f.required);
     const allEmpty = requiredFields.every((f) => !body.fields[f.key]);
     const allFilled = requiredFields.every((f) => !!body.fields[f.key]);
