@@ -550,18 +550,25 @@ function formatEndpoint(ep: string): string {
 
           <!-- 推送结果 -->
           <div v-if="pushResults.length" class="result-list">
-            <div
-              v-for="r in pushResults"
-              :key="r.channel"
-              class="result-item"
-              :class="r.success ? 'success' : 'error'"
-            >
-              <span class="ch-label">
-                {{ channels.find((c) => c.id === r.channel)?.icon || '❓' }}
-                {{ channels.find((c) => c.id === r.channel)?.name || r.channel }}
-              </span>
-              <span>{{ r.message }}</span>
-            </div>
+            <template v-if="isNoChannelSelectedError(pushResults)">
+              <div class="result-item error">
+                <span>⚠️ 未选择任何推送渠道，请先选择后再推送</span>
+              </div>
+            </template>
+            <template v-else>
+              <div
+                v-for="r in pushResults"
+                :key="r.channel"
+                class="result-item"
+                :class="r.success ? 'success' : 'error'"
+              >
+                <span class="ch-label">
+                  {{ channels.find((c) => c.id === r.channel)?.icon || '❓' }}
+                  {{ channels.find((c) => c.id === r.channel)?.name || r.channel }}
+                </span>
+                <span>{{ r.message }}</span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
