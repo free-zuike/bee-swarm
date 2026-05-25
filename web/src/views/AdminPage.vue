@@ -297,13 +297,16 @@ function canToggleChannel(def: ChannelDefinition): boolean {
   return isChannelConfigured(def);
 }
 
+const togglingChannel = ref<string | null>(null);
+
 async function toggleChannelEnabled(channelId: string) {
+  if (togglingChannel.value) return; // 防止重复点击
+  togglingChannel.value = channelId;
+
   const key = `channel:${channelId}:enabled`;
   const current = channelSettings.value[key];
-  // 切换状态
   const newValue = current === 'false' ? 'true' : 'false';
-  channelSettings.value[key] = newValue;
-  // 保存到后端
+
   try {
     await saveChannelWithToken(accessToken.value, channelId, { enabled: newValue });
     // 重新加载 channels 和 settings 以确保数据同步
@@ -313,6 +316,8 @@ async function toggleChannelEnabled(channelId: string) {
     channelDefinitions.value = data.definitions;
   } catch (err) {
     console.error('保存渠道启用状态失败:', err);
+  } finally {
+    togglingChannel.value = null;
   }
 }
 

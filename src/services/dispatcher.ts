@@ -109,6 +109,11 @@ export async function saveUserChannelSetting(
 }
 
 export function isChannelEnabled(channelId: PushChannel, settings: ChannelSettings): boolean {
+  // 先检查 enabled 字段
+  const enabledValue = settings[`channel:${channelId}:enabled`];
+  if (enabledValue === 'false') return false;
+
+  // 再检查必填字段是否已配置
   const def = CHANNEL_DEFINITIONS.find((c) => c.id === channelId);
   if (!def) return false;
   return def.fields.filter((f) => f.required).every((f) => !!settings[`channel:${channelId}:${f.key}`]);
