@@ -62,9 +62,9 @@ const isLoadingHistory = ref(false);
 // ==================== API Key ====================
 const apiKey = ref('');
 
-async function loadApiKey() {
+async function loadApiKey(refresh = false) {
   try {
-    const data = await getApiKeyWithToken(accessToken.value);
+    const data = await getApiKeyWithToken(accessToken.value, refresh);
     if (data.apikey) {
       apiKey.value = data.apikey;
     }
@@ -608,10 +608,10 @@ function formatEndpoint(ep: string): string {
             <p class="hint">使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。</p>
             <div v-if="apiKey" class="api-key-display">
               <code>{{ apiKey }}</code>
-              <button class="btn btn-sm btn-warning" @click="loadApiKey">重新生成</button>
+              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">重新生成</button>
             </div>
             <div v-else>
-              <button class="btn btn-secondary" @click="loadApiKey">生成 API Key</button>
+              <button class="btn btn-secondary" @click="loadApiKey()">生成 API Key</button>
             </div>
           </div>
         </div>

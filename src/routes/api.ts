@@ -130,7 +130,9 @@ api.get('/apikey', async (c) => {
   const user = JSON.parse(userData!);
   const { apikey } = user;
 
-  if (apikey) {
+  const forceRefresh = c.req.query('refresh') === 'true';
+
+  if (apikey && !forceRefresh) {
     return c.json({ apikey });
   }
 

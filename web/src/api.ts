@@ -216,6 +216,7 @@ export async function getHistoryWithToken(token: string): Promise<{
   return tokenRequest(`${BASE}/admin/history`, token);
 }
 
-export async function getApiKeyWithToken(token: string): Promise<{ apikey: string }> {
-  return tokenRequest(`${BASE}/apikey`, token);
+export async function getApiKeyWithToken(token: string, refresh?: boolean): Promise<{ apikey: string }> {
+  const url = refresh ? `${BASE}/apikey?refresh=true` : `${BASE}/apikey`;
+  return tokenRequest(url, token);
 }
