@@ -549,7 +549,8 @@ function formatEndpoint(ep: string): string {
                   <span class="channel-card-name">{{ def.name }}</span>
                   <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
                   <span
-                    :class="isChannelConfigured(def) ? 'channel-status-tag configured' : 'channel-status-tag unconfigured'"
+                    class="status-tag"
+                    :class="isChannelEnabled(def.id) ? 'status-enabled' : 'status-disabled'"
                     @click.stop="toggleChannelEnabled(def.id)"
                   >
                     {{ isChannelEnabled(def.id) ? '已启用' : '已禁用' }}
@@ -1274,30 +1275,19 @@ function formatEndpoint(ep: string): string {
   cursor: pointer;
 }
 
-.channel-status-tag.configured {
-  background: #d4edda;
-  color: #155724;
-}
-
-.channel-status-tag.unconfigured {
-  background: #f0f0f0;
-  color: #999;
-}
-
-.status-configured,
-.status-unconfigured {
+.status-tag {
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 10px;
   cursor: pointer;
 }
-.status-configured {
+.status-enabled {
   background: #d1fae5;
   color: #065f46;
 }
-.status-unconfigured {
-  background: #fee2e2;
-  color: #991b1b;
+.status-disabled {
+  background: #e5e7eb;
+  color: #6b7280;
 }
 
 .expand-arrow {
