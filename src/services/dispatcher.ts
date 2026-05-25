@@ -142,9 +142,12 @@ export async function dispatchPush(
 ): Promise<ChannelResult[]> {
   const settings = await loadUserChannelSettings(username, env);
 
-  const targetChannels = channels
-    ? CHANNEL_DEFINITIONS.filter((ch) => channels.includes(ch.id))
-    : CHANNEL_DEFINITIONS.filter((ch) => isChannelEnabled(ch.id, settings));
+  // 不选择渠道时默认不推送
+  if (!channels || channels.length === 0) {
+    return [{ channel: 'wework' as PushChannel, success: false, message: '未选择推送渠道' }];
+  }
+
+  const targetChannels = CHANNEL_DEFINITIONS.filter((ch) => channels.includes(ch.id));
 
   if (targetChannels.length === 0) {
     return [{ channel: 'wework' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置' }];
