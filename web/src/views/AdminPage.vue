@@ -51,6 +51,21 @@ const pushResults = ref<PushResult[]>([]);
 const pushHistory = ref<any[]>([]);
 const isLoadingHistory = ref(false);
 
+// ==================== API Key ====================
+const apiKey = ref('');
+
+async function loadApiKey() {
+  try {
+    const res = await fetch(`/api/apikey?username=${email.value}&password=${password.value}`);
+    const data = await res.json();
+    if (data.apikey) {
+      apiKey.value = data.apikey;
+    }
+  } catch (e) {
+    console.error('Failed to load API key:', e);
+  }
+}
+
 async function loadHistory() {
   isLoadingHistory.value = true;
   try {
@@ -176,6 +191,7 @@ async function loadChannels() {
   channelSettings.value = data.settings;
   channelDefinitions.value = data.definitions;
   restoreChannelSelection();
+  await loadApiKey();
 }
 
 
@@ -575,6 +591,21 @@ function formatEndpoint(ep: string): string {
 
       <!-- ==================== 设置 Tab ==================== -->
       <div v-if="activeTab === 'settings'" class="tab-content">
+        <!-- API Key 面板 -->
+        <div class="panel">
+          <div class="api-key-panel">
+            <h3>🔑 API Key</h3>
+            <p class="hint">使用 API Key 调用推送接口，无需暴露账号密码</p>
+            <div v-if="apiKey" class="api-key-display">
+              <code>{{ apiKey }}</code>
+              <button class="btn btn-sm" @click="loadApiKey">刷新</button>
+            </div>
+            <div v-else>
+              <button class="btn btn-secondary" @click="loadApiKey">生成 API Key</button>
+            </div>
+          </div>
+        </div>
+
         <div class="panel">
           <h2>⚙️ 渠道设置</h2>
           <p class="hint" style="margin-bottom: 20px;">配置各推送渠道的连接参数，每个渠道可独立保存。</p>
@@ -1401,5 +1432,39 @@ function formatEndpoint(ep: string): string {
 .result-message {
   color: inherit;
   opacity: 0.9;
+}
+
+/* ==================== API Key ==================== */
+
+.api-key-panel {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 0;
+}
+
+.api-key-panel h3 {
+  font-size: 16px;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.api-key-display {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.api-key-display code {
+  background: #e9ecef;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  word-break: break-all;
+  flex: 1;
+  font-size: 13px;
 }
 </style>

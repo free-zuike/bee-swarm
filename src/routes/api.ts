@@ -78,19 +78,70 @@ api.post('/login', async (c) => {
   return c.json({ success: true, message: '登录成功', email });
 });
 
+/** 获取或生成 API Key */
+api.get('/apikey', async (c) => {
+  const username = c.req.query('username');
+  const password = c.req.query('password');
+
+  if (!username || !password) {
+    return c.json({ error: '请提供用户名和密码' }, 401);
+  }
+
+  // 验证用户
+  const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
+  if (!userData) {
+    return c.json({ error: '用户不存在' }, 401);
+  }
+
+  const { password: hashed, apikey } = JSON.parse(userData);
+  const inputHashed = await hashPassword(password);
+  if (inputHashed !== hashed) {
+    return c.json({ error: '密码错误' }, 401);
+  }
+
+  // 如果已有 API Key 则返回，否则生成新的
+  if (apikey) {
+    return c.json({ apikey });
+  }
+
+  // 生成新的 API Key
+  const newApikey = crypto.randomUUID().replace(/-/g, '');
+  await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify({ password: hashed, apikey: newApikey }));
+  return c.json({ apikey: newApikey });
+});
+
 // ============================================
 // 管理接口
 // ============================================
 const adminApi = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
 adminApi.use('/*', async (c, next) => {
-  const authHeader = c.req.header('Authorization');
-  const urlUser = c.req.query('username');
-  const username = urlUser || authHeader?.replace('Bearer ', '') || '';
+  // 优先使用 API Key 认证
+  const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
+  if (apiKey) {
+    // 遍历所有用户查找匹配的 API Key
+    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
+    for (const key of list.keys) {
+      const data = await c.env.SUBSCRIPTIONS.get(key.name);
+      if (data) {
+        const user = JSON.parse(data);
+        if (user.apikey === apiKey) {
+          const username = key.name.replace('user:', '');
+          c.set('username', username);
+          await next();
+          return;
+        }
+      }
+    }
+    return c.json({ error: '无效的 API Key' }, 401);
+  }
+
+  // 回退到用户名密码认证
+  const username = c.req.query('username');
   const password = c.req.query('password') || c.req.header('X-Password') || '';
 
   if (!username || !password) {
-    return c.json({ error: '请提供用户名和密码' }, 401);
+    return c.json({ error: '请提供认证信息' }, 401);
   }
 
   const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
