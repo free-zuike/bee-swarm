@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
 import api from './routes/api';
+import { uploadBackup } from './services/backup';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -25,4 +26,16 @@ app.notFound(async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-export default app;
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return app.fetch(request, env, ctx);
+  },
+
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // 每天定时备份
+    if (event.cron === '0 2 * * *') {
+      const result = await uploadBackup(env);
+      console.log(`[Cron Backup] ${result.message}`);
+    }
+  },
+};

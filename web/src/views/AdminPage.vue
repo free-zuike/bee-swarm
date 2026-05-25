@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken } from '@/api';
+import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, createBackup, listBackups, restoreBackup, deleteBackup } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
 // ==================== 页面状态 ====================
@@ -182,6 +182,13 @@ watch(activeTab, (newTab) => {
   }
   if (newTab === 'history') {
     loadHistory();
+  }
+});
+
+// ==================== 设置面板打开时加载备份 ====================
+watch(showSettings, (val) => {
+  if (val) {
+    loadBackups();
   }
 });
 
@@ -519,6 +526,72 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   return results.every(r => !r.success && r.message === '未选择推送渠道');
 }
 
+// ==================== 备份 ====================
+const backups = ref<Array<{ key: string; size: number; lastModified: string }>>([]);
+const isBackingUp = ref(false);
+const backupsLoaded = ref(false);
+
+async function doBackup() {
+  isBackingUp.value = true;
+  try {
+    const result = await createBackup(accessToken.value);
+    channelMessages['backup'] = { text: result.message, type: result.success ? 'success' : 'error' };
+    if (result.success) await loadBackups();
+  } catch (err: any) {
+    channelMessages['backup'] = { text: err.message, type: 'error' };
+  }
+  isBackingUp.value = false;
+}
+
+async function loadBackups() {
+  try {
+    const data = await listBackups(accessToken.value);
+    backups.value = data.backups || [];
+    backupsLoaded.value = true;
+  } catch (err: any) {
+    console.error('加载备份列表失败:', err);
+  }
+}
+
+async function doRestore(key: string) {
+  if (!confirm('确定要从此备份恢复吗？这将覆盖当前所有数据！')) return;
+  try {
+    const result = await restoreBackup(accessToken.value, key);
+    channelMessages['backup'] = { text: result.message, type: result.success ? 'success' : 'error' };
+    if (result.success) {
+      await loadChannels();
+      await loadHistory();
+    }
+  } catch (err: any) {
+    channelMessages['backup'] = { text: err.message, type: 'error' };
+  }
+}
+
+async function doDeleteBackup(key: string) {
+  if (!confirm('确定要删除此备份吗？')) return;
+  try {
+    await deleteBackup(accessToken.value, key);
+    await loadBackups();
+  } catch (err: any) {
+    channelMessages['backup'] = { text: err.message, type: 'error' };
+  }
+}
+
+function formatBackupName(key: string): string {
+  const match = key.match(/backups\/(.+)\.json/);
+  return match ? match[1].replace(/-/g, ' ') : key;
+}
+
+function formatBackupSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function formatBackupTime(iso: string): string {
+  return new Date(iso).toLocaleString('zh-CN');
+}
+
 // ==================== 工具函数 ====================
 function formatEndpoint(ep: string): string {
   return ep.length > 80 ? ep.substring(0, 40) + '...' + ep.substring(ep.length - 30) : ep;
@@ -635,6 +708,44 @@ function formatEndpoint(ep: string): string {
             </div>
             <div v-else>
               <button class="btn btn-secondary" @click="loadApiKey()">生成 API Key</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 数据备份面板 -->
+        <div class="panel">
+          <div class="backup-panel">
+            <h3>💾 数据备份</h3>
+            <p class="hint">自动每天凌晨2点备份到 S3 存储，也可手动备份或恢复</p>
+            
+            <div v-if="channelMessages['backup']" class="channel-save-message" :class="channelMessages['backup'].type">
+              {{ channelMessages['backup'].text }}
+            </div>
+
+            <div class="backup-actions">
+              <button class="btn btn-secondary" @click="doBackup" :disabled="isBackingUp">
+                {{ isBackingUp ? '备份中...' : '立即备份' }}
+              </button>
+              <button class="btn btn-secondary" @click="loadBackups">
+                刷新列表
+              </button>
+            </div>
+            
+            <!-- 备份列表 -->
+            <div v-if="backups.length" class="backup-list">
+              <div v-for="b in backups" :key="b.key" class="backup-item">
+                <div class="backup-info">
+                  <span class="backup-name">{{ formatBackupName(b.key) }}</span>
+                  <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
+                </div>
+                <div class="backup-actions-item">
+                  <button class="btn btn-sm" @click="doRestore(b.key)">恢复</button>
+                  <button class="btn btn-sm btn-warning" @click="doDeleteBackup(b.key)">删除</button>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="backupsLoaded" class="empty-hint">
+              暂无备份，请先配置 S3 存储参数
             </div>
           </div>
         </div>
@@ -1633,5 +1744,69 @@ function formatEndpoint(ep: string): string {
   word-break: break-all;
   flex: 1;
   font-size: 13px;
+}
+
+/* ==================== 数据备份 ==================== */
+
+.backup-panel {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.backup-panel h3 {
+  font-size: 16px;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.backup-list {
+  margin-top: 12px;
+}
+
+.backup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.backup-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.backup-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.backup-actions-item {
+  display: flex;
+  gap: 6px;
+}
+
+.empty-hint {
+  text-align: center;
+  color: #9ca3af;
+  padding: 20px;
+  font-size: 14px;
 }
 </style>

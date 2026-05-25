@@ -12,6 +12,7 @@ import {
   CHANNEL_DEFINITIONS,
   getPushHistory,
 } from '../services/dispatcher';
+import { uploadBackup, listBackups, restoreBackup, deleteBackup } from '../services/backup';
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
@@ -347,6 +348,52 @@ adminApi.get('/history', async (c) => {
   const username = c.get('username');
   const history = await getPushHistory(username, c.env);
   return c.json({ history });
+});
+
+// ============================================
+// 备份接口
+// ============================================
+
+/** 手动触发备份 */
+adminApi.post('/backup', async (c) => {
+  const result = await uploadBackup(c.env);
+  return c.json(result);
+});
+
+/** 列出所有备份 */
+adminApi.get('/backups', async (c) => {
+  try {
+    const list = await listBackups(c.env);
+    return c.json({ backups: list });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+/** 从备份恢复 */
+adminApi.post('/backup/restore', async (c) => {
+  const { key } = await c.req.json<{ key: string }>();
+
+  if (!key) {
+    return c.json({ error: '请提供备份文件 key' }, 400);
+  }
+
+  const result = await restoreBackup(c.env, key);
+  const status = result.success ? 200 : 500;
+  return c.json(result, status);
+});
+
+/** 删除指定备份 */
+adminApi.delete('/backup', async (c) => {
+  const { key } = await c.req.json<{ key: string }>();
+
+  if (!key) {
+    return c.json({ error: '请提供备份文件 key' }, 400);
+  }
+
+  const result = await deleteBackup(c.env, key);
+  const status = result.success ? 200 : 500;
+  return c.json(result, status);
 });
 
 // ============================================

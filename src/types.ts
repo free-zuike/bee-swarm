@@ -62,6 +62,12 @@ export type ChannelSettings = Record<string, string>;
 export interface Env {
   SUBSCRIPTIONS: KVNamespace;
   ASSETS: Fetcher;
+  // S3 兼容存储配置（在 Cloudflare Dashboard 中设置）
+  S3_ENDPOINT?: string;
+  S3_ACCESS_KEY_ID?: string;
+  S3_SECRET_ACCESS_KEY?: string;
+  S3_BUCKET?: string;
+  S3_REGION?: string;
 }
 
 declare module 'hono' {

@@ -220,3 +220,35 @@ export async function getApiKeyWithToken(token: string, refresh?: boolean): Prom
   const url = refresh ? `${BASE}/apikey?refresh=true` : `${BASE}/apikey`;
   return tokenRequest(url, token);
 }
+
+// -------------------------------------------
+// 备份管理接口（Token 认证）
+// -------------------------------------------
+
+// 手动备份
+export async function createBackup(token: string) {
+  return tokenRequest(`${BASE}/admin/backup`, token, { method: 'POST' });
+}
+
+// 列出备份
+export async function listBackups(token: string) {
+  return tokenRequest(`${BASE}/admin/backups`, token);
+}
+
+// 恢复备份
+export async function restoreBackup(token: string, key: string) {
+  return tokenRequest(`${BASE}/admin/backup/restore`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  });
+}
+
+// 删除备份
+export async function deleteBackup(token: string, key: string) {
+  return tokenRequest(`${BASE}/admin/backup`, token, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  });
+}
