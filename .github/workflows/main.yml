@@ -4,8 +4,7 @@
 # Fork 者只需设置 2 个 Secrets：
 #   - CLOUDFLARE_API_TOKEN
 #   - CLOUDFLARE_ACCOUNT_ID
-# 其他配置（VAPID、KV）自动生成
-# 管理密码在首次访问时自行设置
+# KV 自动创建
 
 name: Deploy to Cloudflare Workers
 
@@ -31,21 +30,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate VAPID keys
-        id: vapid
-        run: |
-          # 始终重新生成密钥（JWK 格式，确保兼容）
-          npm run generate-keys > vapid_output.txt
-          PUBLIC_KEY=$(grep "VAPID_PUBLIC_KEY=" vapid_output.txt | cut -d'=' -f2-)
-          PRIVATE_KEY=$(grep "VAPID_PRIVATE_KEY=" vapid_output.txt | cut -d'=' -f2-)
-          echo "public_key<<EOF" >> $GITHUB_OUTPUT
-          echo "$PUBLIC_KEY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "private_key<<EOF" >> $GITHUB_OUTPUT
-          echo "$PRIVATE_KEY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "🔑 VAPID keys generated (JWK format)"
-
       - name: Setup KV Namespace
         id: kv
         run: |
@@ -67,33 +51,18 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # 替换 wrangler.toml 中的 KV_NAMESPACE_ID
       - name: Update wrangler.toml with KV ID
         run: |
           sed -i "s/\\\${KV_NAMESPACE_ID}/${{ steps.kv.outputs.kv_id }}/g" wrangler.toml
-          echo "Updated wrangler.toml with KV_NAMESPACE_ID: ${{ steps.kv.outputs.kv_id }}"
 
-      # 部署 Worker
       - name: Deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy
 
-      # 上传 VAPID Secrets（管理密码由用户首次访问时自行设置）
-      - name: Upload Secrets
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          # 从输出文件中提取密钥并保存到临时文件
-          grep "VAPID_PUBLIC_KEY=" vapid_output.txt | cut -d'=' -f2- > /tmp/pub.txt
-          grep "VAPID_PRIVATE_KEY=" vapid_output.txt | cut -d'=' -f2- > /tmp/priv.txt
-          cat /tmp/pub.txt | npx wrangler secret put VAPID_PUBLIC_KEY
-          cat /tmp/priv.txt | npx wrangler secret put VAPID_PRIVATE_KEY
-
       - name: Deployment Info
         run: |
           echo "🐝 蜂群部署完成!"
           echo "📍 访问地址: https://bee-swarm.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
-          echo "🔑 首次访问管理后台时设置密码"
+          echo "🔑 首次访问时注册账号"

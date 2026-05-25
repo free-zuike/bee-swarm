@@ -3,20 +3,15 @@
 // 所有 REST API 接口的集中定义
 //
 // 路由结构:
-//   /api/vapid-key          GET   - 获取 VAPID 公钥（公开）
-//   /api/subscribe          POST  - 订阅 Web Push（公开）
-//   /api/unsubscribe        POST  - 取消订阅（公开）
 //   /api/register           POST  - 注册账号（公开）
 //   /api/login              POST  - 登录（公开）
 //   /api/admin/channels     GET   - 获取渠道配置（需认证）
 //   /api/admin/channels/:id PUT   - 保存单个渠道设置（需认证）
-//   /api/admin/subscriptions GET  - 获取订阅列表（需认证）
 //   /api/admin/push         POST  - 发送推送（需认证）
 // ============================================
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env, PushSubscription, PushRequest, PushChannel, ChannelSettings } from '../types';
-import { addSubscription, removeSubscription, getAllSubscriptions } from '../services/webpush';
+import type { Env, PushRequest, PushChannel } from '../types';
 import {
   dispatchPush,
   getChannelConfigs,
@@ -29,10 +24,6 @@ export const api = new Hono<{ Bindings: Env }>();
 
 api.use('/*', cors());
 
-// ============================================
-// 工具函数
-// ============================================
-
 /** SHA-256 哈希 */
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -40,6 +31,11 @@ async function hashPassword(password: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** 邮箱格式验证 */
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 /** 从请求中提取用户名 */
@@ -53,15 +49,6 @@ function getUsername(c: any): string {
 // 公开接口
 // ============================================
 
-api.get('/vapid-key', (c) => {
-  return c.json({ publicKey: c.env.VAPID_PUBLIC_KEY });
-});
-
-/** 邮箱格式验证 */
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 /** 注册 */
 api.post('/register', async (c) => {
   const { email, password } = await c.req.json<{ email: string; password: string }>();
@@ -73,13 +60,11 @@ api.post('/register', async (c) => {
     return c.json({ error: '密码长度至少 4 位' }, 400);
   }
 
-  // 检查邮箱是否已存在
   const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
   if (existing) {
     return c.json({ error: '该邮箱已被注册' }, 409);
   }
 
-  // 存储用户（密码哈希）
   const hashed = await hashPassword(password);
   await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
 
@@ -109,32 +94,12 @@ api.post('/login', async (c) => {
   return c.json({ success: true, message: '登录成功', email });
 });
 
-/** 订阅 Web Push */
-api.post('/subscribe', async (c) => {
-  const subscription: PushSubscription = await c.req.json();
-  if (!subscription.endpoint || !subscription.keys) {
-    return c.json({ error: '无效的订阅对象' }, 400);
-  }
-  await addSubscription(subscription, c.env);
-  return c.json({ success: true, message: '订阅成功' });
-});
-
-/** 取消订阅 */
-api.post('/unsubscribe', async (c) => {
-  const { endpoint } = await c.req.json();
-  if (!endpoint) {
-    return c.json({ error: '缺少 endpoint' }, 400);
-  }
-  await removeSubscription(endpoint, c.env);
-  return c.json({ success: true, message: '取消订阅成功' });
-});
-
 // ============================================
 // 管理接口（需要用户认证）
 // ============================================
 const adminApi = new Hono<{ Bindings: Env }>();
 
-/** 认证中间件：验证用户名+密码 */
+/** 认证中间件 */
 adminApi.use('/*', async (c, next) => {
   const username = getUsername(c);
   const password = c.req.query('password') || c.req.header('X-Password') || '';
@@ -155,7 +120,6 @@ adminApi.use('/*', async (c, next) => {
     return c.json({ error: '密码错误' }, 401);
   }
 
-  // 将用户名存入上下文
   c.set('username', username);
   await next();
 });
@@ -166,11 +130,7 @@ adminApi.get('/channels', async (c) => {
   const settings = await loadUserChannelSettings(username, c.env);
   const channels = getChannelConfigs(settings);
 
-  return c.json({
-    channels,
-    settings,
-    definitions: CHANNEL_DEFINITIONS,
-  });
+  return c.json({ channels, settings, definitions: CHANNEL_DEFINITIONS });
 });
 
 /** 保存单个渠道设置 */
@@ -178,7 +138,6 @@ adminApi.put('/channels/:id', async (c) => {
   const username = c.get('username') as string;
   const channelId = c.req.param('id') as PushChannel;
 
-  // 验证渠道 ID 合法
   if (!CHANNEL_DEFINITIONS.find((d) => d.id === channelId)) {
     return c.json({ error: '无效的渠道 ID' }, 400);
   }
@@ -189,10 +148,8 @@ adminApi.put('/channels/:id', async (c) => {
     return c.json({ error: '无效的配置数据' }, 400);
   }
 
-  // 保存该渠道的配置
   await saveUserChannelSetting(username, channelId, body.fields, c.env);
 
-  // 返回更新后的状态
   const settings = await loadUserChannelSettings(username, c.env);
   const channels = getChannelConfigs(settings);
 
@@ -201,12 +158,6 @@ adminApi.put('/channels/:id', async (c) => {
     message: `${CHANNEL_DEFINITIONS.find((d) => d.id === channelId)?.name} 设置已保存`,
     channels,
   });
-});
-
-/** 获取订阅列表 */
-adminApi.get('/subscriptions', async (c) => {
-  const subscriptions = await getAllSubscriptions(c.env);
-  return c.json({ total: subscriptions.length, subscriptions });
 });
 
 /** 发送推送 */

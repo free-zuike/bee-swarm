@@ -3,7 +3,6 @@
 // 渠道配置按用户隔离，存储在 KV 中
 // ============================================
 import type { Env, PushPayload, PushChannel, ChannelResult, ChannelConfig, ChannelDefinition, ChannelSettings } from '../types';
-import { broadcastWebPush } from './webpush';
 import { sendWework } from './wework';
 import { sendDingtalk } from './dingtalk';
 import { sendFeishu } from './feishu';
@@ -13,12 +12,6 @@ import { sendNtfy } from './ntfy';
 import { sendEmail } from './email';
 
 export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
-  {
-    id: 'webpush',
-    name: '浏览器推送',
-    icon: '🔔',
-    fields: [],
-  },
   {
     id: 'wework',
     name: '企业微信',
@@ -83,30 +76,19 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
   },
 ];
 
-/**
- * 从 KV 读取某用户的所有渠道设置
- * KV key 格式: user:{username}:ch:{channelId}
- */
 export async function loadUserChannelSettings(username: string, env: Env): Promise<ChannelSettings> {
   const prefix = `user:${username}:ch:`;
   const list = await env.SUBSCRIPTIONS.list({ prefix });
   const settings: ChannelSettings = {};
-
   for (const key of list.keys) {
     const value = await env.SUBSCRIPTIONS.get(key.name);
     if (value !== null) {
-      // 将 user:xxx:ch:yyy:field_key → channel:yyy:field_key 格式返回给前端
-      const shortKey = key.name.slice(prefix.length);
-      settings[`channel:${shortKey}`] = value;
+      settings[key.name.slice(prefix.length)] = value;
     }
   }
-
   return settings;
 }
 
-/**
- * 保存单个渠道的设置（按用户隔离）
- */
 export async function saveUserChannelSetting(
   username: string,
   channelId: string,
@@ -114,14 +96,10 @@ export async function saveUserChannelSetting(
   env: Env
 ): Promise<void> {
   const prefix = `user:${username}:ch:${channelId}:`;
-
-  // 先清除该用户该渠道的旧配置
   const list = await env.SUBSCRIPTIONS.list({ prefix });
   for (const key of list.keys) {
     await env.SUBSCRIPTIONS.delete(key.name);
   }
-
-  // 写入新配置
   for (const [fieldKey, value] of Object.entries(fields)) {
     if (value) {
       await env.SUBSCRIPTIONS.put(`${prefix}${fieldKey}`, value);
@@ -130,12 +108,9 @@ export async function saveUserChannelSetting(
 }
 
 export function isChannelEnabled(channelId: PushChannel, settings: ChannelSettings): boolean {
-  if (channelId === 'webpush') return true;
   const def = CHANNEL_DEFINITIONS.find((c) => c.id === channelId);
   if (!def) return false;
-  return def.fields
-    .filter((f) => f.required)
-    .every((f) => !!settings[`channel:${channelId}:${f.key}`]);
+  return def.fields.filter((f) => f.required).every((f) => !!settings[`${channelId}:${f.key}`]);
 }
 
 export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
@@ -148,7 +123,7 @@ export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
 }
 
 function buildChannelEnv(channelId: PushChannel, settings: ChannelSettings): Record<string, string> {
-  const prefix = `channel:${channelId}:`;
+  const prefix = `${channelId}:`;
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(settings)) {
     if (key.startsWith(prefix)) {
@@ -158,9 +133,6 @@ function buildChannelEnv(channelId: PushChannel, settings: ChannelSettings): Rec
   return result;
 }
 
-/**
- * 推送消息（按用户读取配置）
- */
 export async function dispatchPush(
   payload: PushPayload,
   channels: PushChannel[] | undefined,
@@ -174,21 +146,19 @@ export async function dispatchPush(
     : CHANNEL_DEFINITIONS.filter((ch) => isChannelEnabled(ch.id, settings));
 
   if (targetChannels.length === 0) {
-    return [{ channel: 'webpush' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置渠道' }];
+    return [{ channel: 'wework' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置' }];
   }
 
-  return Promise.all(targetChannels.map((ch) => sendToChannel(ch.id, payload, settings, env)));
+  return Promise.all(targetChannels.map((ch) => sendToChannel(ch.id, payload, settings)));
 }
 
 async function sendToChannel(
   channel: PushChannel,
   payload: PushPayload,
-  settings: ChannelSettings,
-  env: Env
+  settings: ChannelSettings
 ): Promise<ChannelResult> {
   const channelEnv = buildChannelEnv(channel, settings);
   switch (channel) {
-    case 'webpush': return broadcastWebPush(payload, env);
     case 'wework': return sendWework(payload, channelEnv);
     case 'dingtalk': return sendDingtalk(payload, channelEnv);
     case 'feishu': return sendFeishu(payload, channelEnv);
