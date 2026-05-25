@@ -185,6 +185,8 @@ function toggleChannelExpand(channelId: string) {
   if (expandedChannels.value.has(channelId)) {
     expandedChannels.value.delete(channelId);
   } else {
+    // 清空并只展开当前
+    expandedChannels.value.clear();
     expandedChannels.value.add(channelId);
   }
 }
@@ -224,15 +226,23 @@ async function doSaveChannel(channelId: string) {
 }
 
 async function doTestChannel(channelId: string) {
-  // 收集该渠道的字段值
   const def = channelDefinitions.value.find((d) => d.id === channelId);
   if (!def) return;
-
+  
+  // 优先使用编辑中的值，没有则用已保存的值
   const fields: Record<string, string> = {};
   for (const field of def.fields) {
-    fields[field.key] = getSettingValue(channelId, field.key);
+    const editKey = `channel:${channelId}:${field.key}`;
+    fields[field.key] = editingValues.value[editKey] ?? channelSettings.value[editKey] ?? '';
   }
-
+  
+  // 检查是否已配置
+  const isConfigured = def.fields.filter(f => f.required).every(f => !!fields[f.key]);
+  if (!isConfigured) {
+    channelMessages[channelId] = { text: '请先配置必填项', type: 'error' };
+    return;
+  }
+  
   // 调用 sendPush 发送测试
   try {
     const result = await sendPush(email.value, password.value, {
