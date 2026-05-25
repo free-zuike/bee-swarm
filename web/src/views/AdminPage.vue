@@ -214,6 +214,11 @@ function isChannelEnabled(channelId: string): boolean {
   return value !== 'false'; // 未设置或为 true 都视为启用
 }
 
+function canToggleChannel(def: ChannelDefinition): boolean {
+  // 只有已配置的渠道才能切换启用状态
+  return isChannelConfigured(def);
+}
+
 async function toggleChannelEnabled(channelId: string) {
   const key = `channel:${channelId}:enabled`;
   const current = channelSettings.value[key];
@@ -548,7 +553,11 @@ function formatEndpoint(ep: string): string {
                   <span class="channel-card-icon">{{ def.icon }}</span>
                   <span class="channel-card-name">{{ def.name }}</span>
                   <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
+                  <span v-if="!isChannelConfigured(def)" class="status-tag status-unconfigured">
+                    未配置
+                  </span>
                   <span
+                    v-else
                     class="status-tag"
                     :class="isChannelEnabled(def.id) ? 'status-enabled' : 'status-disabled'"
                     @click.stop="toggleChannelEnabled(def.id)"
@@ -1288,6 +1297,11 @@ function formatEndpoint(ep: string): string {
 .status-disabled {
   background: #e5e7eb;
   color: #6b7280;
+}
+.status-unconfigured {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .expand-arrow {
