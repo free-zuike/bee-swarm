@@ -44,9 +44,20 @@ export async function sendWework(
       }),
     });
 
-    const data = await res.json() as { errcode: number; errmsg: string };
+    const text = await res.text();
 
-    if (data.errcode === 0) {
+    // 企业微信可能返回非 JSON 格式的错误
+    let errcode = -1;
+    let errmsg = text;
+    try {
+      const data = JSON.parse(text) as { errcode: number; errmsg: string };
+      errcode = data.errcode;
+      errmsg = data.errmsg;
+    } catch {
+      // 非 JSON 响应，使用原始文本
+    }
+
+    if (errcode === 0) {
       return {
         channel: 'wework',
         success: true,
@@ -57,7 +68,7 @@ export async function sendWework(
     return {
       channel: 'wework',
       success: false,
-      message: `企业微信推送失败: ${data.errmsg}`,
+      message: `企业微信推送失败: ${errmsg}`,
     };
   } catch (err: any) {
     return {
