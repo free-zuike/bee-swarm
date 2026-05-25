@@ -223,6 +223,34 @@ async function doSaveChannel(channelId: string) {
   savingChannels[channelId] = false;
 }
 
+async function doTestChannel(channelId: string) {
+  // 收集该渠道的字段值
+  const def = channelDefinitions.value.find((d) => d.id === channelId);
+  if (!def) return;
+
+  const fields: Record<string, string> = {};
+  for (const field of def.fields) {
+    fields[field.key] = getSettingValue(channelId, field.key);
+  }
+
+  // 调用 sendPush 发送测试
+  try {
+    const result = await sendPush(email.value, password.value, {
+      title: '测试消息',
+      body: '这是一条来自蜂群的测试消息',
+      channels: [channelId as any],
+    });
+
+    const channelResult = result.results?.find((r) => r.channel === channelId);
+    channelMessages[channelId] = {
+      text: channelResult?.message || result.message || '测试完成',
+      type: channelResult?.success ? 'success' : 'error'
+    };
+  } catch (err: any) {
+    channelMessages[channelId] = { text: err.message || '测试失败', type: 'error' };
+  }
+}
+
 // ==================== 推送相关 ====================
 function toggleChannel(ch: ChannelConfig) {
   if (!ch.enabled) return;
@@ -525,6 +553,12 @@ function formatEndpoint(ep: string): string {
                     @click="doSaveChannel(def.id)"
                   >
                     {{ savingChannels[def.id] ? '保存中...' : '💾 保存' }}
+                  </button>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    @click="doTestChannel(def.id)"
+                  >
+                    测试
                   </button>
                 </div>
               </div>
