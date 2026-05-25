@@ -319,10 +319,14 @@ async function toggleChannelEnabled(channelId: string) {
   const currentStr = String(current);
   const newValue = currentStr === 'false' ? 'true' : 'false';
 
+  console.log('Toggle:', channelId, 'current:', current, 'new:', newValue, 'key:', key);
+
   try {
-    await saveChannelWithToken(accessToken.value, channelId, { enabled: newValue });
+    const saveResult = await saveChannelWithToken(accessToken.value, channelId, { enabled: newValue });
+    console.log('Save result:', saveResult);
     // 重新加载 channels 和 settings 以确保数据同步
     const data = await getChannelsWithToken(accessToken.value);
+    console.log('Reloaded settings:', data.settings, 'key value:', data.settings[key]);
     channels.value = data.channels;
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
