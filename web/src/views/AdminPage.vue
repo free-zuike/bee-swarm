@@ -189,6 +189,17 @@ function isFieldEdited(channelId: string, fieldKey: string): boolean {
   return edited !== undefined && edited !== saved;
 }
 
+function hasUnsavedChanges(channelId: string): boolean {
+  const prefix = `channel:${channelId}:`;
+  for (const [key, edited] of Object.entries(editingValues.value)) {
+    if (key.startsWith(prefix)) {
+      const saved = channelSettings.value[key];
+      if (edited !== saved) return true;
+    }
+  }
+  return false;
+}
+
 function toggleChannelExpand(channelId: string) {
   if (expandedChannels.value.has(channelId)) {
     expandedChannels.value.delete(channelId);
@@ -525,6 +536,7 @@ function formatEndpoint(ep: string): string {
                 <div class="channel-card-info">
                   <span class="channel-card-icon">{{ def.icon }}</span>
                   <span class="channel-card-name">{{ def.name }}</span>
+                  <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
                   <span
                     class="channel-status-tag"
                     :class="isChannelConfigured(def) ? 'configured' : 'unconfigured'"
@@ -547,13 +559,11 @@ function formatEndpoint(ep: string): string {
                   <label>
                     {{ field.label }}
                     <span v-if="field.required" class="required-mark">*</span>
-                    <span v-if="isFieldEdited(def.id, field.key)" class="unsaved-mark">*</span>
                   </label>
                   <input
                     :type="field.type === 'password' ? 'password' : 'text'"
                     :value="getSettingValue(def.id, field.key)"
                     :placeholder="field.placeholder || `请输入${field.label}`"
-                    :class="{ 'input-unsaved': isFieldEdited(def.id, field.key) }"
                     @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
                   />
                 </div>
@@ -946,15 +956,11 @@ function formatEndpoint(ep: string): string {
   margin-left: 2px;
 }
 
-.unsaved-mark {
+.unsaved-hint {
   color: #f59e0b;
-  margin-left: 4px;
-  font-weight: 700;
-}
-
-.input-unsaved {
-  border-color: #f59e0b !important;
-  background-color: #fffbeb;
+  font-size: 13px;
+  font-weight: 500;
+  margin-left: 8px;
 }
 
 .hint {
