@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed } from 'vue';
-import { register, login, getChannels, saveChannel, getSubscriptions, sendPush } from '@/api';
+import { register, login, getChannels, saveChannel, sendPush } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
 // ==================== 页面状态 ====================
@@ -35,9 +35,7 @@ const expandedChannels = ref<Set<string>>(new Set());
 const savingChannels = reactive<Record<string, boolean>>({});
 const channelMessages = reactive<Record<string, { text: string; type: 'success' | 'error' }>>({});
 
-// ==================== 订阅状态 ====================
-const subCount = ref(0);
-const subscriptions = ref<PushSubscription[]>([]);
+
 
 // ==================== 推送表单 ====================
 const pushTitle = ref('');
@@ -66,7 +64,6 @@ onMounted(async () => {
       password.value = savedPassword;
       try {
         await loadChannels();
-        await loadSubs();
         pageState.value = 'dashboard';
         return;
       } catch {
@@ -97,7 +94,6 @@ async function doLogin() {
     sessionStorage.setItem('push_hub_email', email.value);
     sessionStorage.setItem('push_hub_password', password.value);
     await loadChannels();
-    await loadSubs();
     pageState.value = 'dashboard';
   } catch (err: any) {
     authError.value = err.message || '登录失败';
@@ -153,11 +149,7 @@ async function loadChannels() {
   channelDefinitions.value = data.definitions;
 }
 
-async function loadSubs() {
-  const data = await getSubscriptions(email.value, password.value);
-  subCount.value = data.total;
-  subscriptions.value = data.subscriptions;
-}
+
 
 // ==================== 设置相关 ====================
 function isChannelConfigured(def: ChannelDefinition): boolean {
@@ -366,23 +358,14 @@ function formatEndpoint(ep: string): string {
         >
           ⚙️ 设置
         </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'subs' }"
-          @click="activeTab = 'subs'"
-        >
-          📋 订阅
-        </button>
+
       </div>
 
       <!-- ==================== 推送 Tab ==================== -->
       <div v-if="activeTab === 'push'" class="tab-content">
         <!-- 统计概览 -->
         <div class="stats">
-          <div class="stat-card">
-            <div class="label">Web Push 订阅</div>
-            <div class="value">{{ subCount }}</div>
-          </div>
+
           <div class="stat-card">
             <div class="label">已启用渠道</div>
             <div class="value">{{ enabledChannelCount }}</div>
@@ -433,7 +416,6 @@ function formatEndpoint(ep: string): string {
             🚀 发送推送
           </button>
           <button class="btn btn-secondary" @click="loadChannels">刷新渠道</button>
-          <button class="btn btn-secondary" @click="loadSubs">刷新订阅</button>
 
           <!-- 推送结果 -->
           <div v-if="pushResults.length" class="result-list">
@@ -528,27 +510,7 @@ function formatEndpoint(ep: string): string {
         </div>
       </div>
 
-      <!-- ==================== 订阅 Tab ==================== -->
-      <div v-if="activeTab === 'subs'" class="tab-content">
-        <div class="panel">
-          <h2>📋 Web Push 订阅列表</h2>
-          <div class="sub-stats">
-            <span class="sub-count">共 {{ subCount }} 个订阅</span>
-            <button class="btn btn-secondary btn-sm" @click="loadSubs">刷新</button>
-          </div>
-          <div class="sub-list">
-            <div v-if="subscriptions.length === 0" class="empty">暂无订阅用户</div>
-            <div
-              v-for="sub in subscriptions"
-              :key="sub.endpoint"
-              class="sub-item"
-              :title="sub.endpoint"
-            >
-              {{ formatEndpoint(sub.endpoint) }}
-            </div>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
 </template>

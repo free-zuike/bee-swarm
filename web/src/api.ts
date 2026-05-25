@@ -28,10 +28,6 @@ function authQuery(username: string, password: string): string {
 // 公开接口
 // -------------------------------------------
 
-export async function getVapidKey(): Promise<{ publicKey: string }> {
-  return request(`${BASE}/vapid-key`);
-}
-
 export async function register(email: string, password: string): Promise<{ success: boolean; message: string }> {
   return request(`${BASE}/register`, {
     method: 'POST',
@@ -45,22 +41,6 @@ export async function login(email: string, password: string): Promise<{ success:
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
-  });
-}
-
-export async function subscribe(subscription: PushSubscription): Promise<{ success: boolean; message: string }> {
-  return request(`${BASE}/subscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscription),
-  });
-}
-
-export async function unsubscribe(endpoint: string): Promise<{ success: boolean; message: string }> {
-  return request(`${BASE}/unsubscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ endpoint }),
   });
 }
 
@@ -94,13 +74,6 @@ export async function saveChannel(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields }),
   });
-}
-
-export async function getSubscriptions(username: string, password: string): Promise<{
-  total: number;
-  subscriptions: PushSubscription[];
-}> {
-  return request(`${BASE}/admin/subscriptions${authQuery(username, password)}`);
 }
 
 export async function sendPush(
