@@ -175,6 +175,7 @@ async function loadChannels() {
   channels.value = data.channels;
   channelSettings.value = data.settings;
   channelDefinitions.value = data.definitions;
+  restoreChannelSelection();
 }
 
 
@@ -306,6 +307,24 @@ function toggleChannel(ch: ChannelConfig) {
   } else {
     selectedChannels.value.add(ch.id);
   }
+  saveChannelSelection();
+}
+
+// 保存渠道选择到 sessionStorage
+function saveChannelSelection() {
+  const selected = channels.value.filter(c => c.selected).map(c => c.id);
+  sessionStorage.setItem('push_selected_channels', JSON.stringify(selected));
+}
+
+// 从 sessionStorage 恢复渠道选择
+function restoreChannelSelection() {
+  const saved = sessionStorage.getItem('push_selected_channels');
+  if (saved) {
+    const selectedIds = JSON.parse(saved);
+    channels.value.forEach(c => {
+      c.selected = selectedIds.includes(c.id);
+    });
+  }
 }
 
 async function doPush() {
@@ -342,6 +361,12 @@ async function doPush() {
   }
 
   isPushing.value = false;
+}
+
+// 检查是否是"未选择推送渠道"的错误
+function isNoChannelSelectedError(results: PushResult[]): boolean {
+  if (results.length === 0) return false;
+  return results.every(r => !r.success && r.message === '未选择推送渠道');
 }
 
 // ==================== 工具函数 ====================
@@ -501,7 +526,7 @@ function formatEndpoint(ep: string): string {
                 <span class="ch-name">{{ ch.name }}</span>
               </div>
             </div>
-            <p class="hint">点击选择/取消。不选择则推送到所有已启用渠道。</p>
+            <p class="hint">点击选择/取消。不选择则不推送。</p>
           </div>
 
           <!-- 消息内容 -->
