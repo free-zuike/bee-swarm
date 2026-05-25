@@ -192,6 +192,10 @@ async function doSaveChannel(channelId: string) {
 
     const result = await saveChannel(email.value, password.value, channelId, fields);
     channels.value = result.channels;
+    // 重新加载设置以确保同步
+    const data = await getChannels(email.value, password.value);
+    channelSettings.value = data.settings;
+    channelDefinitions.value = data.definitions;
     channelMessages[channelId] = { text: result.message || '保存成功', type: 'success' };
   } catch (err: any) {
     channelMessages[channelId] = { text: err.message || '保存失败', type: 'error' };
