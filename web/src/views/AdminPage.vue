@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken } from '@/api';
+import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
 // ==================== 页面状态 ====================
@@ -78,6 +78,10 @@ async function loadHistory() {
   try {
     const data = await getHistoryWithToken(accessToken.value);
     pushHistory.value = data.history || [];
+    // 如果有历史记录，设置 lastPushTime 为最近一条的时间
+    if (pushHistory.value.length > 0) {
+      lastPushTime.value = new Date(pushHistory.value[0].time).toLocaleString('zh-CN');
+    }
   } catch (err: any) {
     console.error('加载历史记录失败:', err);
   }
@@ -302,6 +306,11 @@ async function toggleChannelEnabled(channelId: string) {
   // 保存到后端
   try {
     await saveChannelWithToken(accessToken.value, channelId, { enabled: newValue });
+    // 重新加载 channels 和 settings 以确保数据同步
+    const data = await getChannelsWithToken(accessToken.value);
+    channels.value = data.channels;
+    channelSettings.value = data.settings;
+    channelDefinitions.value = data.definitions;
   } catch (err) {
     console.error('保存渠道启用状态失败:', err);
   }
