@@ -117,6 +117,7 @@ onMounted(async () => {
       if (tokenExpiresAt.value > Date.now()) {
         try {
           await loadChannels();
+          await loadHistory();
           pageState.value = 'dashboard';
           return;
         } catch {
@@ -134,6 +135,7 @@ onMounted(async () => {
         sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
         sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
         await loadChannels();
+        await loadHistory();
         pageState.value = 'dashboard';
         return;
       } catch {
@@ -212,6 +214,7 @@ async function doLogin() {
     sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
 
     await loadChannels();
+    await loadHistory();
     pageState.value = 'dashboard';
   } catch (err: any) {
     authError.value = err.message || '登录失败';
