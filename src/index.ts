@@ -1,16 +1,15 @@
 // ============================================
 // Workers 应用入口
-// API 请求由代码处理，其他请求转发到 ASSETS
 // ============================================
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import type { Env } from './types';
 import api from './routes/api';
 
-interface AppEnv extends Env {
-  ASSETS: Fetcher;
-}
+const app = new Hono<{ Bindings: Env }>();
 
-const app = new Hono<{ Bindings: AppEnv }>();
+// CORS
+app.use('*', cors());
 
 // 全局错误处理
 app.onError((err, c) => {
@@ -21,7 +20,7 @@ app.onError((err, c) => {
 // API 路由
 app.route('/api', api);
 
-// 非 API 请求 → 转发到 ASSETS（静态资源）
+// 404 处理 → 返回静态资源
 app.notFound(async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });

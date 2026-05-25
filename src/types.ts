@@ -2,9 +2,6 @@
 // 类型定义
 // ============================================
 
-/**
- * 统一推送消息格式
- */
 export interface PushPayload {
   title: string;
   body?: string;
@@ -12,37 +9,25 @@ export interface PushPayload {
   icon?: string;
 }
 
-/**
- * 推送渠道标识
- */
 export type PushChannel =
-  | 'wework'     // 企业微信
-  | 'dingtalk'   // 钉钉
-  | 'feishu'     // 飞书
-  | 'telegram'   // Telegram
-  | 'bark'       // Bark (iOS)
-  | 'ntfy'       // ntfy
-  | 'email';     // 邮件
+  | 'wework'
+  | 'dingtalk'
+  | 'feishu'
+  | 'telegram'
+  | 'bark'
+  | 'ntfy'
+  | 'email';
 
-/**
- * 推送请求体
- */
 export interface PushRequest extends PushPayload {
   channels?: PushChannel[];
 }
 
-/**
- * 推送结果
- */
 export interface ChannelResult {
   channel: PushChannel;
   success: boolean;
   message: string;
 }
 
-/**
- * 渠道配置项
- */
 export interface ChannelField {
   key: string;
   label: string;
@@ -51,9 +36,6 @@ export interface ChannelField {
   required: boolean;
 }
 
-/**
- * 渠道定义
- */
 export interface ChannelDefinition {
   id: PushChannel;
   name: string;
@@ -61,9 +43,6 @@ export interface ChannelDefinition {
   fields: ChannelField[];
 }
 
-/**
- * 渠道配置信息
- */
 export interface ChannelConfig {
   id: PushChannel;
   name: string;
@@ -71,14 +50,8 @@ export interface ChannelConfig {
   enabled: boolean;
 }
 
-/**
- * 渠道设置值
- */
 export type ChannelSettings = Record<string, string>;
 
-/**
- * Cloudflare Workers 环境变量
- */
 export interface Env {
   SUBSCRIPTIONS: KVNamespace;
   ASSETS: Fetcher;
@@ -87,5 +60,6 @@ export interface Env {
 declare module 'hono' {
   interface ContextVariableMap {
     env: Env;
+    username: string;
   }
 }

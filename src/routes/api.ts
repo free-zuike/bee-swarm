@@ -1,13 +1,5 @@
 // ============================================
 // API 路由
-// 所有 REST API 接口的集中定义
-//
-// 路由结构:
-//   /api/register           POST  - 注册账号（公开）
-//   /api/login              POST  - 登录（公开）
-//   /api/admin/channels     GET   - 获取渠道配置（需认证）
-//   /api/admin/channels/:id PUT   - 保存单个渠道设置（需认证）
-//   /api/admin/push         POST  - 发送推送（需认证）
 // ============================================
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -20,11 +12,10 @@ import {
   CHANNEL_DEFINITIONS,
 } from '../services/dispatcher';
 
-export const api = new Hono<{ Bindings: Env }>();
+export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
 api.use('/*', cors());
 
-/** SHA-256 哈希 */
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -33,25 +24,17 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** 邮箱格式验证 */
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-/** 从请求中提取用户名 */
-function getUsername(c: any): string {
-  const authHeader = c.req.header('Authorization');
-  const urlUser = c.req.query('username');
-  return urlUser || authHeader?.replace('Bearer ', '') || '';
 }
 
 // ============================================
 // 公开接口
 // ============================================
 
-/** 注册 */
 api.post('/register', async (c) => {
-  const { email, password } = await c.req.json<{ email: string; password: string }>();
+  const body = await c.req.json<{ email: string; password: string }>();
+  const { email, password } = body;
 
   if (!email || !isValidEmail(email)) {
     return c.json({ error: '请输入有效的邮箱地址' }, 400);
@@ -71,9 +54,9 @@ api.post('/register', async (c) => {
   return c.json({ success: true, message: '注册成功' });
 });
 
-/** 登录 */
 api.post('/login', async (c) => {
-  const { email, password } = await c.req.json<{ email: string; password: string }>();
+  const body = await c.req.json<{ email: string; password: string }>();
+  const { email, password } = body;
 
   if (!email || !password) {
     return c.json({ error: '请输入邮箱和密码' }, 400);
@@ -95,13 +78,14 @@ api.post('/login', async (c) => {
 });
 
 // ============================================
-// 管理接口（需要用户认证）
+// 管理接口
 // ============================================
-const adminApi = new Hono<{ Bindings: Env }>();
+const adminApi = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
-/** 认证中间件 */
 adminApi.use('/*', async (c, next) => {
-  const username = getUsername(c);
+  const authHeader = c.req.header('Authorization');
+  const urlUser = c.req.query('username');
+  const username = urlUser || authHeader?.replace('Bearer ', '') || '';
   const password = c.req.query('password') || c.req.header('X-Password') || '';
 
   if (!username || !password) {
@@ -124,18 +108,16 @@ adminApi.use('/*', async (c, next) => {
   await next();
 });
 
-/** 获取所有渠道配置 */
 adminApi.get('/channels', async (c) => {
-  const username = c.get('username') as string;
+  const username = c.get('username');
   const settings = await loadUserChannelSettings(username, c.env);
   const channels = getChannelConfigs(settings);
 
   return c.json({ channels, settings, definitions: CHANNEL_DEFINITIONS });
 });
 
-/** 保存单个渠道设置 */
 adminApi.put('/channels/:id', async (c) => {
-  const username = c.get('username') as string;
+  const username = c.get('username');
   const channelId = c.req.param('id') as PushChannel;
 
   if (!CHANNEL_DEFINITIONS.find((d) => d.id === channelId)) {
@@ -160,9 +142,8 @@ adminApi.put('/channels/:id', async (c) => {
   });
 });
 
-/** 发送推送 */
 adminApi.post('/push', async (c) => {
-  const username = c.get('username') as string;
+  const username = c.get('username');
   const body: PushRequest = await c.req.json();
 
   if (!body.title) {
