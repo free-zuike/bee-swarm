@@ -29,15 +29,26 @@ export async function sendNtfy(
   try {
     const server = env.server || 'https://ntfy.sh';
 
-    const res = await fetch(`${server}/${env.topic}`, {
+    // 使用 JSON body 发送，支持 Markdown 渲染
+    const body: Record<string, string> = {
+      topic: env.topic,
+      title: payload.title,
+      message: payload.body || '',
+      priority: 'default',
+    };
+
+    if (payload.url) {
+      body.actions = JSON.stringify([
+        { action: 'view', label: '查看详情', url: payload.url },
+      ]);
+    }
+
+    const res = await fetch(`${server}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Title': payload.title,       // ntfy 使用 Header 传递标题
-        'Priority': 'default',        // 默认优先级
-        'Click': payload.url || '',   // 点击跳转链接
       },
-      body: payload.body || '',
+      body: JSON.stringify(body),
     });
 
     // ntfy 成功返回空响应
@@ -49,10 +60,11 @@ export async function sendNtfy(
       };
     }
 
+    const text = await res.text();
     return {
       channel: 'ntfy',
       success: false,
-      message: `ntfy 推送失败: ${res.status} ${res.statusText}`,
+      message: `ntfy 推送失败: ${res.status} ${text || res.statusText}`,
     };
   } catch (err: any) {
     return {
