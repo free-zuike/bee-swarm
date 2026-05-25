@@ -21,8 +21,8 @@ app.onError((err, c) => {
 // API 路由
 app.route('/api', api);
 
-// 其他请求 → 转发到 ASSETS（静态资源）
-app.all('*', async (c) => {
+// 非 API 请求 → 转发到 ASSETS（静态资源）
+app.notFound(async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
