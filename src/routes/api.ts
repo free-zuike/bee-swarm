@@ -12,7 +12,8 @@ import {
   CHANNEL_DEFINITIONS,
   getPushHistory,
 } from '../services/dispatcher';
-import { uploadBackup, listBackups, restoreBackup, deleteBackup } from '../services/backup';
+import { uploadBackup, listBackups, restoreBackup, deleteBackup, getS3Config, saveS3Config, testS3Connection } from '../services/backup';
+import type { S3Config } from '../services/backup';
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
@@ -351,19 +352,56 @@ adminApi.get('/history', async (c) => {
 });
 
 // ============================================
+// S3 配置接口
+// ============================================
+
+/** 保存 S3 配置 */
+adminApi.put('/s3-config', async (c) => {
+  const username = c.get('username');
+  const body = await c.req.json<S3Config>();
+
+  if (!body.endpoint || !body.accessKeyId || !body.secretAccessKey || !body.bucket) {
+    return c.json({ error: '请填写所有必填项' }, 400);
+  }
+
+  await saveS3Config(c.env, username, body);
+  return c.json({ success: true, message: 'S3 配置已保存' });
+});
+
+/** 获取 S3 配置 */
+adminApi.get('/s3-config', async (c) => {
+  const username = c.get('username');
+  const config = await getS3Config(c.env, username);
+  return c.json({ configured: !!config, config: config ? { ...config, secretAccessKey: '***' } : null });
+});
+
+/** 测试 S3 连接 */
+adminApi.post('/s3-config/test', async (c) => {
+  const body = await c.req.json<S3Config>();
+  const result = await testS3Connection(body);
+  return c.json(result);
+});
+
+// ============================================
 // 备份接口
 // ============================================
 
 /** 手动触发备份 */
 adminApi.post('/backup', async (c) => {
-  const result = await uploadBackup(c.env);
+  const username = c.get('username');
+  const config = await getS3Config(c.env, username);
+  if (!config) return c.json({ success: false, message: '未配置 S3 存储' });
+  const result = await uploadBackup(c.env, username, config);
   return c.json(result);
 });
 
 /** 列出所有备份 */
 adminApi.get('/backups', async (c) => {
+  const username = c.get('username');
+  const config = await getS3Config(c.env, username);
+  if (!config) return c.json({ error: '未配置 S3 存储' }, 400);
   try {
-    const list = await listBackups(c.env);
+    const list = await listBackups(c.env, username, config);
     return c.json({ backups: list });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -372,26 +410,34 @@ adminApi.get('/backups', async (c) => {
 
 /** 从备份恢复 */
 adminApi.post('/backup/restore', async (c) => {
+  const username = c.get('username');
   const { key } = await c.req.json<{ key: string }>();
 
   if (!key) {
     return c.json({ error: '请提供备份文件 key' }, 400);
   }
 
-  const result = await restoreBackup(c.env, key);
+  const config = await getS3Config(c.env, username);
+  if (!config) return c.json({ success: false, message: '未配置 S3 存储' });
+
+  const result = await restoreBackup(c.env, username, config, key);
   const status = result.success ? 200 : 500;
   return c.json(result, status);
 });
 
 /** 删除指定备份 */
 adminApi.delete('/backup', async (c) => {
+  const username = c.get('username');
   const { key } = await c.req.json<{ key: string }>();
 
   if (!key) {
     return c.json({ error: '请提供备份文件 key' }, 400);
   }
 
-  const result = await deleteBackup(c.env, key);
+  const config = await getS3Config(c.env, username);
+  if (!config) return c.json({ success: false, message: '未配置 S3 存储' });
+
+  const result = await deleteBackup(c.env, username, config, key);
   const status = result.success ? 200 : 500;
   return c.json(result, status);
 });

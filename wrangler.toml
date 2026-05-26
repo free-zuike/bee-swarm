@@ -29,16 +29,6 @@ run_worker_first = true
 crons = ["0 2 * * *"]  # 每天凌晨2点（UTC）备份
 
 # ------------------------------------------
-# S3 兼容存储环境变量（在 Cloudflare Dashboard 中配置）
-# ------------------------------------------
-# [vars]
-# S3_ENDPOINT - S3 兼容存储的端点 URL
-# S3_ACCESS_KEY_ID - Access Key
-# S3_SECRET_ACCESS_KEY - Secret Key
-# S3_BUCKET - Bucket 名称
-# S3_REGION - Region（可选，默认 auto）
-
-# ------------------------------------------
 # KV 命名空间（存储订阅和配置）
 # ------------------------------------------
 [[kv_namespaces]]

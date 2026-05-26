@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, createBackup, listBackups, restoreBackup, deleteBackup } from '@/api';
+import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, createBackup, listBackups, restoreBackup, deleteBackup, saveS3Config, getS3Config, testS3Config } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
 // ==================== 页面状态 ====================
@@ -185,9 +185,10 @@ watch(activeTab, (newTab) => {
   }
 });
 
-// ==================== 设置面板打开时加载备份 ====================
+// ==================== 设置面板打开时加载 S3 配置和备份 ====================
 watch(showSettings, (val) => {
   if (val) {
+    loadS3Config();
     loadBackups();
   }
 });
@@ -526,6 +527,57 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   return results.every(r => !r.success && r.message === '未选择推送渠道');
 }
 
+// ==================== S3 配置 ====================
+const s3Config = reactive({
+  endpoint: '',
+  accessKeyId: '',
+  secretAccessKey: '',
+  bucket: '',
+  region: 'auto',
+});
+const s3Configured = ref(false);
+const isSavingS3Config = ref(false);
+const isTestingS3Config = ref(false);
+
+async function loadS3Config() {
+  try {
+    const data = await getS3Config(accessToken.value);
+    s3Configured.value = data.configured;
+    if (data.config) {
+      s3Config.endpoint = data.config.endpoint || '';
+      s3Config.accessKeyId = data.config.accessKeyId || '';
+      s3Config.secretAccessKey = ''; // 不回显密钥
+      s3Config.bucket = data.config.bucket || '';
+      s3Config.region = data.config.region || 'auto';
+    }
+  } catch (err: any) {
+    console.error('加载 S3 配置失败:', err);
+  }
+}
+
+async function doSaveS3Config() {
+  isSavingS3Config.value = true;
+  try {
+    await saveS3Config(accessToken.value, { ...s3Config });
+    s3Configured.value = true;
+    channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
+  } catch (err: any) {
+    channelMessages['s3'] = { text: err.message || '保存失败', type: 'error' };
+  }
+  isSavingS3Config.value = false;
+}
+
+async function doTestS3Config() {
+  isTestingS3Config.value = true;
+  try {
+    const result = await testS3Config(accessToken.value, { ...s3Config });
+    channelMessages['s3'] = { text: result.message, type: result.success ? 'success' : 'error' };
+  } catch (err: any) {
+    channelMessages['s3'] = { text: err.message || '测试失败', type: 'error' };
+  }
+  isTestingS3Config.value = false;
+}
+
 // ==================== 备份 ====================
 const backups = ref<Array<{ key: string; size: number; lastModified: string }>>([]);
 const isBackingUp = ref(false);
@@ -716,36 +768,77 @@ function formatEndpoint(ep: string): string {
         <div class="panel">
           <div class="backup-panel">
             <h3>💾 数据备份</h3>
-            <p class="hint">自动每天凌晨2点备份到 S3 存储，也可手动备份或恢复</p>
-            
-            <div v-if="channelMessages['backup']" class="channel-save-message" :class="channelMessages['backup'].type">
-              {{ channelMessages['backup'].text }}
-            </div>
+            <p class="hint">配置 S3 兼容存储后，可自动备份和恢复数据</p>
 
-            <div class="backup-actions">
-              <button class="btn btn-secondary" @click="doBackup" :disabled="isBackingUp">
-                {{ isBackingUp ? '备份中...' : '立即备份' }}
-              </button>
-              <button class="btn btn-secondary" @click="loadBackups">
-                刷新列表
-              </button>
-            </div>
-            
-            <!-- 备份列表 -->
-            <div v-if="backups.length" class="backup-list">
-              <div v-for="b in backups" :key="b.key" class="backup-item">
-                <div class="backup-info">
-                  <span class="backup-name">{{ formatBackupName(b.key) }}</span>
-                  <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
-                </div>
-                <div class="backup-actions-item">
-                  <button class="btn btn-sm" @click="doRestore(b.key)">恢复</button>
-                  <button class="btn btn-sm btn-warning" @click="doDeleteBackup(b.key)">删除</button>
-                </div>
+            <!-- S3 配置表单 -->
+            <div class="s3-config-form">
+              <div class="field-group">
+                <label>Endpoint *</label>
+                <input v-model="s3Config.endpoint" placeholder="https://s3.example.com" />
+              </div>
+              <div class="field-group">
+                <label>Access Key ID *</label>
+                <input v-model="s3Config.accessKeyId" placeholder="AKIA..." />
+              </div>
+              <div class="field-group">
+                <label>Secret Access Key *</label>
+                <input v-model="s3Config.secretAccessKey" type="password" placeholder="请输入密钥" />
+              </div>
+              <div class="field-group">
+                <label>Bucket *</label>
+                <input v-model="s3Config.bucket" placeholder="my-backup-bucket" />
+              </div>
+              <div class="field-group">
+                <label>Region</label>
+                <input v-model="s3Config.region" placeholder="auto" />
+              </div>
+              <div v-if="channelMessages['s3']" class="channel-save-message" :class="channelMessages['s3'].type">
+                {{ channelMessages['s3'].text }}
+              </div>
+              <div class="field-actions">
+                <button class="btn btn-secondary" @click="doSaveS3Config" :disabled="isSavingS3Config">
+                  {{ isSavingS3Config ? '保存中...' : '保存配置' }}
+                </button>
+                <button class="btn btn-sm" @click="doTestS3Config" :disabled="isTestingS3Config">
+                  {{ isTestingS3Config ? '测试中...' : '测试连接' }}
+                </button>
               </div>
             </div>
-            <div v-else-if="backupsLoaded" class="empty-hint">
-              暂无备份，请先配置 S3 存储参数
+
+            <!-- 备份管理（仅配置后显示） -->
+            <div v-if="s3Configured" class="backup-section">
+              <hr />
+              <h4>备份管理</h4>
+
+              <div v-if="channelMessages['backup']" class="channel-save-message" :class="channelMessages['backup'].type">
+                {{ channelMessages['backup'].text }}
+              </div>
+
+              <div class="backup-actions">
+                <button class="btn btn-secondary" @click="doBackup" :disabled="isBackingUp">
+                  {{ isBackingUp ? '备份中...' : '立即备份' }}
+                </button>
+                <button class="btn btn-secondary" @click="loadBackups">
+                  刷新列表
+                </button>
+              </div>
+
+              <!-- 备份列表 -->
+              <div v-if="backups.length" class="backup-list">
+                <div v-for="b in backups" :key="b.key" class="backup-item">
+                  <div class="backup-info">
+                    <span class="backup-name">{{ formatBackupName(b.key) }}</span>
+                    <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
+                  </div>
+                  <div class="backup-actions-item">
+                    <button class="btn btn-sm" @click="doRestore(b.key)">恢复</button>
+                    <button class="btn btn-sm btn-warning" @click="doDeleteBackup(b.key)">删除</button>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="backupsLoaded" class="empty-hint">
+                暂无备份
+              </div>
             </div>
           </div>
         </div>
@@ -1760,6 +1853,62 @@ function formatEndpoint(ep: string): string {
   margin-bottom: 8px;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+/* ==================== S3 配置表单 ==================== */
+
+.s3-config-form {
+  margin-top: 12px;
+}
+
+.s3-config-form .field-group {
+  margin-bottom: 12px;
+}
+
+.s3-config-form .field-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.s3-config-form .field-group input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+}
+
+.s3-config-form .field-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.field-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.backup-section {
+  margin-top: 16px;
+}
+
+.backup-section h4 {
+  font-size: 15px;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.backup-section hr {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 16px 0;
 }
 
 .backup-actions {

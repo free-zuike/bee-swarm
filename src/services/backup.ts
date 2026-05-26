@@ -8,6 +8,14 @@ import type { Env } from '../types';
 // 类型定义
 // ------------------------------------------
 
+export interface S3Config {
+  endpoint: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  region: string;
+}
+
 interface BackupData {
   timestamp: string;
   version: string;
@@ -23,6 +31,20 @@ interface BackupInfo {
 interface BackupResult {
   success: boolean;
   message: string;
+}
+
+// ------------------------------------------
+// S3 配置读写（从 KV）
+// ------------------------------------------
+
+export async function getS3Config(env: Env, username: string): Promise<S3Config | null> {
+  const configStr = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
+  if (!configStr) return null;
+  return JSON.parse(configStr);
+}
+
+export async function saveS3Config(env: Env, username: string, config: S3Config): Promise<void> {
+  await env.SUBSCRIPTIONS.put(`user:${username}:s3_config`, JSON.stringify(config));
 }
 
 // ------------------------------------------
@@ -158,17 +180,13 @@ async function signV4(
 async function s3Request(
   method: string,
   path: string,
-  env: Env,
+  config: S3Config,
   body?: string | ArrayBuffer,
   query?: Record<string, string>,
 ): Promise<Response> {
-  const endpoint = env.S3_ENDPOINT;
-  const accessKey = env.S3_ACCESS_KEY_ID;
-  const secretKey = env.S3_SECRET_ACCESS_KEY;
-  const bucket = env.S3_BUCKET;
-  const region = env.S3_REGION || 'auto';
+  const { endpoint, accessKeyId, secretAccessKey, bucket, region } = config;
 
-  if (!endpoint || !accessKey || !secretKey || !bucket) {
+  if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
     throw new Error('未配置 S3 存储参数');
   }
 
@@ -184,7 +202,7 @@ async function s3Request(
     headers['Content-Type'] = 'application/json';
   }
 
-  const signedHeaders = await signV4(method, url, headers, body, accessKey, secretKey, region);
+  const signedHeaders = await signV4(method, url, headers, body, accessKeyId, secretAccessKey, region);
 
   return fetch(url, {
     method,
@@ -221,14 +239,14 @@ export async function exportAllData(env: Env): Promise<BackupData> {
 }
 
 /** 上传备份到 S3 */
-export async function uploadBackup(env: Env): Promise<BackupResult> {
+export async function uploadBackup(env: Env, username: string, config: S3Config): Promise<BackupResult> {
   try {
     const backupData = await exportAllData(env);
     const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const key = `backups/${date}.json`;
+    const key = `backups/${username}/${date}.json`;
 
     const body = JSON.stringify(backupData, null, 2);
-    const response = await s3Request('PUT', `/${key}`, env, body);
+    const response = await s3Request('PUT', `/${key}`, config, body);
 
     if (!response.ok) {
       const text = await response.text();
@@ -242,10 +260,10 @@ export async function uploadBackup(env: Env): Promise<BackupResult> {
 }
 
 /** 列出所有备份 */
-export async function listBackups(env: Env): Promise<BackupInfo[]> {
+export async function listBackups(env: Env, username: string, config: S3Config): Promise<BackupInfo[]> {
   try {
-    const response = await s3Request('GET', '/', env, undefined, {
-      prefix: 'backups/',
+    const response = await s3Request('GET', '/', config, undefined, {
+      prefix: `backups/${username}/`,
       'list-type': '2',
     });
 
@@ -286,9 +304,9 @@ export async function listBackups(env: Env): Promise<BackupInfo[]> {
 }
 
 /** 从备份恢复 */
-export async function restoreBackup(env: Env, backupKey: string): Promise<BackupResult> {
+export async function restoreBackup(env: Env, username: string, config: S3Config, backupKey: string): Promise<BackupResult> {
   try {
-    const response = await s3Request('GET', `/${backupKey}`, env);
+    const response = await s3Request('GET', `/${backupKey}`, config);
 
     if (!response.ok) {
       const text = await response.text();
@@ -327,9 +345,9 @@ export async function restoreBackup(env: Env, backupKey: string): Promise<Backup
 }
 
 /** 删除指定备份 */
-export async function deleteBackup(env: Env, backupKey: string): Promise<BackupResult> {
+export async function deleteBackup(env: Env, username: string, config: S3Config, backupKey: string): Promise<BackupResult> {
   try {
-    const response = await s3Request('DELETE', `/${backupKey}`, env);
+    const response = await s3Request('DELETE', `/${backupKey}`, config);
 
     if (response.status !== 204 && !response.ok) {
       const text = await response.text();
@@ -339,5 +357,29 @@ export async function deleteBackup(env: Env, backupKey: string): Promise<BackupR
     return { success: true, message: `删除成功: ${backupKey}` };
   } catch (err: any) {
     return { success: false, message: `删除失败: ${err.message}` };
+  }
+}
+
+/** 测试 S3 连接 */
+export async function testS3Connection(config: S3Config): Promise<{ success: boolean; message: string }> {
+  try {
+    const { endpoint, accessKeyId, secretAccessKey, bucket, region } = config;
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return { success: false, message: '请填写所有必填项' };
+    }
+
+    const response = await s3Request('GET', '/', config, undefined, {
+      'max-keys': '1',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return { success: false, message: `连接失败 (${response.status}): ${text}` };
+    }
+
+    return { success: true, message: 'S3 连接成功' };
+  } catch (err: any) {
+    return { success: false, message: `连接异常: ${err.message}` };
   }
 }

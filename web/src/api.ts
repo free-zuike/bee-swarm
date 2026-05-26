@@ -222,6 +222,30 @@ export async function getApiKeyWithToken(token: string, refresh?: boolean): Prom
 }
 
 // -------------------------------------------
+// S3 配置接口（Token 认证）
+// -------------------------------------------
+
+export async function saveS3Config(token: string, config: any) {
+  return tokenRequest(`${BASE}/admin/s3-config`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+}
+
+export async function getS3Config(token: string) {
+  return tokenRequest(`${BASE}/admin/s3-config`, token);
+}
+
+export async function testS3Config(token: string, config: any) {
+  return tokenRequest(`${BASE}/admin/s3-config/test`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+}
+
+// -------------------------------------------
 // 备份管理接口（Token 认证）
 // -------------------------------------------
 
