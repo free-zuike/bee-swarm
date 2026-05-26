@@ -358,17 +358,26 @@ adminApi.get('/history', async (c) => {
 /** 保存 S3 配置 */
 adminApi.put('/s3-config', async (c) => {
   const username = c.get('username');
-  const body = await c.req.json<S3Config & { secretAccessKey?: string }>();
+  const body = await c.req.json<Partial<S3Config> & { secretAccessKey?: string; enabled?: boolean; cron?: string; hour?: number }>();
 
-  console.log(`[S3 Config] Saving for user: ${username}, hasSecretKey: ${!!body.secretAccessKey}`);
-
-  if (!body.endpoint || !body.accessKeyId || !body.bucket) {
-    return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
-  }
+  console.log(`[S3 Config] Saving for user: ${username}, hasSecretKey: ${!!body.secretAccessKey}, hasEndpoint: ${!!body.endpoint}`);
 
   // 获取现有配置
   const existing = await getS3Config(c.env, username);
   console.log(`[S3 Config] Existing config found: ${!!existing}, hasExistingSecret: ${!!existing?.secretAccessKey}`);
+
+  // 如果是部分更新（只传了 enabled/cron/hour），合并到现有配置
+  if (!body.endpoint && !body.accessKeyId && !body.bucket && existing) {
+    const mergedConfig = { ...existing, ...body };
+    await saveS3Config(c.env, username, mergedConfig as S3Config);
+    console.log(`[S3 Config] Partial update saved`);
+    return c.json({ success: true, message: '备份设置已保存' });
+  }
+
+  // 完整更新：验证必填项
+  if (!body.endpoint || !body.accessKeyId || !body.bucket) {
+    return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
+  }
 
   // 如果没有提供新密钥，保留原来的密钥
   if (!body.secretAccessKey && existing?.secretAccessKey) {
@@ -381,8 +390,8 @@ adminApi.put('/s3-config', async (c) => {
     return c.json({ error: '请填写 Secret Access Key' }, 400);
   }
 
-  await saveS3Config(c.env, username, body);
-  console.log(`[S3 Config] Saved successfully`);
+  await saveS3Config(c.env, username, body as S3Config);
+  console.log(`[S3 Config] Full config saved successfully`);
   return c.json({ success: true, message: 'S3 配置已保存' });
 });
 

@@ -593,24 +593,12 @@ async function doSaveBackupSettings() {
   if (!s3Configured.value) return; // 未配置 S3 时不保存
   isSavingS3Config.value = true;
   try {
-    // 只传备份相关设置，S3 配置传空（后端会保留原值）
+    // 只传备份相关设置，让后端保留原 S3 配置
     const configToSave: any = {
-      endpoint: '',
-      accessKeyId: '',
-      secretAccessKey: '',
-      bucket: '',
-      region: 'auto',
-      path: '',
       enabled: backupEnabled.value,
       cron: backupCron.value,
       hour: backupHour.value,
     };
-    // 删除空值，让后端保留原配置
-    Object.keys(configToSave).forEach((key) => {
-      if (configToSave[key] === '' || configToSave[key] === undefined) {
-        delete configToSave[key];
-      }
-    });
     await saveS3Config(accessToken.value, configToSave);
     channelMessages['s3'] = { text: '备份设置已保存', type: 'success' };
   } catch (err: any) {
