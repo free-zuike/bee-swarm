@@ -30,10 +30,15 @@ interface BackupResult {
 }
 
 export async function getS3Config(env: Env, username: string): Promise<S3Config | null> {
-  const configStr = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
+  const kvKey = `user:${username}:s3_config`;
+  console.log(`[S3 Config] Getting config for ${username}, key: ${kvKey}`);
+  const configStr = await env.SUBSCRIPTIONS.get(kvKey);
+  console.log(`[S3 Config] Raw data: ${configStr ? 'found' : 'not found'}, length: ${configStr?.length || 0}`);
   if (!configStr) return null;
   try {
-    return JSON.parse(configStr);
+    const parsed = JSON.parse(configStr);
+    console.log(`[S3 Config] Parsed: hasSecret=${!!parsed.secretAccessKey}, secretLength=${parsed.secretAccessKey?.length || 0}`);
+    return parsed;
   } catch (e) {
     console.error(`[S3 Config] Failed to parse config for ${username}:`, configStr.substring(0, 100));
     return null;
