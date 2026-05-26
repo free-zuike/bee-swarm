@@ -656,6 +656,35 @@ const backups = ref<Array<{ key: string; size: number; lastModified: string }>>(
 const isBackingUp = ref(false);
 const backupsLoaded = ref(false);
 
+async function doResetS3Config() {
+  if (!confirm('确定要重置 S3 配置吗？这将清除所有备份设置和密钥。')) return;
+  try {
+    const res = await fetch('/api/admin/s3-config', {
+      method: 'DELETE',
+      headers: { 'X-Token': accessToken.value },
+    });
+    const data = await res.json();
+    if (res.ok) {
+      s3Configured.value = false;
+      s3Config.endpoint = '';
+      s3Config.accessKeyId = '';
+      s3Config.secretAccessKey = '';
+      s3Config.bucket = '';
+      s3Config.region = 'auto';
+      s3Config.path = '';
+      backupEnabled.value = false;
+      backupHour.value = 2;
+      backups.value = [];
+      backupsLoaded.value = false;
+      channelMessages['s3'] = { text: '配置已重置', type: 'success' };
+    } else {
+      channelMessages['s3'] = { text: data.error || '重置失败', type: 'error' };
+    }
+  } catch (err: any) {
+    channelMessages['s3'] = { text: err.message || '重置失败', type: 'error' };
+  }
+}
+
 async function doBackup() {
   isBackingUp.value = true;
   try {
@@ -904,6 +933,9 @@ function formatEndpoint(ep: string): string {
                 </button>
                 <button class="btn btn-sm" @click="doTestS3Config" :disabled="isTestingS3Config">
                   {{ isTestingS3Config ? '测试中...' : '测试连接' }}
+                </button>
+                <button class="btn btn-sm btn-warning" @click="doResetS3Config" :disabled="isSavingS3Config">
+                  重置配置
                 </button>
               </div>
             </div>
