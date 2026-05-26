@@ -31,28 +31,19 @@ interface BackupResult {
 
 export async function getS3Config(env: Env, username: string): Promise<S3Config | null> {
   const kvKey = `user:${username}:s3_config`;
-  console.log(`[S3 Config] Getting config for ${username}, key: ${kvKey}`);
   const configStr = await env.SUBSCRIPTIONS.get(kvKey);
-  console.log(`[S3 Config] Raw data: ${configStr ? 'found' : 'not found'}, length: ${configStr?.length || 0}`);
   if (!configStr) return null;
   try {
-    const parsed = JSON.parse(configStr);
-    console.log(`[S3 Config] Parsed: hasSecret=${!!parsed.secretAccessKey}, secretLength=${parsed.secretAccessKey?.length || 0}`);
-    return parsed;
+    return JSON.parse(configStr);
   } catch (e) {
-    console.error(`[S3 Config] Failed to parse config for ${username}:`, configStr.substring(0, 100));
+    console.error(`[S3 Config] Failed to parse config for ${username}`);
     return null;
   }
 }
 
 export async function saveS3Config(env: Env, username: string, config: S3Config): Promise<void> {
   const configStr = JSON.stringify(config);
-  console.log(`[S3 Config] Saving for ${username}, config size: ${configStr.length}, hasSecret: ${!!config.secretAccessKey}`);
   await env.SUBSCRIPTIONS.put(`user:${username}:s3_config`, configStr);
-  // 立即读取验证
-  const verify = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
-  const parsed = verify ? JSON.parse(verify) : null;
-  console.log(`[S3 Config] Verify saved: hasSecret=${!!parsed?.secretAccessKey}`);
 }
 
 async function hmacSha256(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {

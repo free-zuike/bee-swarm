@@ -544,7 +544,6 @@ async function loadS3Config() {
   isLoadingConfig = true;
   try {
     const data = await getS3Config(accessToken.value);
-    console.log('[S3 Load] Response:', { configured: data.configured, hasSecretKey: data.hasSecretKey });
     s3Configured.value = data.configured;
     if (data.config) {
       s3Config.endpoint = data.config.endpoint || '';
@@ -591,8 +590,6 @@ async function doSaveS3Config() {
     Object.keys(configToSave).forEach(key => {
       if (configToSave[key] === undefined) delete configToSave[key];
     });
-    console.log('[S3 Save] Sending keys:', Object.keys(configToSave));
-    console.log('[S3 Save] Full body:', JSON.stringify(configToSave, null, 2));
     await saveS3Config(accessToken.value, configToSave);
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
@@ -604,7 +601,6 @@ async function doSaveS3Config() {
 
 // 仅保存备份设置（开关、时间），不修改 S3 连接配置
 async function doSaveBackupSettings() {
-  console.log('[Backup] doSaveBackupSettings called, s3Configured:', s3Configured.value);
   if (!s3Configured.value) return; // 未配置 S3 时不保存
   isSavingS3Config.value = true;
   try {
@@ -614,7 +610,6 @@ async function doSaveBackupSettings() {
       cron: backupCron.value,
       hour: backupHour.value,
     };
-    console.log('[Backup] Saving:', configToSave);
     await saveS3Config(accessToken.value, configToSave);
     channelMessages['s3'] = { text: '备份设置已保存', type: 'success' };
   } catch (err: any) {
@@ -626,17 +621,8 @@ async function doSaveBackupSettings() {
 async function doTestS3Config() {
   isTestingS3Config.value = true;
   try {
-    // 如果密钥为空，从后端获取原密钥用于测试
+    // 直接传当前表单配置，后端会自动使用已保存的密钥
     const configToTest: any = { ...s3Config };
-    if (!configToTest.secretAccessKey) {
-      const data = await getS3Config(accessToken.value);
-      if (data.config?.secretAccessKey === '***') {
-        // 有配置但前端没密钥，提示用户先保存
-        channelMessages['s3'] = { text: '请先填写 Secret Access Key 或保存配置后再测试', type: 'error' };
-        isTestingS3Config.value = false;
-        return;
-      }
-    }
     const result = await testS3Config(accessToken.value, configToTest);
     channelMessages['s3'] = { text: result.message, type: result.success ? 'success' : 'error' };
   } catch (err: any) {

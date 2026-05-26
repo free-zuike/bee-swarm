@@ -367,26 +367,16 @@ adminApi.put('/s3-config', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<Partial<S3Config> & { secretAccessKey?: string; enabled?: boolean; cron?: string; hour?: number }>();
 
-  console.log(`[S3 Save] User: ${username}`);
-  console.log(`[S3 Save] Body keys:`, Object.keys(body));
-  console.log(`[S3 Save] Has secretAccessKey in body:`, 'secretAccessKey' in body);
-  console.log(`[S3 Save] secretAccessKey value:`, body.secretAccessKey ? `[${body.secretAccessKey.length} chars]` : 'undefined/null');
-
   // 获取现有配置
   const existing = await getS3Config(c.env, username);
-  console.log(`[S3 Save] Existing config:`, existing ? 'found' : 'not found');
-  console.log(`[S3 Save] Existing secret:`, existing?.secretAccessKey ? `[${existing.secretAccessKey.length} chars, starts with ${existing.secretAccessKey.substring(0, 4)}]` : 'none');
 
   // 如果是部分更新（只传了 enabled/cron/hour），合并到现有配置
   if (!body.endpoint && !body.accessKeyId && !body.bucket && existing) {
-    console.log(`[S3 Save] Partial update mode`);
     // 确保不覆盖密钥（过滤掉掩码值）
     if (body.secretAccessKey && (body.secretAccessKey === '***' || body.secretAccessKey === '****' || body.secretAccessKey.length < 10)) {
-      console.log(`[S3 Save] Filtering out masked secret from body`);
       delete body.secretAccessKey;
     }
     const mergedConfig = { ...existing, ...body };
-    console.log(`[S3 Save] Merged secret:`, mergedConfig.secretAccessKey ? `[${mergedConfig.secretAccessKey.length} chars]` : 'none');
     await saveS3Config(c.env, username, mergedConfig as S3Config);
     return c.json({ success: true, message: '备份设置已保存' });
   }
@@ -396,21 +386,15 @@ adminApi.put('/s3-config', async (c) => {
     return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
   }
 
-  console.log(`[S3 Save] Full update mode`);
-
   // 过滤掉掩码值，不能把 *** 当成真正的密钥
   if (body.secretAccessKey && (body.secretAccessKey === '***' || body.secretAccessKey === '****' || body.secretAccessKey.length < 10)) {
-    console.log(`[S3 Save] Filtering out masked secret from body`);
     delete body.secretAccessKey;
   }
 
   // 如果没有提供新密钥，保留原来的密钥
   if (!body.secretAccessKey && existing?.secretAccessKey && existing.secretAccessKey !== '***' && existing.secretAccessKey !== '****') {
-    console.log(`[S3 Save] Using existing secret key`);
     body.secretAccessKey = existing.secretAccessKey;
   }
-
-  console.log(`[S3 Save] Final secret:`, body.secretAccessKey ? `[${body.secretAccessKey.length} chars]` : 'none');
 
   // 验证密钥存在
   if (!body.secretAccessKey) {
@@ -425,10 +409,6 @@ adminApi.put('/s3-config', async (c) => {
 adminApi.get('/s3-config', async (c) => {
   const username = c.get('username');
   const config = await getS3Config(c.env, username);
-  console.log(`[S3 Get] User: ${username}, config found: ${!!config}, hasSecret: ${!!config?.secretAccessKey}`);
-  if (config?.secretAccessKey) {
-    console.log(`[S3 Get] Secret starts with: ${config.secretAccessKey.substring(0, 4)}, length: ${config.secretAccessKey.length}`);
-  }
   return c.json({
     configured: !!config,
     hasSecretKey: !!config?.secretAccessKey,
@@ -466,9 +446,7 @@ adminApi.delete('/s3-config', async (c) => {
   try {
     const username = c.get('username');
     const kvKey = `user:${username}:s3_config`;
-    console.log(`[S3 Config] Deleting ${kvKey}`);
     await c.env.SUBSCRIPTIONS.delete(kvKey);
-    console.log(`[S3 Config] Deleted successfully`);
     return c.json({ success: true, message: 'S3 配置已删除' });
   } catch (err: any) {
     console.error(`[S3 Config] Delete error:`, err);
@@ -478,7 +456,17 @@ adminApi.delete('/s3-config', async (c) => {
 
 /** 测试 S3 连接 */
 adminApi.post('/s3-config/test', async (c) => {
+  const username = c.get('username');
   const body = await c.req.json<S3Config>();
+  
+  // 如果前端没传密钥，使用后端已保存的密钥
+  if (!body.secretAccessKey) {
+    const existing = await getS3Config(c.env, username);
+    if (existing?.secretAccessKey) {
+      body.secretAccessKey = existing.secretAccessKey;
+    }
+  }
+  
   const result = await testS3Connection(body);
   return c.json(result);
 });
