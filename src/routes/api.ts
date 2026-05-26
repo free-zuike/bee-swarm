@@ -411,11 +411,20 @@ adminApi.get('/s3-config/debug', async (c) => {
   const username = c.get('username');
   const kvKey = `user:${username}:s3_config`;
   const rawValue = await c.env.SUBSCRIPTIONS.get(kvKey);
+  let parsed = null;
+  try { parsed = rawValue ? JSON.parse(rawValue) : null; } catch {}
   return c.json({
     kvKey,
     exists: !!rawValue,
     rawLength: rawValue?.length || 0,
-    hasSecretKey: rawValue ? JSON.parse(rawValue).secretAccessKey?.length > 0 : false,
+    hasSecretKey: !!parsed?.secretAccessKey,
+    secretKeyLength: parsed?.secretAccessKey?.length || 0,
+    endpoint: parsed?.endpoint || null,
+    bucket: parsed?.bucket || null,
+    hasAccessKey: !!parsed?.accessKeyId,
+    enabled: parsed?.enabled,
+    cron: parsed?.cron,
+    hour: parsed?.hour,
   });
 });
 
