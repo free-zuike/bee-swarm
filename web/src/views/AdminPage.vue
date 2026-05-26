@@ -544,6 +544,7 @@ async function loadS3Config() {
   isLoadingConfig = true;
   try {
     const data = await getS3Config(accessToken.value);
+    console.log('[S3 Load] Response:', { configured: data.configured, hasSecretKey: data.hasSecretKey });
     s3Configured.value = data.configured;
     if (data.config) {
       s3Config.endpoint = data.config.endpoint || '';
