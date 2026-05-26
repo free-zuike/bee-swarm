@@ -571,11 +571,26 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
+    // 构建配置对象，只传有值的字段
+    const configToSave: any = {
+      endpoint: s3Config.endpoint || undefined,
+      accessKeyId: s3Config.accessKeyId || undefined,
+      bucket: s3Config.bucket || undefined,
+      region: s3Config.region || 'auto',
+      path: s3Config.path || undefined,
+      enabled: backupEnabled.value,
+      cron: backupCron.value,
+      hour: backupHour.value,
+    };
     // 如果密钥为空，不传（后端会保留原值）
-    const configToSave: any = { ...s3Config, enabled: backupEnabled.value, cron: backupCron.value, hour: backupHour.value };
-    if (!configToSave.secretAccessKey) {
-      delete configToSave.secretAccessKey;
+    if (s3Config.secretAccessKey) {
+      configToSave.secretAccessKey = s3Config.secretAccessKey;
     }
+    // 删除所有 undefined 值
+    Object.keys(configToSave).forEach(key => {
+      if (configToSave[key] === undefined) delete configToSave[key];
+    });
+    console.log('[S3 Save] Sending:', Object.keys(configToSave));
     await saveS3Config(accessToken.value, configToSave);
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
