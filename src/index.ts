@@ -32,28 +32,25 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // 每天定时备份：遍历所有用户，检查是否有 S3 配置，有则备份
-    if (event.cron === '0 2 * * *') {
-      try {
-        let cursor: string | undefined;
-        do {
-          const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
-          for (const key of list.keys) {
-            // 只处理用户记录（user:xxx 格式，不含子键如 s3_config）
-            const username = key.name.replace('user:', '');
-            if (username.includes(':')) continue;
+    // 定时备份：遍历所有用户，匹配其配置的 cron 频率
+    try {
+      let cursor: string | undefined;
+      do {
+        const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
+        for (const key of list.keys) {
+          const username = key.name.replace('user:', '');
+          if (username.includes(':')) continue;
 
-            const config = await getS3Config(env, username);
-            if (config && config.enabled !== false) {
-              const result = await uploadBackup(env, username, config);
-              console.log(`[Cron Backup] ${username}: ${result.message}`);
-            }
+          const config = await getS3Config(env, username);
+          if (config && config.enabled !== false && config.cron === event.cron) {
+            const result = await uploadBackup(env, username, config);
+            console.log(`[Cron Backup] ${username}: ${result.message}`);
           }
-          cursor = list.cursor;
-        } while (cursor);
-      } catch (err: any) {
-        console.error(`[Cron Backup] Error: ${err.message}`);
-      }
+        }
+        cursor = list.cursor;
+      } while (cursor);
+    } catch (err: any) {
+      console.error(`[Cron Backup] Error: ${err.message}`);
     }
   },
 };

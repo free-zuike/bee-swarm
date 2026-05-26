@@ -538,6 +538,7 @@ const s3Config = reactive({
 });
 const s3Configured = ref(false);
 const backupEnabled = ref(false);
+const backupCron = ref('0 2 * * *'); // 默认每天凌晨2点(UTC)
 const isSavingS3Config = ref(false);
 const isTestingS3Config = ref(false);
 
@@ -553,6 +554,7 @@ async function loadS3Config() {
       s3Config.region = data.config.region || 'auto';
       s3Config.path = data.config.path || '';
       backupEnabled.value = data.config.enabled !== false; // 默认启用
+      backupCron.value = data.config.cron || '0 2 * * *';
     }
   } catch (err: any) {
     console.error('加载 S3 配置失败:', err);
@@ -562,7 +564,7 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
-    await saveS3Config(accessToken.value, { ...s3Config, enabled: backupEnabled.value });
+    await saveS3Config(accessToken.value, { ...s3Config, enabled: backupEnabled.value, cron: backupCron.value });
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
   } catch (err: any) {
@@ -782,6 +784,17 @@ function formatEndpoint(ep: string): string {
             <p class="hint">配置 S3 兼容存储后，可自动备份和恢复数据</p>
 
             <template v-if="backupEnabled">
+            <div class="backup-cron-row">
+              <label>备份频率</label>
+              <select v-model="backupCron" @change="doSaveS3Config">
+                <option value="0 */6 * * *">每6小时</option>
+                <option value="0 */12 * * *">每12小时</option>
+                <option value="0 2 * * *">每天一次（UTC 02:00）</option>
+                <option value="0 2 * * 1">每周一次（周一 UTC 02:00）</option>
+                <option value="0 2 1 * *">每月一次（1号 UTC 02:00）</option>
+              </select>
+            </div>
+
             <!-- S3 配置表单 -->
             <div class="s3-config-form">
               <div class="field-group">
@@ -2025,5 +2038,30 @@ function formatEndpoint(ep: string): string {
 .toggle-label {
   font-size: 13px;
   color: #6b7280;
+}
+
+.backup-cron-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.backup-cron-row label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.backup-cron-row select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
 }
 </style>
