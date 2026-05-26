@@ -590,7 +590,8 @@ async function doSaveS3Config() {
     Object.keys(configToSave).forEach(key => {
       if (configToSave[key] === undefined) delete configToSave[key];
     });
-    console.log('[S3 Save] Sending:', Object.keys(configToSave));
+    console.log('[S3 Save] Sending keys:', Object.keys(configToSave));
+    console.log('[S3 Save] Full body:', JSON.stringify(configToSave, null, 2));
     await saveS3Config(accessToken.value, configToSave);
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
