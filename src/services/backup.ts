@@ -89,10 +89,10 @@ async function s3Request(method: string, path: string, config: S3Config, body?: 
   if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) throw new Error('未配置 S3 存储参数');
   const endpointWithProtocol = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
   const parsedEndpoint = new URL(endpointWithProtocol);
-  const hostWithBucket = bucket + '.' + parsedEndpoint.host;
   const queryString = query ? '?' + new URLSearchParams(query).toString() : '';
-  const url = parsedEndpoint.protocol + '//' + hostWithBucket + path + queryString;
-  const headers: Record<string, string> = { 'Host': hostWithBucket };
+  // 使用 path-style URL（兼容中国科技云）
+  const url = parsedEndpoint.protocol + '//' + parsedEndpoint.host + '/' + bucket + path + queryString;
+  const headers: Record<string, string> = { 'Host': parsedEndpoint.host };
   if (body) headers['Content-Type'] = 'application/json';
   const signedHeaders = await signV4(method, url, headers, body, accessKeyId, secretAccessKey, region);
   return fetch(url, { method, headers: signedHeaders, body });
