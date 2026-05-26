@@ -41,7 +41,13 @@ export async function getS3Config(env: Env, username: string): Promise<S3Config 
 }
 
 export async function saveS3Config(env: Env, username: string, config: S3Config): Promise<void> {
-  await env.SUBSCRIPTIONS.put(`user:${username}:s3_config`, JSON.stringify(config));
+  const configStr = JSON.stringify(config);
+  console.log(`[S3 Config] Saving for ${username}, config size: ${configStr.length}, hasSecret: ${!!config.secretAccessKey}`);
+  await env.SUBSCRIPTIONS.put(`user:${username}:s3_config`, configStr);
+  // 立即读取验证
+  const verify = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
+  const parsed = verify ? JSON.parse(verify) : null;
+  console.log(`[S3 Config] Verify saved: hasSecret=${!!parsed?.secretAccessKey}`);
 }
 
 async function hmacSha256(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
