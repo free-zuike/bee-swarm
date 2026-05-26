@@ -538,7 +538,7 @@ const backupCron = computed(() => {
 });
 const isSavingS3Config = ref(false);
 const isTestingS3Config = ref(false);
-const isLoadingConfig = false; // 用于防止加载配置时触发保存
+let isLoadingConfig = false; // 用于防止加载配置时触发保存
 
 async function loadS3Config() {
   isLoadingConfig = true;
