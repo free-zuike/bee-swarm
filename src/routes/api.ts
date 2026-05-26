@@ -425,6 +425,10 @@ adminApi.put('/s3-config', async (c) => {
 adminApi.get('/s3-config', async (c) => {
   const username = c.get('username');
   const config = await getS3Config(c.env, username);
+  console.log(`[S3 Get] User: ${username}, config found: ${!!config}, hasSecret: ${!!config?.secretAccessKey}`);
+  if (config?.secretAccessKey) {
+    console.log(`[S3 Get] Secret starts with: ${config.secretAccessKey.substring(0, 4)}, length: ${config.secretAccessKey.length}`);
+  }
   return c.json({
     configured: !!config,
     hasSecretKey: !!config?.secretAccessKey,
