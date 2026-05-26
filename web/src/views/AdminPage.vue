@@ -193,6 +193,20 @@ watch(showSettings, (val) => {
   }
 });
 
+// ==================== 备份设置变化时自动保存 ====================
+let isLoadingConfig = false;
+watch(backupEnabled, (newVal, oldVal) => {
+  // 只在用户手动切换时保存，加载配置时不保存
+  if (!isLoadingConfig && oldVal !== undefined) {
+    doSaveBackupSettings();
+  }
+});
+watch(backupHour, (newVal, oldVal) => {
+  if (!isLoadingConfig && oldVal !== undefined) {
+    doSaveBackupSettings();
+  }
+});
+
 // ==================== 认证函数 ====================
 async function doLogin() {
   if (!authEmail.value.trim() || !authPassword.value) {
@@ -548,6 +562,7 @@ const isSavingS3Config = ref(false);
 const isTestingS3Config = ref(false);
 
 async function loadS3Config() {
+  isLoadingConfig = true;
   try {
     const data = await getS3Config(accessToken.value);
     s3Configured.value = data.configured;
@@ -568,6 +583,9 @@ async function loadS3Config() {
     }
   } catch (err: any) {
     console.error('加载 S3 配置失败:', err);
+  } finally {
+    // 延迟重置标志，确保 watch 不会触发
+    setTimeout(() => { isLoadingConfig = false; }, 100);
   }
 }
 
@@ -821,7 +839,7 @@ function formatEndpoint(ep: string): string {
             <div class="backup-toggle">
               <h3>💾 数据备份</h3>
               <label class="toggle-switch">
-                <input type="checkbox" v-model="backupEnabled" @change="doSaveBackupSettings" />
+                <input type="checkbox" v-model="backupEnabled" />
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">{{ backupEnabled ? '已开启' : '已关闭' }}</span>
               </label>
@@ -831,7 +849,7 @@ function formatEndpoint(ep: string): string {
             <template v-if="backupEnabled">
             <div class="backup-cron-row">
               <label>备份频率</label>
-              <select v-model="backupCron" @change="doSaveBackupSettings">
+              <select v-model="backupCron">
                 <option value="0 */6 * * *">每6小时</option>
                 <option value="0 */12 * * *">每12小时</option>
                 <option value="0 2 * * *">每天一次</option>
@@ -841,7 +859,7 @@ function formatEndpoint(ep: string): string {
             </div>
             <div class="backup-cron-row">
               <label>备份时间</label>
-              <select v-model="backupHour" @change="doSaveBackupSettings">
+              <select v-model="backupHour">
                 <option v-for="h in 24" :key="h" :value="h - 1">{{ (h - 1).toString().padStart(2, '0') }}:00</option>
               </select>
               <span class="timezone-hint">北京时间 (UTC+8)</span>
