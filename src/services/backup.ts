@@ -154,9 +154,9 @@ export async function restoreBackup(env: Env, username: string, config: S3Config
 export async function deleteBackup(env: Env, username: string, config: S3Config, backupKey: string): Promise<BackupResult> {
   try {
     const response = await s3Request('DELETE', '/' + backupKey, config);
-    if (response.status !== 204 && !response.ok) return { success: false, message: '删除失败
-
-  } catch (err: any) { return { success: false, message: "删除失败: " + err.message }; }
+    if (response.status !== 204 && !response.ok) return { success: false, message: '删除失败 (' + response.status + ')' };
+    return { success: true, message: '删除成功: ' + backupKey };
+  } catch (err: any) { return { success: false, message: '删除失败: ' + err.message }; }
 }
 
 export async function testS3Connection(config: S3Config): Promise<{ success: boolean; message: string }> {
