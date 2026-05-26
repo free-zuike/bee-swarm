@@ -197,13 +197,17 @@ watch(showSettings, (val) => {
 });
 
 watch(backupEnabled, (newVal, oldVal) => {
+  console.log('[Backup] backupEnabled changed:', { newVal, oldVal, isLoadingConfig });
   // 只在用户手动切换时保存，加载配置时不保存
   if (!isLoadingConfig && oldVal !== undefined) {
+    console.log('[Backup] Saving backup settings...');
     doSaveBackupSettings();
   }
 });
 watch(backupHour, (newVal, oldVal) => {
+  console.log('[Backup] backupHour changed:', { newVal, oldVal, isLoadingConfig });
   if (!isLoadingConfig && oldVal !== undefined) {
+    console.log('[Backup] Saving backup settings...');
     doSaveBackupSettings();
   }
 });
@@ -609,6 +613,7 @@ async function doSaveS3Config() {
 
 // 仅保存备份设置（开关、时间），不修改 S3 连接配置
 async function doSaveBackupSettings() {
+  console.log('[Backup] doSaveBackupSettings called, s3Configured:', s3Configured.value);
   if (!s3Configured.value) return; // 未配置 S3 时不保存
   isSavingS3Config.value = true;
   try {
@@ -618,6 +623,7 @@ async function doSaveBackupSettings() {
       cron: backupCron.value,
       hour: backupHour.value,
     };
+    console.log('[Backup] Saving:', configToSave);
     await saveS3Config(accessToken.value, configToSave);
     channelMessages['s3'] = { text: '备份设置已保存', type: 'success' };
   } catch (err: any) {
