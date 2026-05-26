@@ -44,7 +44,7 @@ export default {
             if (username.includes(':')) continue;
 
             const config = await getS3Config(env, username);
-            if (config) {
+            if (config && config.enabled !== false) {
               const result = await uploadBackup(env, username, config);
               console.log(`[Cron Backup] ${username}: ${result.message}`);
             }

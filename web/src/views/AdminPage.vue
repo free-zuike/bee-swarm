@@ -537,6 +537,7 @@ const s3Config = reactive({
   path: '',
 });
 const s3Configured = ref(false);
+const backupEnabled = ref(false);
 const isSavingS3Config = ref(false);
 const isTestingS3Config = ref(false);
 
@@ -551,6 +552,7 @@ async function loadS3Config() {
       s3Config.bucket = data.config.bucket || '';
       s3Config.region = data.config.region || 'auto';
       s3Config.path = data.config.path || '';
+      backupEnabled.value = data.config.enabled !== false; // 默认启用
     }
   } catch (err: any) {
     console.error('加载 S3 配置失败:', err);
@@ -560,7 +562,7 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
-    await saveS3Config(accessToken.value, { ...s3Config });
+    await saveS3Config(accessToken.value, { ...s3Config, enabled: backupEnabled.value });
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
   } catch (err: any) {
@@ -814,7 +816,16 @@ function formatEndpoint(ep: string): string {
             <!-- 备份管理（仅配置后显示） -->
             <div v-if="s3Configured" class="backup-section">
               <hr />
-              <h4>备份管理</h4>
+              <div class="backup-toggle">
+                <h4>备份管理</h4>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="backupEnabled" @change="doSaveS3Config" />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">{{ backupEnabled ? '已开启' : '已关闭' }}</span>
+                </label>
+              </div>
+
+              <template v-if="backupEnabled">
 
               <div v-if="channelMessages['backup']" class="channel-save-message" :class="channelMessages['backup'].type">
                 {{ channelMessages['backup'].text }}
@@ -845,6 +856,7 @@ function formatEndpoint(ep: string): string {
               <div v-else-if="backupsLoaded" class="empty-hint">
                 暂无备份
               </div>
+              </template>
             </div>
           </div>
         </div>
@@ -1963,5 +1975,56 @@ function formatEndpoint(ep: string): string {
   color: #9ca3af;
   padding: 20px;
   font-size: 14px;
+}
+
+.backup-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  display: none;
+}
+
+.toggle-slider {
+  width: 40px;
+  height: 22px;
+  background: #d1d5db;
+  border-radius: 11px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: #667eea;
+}
+
+.toggle-switch input:checked + .toggle-slider::after {
+  transform: translateX(18px);
+}
+
+.toggle-label {
+  font-size: 13px;
+  color: #6b7280;
 }
 </style>
