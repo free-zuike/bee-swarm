@@ -431,6 +431,13 @@ adminApi.get('/s3-config/debug', async (c) => {
   });
 });
 
+/** 删除 S3 配置 */
+adminApi.delete('/s3-config', async (c) => {
+  const username = c.get('username');
+  await c.env.SUBSCRIPTIONS.delete(`user:${username}:s3_config`);
+  return c.json({ success: true, message: 'S3 配置已删除' });
+});
+
 /** 测试 S3 连接 */
 adminApi.post('/s3-config/test', async (c) => {
   const body = await c.req.json<S3Config>();
