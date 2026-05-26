@@ -360,17 +360,17 @@ adminApi.put('/s3-config', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<Partial<S3Config> & { secretAccessKey?: string; enabled?: boolean; cron?: string; hour?: number }>();
 
-  console.log(`[S3 Config] Saving for user: ${username}, hasSecretKey: ${!!body.secretAccessKey}, hasEndpoint: ${!!body.endpoint}`);
-
   // 获取现有配置
   const existing = await getS3Config(c.env, username);
-  console.log(`[S3 Config] Existing config found: ${!!existing}, hasExistingSecret: ${!!existing?.secretAccessKey}`);
 
   // 如果是部分更新（只传了 enabled/cron/hour），合并到现有配置
   if (!body.endpoint && !body.accessKeyId && !body.bucket && existing) {
+    // 确保不覆盖密钥（过滤掉掩码值）
+    if (body.secretAccessKey && (body.secretAccessKey === '***' || body.secretAccessKey === '****' || body.secretAccessKey.length < 10)) {
+      delete body.secretAccessKey;
+    }
     const mergedConfig = { ...existing, ...body };
     await saveS3Config(c.env, username, mergedConfig as S3Config);
-    console.log(`[S3 Config] Partial update saved`);
     return c.json({ success: true, message: '备份设置已保存' });
   }
 
@@ -379,10 +379,14 @@ adminApi.put('/s3-config', async (c) => {
     return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
   }
 
+  // 过滤掉掩码值，不能把 *** 当成真正的密钥
+  if (body.secretAccessKey && (body.secretAccessKey === '***' || body.secretAccessKey === '****' || body.secretAccessKey.length < 10)) {
+    delete body.secretAccessKey;
+  }
+
   // 如果没有提供新密钥，保留原来的密钥
-  if (!body.secretAccessKey && existing?.secretAccessKey) {
+  if (!body.secretAccessKey && existing?.secretAccessKey && existing.secretAccessKey !== '***' && existing.secretAccessKey !== '****') {
     body.secretAccessKey = existing.secretAccessKey;
-    console.log(`[S3 Config] Using existing secret key`);
   }
 
   // 验证密钥存在
@@ -391,7 +395,6 @@ adminApi.put('/s3-config', async (c) => {
   }
 
   await saveS3Config(c.env, username, body as S3Config);
-  console.log(`[S3 Config] Full config saved successfully`);
   return c.json({ success: true, message: 'S3 配置已保存' });
 });
 
