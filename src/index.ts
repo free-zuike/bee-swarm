@@ -32,7 +32,10 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // 定时备份：遍历所有用户，匹配其配置的 cron 频率
+    // 每小时触发，检查当前 UTC 小时是否匹配用户配置的北京时间
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+
     try {
       let cursor: string | undefined;
       do {
@@ -42,9 +45,16 @@ export default {
           if (username.includes(':')) continue;
 
           const config = await getS3Config(env, username);
-          if (config && config.enabled !== false && config.cron === event.cron) {
-            const result = await uploadBackup(env, username, config);
-            console.log(`[Cron Backup] ${username}: ${result.message}`);
+          if (config && config.enabled !== false) {
+            // 用户配置的北京时间转 UTC
+            const userBeijingHour = config.hour ?? 2;
+            const userUtcHour = (userBeijingHour + 24 - 8) % 24;
+
+            // 检查是否匹配
+            if (utcHour === userUtcHour) {
+              const result = await uploadBackup(env, username, config);
+              console.log(`[Cron Backup] ${username}: ${result.message}`);
+            }
           }
         }
         cursor = list.cursor;
