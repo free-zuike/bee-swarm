@@ -99,10 +99,14 @@ async function s3Request(method: string, path: string, config: S3Config, body?: 
   const endpointWithProtocol = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
   const parsedEndpoint = new URL(endpointWithProtocol);
   const queryString = query ? '?' + new URLSearchParams(query).toString() : '';
-  // 使用 path-style URL（兼容中国科技云）
-  const url = parsedEndpoint.protocol + '//' + parsedEndpoint.host + '/' + bucket + path + queryString;
-  const headers: Record<string, string> = { 'Host': parsedEndpoint.host };
+  
+  // 尝试 virtual-hosted style URL（bucket 在 host 中）
+  const bucketHost = `${bucket}.${parsedEndpoint.host}`;
+  const url = parsedEndpoint.protocol + '//' + bucketHost + path + queryString;
+  const headers: Record<string, string> = { 'Host': bucketHost };
   if (body) headers['Content-Type'] = 'application/json';
+  
+  console.log(`[S3 Request] URL: ${url}, Host: ${bucketHost}, Region: ${region}`);
   const signedHeaders = await signV4(method, url, headers, body, accessKeyId, secretAccessKey, region);
   return fetch(url, { method, headers: signedHeaders, body });
 }
