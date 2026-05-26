@@ -406,6 +406,19 @@ adminApi.get('/s3-config', async (c) => {
   });
 });
 
+/** 调试：检查 KV 中的原始 S3 配置 */
+adminApi.get('/s3-config/debug', async (c) => {
+  const username = c.get('username');
+  const kvKey = `user:${username}:s3_config`;
+  const rawValue = await c.env.SUBSCRIPTIONS.get(kvKey);
+  return c.json({
+    kvKey,
+    exists: !!rawValue,
+    rawLength: rawValue?.length || 0,
+    hasSecretKey: rawValue ? JSON.parse(rawValue).secretAccessKey?.length > 0 : false,
+  });
+});
+
 /** 测试 S3 连接 */
 adminApi.post('/s3-config/test', async (c) => {
   const body = await c.req.json<S3Config>();
