@@ -360,16 +360,20 @@ adminApi.put('/s3-config', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<S3Config & { secretAccessKey?: string }>();
 
+  console.log(`[S3 Config] Saving for user: ${username}, hasSecretKey: ${!!body.secretAccessKey}`);
+
   if (!body.endpoint || !body.accessKeyId || !body.bucket) {
     return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
   }
 
   // 获取现有配置
   const existing = await getS3Config(c.env, username);
+  console.log(`[S3 Config] Existing config found: ${!!existing}, hasExistingSecret: ${!!existing?.secretAccessKey}`);
 
   // 如果没有提供新密钥，保留原来的密钥
   if (!body.secretAccessKey && existing?.secretAccessKey) {
     body.secretAccessKey = existing.secretAccessKey;
+    console.log(`[S3 Config] Using existing secret key`);
   }
 
   // 验证密钥存在
@@ -378,6 +382,7 @@ adminApi.put('/s3-config', async (c) => {
   }
 
   await saveS3Config(c.env, username, body);
+  console.log(`[S3 Config] Saved successfully`);
   return c.json({ success: true, message: 'S3 配置已保存' });
 });
 

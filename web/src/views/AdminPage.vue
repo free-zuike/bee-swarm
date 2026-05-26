@@ -588,6 +588,37 @@ async function doSaveS3Config() {
   isSavingS3Config.value = false;
 }
 
+// 仅保存备份设置（开关、时间），不修改 S3 连接配置
+async function doSaveBackupSettings() {
+  if (!s3Configured.value) return; // 未配置 S3 时不保存
+  isSavingS3Config.value = true;
+  try {
+    // 只传备份相关设置，S3 配置传空（后端会保留原值）
+    const configToSave: any = {
+      endpoint: '',
+      accessKeyId: '',
+      secretAccessKey: '',
+      bucket: '',
+      region: 'auto',
+      path: '',
+      enabled: backupEnabled.value,
+      cron: backupCron.value,
+      hour: backupHour.value,
+    };
+    // 删除空值，让后端保留原配置
+    Object.keys(configToSave).forEach((key) => {
+      if (configToSave[key] === '' || configToSave[key] === undefined) {
+        delete configToSave[key];
+      }
+    });
+    await saveS3Config(accessToken.value, configToSave);
+    channelMessages['s3'] = { text: '备份设置已保存', type: 'success' };
+  } catch (err: any) {
+    channelMessages['s3'] = { text: err.message || '保存失败', type: 'error' };
+  }
+  isSavingS3Config.value = false;
+}
+
 async function doTestS3Config() {
   isTestingS3Config.value = true;
   try {
@@ -802,7 +833,7 @@ function formatEndpoint(ep: string): string {
             <div class="backup-toggle">
               <h3>💾 数据备份</h3>
               <label class="toggle-switch">
-                <input type="checkbox" v-model="backupEnabled" @change="doSaveS3Config" />
+                <input type="checkbox" v-model="backupEnabled" @change="doSaveBackupSettings" />
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">{{ backupEnabled ? '已开启' : '已关闭' }}</span>
               </label>
@@ -812,7 +843,7 @@ function formatEndpoint(ep: string): string {
             <template v-if="backupEnabled">
             <div class="backup-cron-row">
               <label>备份频率</label>
-              <select v-model="backupCron" @change="doSaveS3Config">
+              <select v-model="backupCron" @change="doSaveBackupSettings">
                 <option value="0 */6 * * *">每6小时</option>
                 <option value="0 */12 * * *">每12小时</option>
                 <option value="0 2 * * *">每天一次</option>
@@ -822,7 +853,7 @@ function formatEndpoint(ep: string): string {
             </div>
             <div class="backup-cron-row">
               <label>备份时间</label>
-              <select v-model="backupHour" @change="doSaveS3Config">
+              <select v-model="backupHour" @change="doSaveBackupSettings">
                 <option v-for="h in 24" :key="h" :value="h - 1">{{ (h - 1).toString().padStart(2, '0') }}:00</option>
               </select>
               <span class="timezone-hint">北京时间 (UTC+8)</span>
