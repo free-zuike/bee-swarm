@@ -771,9 +771,17 @@ function formatEndpoint(ep: string): string {
         <!-- 数据备份面板 -->
         <div class="panel">
           <div class="backup-panel">
-            <h3>💾 数据备份</h3>
+            <div class="backup-toggle">
+              <h3>💾 数据备份</h3>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="backupEnabled" @change="doSaveS3Config" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">{{ backupEnabled ? '已开启' : '已关闭' }}</span>
+              </label>
+            </div>
             <p class="hint">配置 S3 兼容存储后，可自动备份和恢复数据</p>
 
+            <template v-if="backupEnabled">
             <!-- S3 配置表单 -->
             <div class="s3-config-form">
               <div class="field-group">
@@ -816,16 +824,7 @@ function formatEndpoint(ep: string): string {
             <!-- 备份管理（仅配置后显示） -->
             <div v-if="s3Configured" class="backup-section">
               <hr />
-              <div class="backup-toggle">
-                <h4>备份管理</h4>
-                <label class="toggle-switch">
-                  <input type="checkbox" v-model="backupEnabled" @change="doSaveS3Config" />
-                  <span class="toggle-slider"></span>
-                  <span class="toggle-label">{{ backupEnabled ? '已开启' : '已关闭' }}</span>
-                </label>
-              </div>
-
-              <template v-if="backupEnabled">
+              <h4>备份管理</h4>
 
               <div v-if="channelMessages['backup']" class="channel-save-message" :class="channelMessages['backup'].type">
                 {{ channelMessages['backup'].text }}
@@ -856,8 +855,8 @@ function formatEndpoint(ep: string): string {
               <div v-else-if="backupsLoaded" class="empty-hint">
                 暂无备份
               </div>
-              </template>
             </div>
+            </template>
           </div>
         </div>
 
