@@ -433,9 +433,17 @@ adminApi.get('/s3-config/debug', async (c) => {
 
 /** 删除 S3 配置 */
 adminApi.delete('/s3-config', async (c) => {
-  const username = c.get('username');
-  await c.env.SUBSCRIPTIONS.delete(`user:${username}:s3_config`);
-  return c.json({ success: true, message: 'S3 配置已删除' });
+  try {
+    const username = c.get('username');
+    const kvKey = `user:${username}:s3_config`;
+    console.log(`[S3 Config] Deleting ${kvKey}`);
+    await c.env.SUBSCRIPTIONS.delete(kvKey);
+    console.log(`[S3 Config] Deleted successfully`);
+    return c.json({ success: true, message: 'S3 配置已删除' });
+  } catch (err: any) {
+    console.error(`[S3 Config] Delete error:`, err);
+    return c.json({ error: '删除失败', message: err.message }, 500);
+  }
 });
 
 /** 测试 S3 连接 */
