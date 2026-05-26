@@ -192,7 +192,7 @@ async function s3Request(
   }
 
   const parsedEndpoint = new URL(endpoint);
-  // 使用 path-style URL
+  // 使用 path-style URL（最通用）
   const url = `${parsedEndpoint.origin}/${bucket}${path}${query ? '?' + new URLSearchParams(query).toString() : ''}`;
 
   const headers: Record<string, string> = {
