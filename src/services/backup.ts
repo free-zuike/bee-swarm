@@ -378,11 +378,11 @@ export async function testS3Connection(config: S3Config): Promise<{ success: boo
 
     if (!response.ok) {
       const text = await response.text();
-      return { success: false, message: `连接失败 (${response.status}): ${text}` };
+      return { success: false, message: `连接失败 (${response.status}): ${text.substring(0, 200)}` };
     }
 
     return { success: true, message: 'S3 连接成功' };
   } catch (err: any) {
-    return { success: false, message: `连接异常: ${err.message}` };
+    return { success: false, message: `连接异常: ${err.message}。请检查：1. Endpoint 是否正确（如 https://s3.amazonaws.com）；2. Access Key 和 Secret Key 是否正确；3. Bucket 名称是否正确` };
   }
 }
