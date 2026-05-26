@@ -534,6 +534,7 @@ const s3Config = reactive({
   secretAccessKey: '',
   bucket: '',
   region: 'auto',
+  path: '',
 });
 const s3Configured = ref(false);
 const isSavingS3Config = ref(false);
@@ -549,6 +550,7 @@ async function loadS3Config() {
       s3Config.secretAccessKey = ''; // 不回显密钥
       s3Config.bucket = data.config.bucket || '';
       s3Config.region = data.config.region || 'auto';
+      s3Config.path = data.config.path || '';
     }
   } catch (err: any) {
     console.error('加载 S3 配置失败:', err);
@@ -791,6 +793,10 @@ function formatEndpoint(ep: string): string {
               <div class="field-group">
                 <label>Region</label>
                 <input v-model="s3Config.region" placeholder="auto" />
+              </div>
+              <div class="field-group">
+                <label>备份路径</label>
+                <input v-model="s3Config.path" placeholder="myapp/backups（留空默认 backups/用户名）" />
               </div>
               <div v-if="channelMessages['s3']" class="channel-save-message" :class="channelMessages['s3'].type">
                 {{ channelMessages['s3'].text }}

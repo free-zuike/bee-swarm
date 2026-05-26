@@ -14,6 +14,7 @@ export interface S3Config {
   secretAccessKey: string;
   bucket: string;
   region: string;
+  path: string; // 备份路径前缀，如 "myapp/backups"
 }
 
 interface BackupData {
@@ -243,7 +244,8 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
   try {
     const backupData = await exportAllData(env);
     const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const key = `backups/${username}/${date}.json`;
+    const prefix = config.path ? config.path.replace(/\/+$/, '') : `backups/${username}`;
+    const key = `${prefix}/${date}.json`;
 
     const body = JSON.stringify(backupData, null, 2);
     const response = await s3Request('PUT', `/${key}`, config, body);
@@ -262,8 +264,9 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
 /** 列出所有备份 */
 export async function listBackups(env: Env, username: string, config: S3Config): Promise<BackupInfo[]> {
   try {
+    const prefix = config.path ? config.path.replace(/\/+$/, '') : `backups/${username}`;
     const response = await s3Request('GET', '/', config, undefined, {
-      prefix: `backups/${username}/`,
+      prefix: `${prefix}/`,
       'list-type': '2',
     });
 
