@@ -538,7 +538,12 @@ const s3Config = reactive({
 });
 const s3Configured = ref(false);
 const backupEnabled = ref(false);
-const backupCron = ref('0 2 * * *'); // 默认每天凌晨2点(UTC)
+const backupHour = ref(2); // 默认凌晨2点（北京时间）
+const backupCron = computed(() => {
+  // 北京时间转 UTC
+  const utcHour = (backupHour.value + 24 - 8) % 24;
+  return `0 ${utcHour} * * *`;
+});
 const isSavingS3Config = ref(false);
 const isTestingS3Config = ref(false);
 
@@ -554,7 +559,12 @@ async function loadS3Config() {
       s3Config.region = data.config.region || 'auto';
       s3Config.path = data.config.path || '';
       backupEnabled.value = data.config.enabled !== false; // 默认启用
-      backupCron.value = data.config.cron || '0 2 * * *';
+      // 从 cron 解析小时（UTC 转北京时间）
+      const cronMatch = (data.config.cron || '0 2 * * *').match(/0 (\d+) \* \* \*/);
+      if (cronMatch) {
+        const utcHour = parseInt(cronMatch[1], 10);
+        backupHour.value = (utcHour + 8) % 24;
+      }
     }
   } catch (err: any) {
     console.error('加载 S3 配置失败:', err);
@@ -564,7 +574,7 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
-    await saveS3Config(accessToken.value, { ...s3Config, enabled: backupEnabled.value, cron: backupCron.value });
+    await saveS3Config(accessToken.value, { ...s3Config, enabled: backupEnabled.value, cron: backupCron.value, hour: backupHour.value });
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
   } catch (err: any) {
@@ -789,10 +799,17 @@ function formatEndpoint(ep: string): string {
               <select v-model="backupCron" @change="doSaveS3Config">
                 <option value="0 */6 * * *">每6小时</option>
                 <option value="0 */12 * * *">每12小时</option>
-                <option value="0 2 * * *">每天一次（UTC 02:00）</option>
-                <option value="0 2 * * 1">每周一次（周一 UTC 02:00）</option>
-                <option value="0 2 1 * *">每月一次（1号 UTC 02:00）</option>
+                <option value="0 2 * * *">每天一次</option>
+                <option value="0 2 * * 1">每周一次（周一）</option>
+                <option value="0 2 1 * *">每月一次（1号）</option>
               </select>
+            </div>
+            <div class="backup-cron-row">
+              <label>备份时间</label>
+              <select v-model="backupHour" @change="doSaveS3Config">
+                <option v-for="h in 24" :key="h" :value="h - 1">{{ (h - 1).toString().padStart(2, '0') }}:00</option>
+              </select>
+              <span class="timezone-hint">北京时间 (UTC+8)</span>
             </div>
 
             <!-- S3 配置表单 -->
@@ -2042,8 +2059,8 @@ function formatEndpoint(ep: string): string {
 
 .backup-cron-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
   margin: 12px 0;
 }
 
@@ -2051,17 +2068,21 @@ function formatEndpoint(ep: string): string {
   font-size: 14px;
   font-weight: 500;
   color: #374151;
-  white-space: nowrap;
 }
 
 .backup-cron-row select {
-  flex: 1;
-  padding: 8px 12px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
   background: white;
   color: #374151;
   cursor: pointer;
+}
+
+.timezone-hint {
+  font-size: 12px;
+  color: #9ca3af;
 }
 </style>
