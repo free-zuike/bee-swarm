@@ -221,14 +221,18 @@ adminApi.use('/*', async (c, next) => {
   if (apiKey) {
     const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
     for (const key of list.keys) {
+      // 跳过非用户数据键（如 s3_config）
+      if (key.name.includes(':s3_config') || key.name.includes(':apikey')) continue;
       const data = await c.env.SUBSCRIPTIONS.get(key.name);
       if (data) {
-        const user = JSON.parse(data);
-        if (user.apikey === apiKey) {
-          c.set('username', key.name.replace('user:', ''));
-          await next();
-          return;
-        }
+        try {
+          const user = JSON.parse(data);
+          if (user.apikey === apiKey) {
+            c.set('username', key.name.replace('user:', ''));
+            await next();
+            return;
+          }
+        } catch {}
       }
     }
     return c.json({ error: '无效的 API Key' }, 401);
@@ -239,14 +243,17 @@ adminApi.use('/*', async (c, next) => {
   if (token) {
     const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
     for (const key of list.keys) {
+      if (key.name.includes(':s3_config') || key.name.includes(':apikey')) continue;
       const data = await c.env.SUBSCRIPTIONS.get(key.name);
       if (data) {
-        const user = JSON.parse(data);
-        if (user.token === token && user.expiresAt > Date.now()) {
-          c.set('username', key.name.replace('user:', ''));
-          await next();
-          return;
-        }
+        try {
+          const user = JSON.parse(data);
+          if (user.token === token && user.expiresAt > Date.now()) {
+            c.set('username', key.name.replace('user:', ''));
+            await next();
+            return;
+          }
+        } catch {}
       }
     }
     return c.json({ error: '无效或已过期的 Token' }, 401);
