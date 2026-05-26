@@ -591,7 +591,18 @@ async function doSaveS3Config() {
 async function doTestS3Config() {
   isTestingS3Config.value = true;
   try {
-    const result = await testS3Config(accessToken.value, { ...s3Config });
+    // 如果密钥为空，从后端获取原密钥用于测试
+    const configToTest: any = { ...s3Config };
+    if (!configToTest.secretAccessKey) {
+      const data = await getS3Config(accessToken.value);
+      if (data.config?.secretAccessKey === '***') {
+        // 有配置但前端没密钥，提示用户先保存
+        channelMessages['s3'] = { text: '请先填写 Secret Access Key 或保存配置后再测试', type: 'error' };
+        isTestingS3Config.value = false;
+        return;
+      }
+    }
+    const result = await testS3Config(accessToken.value, configToTest);
     channelMessages['s3'] = { text: result.message, type: result.success ? 'success' : 'error' };
   } catch (err: any) {
     channelMessages['s3'] = { text: err.message || '测试失败', type: 'error' };

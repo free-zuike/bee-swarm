@@ -382,7 +382,11 @@ adminApi.put('/s3-config', async (c) => {
 adminApi.get('/s3-config', async (c) => {
   const username = c.get('username');
   const config = await getS3Config(c.env, username);
-  return c.json({ configured: !!config, config: config ? { ...config, secretAccessKey: '***' } : null });
+  return c.json({
+    configured: !!config,
+    hasSecretKey: !!config?.secretAccessKey,
+    config: config ? { ...config, secretAccessKey: config.secretAccessKey ? '***' : '' } : null,
+  });
 });
 
 /** 测试 S3 连接 */
