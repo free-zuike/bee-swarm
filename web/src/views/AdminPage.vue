@@ -925,7 +925,8 @@ function formatEndpoint(ep: string): string {
               </div>
               <div class="field-group">
                 <label>Secret Access Key *</label>
-                <input v-model="s3Config.secretAccessKey" type="password" placeholder="请输入密钥" />
+                <input v-model="s3Config.secretAccessKey" type="password" :placeholder="s3Configured ? '已配置（留空保留原密钥）' : '请输入密钥'" />
+                <p v-if="s3Configured" class="hint">如需修改密钥请重新输入，留空将保留原密钥</p>
               </div>
               <div class="field-group">
                 <label>Bucket *</label>
