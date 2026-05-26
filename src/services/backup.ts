@@ -32,7 +32,12 @@ interface BackupResult {
 export async function getS3Config(env: Env, username: string): Promise<S3Config | null> {
   const configStr = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
   if (!configStr) return null;
-  return JSON.parse(configStr);
+  try {
+    return JSON.parse(configStr);
+  } catch (e) {
+    console.error(`[S3 Config] Failed to parse config for ${username}:`, configStr.substring(0, 100));
+    return null;
+  }
 }
 
 export async function saveS3Config(env: Env, username: string, config: S3Config): Promise<void> {
