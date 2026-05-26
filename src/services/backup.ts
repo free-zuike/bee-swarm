@@ -127,7 +127,7 @@ async function signV4(
     .sort();
   const signedHeaderKeysStr = sortedHeaderKeys.join(';');
   const canonicalHeaders = sortedHeaderKeys
-    .map((k) => `${k}:${signedHeaders[k].trim()}`)
+    .map((k) => `${k}:${(signedHeaders[k] || '').trim()}`)
     .join('\n') + '\n';
 
   // 规范请求
