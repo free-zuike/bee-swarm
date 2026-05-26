@@ -92,7 +92,9 @@ async function signV4(
 }
 
 async function s3Request(method: string, path: string, config: S3Config, body?: string | ArrayBuffer, query?: Record<string, string>): Promise<Response> {
-  const { endpoint, accessKeyId, secretAccessKey, bucket, region } = config;
+  const { endpoint, accessKeyId, secretAccessKey, bucket } = config;
+  // 数据胶囊默认使用 us-east-1
+  const region = config.region === 'auto' ? 'us-east-1' : config.region;
   if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) throw new Error('未配置 S3 存储参数');
   const endpointWithProtocol = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
   const parsedEndpoint = new URL(endpointWithProtocol);
