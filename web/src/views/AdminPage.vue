@@ -185,6 +185,9 @@ watch(activeTab, (newTab) => {
   }
 });
 
+// ==================== 备份设置变化时自动保存 ====================
+let isLoadingConfig = false;
+
 // ==================== 设置面板打开时加载 S3 配置和备份 ====================
 watch(showSettings, (val) => {
   if (val) {
@@ -193,8 +196,6 @@ watch(showSettings, (val) => {
   }
 });
 
-// ==================== 备份设置变化时自动保存 ====================
-let isLoadingConfig = false;
 watch(backupEnabled, (newVal, oldVal) => {
   // 只在用户手动切换时保存，加载配置时不保存
   if (!isLoadingConfig && oldVal !== undefined) {
