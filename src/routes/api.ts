@@ -358,10 +358,20 @@ adminApi.get('/history', async (c) => {
 /** 保存 S3 配置 */
 adminApi.put('/s3-config', async (c) => {
   const username = c.get('username');
-  const body = await c.req.json<S3Config>();
+  const body = await c.req.json<S3Config & { secretAccessKey?: string }>();
 
-  if (!body.endpoint || !body.accessKeyId || !body.secretAccessKey || !body.bucket) {
-    return c.json({ error: '请填写所有必填项' }, 400);
+  if (!body.endpoint || !body.accessKeyId || !body.bucket) {
+    return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
+  }
+
+  // 如果没有提供密钥，保留原来的密钥
+  if (!body.secretAccessKey) {
+    const existing = await getS3Config(c.env, username);
+    if (existing?.secretAccessKey) {
+      body.secretAccessKey = existing.secretAccessKey;
+    } else {
+      return c.json({ error: '请填写 Secret Access Key' }, 400);
+    }
   }
 
   await saveS3Config(c.env, username, body);
