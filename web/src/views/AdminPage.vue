@@ -185,33 +185,6 @@ watch(activeTab, (newTab) => {
   }
 });
 
-// ==================== 备份设置变化时自动保存 ====================
-let isLoadingConfig = false;
-
-// ==================== 设置面板打开时加载 S3 配置和备份 ====================
-watch(showSettings, (val) => {
-  if (val) {
-    loadS3Config();
-    loadBackups();
-  }
-});
-
-watch(backupEnabled, (newVal, oldVal) => {
-  console.log('[Backup] backupEnabled changed:', { newVal, oldVal, isLoadingConfig });
-  // 只在用户手动切换时保存，加载配置时不保存
-  if (!isLoadingConfig && oldVal !== undefined) {
-    console.log('[Backup] Saving backup settings...');
-    doSaveBackupSettings();
-  }
-});
-watch(backupHour, (newVal, oldVal) => {
-  console.log('[Backup] backupHour changed:', { newVal, oldVal, isLoadingConfig });
-  if (!isLoadingConfig && oldVal !== undefined) {
-    console.log('[Backup] Saving backup settings...');
-    doSaveBackupSettings();
-  }
-});
-
 // ==================== 认证函数 ====================
 async function doLogin() {
   if (!authEmail.value.trim() || !authPassword.value) {
@@ -565,6 +538,7 @@ const backupCron = computed(() => {
 });
 const isSavingS3Config = ref(false);
 const isTestingS3Config = ref(false);
+const isLoadingConfig = false; // 用于防止加载配置时触发保存
 
 async function loadS3Config() {
   isLoadingConfig = true;
@@ -653,6 +627,29 @@ async function doTestS3Config() {
   }
   isTestingS3Config.value = false;
 }
+
+// ==================== 备份设置变化时自动保存 ====================
+watch(showSettings, (val) => {
+  if (val) {
+    loadS3Config();
+    loadBackups();
+  }
+});
+
+watch(backupEnabled, (newVal, oldVal) => {
+  console.log('[Backup] backupEnabled changed:', { newVal, oldVal, isLoadingConfig });
+  if (!isLoadingConfig && oldVal !== undefined) {
+    console.log('[Backup] Saving backup settings...');
+    doSaveBackupSettings();
+  }
+});
+watch(backupHour, (newVal, oldVal) => {
+  console.log('[Backup] backupHour changed:', { newVal, oldVal, isLoadingConfig });
+  if (!isLoadingConfig && oldVal !== undefined) {
+    console.log('[Backup] Saving backup settings...');
+    doSaveBackupSettings();
+  }
+});
 
 // ==================== 备份 ====================
 const backups = ref<Array<{ key: string; size: number; lastModified: string }>>([]);
