@@ -629,27 +629,25 @@ async function doTestS3Config() {
 }
 
 // ==================== 备份设置变化时自动保存 ====================
-watch(showSettings, (val) => {
-  if (val) {
+watch(showSettings, (val, oldVal) => {
+  // 只在打开设置面板时加载，关闭时不加载
+  if (val && oldVal === false) {
     loadS3Config();
     loadBackups();
   }
 });
 
-watch(backupEnabled, (newVal, oldVal) => {
-  console.log('[Backup] backupEnabled changed:', { newVal, oldVal, isLoadingConfig });
-  if (!isLoadingConfig && oldVal !== undefined) {
-    console.log('[Backup] Saving backup settings...');
-    doSaveBackupSettings();
-  }
-});
-watch(backupHour, (newVal, oldVal) => {
-  console.log('[Backup] backupHour changed:', { newVal, oldVal, isLoadingConfig });
-  if (!isLoadingConfig && oldVal !== undefined) {
-    console.log('[Backup] Saving backup settings...');
-    doSaveBackupSettings();
-  }
-});
+// 禁用自动保存，只在点击"保存配置"时保存
+// watch(backupEnabled, (newVal, oldVal) => {
+//   if (!isLoadingConfig && oldVal !== undefined) {
+//     doSaveBackupSettings();
+//   }
+// });
+// watch(backupHour, (newVal, oldVal) => {
+//   if (!isLoadingConfig && oldVal !== undefined) {
+//     doSaveBackupSettings();
+//   }
+// });
 
 // ==================== 备份 ====================
 const backups = ref<Array<{ key: string; size: number; lastModified: string }>>([]);
