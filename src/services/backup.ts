@@ -168,8 +168,18 @@ export async function deleteBackup(env: Env, username: string, config: S3Config,
 
 export async function testS3Connection(config: S3Config): Promise<{ success: boolean; message: string }> {
   try {
+    console.log(`[S3 Test] Endpoint: ${config.endpoint}, Region: ${config.region}, Bucket: ${config.bucket}`);
+    console.log(`[S3 Test] Has AccessKey: ${!!config.accessKeyId}, Has SecretKey: ${!!config.secretAccessKey}`);
     const response = await s3Request("GET", "/", config, undefined, { "max-keys": "1" });
-    if (!response.ok) return { success: false, message: "连接失败 (" + response.status + "): " + (await response.text()).substring(0, 200) };
+    console.log(`[S3 Test] Response status: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`[S3 Test] Error response: ${errorText.substring(0, 500)}`);
+      return { success: false, message: "连接失败 (" + response.status + "): " + errorText.substring(0, 200) };
+    }
     return { success: true, message: "S3 连接成功" };
-  } catch (err: any) { return { success: false, message: "连接异常: " + err.message }; }
+  } catch (err: any) { 
+    console.log(`[S3 Test] Exception: ${err.message}`);
+    return { success: false, message: "连接异常: " + err.message }; 
+  }
 }
