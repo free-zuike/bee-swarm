@@ -574,7 +574,12 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
-    await saveS3Config(accessToken.value, { ...s3Config, enabled: backupEnabled.value, cron: backupCron.value, hour: backupHour.value });
+    // 如果密钥为空，不传（后端会保留原值）
+    const configToSave: any = { ...s3Config, enabled: backupEnabled.value, cron: backupCron.value, hour: backupHour.value };
+    if (!configToSave.secretAccessKey) {
+      delete configToSave.secretAccessKey;
+    }
+    await saveS3Config(accessToken.value, configToSave);
     s3Configured.value = true;
     channelMessages['s3'] = { text: 'S3 配置已保存', type: 'success' };
   } catch (err: any) {
