@@ -505,8 +505,12 @@ adminApi.get('/backup-endpoints', async (c) => {
   const safeEndpoints = endpoints.map(e => {
     const safe = { ...e, config: { ...e.config } };
     if (safe.config) {
-      delete safe.config.secretAccessKey;
-      delete safe.config.password;
+      if ('secretAccessKey' in safe.config) {
+        delete (safe.config as any).secretAccessKey;
+      }
+      if ('password' in safe.config) {
+        delete (safe.config as any).password;
+      }
     }
     return safe;
   });
@@ -540,8 +544,12 @@ adminApi.post('/backup-endpoints', async (c) => {
   // 返回时不包含密钥
   const returnedEndpoint = { ...newEndpoint, config: { ...newEndpoint.config } };
   if (returnedEndpoint.config) {
-    delete returnedEndpoint.config.secretAccessKey;
-    delete returnedEndpoint.config.password;
+    if ('secretAccessKey' in returnedEndpoint.config) {
+      delete (returnedEndpoint.config as any).secretAccessKey;
+    }
+    if ('password' in returnedEndpoint.config) {
+      delete (returnedEndpoint.config as any).password;
+    }
   }
   return c.json({ success: true, endpoint: returnedEndpoint });
 });
@@ -565,20 +573,20 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const existingConfig = endpoints[index].config;
   if (body.config && existingConfig) {
     // 检查 secretAccessKey 是否存在于原配置中
-    const hasOriginalSecret = 'secretAccessKey' in existingConfig && existingConfig.secretAccessKey;
-    const hasNewSecret = 'secretAccessKey' in (body.config || {}) && body.config.secretAccessKey;
+    const hasOriginalSecret = 'secretAccessKey' in existingConfig && (existingConfig as any).secretAccessKey;
+    const hasNewSecret = 'secretAccessKey' in (body.config || {}) && (body.config as any).secretAccessKey;
     
     if (hasOriginalSecret && !hasNewSecret) {
       // 原配置有密钥，新配置没有，保留原密钥
-      body.config.secretAccessKey = existingConfig.secretAccessKey;
+      (body.config as any).secretAccessKey = (existingConfig as any).secretAccessKey;
     }
     
     // 同样处理 password
-    const hasOriginalPassword = 'password' in existingConfig && existingConfig.password;
-    const hasNewPassword = 'password' in (body.config || {}) && body.config.password;
+    const hasOriginalPassword = 'password' in existingConfig && (existingConfig as any).password;
+    const hasNewPassword = 'password' in (body.config || {}) && (body.config as any).password;
     
     if (hasOriginalPassword && !hasNewPassword) {
-      body.config.password = existingConfig.password;
+      (body.config as any).password = (existingConfig as any).password;
     }
   }
   
@@ -589,8 +597,12 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   // 返回时不包含密钥
   const returnedEndpoint = { ...endpoints[index], config: { ...endpoints[index].config } };
   if (returnedEndpoint.config) {
-    delete returnedEndpoint.config.secretAccessKey;
-    delete returnedEndpoint.config.password;
+    if ('secretAccessKey' in returnedEndpoint.config) {
+      delete (returnedEndpoint.config as any).secretAccessKey;
+    }
+    if ('password' in returnedEndpoint.config) {
+      delete (returnedEndpoint.config as any).password;
+    }
   }
   return c.json({ success: true, endpoint: returnedEndpoint });
 });
@@ -641,7 +653,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
     }
     
     // 检查是否有密钥
-    const hasSecret = endpoint.config?.secretAccessKey || endpoint.config?.password;
+    const hasSecret = (endpoint.config as any)?.secretAccessKey || (endpoint.config as any)?.password;
     console.log(`[Test Endpoint] Testing SAVED config, hasSecret=${!!hasSecret}`);
     
     if (!hasSecret) {

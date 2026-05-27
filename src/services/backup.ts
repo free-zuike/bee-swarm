@@ -120,14 +120,16 @@ export async function deleteBackupEndpoint(env: Env, username: string, endpointI
 export async function exportAllData(env: Env, username: string): Promise<BackupData> {
   const data: Record<string, string> = {};
   let cursor: string | undefined;
+  let list_complete = false;
   do {
     const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
     for (const key of list.keys) {
       const value = await env.SUBSCRIPTIONS.get(key.name);
       if (value !== null) data[key.name] = value;
     }
-    cursor = list.cursor;
-  } while (cursor);
+    cursor = (list as any).cursor;
+    list_complete = list.list_complete ?? false;
+  } while (cursor && !list_complete);
   return { timestamp: new Date().toISOString(), version: '1.0', username, data };
 }
 
@@ -542,13 +544,15 @@ export async function restoreBackupFromEndpoint(
     
     // 清空当前用户的数据（只删除 user:${username}: 前缀的键）
     let cursor: string | undefined;
+    let list_complete = false;
     do {
       const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
       for (const key of list.keys) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
-      cursor = list.cursor;
-    } while (cursor);
+      cursor = (list as any).cursor;
+      list_complete = list.list_complete ?? false;
+    } while (cursor && !list_complete);
     
     // 恢复备份数据
     const entries = Object.entries(backupData.data);

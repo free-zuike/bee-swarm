@@ -10,7 +10,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     let errorMsg = `请求失败 (${res.status})`;
     try {
-      const body = await res.json();
+      const body = await res.json() as any;
       if (body.error) errorMsg = body.error;
       else if (body.message) errorMsg = body.message;
     } catch { /* ignore */ }
@@ -29,7 +29,7 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
   if (!res.ok) {
     let errorMsg = `请求失败 (${res.status})`;
     try {
-      const body = await res.json();
+      const body = await res.json() as any;
       if (body.error) errorMsg = body.error;
       else if (body.message) errorMsg = body.message;
     } catch { /* ignore */ }

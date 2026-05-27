@@ -44,6 +44,7 @@ export default {
 
     try {
       let cursor: string | undefined;
+      let list_complete = false;
       do {
         const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
         for (const key of list.keys) {
@@ -80,8 +81,9 @@ export default {
             }
           }
         }
-        cursor = list.cursor;
-      } while (cursor);
+        cursor = (list as any).cursor;
+        list_complete = list.list_complete ?? false;
+      } while (cursor && !list_complete);
     } catch (err: any) {
       console.error(`[Cron Backup] Error: ${err.message}`);
     }
