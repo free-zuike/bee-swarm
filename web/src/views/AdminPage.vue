@@ -527,6 +527,7 @@ const s3Config = reactive({
   bucket: '',
   region: 'auto',
   path: '',
+  pathStyle: true, // 数据胶囊等国内 S3 服务商需要 path-style
 });
 const s3Configured = ref(false);
 const backupEnabled = ref(false);
@@ -552,6 +553,7 @@ async function loadS3Config() {
       s3Config.bucket = data.config.bucket || '';
       s3Config.region = data.config.region || 'auto';
       s3Config.path = data.config.path || '';
+      s3Config.pathStyle = data.config.pathStyle !== false; // 默认为 true
       backupEnabled.value = data.config.enabled !== false; // 默认启用
       // 从 cron 解析小时（UTC 转北京时间）
       const cronMatch = (data.config.cron || '0 2 * * *').match(/0 (\d+) \* \* \*/);
@@ -578,6 +580,7 @@ async function doSaveS3Config() {
       bucket: s3Config.bucket || undefined,
       region: s3Config.region || 'auto',
       path: s3Config.path || undefined,
+      pathStyle: s3Config.pathStyle,
       enabled: backupEnabled.value,
       cron: backupCron.value,
       hour: backupHour.value,
@@ -925,6 +928,12 @@ function formatEndpoint(ep: string): string {
               <div class="field-group">
                 <label>Region</label>
                 <input v-model="s3Config.region" placeholder="auto" />
+              </div>
+              <div class="field-group checkbox-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="s3Config.pathStyle" />
+                  <span>使用 Path-Style URL（部分 S3 服务商需要，如数据胶囊）</span>
+                </label>
               </div>
               <div class="field-group">
                 <label>备份路径</label>

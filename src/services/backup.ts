@@ -10,6 +10,7 @@ export interface S3Config {
   bucket: string;
   region: string;
   path: string;
+  pathStyle?: boolean;
 }
 
 interface BackupData {
@@ -92,7 +93,7 @@ async function signV4(
 }
 
 async function s3Request(method: string, path: string, config: S3Config, body?: string | ArrayBuffer, query?: Record<string, string>): Promise<Response> {
-  const { endpoint, accessKeyId, secretAccessKey, bucket } = config;
+  const { endpoint, accessKeyId, secretAccessKey, bucket, pathStyle } = config;
   // 数据胶囊默认使用 us-east-1
   const region = config.region === 'auto' ? 'us-east-1' : config.region;
   if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) throw new Error('未配置 S3 存储参数');
@@ -100,13 +101,24 @@ async function s3Request(method: string, path: string, config: S3Config, body?: 
   const parsedEndpoint = new URL(endpointWithProtocol);
   const queryString = query ? '?' + new URLSearchParams(query).toString() : '';
   
-  // 使用 path-style URL（数据胶囊要求）
-  const url = parsedEndpoint.protocol + '//' + parsedEndpoint.host + '/' + bucket + path + queryString;
-  // Host header 必须是 endpoint 的 host，不包含 bucket
-  const headers: Record<string, string> = { 'Host': parsedEndpoint.host };
+  let url: string;
+  let host: string;
+  
+  if (pathStyle) {
+    // Path-style: https://endpoint/bucket/path
+    url = parsedEndpoint.protocol + '//' + parsedEndpoint.host + '/' + bucket + path + queryString;
+    host = parsedEndpoint.host;
+  } else {
+    // Virtual-hosted style: https://bucket.endpoint/path
+    const bucketHost = bucket + '.' + parsedEndpoint.host;
+    url = parsedEndpoint.protocol + '//' + bucketHost + path + queryString;
+    host = bucketHost;
+  }
+  
+  const headers: Record<string, string> = { 'Host': host };
   if (body) headers['Content-Type'] = 'application/json';
   
-  console.log(`[S3 Request] URL: ${url}, Host: ${parsedEndpoint.host}, Region: ${region}`);
+  console.log(`[S3 Request] URL: ${url}, Host: ${host}, Region: ${region}, PathStyle: ${pathStyle}`);
   const signedHeaders = await signV4(method, url, headers, body, accessKeyId, secretAccessKey, region);
   return fetch(url, { method, headers: signedHeaders, body });
 }
