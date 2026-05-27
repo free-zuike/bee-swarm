@@ -959,7 +959,7 @@ function formatEndpoint(ep: string): string {
               </div>
               <div class="field-group">
                 <label>根目录（可选）</label>
-                <input v-model="s3Config.path" placeholder="留空默认为用户名，填写后如 beeswarm" />
+                <input v-model="s3Config.path" placeholder="留空默认 beeswarm，填写后如 myapp" />
                 <p class="hint">备份将保存在: 根目录/backups/用户名/</p>
               </div>
               <div v-if="channelMessages['s3']" class="channel-save-message" :class="channelMessages['s3'].type">

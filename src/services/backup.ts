@@ -124,8 +124,8 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
     const backupData = await exportAllData(env);
     const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     // 路径格式: root/backups/用户名/日期.json
-    // 如果没有配置 root，默认使用用户名
-    const root = config.path ? config.path.replace(/\/+$/, '') : username;
+    // 如果没有配置 root，默认使用 beeswarm
+    const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
     const key = `${root}/backups/${username}/${date}.json`;
     const response = await s3Request('PUT', '/' + key, config, JSON.stringify(backupData, null, 2));
     if (!response.ok) {
@@ -139,8 +139,8 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
 
 export async function listBackups(env: Env, username: string, config: S3Config): Promise<BackupInfo[]> {
   try {
-    const prefix = config.path ? config.path.replace(/\/+$/, '') : username;
-    const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': prefix + '/backups/' + username + '/' });
+    const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
+    const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': root + '/backups/' + username + '/' });
     if (!response.ok) {
       throw new Error('获取备份列表失败 (' + response.status + ')');
     }
