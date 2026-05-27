@@ -95,7 +95,7 @@ export async function getBackupEndpoint(env: Env, username: string, endpointId: 
 // 添加或更新备份端
 export async function saveBackupEndpoint(env: Env, username: string, endpoint: BackupEndpoint): Promise<void> {
   const endpoints = await getBackupEndpoints(env, username);
-  const index = endpoints.findIndex(e => e.id === endpointId);
+  const index = endpoints.findIndex(e => e.id === endpoint.id);
   if (index >= 0) {
     endpoints[index] = endpoint;
   } else {

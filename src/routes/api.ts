@@ -404,7 +404,7 @@ adminApi.post('/backup-endpoints', async (c) => {
     retention: body.retention || 30,
   };
   
-  console.log(`[Add Endpoint] newEndpoint.config=`, newEndpoint.config);
+  console.log(`[Add Endpoint] newEndpoint.config.secretAccessKey exists:`, 'secretAccessKey' in (newEndpoint.config || {}), !!newEndpoint.config?.secretAccessKey);
   
   endpoints.push(newEndpoint);
   await saveBackupEndpoints(c.env, username, endpoints);
@@ -424,7 +424,7 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json<Partial<BackupEndpoint>>();
   
-  console.log(`[Update Endpoint] id=${id}, body.config=`, body.config);
+  console.log(`[Update Endpoint] id=${id}, body.config=`, JSON.stringify(body.config));
   
   const endpoints = await getBackupEndpoints(c.env, username);
   const index = endpoints.findIndex(e => e.id === id);
@@ -433,19 +433,32 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   }
   
   // 保留原有的密钥（如果新配置中没有提供）
+  // 使用 'in' 操作符检查属性是否存在，而不是检查值是否falsy
   const existingConfig = endpoints[index].config;
-  if (body.config) {
-    if (!body.config.secretAccessKey && existingConfig?.secretAccessKey) {
+  if (body.config && existingConfig) {
+    // 检查 secretAccessKey 是否存在于原配置中
+    const hasOriginalSecret = 'secretAccessKey' in existingConfig && existingConfig.secretAccessKey;
+    const hasNewSecret = 'secretAccessKey' in (body.config || {}) && body.config.secretAccessKey;
+    
+    if (hasOriginalSecret && !hasNewSecret) {
+      // 原配置有密钥，新配置没有，保留原密钥
       body.config.secretAccessKey = existingConfig.secretAccessKey;
+      console.log(`[Update Endpoint] Preserving original secretAccessKey`);
     }
-    if (!body.config.password && existingConfig?.password) {
+    
+    // 同样处理 password
+    const hasOriginalPassword = 'password' in existingConfig && existingConfig.password;
+    const hasNewPassword = 'password' in (body.config || {}) && body.config.password;
+    
+    if (hasOriginalPassword && !hasNewPassword) {
       body.config.password = existingConfig.password;
+      console.log(`[Update Endpoint] Preserving original password`);
     }
   }
   
   // 合并更新
   endpoints[index] = { ...endpoints[index], ...body };
-  console.log(`[Update Endpoint] saved config=`, endpoints[index].config);
+  console.log(`[Update Endpoint] saved config.secretAccessKey exists:`, 'secretAccessKey' in (endpoints[index].config || {}), !!endpoints[index].config?.secretAccessKey);
   await saveBackupEndpoints(c.env, username, endpoints);
   
   // 返回时不包含密钥
@@ -493,6 +506,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
       schedule: { enabled: false, interval: 24, startTime: '02:00' },
       retention: 30,
     };
+    console.log(`[Test Endpoint] Testing NEW config:`, JSON.stringify(endpoint.config));
   } else {
     // 测试已保存的配置 - 从 KV 读取完整配置，忽略请求体
     const endpoints = await getBackupEndpoints(c.env, username);
@@ -503,6 +517,8 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
     
     // 检查是否有密钥
     const hasSecret = endpoint.config?.secretAccessKey || endpoint.config?.password;
+    console.log(`[Test Endpoint] Testing SAVED config, hasSecret=${!!hasSecret}, secretAccessKey=${!!endpoint.config?.secretAccessKey}`);
+    
     if (!hasSecret) {
       return c.json({ 
         success: false, 
@@ -512,6 +528,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   }
   
   const result = await testBackupEndpoint(endpoint);
+  console.log(`[Test Endpoint] Result:`, result);
   return c.json(result);
 });
 

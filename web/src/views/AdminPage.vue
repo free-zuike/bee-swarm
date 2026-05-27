@@ -576,6 +576,14 @@ async function loadBackupEndpoints() {
     if (!selectedEndpointId.value && backupEndpoints.value.length > 0) {
       selectedEndpointId.value = backupEndpoints.value[0].id;
     }
+    // 同步编辑状态
+    if (selectedEndpointId.value && !isCreatingNew.value) {
+      const endpoint = backupEndpoints.value.find(e => e.id === selectedEndpointId.value);
+      if (endpoint) {
+        copyEndpointToEditing(endpoint);
+        loadEndpointBackups();
+      }
+    }
   } catch (err: any) {
     console.error('加载备份端列表失败:', err);
     endpointMessage.value = { text: err.message || '加载备份端列表失败', type: 'error' };
