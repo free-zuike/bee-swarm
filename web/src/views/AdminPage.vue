@@ -636,7 +636,15 @@ async function doTestS3Config() {
     });
     const result = await testS3Config(accessToken.value, configToTest);
     console.log('[Test] Result:', result);
-    channelMessages['s3'] = { text: result.message, type: result.success ? 'success' : 'error' };
+    if (!result.success && result.details) {
+      console.log('[Test] Error details:', result.details);
+      channelMessages['s3'] = { 
+        text: result.message + '\n详情: ' + JSON.stringify(result.details, null, 2), 
+        type: 'error' 
+      };
+    } else {
+      channelMessages['s3'] = { text: result.message, type: result.success ? 'success' : 'error' };
+    }
   } catch (err: any) {
     console.log('[Test] Error:', err);
     channelMessages['s3'] = { text: err.message || '测试失败', type: 'error' };
