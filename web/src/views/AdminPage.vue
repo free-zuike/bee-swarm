@@ -3,7 +3,7 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, createBackup, listBackups, restoreBackup, deleteBackup, saveS3Config, getS3Config, testS3Config, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll } from '@/api';
+import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, createBackup, listBackups, restoreBackup, deleteBackup, saveS3Config, getS3Config, testS3Config, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushSubscription } from '@/types';
 
@@ -528,6 +528,7 @@ const isSavingEndpoint = ref(false);
 const isTestingEndpoint = ref(false);
 const isDeletingEndpoint = ref(false);
 const isBackingUpAll = ref(false);
+const isBackingUpSingle = ref(false);
 const endpointMessage = ref<{ text: string; type: 'success' | 'error' } | null>(null);
 
 // 当前选中备份端的备份列表
@@ -824,10 +825,15 @@ async function doBackupAll() {
     const result = await backupAll(accessToken.value);
     const successCount = result.results.filter(r => r.success).length;
     const totalCount = result.results.length;
-    endpointMessage.value = {
-      text: `备份完成: ${successCount}/${totalCount} 成功`,
-      type: successCount === totalCount ? 'success' : 'error'
-    };
+    
+    if (successCount === totalCount) {
+      endpointMessage.value = { text: `备份完成: 全部 ${totalCount} 个端点成功`, type: 'success' };
+    } else {
+      const failed = result.results.filter(r => !r.success);
+      const details = failed.map(r => `${r.endpointName || '未知'}: ${r.message}`).join('; ');
+      endpointMessage.value = { text: `备份完成: ${successCount}/${totalCount} 成功 — ${details}`, type: 'error' };
+    }
+    
     // 刷新备份列表和备份端状态
     await loadBackupEndpoints();
     if (selectedEndpointId.value) {
@@ -837,6 +843,29 @@ async function doBackupAll() {
     endpointMessage.value = { text: err.message || '备份失败', type: 'error' };
   } finally {
     isBackingUpAll.value = false;
+  }
+}
+
+// 手动触发单个备份端备份
+async function doBackupSingle() {
+  if (!selectedEndpointId.value) return;
+  isBackingUpSingle.value = true;
+  endpointMessage.value = null;
+  try {
+    const result = await backupSingleEndpoint(accessToken.value, selectedEndpointId.value);
+    endpointMessage.value = {
+      text: result.success ? `${result.endpointName || '备份端'} 备份成功` : `${result.endpointName || '备份端'} 备份失败: ${result.message}`,
+      type: result.success ? 'success' : 'error'
+    };
+    // 刷新备份列表和备份端状态
+    await loadBackupEndpoints();
+    if (selectedEndpointId.value) {
+      await loadEndpointBackups();
+    }
+  } catch (err: any) {
+    endpointMessage.value = { text: err.message || '备份失败', type: 'error' };
+  } finally {
+    isBackingUpSingle.value = false;
   }
 }
 
@@ -1233,6 +1262,9 @@ function formatEndpoint(ep: string): string {
                     </button>
                     <button v-if="!isCreatingNew" class="btn btn-warning" @click="deleteEndpoint" :disabled="isDeletingEndpoint">
                       {{ isDeletingEndpoint ? '删除中...' : '删除' }}
+                    </button>
+                    <button v-if="!isCreatingNew" class="btn" @click="doBackupSingle" :disabled="isBackingUpSingle">
+                      {{ isBackingUpSingle ? '备份中...' : '立即备份' }}
                     </button>
                     <button class="btn" @click="testEndpoint" :disabled="isTestingEndpoint">
                       {{ isTestingEndpoint ? '测试中...' : '测试连接' }}

@@ -14,7 +14,7 @@ import {
 } from '../services/dispatcher';
 import {
   uploadBackupToEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint,
-  getBackupEndpoints, saveBackupEndpoints, deleteBackupEndpoint, testBackupEndpoint,
+  getBackupEndpoints, saveBackupEndpoints, saveBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint,
   executeAllBackups, migrateOldS3Config, type BackupEndpoint, type EndpointType
 } from '../services/backup';
 
@@ -596,6 +596,31 @@ adminApi.post('/backup-all', async (c) => {
   const username = c.get('username');
   const results = await executeAllBackups(c.env, username);
   return c.json({ results });
+});
+
+/** 手动触发单个备份端备份 */
+adminApi.post('/backup-endpoints/:id/backup', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const endpoint = endpoints.find(e => e.id === id);
+  if (!endpoint) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  
+  const result = await uploadBackupToEndpoint(c.env, username, endpoint);
+  result.endpointName = endpoint.name;
+  
+  // 更新最后备份状态
+  endpoint.lastBackup = {
+    time: new Date().toISOString(),
+    status: result.success ? 'success' : 'failed',
+    message: result.message,
+  };
+  await saveBackupEndpoint(c.env, username, endpoint);
+  
+  return c.json(result);
 });
 
 // ============================================

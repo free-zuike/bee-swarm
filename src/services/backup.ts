@@ -65,6 +65,7 @@ export interface BackupResult {
   success: boolean;
   message: string;
   endpointId?: string;
+  endpointName?: string;
 }
 
 // 获取用户的所有备份端
@@ -250,8 +251,9 @@ export async function uploadBackupToEndpoint(
       
       const response = await webdavRequest('PUT', '/' + path, config, JSON.stringify(backupData, null, 2));
       
-      if (!response.ok && response.status !== 201) {
-        return { success: false, message: 'WebDAV 上传失败 (' + response.status + ')', endpointId: endpoint.id };
+      if (!response.ok && response.status !== 201 && response.status !== 204) {
+        const errorText = await response.text().catch(() => '');
+        return { success: false, message: 'WebDAV 上传失败 (' + response.status + '): ' + errorText.substring(0, 200), endpointId: endpoint.id };
       }
       
       // 清理旧备份
@@ -467,6 +469,7 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
   const results: BackupResult[] = [];
   for (const endpoint of enabledEndpoints) {
     const result = await uploadBackupToEndpoint(env, username, endpoint);
+    result.endpointName = endpoint.name;
     
     // 更新最后备份状态
     endpoint.lastBackup = {

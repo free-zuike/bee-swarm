@@ -316,8 +316,13 @@ export async function deleteBackupFromEndpoint(token: string, id: string, key: s
 }
 
 // 手动触发所有启用的备份
-export async function backupAll(token: string): Promise<{ results: Array<{ success: boolean; message: string; endpointId?: string }> }> {
+export async function backupAll(token: string): Promise<{ results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> }> {
   return tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
+}
+
+// 手动触发单个备份端备份
+export async function backupSingleEndpoint(token: string, id: string): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
 }
 
 // -------------------------------------------
