@@ -529,6 +529,9 @@ const s3Config = reactive({
   path: '',
   pathStyle: true, // 数据胶囊等国内 S3 服务商需要 path-style
 });
+
+// 清理后的 endpoint（去除反引号和空格）
+const cleanEndpoint = computed(() => s3Config.endpoint?.replace(/[`\s]/g, '') || '');
 const s3Configured = ref(false);
 const backupEnabled = ref(false);
 const backupHour = ref(2); // 默认凌晨2点（北京时间）
@@ -573,11 +576,9 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
-    // 清理 endpoint，去除可能的反引号和空格
-    const cleanEndpoint = s3Config.endpoint?.replace(/[`\s]/g, '') || '';
-    // 构建配置对象，只传有值的字段
+    // 构建配置对象，只传有值的字段（使用 computed 的 cleanEndpoint）
     const configToSave: any = {
-      endpoint: cleanEndpoint || undefined,
+      endpoint: cleanEndpoint.value || undefined,
       accessKeyId: s3Config.accessKeyId || undefined,
       bucket: s3Config.bucket || undefined,
       region: s3Config.region || 'auto',
@@ -627,10 +628,10 @@ async function doTestS3Config() {
   isTestingS3Config.value = true;
   console.log('[Test] Starting S3 connection test...');
   try {
-    // 直接传当前表单配置，后端会自动使用已保存的密钥
+    // 直接传当前表单配置，后端会自动使用已保存的密钥（使用 computed 的 cleanEndpoint）
     const configToTest: any = { 
       ...s3Config, 
-      endpoint: s3Config.endpoint?.replace(/[`\s]/g, '') || '' 
+      endpoint: cleanEndpoint.value
     };
     console.log('[Test] Full config:', { 
       endpoint: configToTest.endpoint, 
