@@ -12,8 +12,11 @@ import {
   CHANNEL_DEFINITIONS,
   getPushHistory,
 } from '../services/dispatcher';
-import { uploadBackup, listBackups, restoreBackup, deleteBackup, getS3Config, saveS3Config, testS3Connection } from '../services/backup';
-import type { S3Config } from '../services/backup';
+import {
+  uploadBackupToEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint,
+  getBackupEndpoints, saveBackupEndpoints, deleteBackupEndpoint, testBackupEndpoint,
+  executeAllBackups, migrateOldS3Config, type BackupEndpoint, type EndpointType
+} from '../services/backup';
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
@@ -359,176 +362,149 @@ adminApi.get('/history', async (c) => {
 });
 
 // ============================================
-// S3 配置接口
+// 多备份端接口
 // ============================================
 
-/** 保存 S3 配置 */
-adminApi.put('/s3-config', async (c) => {
+/** 获取所有备份端 */
+adminApi.get('/backup-endpoints', async (c) => {
   const username = c.get('username');
-  const body = await c.req.json<Partial<S3Config> & { secretAccessKey?: string; enabled?: boolean; cron?: string; hour?: number }>();
-
-  // 获取现有配置
-  const existing = await getS3Config(c.env, username);
-
-  // 如果是部分更新（只传了 enabled/cron/hour），合并到现有配置
-  if (!body.endpoint && !body.accessKeyId && !body.bucket && existing) {
-    // 确保不覆盖密钥（过滤掉掩码值）
-    if (body.secretAccessKey && (body.secretAccessKey === '***' || body.secretAccessKey === '****' || body.secretAccessKey.length < 10)) {
-      delete body.secretAccessKey;
-    }
-    const mergedConfig = { ...existing, ...body };
-    await saveS3Config(c.env, username, mergedConfig as S3Config);
-    return c.json({ success: true, message: '备份设置已保存' });
-  }
-
-  // 完整更新：验证必填项
-  if (!body.endpoint || !body.accessKeyId || !body.bucket) {
-    return c.json({ error: '请填写必填项（Endpoint、Access Key、Bucket）' }, 400);
-  }
-
-  // 过滤掉掩码值，不能把 *** 当成真正的密钥
-  if (body.secretAccessKey && (body.secretAccessKey === '***' || body.secretAccessKey === '****' || body.secretAccessKey.length < 10)) {
-    delete body.secretAccessKey;
-  }
-
-  // 如果没有提供新密钥，保留原来的密钥
-  if (!body.secretAccessKey && existing?.secretAccessKey && existing.secretAccessKey !== '***' && existing.secretAccessKey !== '****') {
-    body.secretAccessKey = existing.secretAccessKey;
-  }
-
-  // 验证密钥存在
-  if (!body.secretAccessKey) {
-    return c.json({ error: '请填写 Secret Access Key' }, 400);
-  }
-
-  await saveS3Config(c.env, username, body as S3Config);
-  return c.json({ success: true, message: 'S3 配置已保存' });
+  await migrateOldS3Config(c.env, username);
+  const endpoints = await getBackupEndpoints(c.env, username);
+  return c.json({ endpoints });
 });
 
-/** 获取 S3 配置 */
-adminApi.get('/s3-config', async (c) => {
+/** 添加备份端 */
+adminApi.post('/backup-endpoints', async (c) => {
   const username = c.get('username');
-  const config = await getS3Config(c.env, username);
-  return c.json({
-    configured: !!config,
-    hasSecretKey: !!config?.secretAccessKey,
-    config: config ? { ...config, secretAccessKey: config.secretAccessKey ? '***' : '' } : null,
-  });
-});
-
-/** 调试：检查 KV 中的原始 S3 配置 */
-adminApi.get('/s3-config/debug', async (c) => {
-  const username = c.get('username');
-  const kvKey = `user:${username}:s3_config`;
-  const rawValue = await c.env.SUBSCRIPTIONS.get(kvKey);
-  let parsed = null;
-  let parseError = null;
-  try { parsed = rawValue ? JSON.parse(rawValue) : null; } catch (e: any) { parseError = e.message; }
-  return c.json({
-    kvKey,
-    exists: !!rawValue,
-    rawLength: rawValue?.length || 0,
-    rawPreview: rawValue ? rawValue.substring(0, 100) : null,
-    parseError,
-    hasSecretKey: !!parsed?.secretAccessKey,
-    secretKeyLength: parsed?.secretAccessKey?.length || 0,
-    endpoint: parsed?.endpoint || null,
-    bucket: parsed?.bucket || null,
-    hasAccessKey: !!parsed?.accessKeyId,
-    enabled: parsed?.enabled,
-    cron: parsed?.cron,
-    hour: parsed?.hour,
-  });
-});
-
-/** 删除 S3 配置 */
-adminApi.delete('/s3-config', async (c) => {
-  try {
-    const username = c.get('username');
-    const kvKey = `user:${username}:s3_config`;
-    await c.env.SUBSCRIPTIONS.delete(kvKey);
-    return c.json({ success: true, message: 'S3 配置已删除' });
-  } catch (err: any) {
-    console.error(`[S3 Config] Delete error:`, err);
-    return c.json({ error: '删除失败', message: err.message }, 500);
-  }
-});
-
-/** 测试 S3 连接 */
-adminApi.post('/s3-config/test', async (c) => {
-  const username = c.get('username');
-  const body = await c.req.json<S3Config>();
+  const body = await c.req.json<BackupEndpoint>();
   
-  // 如果前端没传密钥，使用后端已保存的密钥
-  if (!body.secretAccessKey) {
-    const existing = await getS3Config(c.env, username);
-    if (existing?.secretAccessKey) {
-      body.secretAccessKey = existing.secretAccessKey;
-    }
+  if (!body.name || !body.type) {
+    return c.json({ error: '请提供名称和类型' }, 400);
   }
   
-  const result = await testS3Connection(body);
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const newEndpoint: BackupEndpoint = {
+    ...body,
+    id: crypto.randomUUID(),
+    enabled: body.enabled ?? true,
+    schedule: body.schedule || { enabled: false, interval: 24, startTime: '02:00' },
+    retention: body.retention || 30,
+  };
+  
+  endpoints.push(newEndpoint);
+  await saveBackupEndpoints(c.env, username, endpoints);
+  return c.json({ success: true, endpoint: newEndpoint });
+});
+
+/** 更新备份端 */
+adminApi.put('/backup-endpoints/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = await c.req.json<Partial<BackupEndpoint>>();
+  
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const index = endpoints.findIndex(e => e.id === id);
+  if (index === -1) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  
+  // 合并更新
+  endpoints[index] = { ...endpoints[index], ...body };
+  await saveBackupEndpoints(c.env, username, endpoints);
+  return c.json({ success: true, endpoint: endpoints[index] });
+});
+
+/** 删除备份端 */
+adminApi.delete('/backup-endpoints/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  
+  const success = await deleteBackupEndpoint(c.env, username, id);
+  if (!success) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  return c.json({ success: true, message: '备份端已删除' });
+});
+
+/** 测试备份端连接 */
+adminApi.post('/backup-endpoints/:id/test', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const endpoint = endpoints.find(e => e.id === id);
+  if (!endpoint) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  
+  const result = await testBackupEndpoint(endpoint);
   return c.json(result);
 });
 
-// ============================================
-// 备份接口
-// ============================================
-
-/** 手动触发备份 */
-adminApi.post('/backup', async (c) => {
+/** 列出指定备份端的备份 */
+adminApi.get('/backup-endpoints/:id/backups', async (c) => {
   const username = c.get('username');
-  const config = await getS3Config(c.env, username);
-  if (!config) return c.json({ success: false, message: '未配置 S3 存储' });
-  const result = await uploadBackup(c.env, username, config);
-  return c.json(result);
-});
-
-/** 列出所有备份 */
-adminApi.get('/backups', async (c) => {
-  const username = c.get('username');
-  const config = await getS3Config(c.env, username);
-  if (!config) return c.json({ error: '未配置 S3 存储' }, 400);
+  const id = c.req.param('id');
+  
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const endpoint = endpoints.find(e => e.id === id);
+  if (!endpoint) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  
   try {
-    const list = await listBackups(c.env, username, config);
+    const list = await listBackupsFromEndpoint(c.env, username, endpoint);
     return c.json({ backups: list });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
 });
 
-/** 从备份恢复 */
-adminApi.post('/backup/restore', async (c) => {
+/** 从指定备份端恢复 */
+adminApi.post('/backup-endpoints/:id/restore', async (c) => {
   const username = c.get('username');
+  const id = c.req.param('id');
   const { key } = await c.req.json<{ key: string }>();
-
+  
   if (!key) {
     return c.json({ error: '请提供备份文件 key' }, 400);
   }
-
-  const config = await getS3Config(c.env, username);
-  if (!config) return c.json({ success: false, message: '未配置 S3 存储' });
-
-  const result = await restoreBackup(c.env, username, config, key);
-  const status = result.success ? 200 : 500;
-  return c.json(result, status);
+  
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const endpoint = endpoints.find(e => e.id === id);
+  if (!endpoint) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  
+  const result = await restoreBackupFromEndpoint(c.env, username, endpoint, key);
+  return c.json(result);
 });
 
-/** 删除指定备份 */
-adminApi.delete('/backup', async (c) => {
+/** 删除指定备份端的备份 */
+adminApi.delete('/backup-endpoints/:id/backups', async (c) => {
   const username = c.get('username');
+  const id = c.req.param('id');
   const { key } = await c.req.json<{ key: string }>();
-
+  
   if (!key) {
     return c.json({ error: '请提供备份文件 key' }, 400);
   }
+  
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const endpoint = endpoints.find(e => e.id === id);
+  if (!endpoint) {
+    return c.json({ error: '备份端不存在' }, 404);
+  }
+  
+  const result = await deleteBackupFromEndpoint(c.env, username, endpoint, key);
+  return c.json(result);
+});
 
-  const config = await getS3Config(c.env, username);
-  if (!config) return c.json({ success: false, message: '未配置 S3 存储' });
-
-  const result = await deleteBackup(c.env, username, config, key);
-  const status = result.success ? 200 : 500;
-  return c.json(result, status);
+/** 手动触发所有启用的备份 */
+adminApi.post('/backup-all', async (c) => {
+  const username = c.get('username');
+  const results = await executeAllBackups(c.env, username);
+  return c.json({ results });
 });
 
 // ============================================
