@@ -505,7 +505,9 @@ export async function restoreBackupFromEndpoint(
       response = await s3Request('GET', '/' + backupKey, config);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
-      response = await webdavRequest('GET', backupKey, config);
+      // 确保 backupKey 以 / 开头
+      const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
+      response = await webdavRequest('GET', normalizedKey, config);
     } else {
       return { success: false, message: '不支持的备份类型' };
     }
@@ -556,7 +558,8 @@ export async function deleteBackupFromEndpoint(
       response = await s3Request('DELETE', '/' + backupKey, config);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
-      response = await webdavRequest('DELETE', backupKey, config);
+      const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
+      response = await webdavRequest('DELETE', normalizedKey, config);
     } else {
       return { success: false, message: '不支持的备份类型' };
     }
