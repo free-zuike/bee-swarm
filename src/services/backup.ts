@@ -120,6 +120,7 @@ async function s3Request(method: string, path: string, config: S3Config, body?: 
   
   console.log(`[S3 Request] URL: ${url}, Host: ${host}, Region: ${region}, PathStyle: ${pathStyle}`);
   const signedHeaders = await signV4(method, url, headers, body, accessKeyId, secretAccessKey, region);
+  console.log(`[S3 Request] Authorization: ${signedHeaders['Authorization'].substring(0, 100)}...`);
   return fetch(url, { method, headers: signedHeaders, body });
 }
 
