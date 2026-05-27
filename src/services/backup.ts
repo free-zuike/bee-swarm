@@ -209,8 +209,18 @@ export async function uploadBackupToEndpoint(
   try {
     const backupData = await exportAllData(env, username);
     
-    // 使用端点配置的时区生成文件名
-    const tz = endpoint.schedule?.timezone || 'Asia/Shanghai';
+    // 使用端点配置的时区生成文件名（兼容旧数据的数字时区）
+    let tz = endpoint.schedule?.timezone || 'Asia/Shanghai';
+    // 兼容旧数据：如果是纯数字，转换为 IANA 时区
+    if (/^-?\d+$/.test(tz)) {
+      const offset = parseInt(tz, 10);
+      if (offset === 8) tz = 'Asia/Shanghai';
+      else if (offset === 0) tz = 'UTC';
+      else if (offset === 9) tz = 'Asia/Tokyo';
+      else if (offset === -5) tz = 'America/New_York';
+      else if (offset === -8) tz = 'America/Los_Angeles';
+      else tz = 'UTC';
+    }
     const dateStr = new Date().toLocaleString('sv-SE', {
       timeZone: tz,
       year: 'numeric', month: '2-digit', day: '2-digit',

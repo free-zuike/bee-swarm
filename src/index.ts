@@ -56,8 +56,18 @@ export default {
 
             // 检查是否到达备份时间
             const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
-            // 使用 IANA 时区计算当前时间在用户时区中的小时
-            const tz = endpoint.schedule.timezone || 'Asia/Shanghai';
+            // 使用 IANA 时区计算当前时间在用户时区中的小时（兼容旧数据的数字时区）
+            let tz = endpoint.schedule.timezone || 'Asia/Shanghai';
+            // 兼容旧数据：如果是纯数字，转换为 IANA 时区
+            if (/^-?\d+$/.test(tz)) {
+              const offset = parseInt(tz, 10);
+              if (offset === 8) tz = 'Asia/Shanghai';
+              else if (offset === 0) tz = 'UTC';
+              else if (offset === 9) tz = 'Asia/Tokyo';
+              else if (offset === -5) tz = 'America/New_York';
+              else if (offset === -8) tz = 'America/Los_Angeles';
+              else tz = 'UTC';
+            }
             const localHourStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', hour12: false, hourCycle: 'h23' });
             const localHour = parseInt(localHourStr, 10);
             const localMinuteStr = now.toLocaleString('en-US', { timeZone: tz, minute: '2-digit' });
