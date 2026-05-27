@@ -547,7 +547,8 @@ const editingEndpoint = reactive<Partial<BackupEndpoint>>({
   schedule: {
     enabled: false,
     interval: 24,
-    startTime: '02:00'
+    startTime: '02:00',
+    timezone: '8'
   },
   retention: 30
 });
@@ -638,7 +639,8 @@ function startCreateEndpoint() {
   editingEndpoint.schedule = {
     enabled: false,
     interval: 24,
-    startTime: '02:00'
+    startTime: '02:00',
+    timezone: '8'
   };
   editingEndpoint.retention = 30;
 }
@@ -1237,6 +1239,37 @@ function formatEndpoint(ep: string): string {
                       <div class="form-group">
                         <label>开始时间</label>
                         <input v-model="editingEndpoint.schedule.startTime" type="time" />
+                      </div>
+                      <div class="form-group">
+                        <label>时区</label>
+                        <select v-model="editingEndpoint.schedule.timezone">
+                          <option value="-12">UTC-12</option>
+                          <option value="-11">UTC-11</option>
+                          <option value="-10">UTC-10</option>
+                          <option value="-9">UTC-9</option>
+                          <option value="-8">UTC-8</option>
+                          <option value="-7">UTC-7</option>
+                          <option value="-6">UTC-6</option>
+                          <option value="-5">UTC-5</option>
+                          <option value="-4">UTC-4</option>
+                          <option value="-3">UTC-3</option>
+                          <option value="-2">UTC-2</option>
+                          <option value="-1">UTC-1</option>
+                          <option value="0">UTC+0</option>
+                          <option value="1">UTC+1</option>
+                          <option value="2">UTC+2</option>
+                          <option value="3">UTC+3</option>
+                          <option value="4">UTC+4</option>
+                          <option value="5">UTC+5</option>
+                          <option value="6">UTC+6</option>
+                          <option value="7">UTC+7</option>
+                          <option value="8" selected>UTC+8（北京时间）</option>
+                          <option value="9">UTC+9</option>
+                          <option value="10">UTC+10</option>
+                          <option value="11">UTC+11</option>
+                          <option value="12">UTC+12</option>
+                        </select>
+                        <span class="input-hint">备份将在此时区的开始时间触发</span>
                       </div>
                     </div>
                   </div>

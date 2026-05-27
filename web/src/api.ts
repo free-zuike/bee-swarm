@@ -172,6 +172,7 @@ export interface BackupEndpoint {
     enabled: boolean;
     interval: number;
     startTime: string;
+    timezone?: string;
   };
   retention: number;
   lastBackup?: {
