@@ -92,9 +92,8 @@ const enabledChannelCount = computed(() => channels.value.filter((c) => c.enable
 // ==================== 初始化 ====================
 onMounted(async () => {
   try {
-    // 尝试从 sessionStorage 恢复凭证
+    // 尝试从 sessionStorage 恢复凭证（不再保存密码）
     const savedEmail = sessionStorage.getItem('push_hub_email');
-    const savedPassword = sessionStorage.getItem('push_hub_password');
     const savedToken = sessionStorage.getItem('push_hub_token');
     const savedRefreshToken = sessionStorage.getItem('push_hub_refresh_token');
     const savedExpiresAt = sessionStorage.getItem('push_hub_expires_at');
@@ -133,32 +132,9 @@ onMounted(async () => {
       } catch {
         // 刷新失败，清除凭证
         sessionStorage.removeItem('push_hub_email');
-        sessionStorage.removeItem('push_hub_password');
         sessionStorage.removeItem('push_hub_token');
         sessionStorage.removeItem('push_hub_refresh_token');
         sessionStorage.removeItem('push_hub_expires_at');
-      }
-    } else if (savedEmail && savedPassword) {
-      // 旧版本只有 email/password，尝试获取新 token
-      email.value = savedEmail;
-      password.value = savedPassword;
-      try {
-        const tokenData = await getToken(savedEmail, savedPassword);
-        accessToken.value = tokenData.token;
-        refreshTokenValue.value = tokenData.refreshToken;
-        tokenExpiresAt.value = tokenData.expiresAt;
-        sessionStorage.setItem('push_hub_email', savedEmail);
-        sessionStorage.setItem('push_hub_password', savedPassword);
-        sessionStorage.setItem('push_hub_token', tokenData.token);
-        sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
-        sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
-        await loadChannels();
-        pageState.value = 'dashboard';
-        return;
-      } catch {
-        // 获取 token 失败，清除凭证
-        sessionStorage.removeItem('push_hub_email');
-        sessionStorage.removeItem('push_hub_password');
       }
     }
     pageState.value = 'auth';
@@ -187,7 +163,7 @@ async function doLogin(authEmail: string, authPassword: string) {
     // 登录验证
     const res = await login(authEmail, authPassword);
     email.value = res.email || authEmail;
-    password.value = authPassword;
+    password.value = authPassword; // 仅在内存中保存密码用于登录流程
 
     // 获取 Token
     const tokenData = await getToken(authEmail, authPassword);
@@ -195,9 +171,8 @@ async function doLogin(authEmail: string, authPassword: string) {
     refreshTokenValue.value = tokenData.refreshToken;
     tokenExpiresAt.value = tokenData.expiresAt;
 
-    // 保存凭证到 sessionStorage
+    // 保存凭证到 sessionStorage（不保存密码）
     sessionStorage.setItem('push_hub_email', email.value);
-    sessionStorage.setItem('push_hub_password', password.value);
     sessionStorage.setItem('push_hub_token', tokenData.token);
     sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
     sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
@@ -228,7 +203,6 @@ async function doRegister(authEmail: string, authPassword: string) {
 
 function logout() {
   sessionStorage.removeItem('push_hub_email');
-  sessionStorage.removeItem('push_hub_password');
   sessionStorage.removeItem('push_hub_token');
   sessionStorage.removeItem('push_hub_refresh_token');
   sessionStorage.removeItem('push_hub_expires_at');

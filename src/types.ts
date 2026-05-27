@@ -2,63 +2,26 @@
 // 类型定义
 // ============================================
 
-export interface PushPayload {
-  title: string;
-  body?: string;
-  url?: string;
-  icon?: string;
-}
+// 从共享类型重新导出
+export type {
+  PushPayload,
+  PushChannel,
+  PushRequest,
+  ChannelResult,
+  ChannelConfig,
+  ChannelField,
+  ChannelDefinition,
+  ChannelSettings,
+  UserToken,
+  BackupEndpoint,
+  BackupInfo,
+  BackupResult,
+  EndpointType,
+  S3Config,
+  WebDAVConfig,
+} from '../types';
 
-/** 用户 Token 信息 */
-export interface UserToken {
-  token: string;         // 访问 token
-  refreshToken: string;   // 刷新 token
-  expiresAt: number;      // 过期时间戳
-}
-
-export type PushChannel =
-  | 'wework'
-  | 'dingtalk'
-  | 'feishu'
-  | 'telegram'
-  | 'bark'
-  | 'ntfy'
-  | 'email';
-
-export interface PushRequest extends PushPayload {
-  channels?: PushChannel[];
-}
-
-export interface ChannelResult {
-  channel: PushChannel;
-  success: boolean;
-  message: string;
-}
-
-export interface ChannelField {
-  key: string;
-  label: string;
-  type: 'text' | 'password' | 'url';
-  placeholder: string;
-  required: boolean;
-}
-
-export interface ChannelDefinition {
-  id: PushChannel;
-  name: string;
-  icon: string;
-  fields: ChannelField[];
-}
-
-export interface ChannelConfig {
-  id: PushChannel;
-  name: string;
-  icon: string;
-  enabled: boolean;
-}
-
-export type ChannelSettings = Record<string, string>;
-
+// Workers 特有类型
 export interface Env {
   SUBSCRIPTIONS: KVNamespace;
   ASSETS: Fetcher;

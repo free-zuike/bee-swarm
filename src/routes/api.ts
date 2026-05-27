@@ -4,6 +4,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env, PushRequest, PushChannel } from '../types';
+import { hashPassword, verifyPassword } from '../utils/password';
+import { authMiddleware } from '../middleware/auth';
 import {
   dispatchPush,
   getChannelConfigs,
@@ -21,49 +23,6 @@ import {
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
 api.use('/*', cors());
-
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  // 生成随机 salt
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  // PBKDF2 哈希（100,000 次迭代）
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']
-  );
-  const derivedBits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
-    keyMaterial, 256
-  );
-  const hashHex = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  return `${saltHex}:${hashHex}`;
-}
-
-async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const [saltHex, hashHex] = stored.split(':');
-  if (!saltHex || !hashHex) {
-    // 兼容旧版 SHA-256 格式（无 salt）
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const inputHashed = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return inputHashed === stored;
-  }
-  
-  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']
-  );
-  const derivedBits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
-    keyMaterial, 256
-  );
-  const computedHash = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
-  return computedHash === hashHex;
-}
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -338,83 +297,7 @@ api.post('/refresh', async (c) => {
 // ============================================
 const adminApi = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
-adminApi.use('/*', async (c, next) => {
-  // 1. 优先使用 API Key
-  const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
-  if (apiKey) {
-    // 使用 apikey_index 快速查找
-    const indexedUser = await c.env.SUBSCRIPTIONS.get(`apikey_index:${apiKey}`);
-    if (indexedUser) {
-      const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          if (user.apikey === apiKey) {
-            c.set('username', indexedUser);
-            await next();
-            return;
-          }
-        } catch {}
-      }
-    }
-    // 回退到遍历查找（兼容旧 apikey 无索引的情况）
-    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-    for (const key of list.keys) {
-      // 跳过非用户数据键（如 s3_config）
-      if (key.name.includes(':s3_config') || key.name.includes(':apikey')) continue;
-      const data = await c.env.SUBSCRIPTIONS.get(key.name);
-      if (data) {
-        try {
-          const user = JSON.parse(data);
-          if (user.apikey === apiKey) {
-            c.set('username', key.name.replace('user:', ''));
-            await next();
-            return;
-          }
-        } catch {}
-      }
-    }
-    return c.json({ error: '无效的 API Key' }, 401);
-  }
-
-  // 2. 使用 Token（O(1) 查找）
-  const token = c.req.header('X-Token') || c.req.query('token');
-  if (token) {
-    const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${token}`);
-    if (indexedUser) {
-      const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          if (user.token === token && user.expiresAt > Date.now()) {
-            c.set('username', indexedUser);
-            await next();
-            return;
-          }
-        } catch {}
-      }
-    }
-    // 回退到遍历查找（兼容旧 token 无索引的情况）
-    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-    for (const key of list.keys) {
-      if (key.name.includes(':') && !key.name.startsWith('user:')) continue;
-      const data = await c.env.SUBSCRIPTIONS.get(key.name);
-      if (data) {
-        try {
-          const user = JSON.parse(data);
-          if (user.token === token && user.expiresAt > Date.now()) {
-            c.set('username', key.name.replace('user:', ''));
-            await next();
-            return;
-          }
-        } catch {}
-      }
-    }
-    return c.json({ error: '无效或已过期的 Token' }, 401);
-  }
-
-  return c.json({ error: '请提供认证信息' }, 401);
-});
+adminApi.use('/*', authMiddleware);
 
 adminApi.get('/channels', async (c) => {
   const username = c.get('username');

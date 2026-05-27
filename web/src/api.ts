@@ -5,16 +5,21 @@ import type { PushChannel, ChannelSettings } from '@/types';
 
 const BASE = '/api';
 
+/** 通用错误处理函数 */
+async function handleResponseError(res: Response): Promise<Error> {
+  let errorMsg = `请求失败 (${res.status})`;
+  try {
+    const body = await res.json() as any;
+    if (body.error) errorMsg = body.error;
+    else if (body.message) errorMsg = body.message;
+  } catch { /* ignore */ }
+  return new Error(errorMsg);
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
   if (!res.ok) {
-    let errorMsg = `请求失败 (${res.status})`;
-    try {
-      const body = await res.json() as any;
-      if (body.error) errorMsg = body.error;
-      else if (body.message) errorMsg = body.message;
-    } catch { /* ignore */ }
-    throw new Error(errorMsg);
+    throw await handleResponseError(res);
   }
   return res.json();
 }
@@ -27,13 +32,7 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
   };
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
-    let errorMsg = `请求失败 (${res.status})`;
-    try {
-      const body = await res.json() as any;
-      if (body.error) errorMsg = body.error;
-      else if (body.message) errorMsg = body.message;
-    } catch { /* ignore */ }
-    throw new Error(errorMsg);
+    throw await handleResponseError(res);
   }
   return res.json();
 }

@@ -9,12 +9,32 @@ import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// CORS
+// CORS 配置
 app.use('*', async (c, next) => {
   const origin = c.req.header('Origin') || '';
-  // 允许所有来源（Workers 部署场景下难以预知来源）
-  // 如需限制，可改为: if (origin.endsWith('.workers.dev') || origin === 'https://your-domain.com')
-  await cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['Content-Type', 'X-Token', 'X-API-Key', 'X-Password'] })(c, next);
+  
+  // 检查是否允许该来源
+  const isAllowedOrigin = (): boolean => {
+    // 开发环境允许 localhost
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return true;
+    }
+    // 允许 workers.dev 域名
+    if (origin.endsWith('.workers.dev')) {
+      return true;
+    }
+    // 允许所有来源（生产环境可根据需要限制）
+    return true;
+  };
+
+  const allowedOrigin = isAllowedOrigin() ? origin : '';
+
+  await cors({
+    origin: allowedOrigin,
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'X-Token', 'X-API-Key'],
+    credentials: true,
+  })(c, next);
 });
 
 // 全局错误处理
