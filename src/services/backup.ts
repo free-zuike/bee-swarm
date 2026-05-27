@@ -78,7 +78,19 @@ async function signV4(
   const sortedHeaderKeys = Object.keys(signedHeaders).map((k) => k.toLowerCase()).sort();
   const signedHeaderKeysStr = sortedHeaderKeys.join(';');
   const canonicalHeaders = sortedHeaderKeys.map((k) => `${k}:${(signedHeaders[k] || '').trim()}`).join('\n') + '\n';
-  const canonicalQueryString = parsedUrl.search ? parsedUrl.search.slice(1).split('&').sort().map((p) => { const [key, ...rest] = p.split('='); return `${key}=${rest.join('=')}`; }).join('&') : '';
+  // 正确处理 query string：按 key 排序，value 需要 URI 编码
+  const canonicalQueryString = parsedUrl.search
+    ? parsedUrl.search.slice(1)
+        .split('&')
+        .map(p => {
+          const idx = p.indexOf('=');
+          if (idx === -1) return [p, ''];
+          return [p.slice(0, idx), p.slice(idx + 1)];
+        })
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join('&')
+    : '';
   const canonicalUri = parsedUrl.pathname || '/';
   const canonicalRequest = [method, canonicalUri, canonicalQueryString, canonicalHeaders, signedHeaderKeysStr, bodyHash].join('\n');
   const credentialScope = `${date}/${region}/s3/aws4_request`;
@@ -194,7 +206,8 @@ export async function deleteBackup(env: Env, username: string, config: S3Config,
 
 export async function testS3Connection(config: S3Config): Promise<{ success: boolean; message: string; details?: any }> {
   try {
-    const response = await s3Request("GET", "/", config, undefined, { "max-keys": "1" });
+    // 使用 ListObjectsV2 API (list-type=2) 测试连接
+    const response = await s3Request("GET", "/", config, undefined, { "list-type": "2", "max-keys": "1" });
     if (!response.ok) {
       const errorText = await response.text();
       return { 
