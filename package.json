@@ -16,6 +16,7 @@
   "dependencies": {
     "aws4fetch": "^1.0.20",
     "hono": "^4.6.0",
+    "swagger-ui": "^5.32.6",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },

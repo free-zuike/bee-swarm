@@ -4,6 +4,10 @@
 import { createApp } from 'vue';
 import router from './router';
 import App from './App.vue';
+import { initLocale } from './i18n';
+
+// 初始化国际化
+initLocale();
 
 const app = createApp(App);
 

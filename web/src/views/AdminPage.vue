@@ -3,6 +3,8 @@
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { useThemeStore } from '@/stores/theme';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult } from '@/types';
@@ -13,6 +15,15 @@ import PushForm from '@/components/admin/PushForm.vue';
 import ChannelSettingsPanel from '@/components/admin/ChannelSettings.vue';
 import PushHistory from '@/components/admin/PushHistory.vue';
 import BackupManager from '@/components/admin/BackupManager.vue';
+
+const router = useRouter();
+const themeStore = useThemeStore();
+
+const isDark = computed(() => themeStore.isDark);
+
+function goToApiDocs() {
+  router.push('/docs');
+}
 
 // ==================== 页面状态 ====================
 const pageState = ref<'loading' | 'auth' | 'dashboard'>('loading');
@@ -458,7 +469,7 @@ watch(showSettings, (val, oldVal) => {
 
 <template>
   <!-- 加载中 -->
-  <div v-if="pageState === 'loading'" class="loading-overlay">
+  <div v-if="pageState === 'loading'" class="loading-overlay" :class="{ dark: isDark }">
     <div class="loading-spinner"></div>
     <p>加载中...</p>
   </div>
@@ -473,14 +484,18 @@ watch(showSettings, (val, oldVal) => {
   />
 
   <!-- 主界面 -->
-  <div v-else class="page">
-    <header class="header">
+  <div v-else class="page" :class="{ dark: isDark }">
+    <header class="header" :class="{ dark: isDark }">
       <div class="header-left">
         <h1>🐝 蜂群</h1>
         <span class="header-email">{{ email }}</span>
       </div>
       <div class="header-right">
-        <button class="btn btn-sm" @click="showSettings = !showSettings">
+        <button class="btn btn-sm btn-icon-btn" @click="themeStore.toggleTheme">
+          {{ isDark ? '☀️' : '🌙' }}
+        </button>
+        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="goToApiDocs">📚 API 文档</button>
+        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="showSettings = !showSettings">
           {{ showSettings ? '收起设置' : '⚙️ 设置' }}
         </button>
         <span class="logout" @click="logout">退出</span>
@@ -491,22 +506,22 @@ watch(showSettings, (val, oldVal) => {
       <!-- 设置面板 -->
       <div v-if="showSettings" class="tab-content">
         <!-- API Key 面板 -->
-        <div class="panel">
-          <div class="api-key-panel">
+        <div class="panel" :class="{ dark: isDark }">
+          <div class="api-key-panel" :class="{ dark: isDark }">
             <h3>🔑 API Key</h3>
             <p class="hint">使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。</p>
             <div v-if="apiKey" class="api-key-display">
-              <code>{{ apiKey }}</code>
+              <code :class="{ dark: isDark }">{{ apiKey }}</code>
               <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">重新生成</button>
             </div>
             <div v-else>
-              <button class="btn btn-secondary" @click="loadApiKey()">生成 API Key</button>
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">生成 API Key</button>
             </div>
           </div>
         </div>
 
         <!-- 数据备份面板（多备份端） -->
-        <div class="panel">
+        <div class="panel" :class="{ dark: isDark }">
           <BackupManager
             ref="backupManagerRef"
             :access-token="accessToken"
@@ -539,17 +554,17 @@ watch(showSettings, (val, oldVal) => {
       <!-- 推送/历史 Tab（当设置面板关闭时显示） -->
       <template v-else>
         <!-- Tab 导航 -->
-        <div class="tab-nav">
+        <div class="tab-nav" :class="{ dark: isDark }">
           <button
             class="tab-btn"
-            :class="{ active: activeTab === 'push' }"
+            :class="{ active: activeTab === 'push', dark: isDark }"
             @click="activeTab = 'push'"
           >
             📤 推送
           </button>
           <button
             class="tab-btn"
-            :class="{ active: activeTab === 'history' }"
+            :class="{ active: activeTab === 'history', dark: isDark }"
             @click="activeTab = 'history'"
           >
             推送历史
@@ -596,6 +611,11 @@ watch(showSettings, (val, oldVal) => {
   color: #666;
 }
 
+.loading-overlay.dark {
+  background: #1e1e1e;
+  color: #e0e0e0;
+}
+
 .loading-spinner {
   width: 36px;
   height: 36px;
@@ -616,6 +636,10 @@ watch(showSettings, (val, oldVal) => {
   background: #f0f2f5;
 }
 
+.page.dark {
+  background: #1e1e1e;
+}
+
 .header {
   background: white;
   padding: 16px 24px;
@@ -623,6 +647,10 @@ watch(showSettings, (val, oldVal) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header.dark {
+  background: #2d2d2d;
 }
 
 .header-left {
@@ -642,12 +670,21 @@ watch(showSettings, (val, oldVal) => {
   color: #1a1a2e;
 }
 
+.header.dark h1 {
+  color: #e0e0e0;
+}
+
 .header-email {
   font-size: 13px;
   color: #999;
   background: #f5f5f5;
   padding: 4px 12px;
   border-radius: 20px;
+}
+
+.header.dark .header-email {
+  color: #999;
+  background: #3c3c3c;
 }
 
 .logout {
@@ -678,6 +715,10 @@ watch(showSettings, (val, oldVal) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+.tab-nav.dark {
+  background: #2d2d2d;
+}
+
 .tab-btn {
   flex: 1;
   padding: 10px 16px;
@@ -691,15 +732,29 @@ watch(showSettings, (val, oldVal) => {
   transition: all 0.2s;
 }
 
+.tab-btn.dark {
+  color: #999;
+}
+
 .tab-btn:hover {
   background: #f5f5f5;
   color: #333;
+}
+
+.tab-btn.dark:hover {
+  background: #3c3c3c;
+  color: #e0e0e0;
 }
 
 .tab-btn.active {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.tab-btn.active.dark {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
 }
 
 .tab-content {
@@ -721,12 +776,21 @@ watch(showSettings, (val, oldVal) => {
   margin-bottom: 24px;
 }
 
+.panel.dark {
+  background: #2d2d2d;
+}
+
 .panel h2 {
   font-size: 18px;
   color: #1a1a2e;
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.panel.dark h2 {
+  color: #e0e0e0;
+  border-bottom-color: #3c3c3c;
 }
 
 /* ==================== 按钮 ==================== */
@@ -744,6 +808,23 @@ watch(showSettings, (val, oldVal) => {
 .btn-sm {
   padding: 8px 18px;
   font-size: 13px;
+}
+
+.btn-icon-btn {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.btn-icon-btn:hover {
+  background: #f0f0f0;
+}
+
+.dark .btn-icon-btn:hover {
+  background: #3c3c3c;
 }
 
 .btn-primary {
@@ -771,6 +852,15 @@ watch(showSettings, (val, oldVal) => {
   background: #e0e0e0;
 }
 
+.btn-secondary.dark {
+  background: #3c3c3c;
+  color: #e0e0e0;
+}
+
+.btn-secondary.dark:hover {
+  background: #4c4c4c;
+}
+
 .btn-warning {
   background-color: #f59e0b;
   color: white;
@@ -789,12 +879,20 @@ watch(showSettings, (val, oldVal) => {
   margin-bottom: 0;
 }
 
+.api-key-panel.dark {
+  background: #3c3c3c;
+}
+
 .api-key-panel h3 {
   font-size: 16px;
   color: #1a1a2e;
   margin-bottom: 8px;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+.api-key-panel.dark h3 {
+  color: #e0e0e0;
 }
 
 .api-key-display {
@@ -812,11 +910,21 @@ watch(showSettings, (val, oldVal) => {
   word-break: break-all;
   flex: 1;
   font-size: 13px;
+  color: #1a1a2e;
+}
+
+.api-key-display code.dark {
+  background: #2d2d2d;
+  color: #e0e0e0;
 }
 
 .hint {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
+}
+
+.dark .hint {
+  color: #888;
 }
 </style>
