@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
 import api from './routes/api';
-import { uploadBackup, getS3Config } from './services/backup';
+import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -32,9 +32,10 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // 每小时触发，检查当前 UTC 小时是否匹配用户配置的北京时间
+    // 每小时触发，检查每个用户的备份端调度设置
     const now = new Date();
     const utcHour = now.getUTCHours();
+    const utcMinute = now.getUTCMinutes();
 
     try {
       let cursor: string | undefined;
@@ -44,16 +45,19 @@ export default {
           const username = key.name.replace('user:', '');
           if (username.includes(':')) continue;
 
-          const config = await getS3Config(env, username);
-          if (config && config.enabled !== false) {
-            // 用户配置的北京时间转 UTC
-            const userBeijingHour = config.hour ?? 2;
-            const userUtcHour = (userBeijingHour + 24 - 8) % 24;
+          const endpoints = await getBackupEndpoints(env, username);
+          for (const endpoint of endpoints) {
+            if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
 
-            // 检查是否匹配
-            if (utcHour === userUtcHour) {
-              const result = await uploadBackup(env, username, config);
-              console.log(`[Cron Backup] ${username}: ${result.message}`);
+            // 检查是否到达备份时间
+            const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
+            const startUtcHour = (startHour + 24 - 8) % 24; // 北京时间转 UTC
+
+            // 简单调度：每小时检查，如果当前时间匹配开始时间则备份
+            // 更复杂的调度逻辑可以根据 interval 来实现
+            if (utcHour === startUtcHour && utcMinute === startMinute) {
+              const result = await uploadBackupToEndpoint(env, username, endpoint);
+              console.log(`[Cron Backup] ${username}/${endpoint.name}: ${result.message}`);
             }
           }
         }
