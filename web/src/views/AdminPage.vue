@@ -627,6 +627,8 @@ async function doSaveBackupSettings() {
 async function doTestS3Config() {
   isTestingS3Config.value = true;
   console.log('[Test] Starting S3 connection test...');
+  console.log('[Test] Original endpoint:', s3Config.endpoint);
+  console.log('[Test] Clean endpoint:', cleanEndpoint.value);
   try {
     // 直接传当前表单配置，后端会自动使用已保存的密钥（使用 computed 的 cleanEndpoint）
     const configToTest: any = { 

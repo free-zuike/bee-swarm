@@ -1,6 +1,7 @@
 // ============================================
-// S3 兼容存储备份服务
+// S3 兼容存储备份服务（使用 aws4fetch）
 // ============================================
+import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
 
 export interface S3Config {
@@ -47,106 +48,74 @@ export async function saveS3Config(env: Env, username: string, config: S3Config)
   await env.SUBSCRIPTIONS.put(`user:${username}:s3_config`, configStr);
 }
 
-async function hmacSha256(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(data));
-}
-
-async function sha256Hash(data: string | ArrayBuffer): Promise<ArrayBuffer> {
-  const buffer = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-  return crypto.subtle.digest('SHA-256', buffer);
-}
-
-function toHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function signV4(
-  method: string,
-  url: string,
-  headers: Record<string, string>,
-  body: string | ArrayBuffer | undefined,
-  accessKey: string,
-  secretKey: string,
-  region: string,
-): Promise<Record<string, string>> {
-  const parsedUrl = new URL(url);
-  const datetime = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const date = datetime.slice(0, 8);
-  const bodyHash = body ? toHex(await sha256Hash(body)) : 'UNSIGNED-PAYLOAD';
-  const signedHeaders: Record<string, string> = { ...headers, 'x-amz-content-sha256': bodyHash, 'x-amz-date': datetime };
-  const sortedHeaderKeys = Object.keys(signedHeaders).map((k) => k.toLowerCase()).sort();
-  const signedHeaderKeysStr = sortedHeaderKeys.join(';');
-  const canonicalHeaders = sortedHeaderKeys.map((k) => `${k}:${(signedHeaders[k] || '').trim()}`).join('\n') + '\n';
-  // 正确处理 query string：按 key 排序，value 需要 URI 编码
-  const canonicalQueryString = parsedUrl.search
-    ? parsedUrl.search.slice(1)
-        .split('&')
-        .map(p => {
-          const idx = p.indexOf('=');
-          if (idx === -1) return [p, ''];
-          return [p.slice(0, idx), p.slice(idx + 1)];
-        })
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-        .join('&')
-    : '';
-  const canonicalUri = parsedUrl.pathname || '/';
-  const canonicalRequest = [method, canonicalUri, canonicalQueryString, canonicalHeaders, signedHeaderKeysStr, bodyHash].join('\n');
-  const credentialScope = `${date}/${region}/s3/aws4_request`;
-  const stringToSign = ['AWS4-HMAC-SHA256', datetime, credentialScope, toHex(await sha256Hash(canonicalRequest))].join('\n');
-  
-  // 调试日志
-  console.log(`[SignV4] URL: ${url}`);
-  console.log(`[SignV4] Canonical URI: ${canonicalUri}`);
-  console.log(`[SignV4] Canonical Request: ${canonicalRequest.substring(0, 200)}...`);
-  console.log(`[SignV4] Credential: ${accessKey}/${credentialScope}`);
-  
-  const kDate = await hmacSha256(new TextEncoder().encode(`AWS4${secretKey}`), date);
-  const kRegion = await hmacSha256(kDate, region);
-  const kService = await hmacSha256(kRegion, 's3');
-  const kSigning = await hmacSha256(kService, 'aws4_request');
-  const signature = toHex(await hmacSha256(kSigning, stringToSign));
-  signedHeaders['Authorization'] = `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaderKeysStr}, Signature=${signature}`;
-  return signedHeaders;
-}
-
-async function s3Request(method: string, path: string, config: S3Config, body?: string | ArrayBuffer, query?: Record<string, string>): Promise<Response> {
-  const { endpoint, accessKeyId, secretAccessKey, bucket, pathStyle } = config;
-  // 数据胶囊默认使用 us-east-1
+// 创建 aws4fetch 客户端
+function createS3Client(config: S3Config): AwsClient {
   const region = config.region === 'auto' ? 'us-east-1' : config.region;
-  if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) throw new Error('未配置 S3 存储参数');
-  const endpointWithProtocol = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
-  const parsedEndpoint = new URL(endpointWithProtocol);
+  return new AwsClient({
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    region: region,
+    service: 's3',
+  });
+}
+
+// 构建 S3 URL
+function buildS3Url(config: S3Config, path: string, query?: Record<string, string>): string {
+  const endpoint = config.endpoint.startsWith('http') ? config.endpoint : `https://${config.endpoint}`;
   const queryString = query ? '?' + new URLSearchParams(query).toString() : '';
   
-  let url: string;
-  let host: string;
-  
-  if (pathStyle) {
+  if (config.pathStyle) {
     // Path-style: https://endpoint/bucket/path
-    url = parsedEndpoint.protocol + '//' + parsedEndpoint.host + '/' + bucket + path + queryString;
-    host = parsedEndpoint.host;
+    return `${endpoint}/${config.bucket}${path}${queryString}`;
   } else {
     // Virtual-hosted style: https://bucket.endpoint/path
-    const bucketHost = bucket + '.' + parsedEndpoint.host;
-    url = parsedEndpoint.protocol + '//' + bucketHost + path + queryString;
-    host = bucketHost;
+    const parsedEndpoint = new URL(endpoint);
+    return `${parsedEndpoint.protocol}//${config.bucket}.${parsedEndpoint.host}${path}${queryString}`;
+  }
+}
+
+// 使用 aws4fetch 发送 S3 请求
+async function s3Request(
+  method: string,
+  path: string,
+  config: S3Config,
+  body?: string | ArrayBuffer,
+  query?: Record<string, string>
+): Promise<Response> {
+  if (!config.endpoint || !config.accessKeyId || !config.secretAccessKey || !config.bucket) {
+    throw new Error('未配置 S3 存储参数');
+  }
+
+  const client = createS3Client(config);
+  const url = buildS3Url(config, path, query);
+  
+  const headers: Record<string, string> = {};
+  if (body) {
+    headers['Content-Type'] = 'application/json';
   }
   
-  const headers: Record<string, string> = { 'Host': host };
-  if (body) headers['Content-Type'] = 'application/json';
+  console.log(`[S3 Request] URL: ${url}, Method: ${method}, PathStyle: ${config.pathStyle}`);
   
-  console.log(`[S3 Request] URL: ${url}, Host: ${host}, Region: ${region}, PathStyle: ${pathStyle}`);
-  const signedHeaders = await signV4(method, url, headers, body, accessKeyId, secretAccessKey, region);
-  console.log(`[S3 Request] Authorization: ${signedHeaders['Authorization'].substring(0, 100)}...`);
-  return fetch(url, { method, headers: signedHeaders, body });
+  const request = new Request(url, {
+    method,
+    headers,
+    body: body ? (typeof body === 'string' ? body : body) : undefined,
+  });
+  
+  return client.fetch(request);
 }
 
 export async function exportAllData(env: Env): Promise<BackupData> {
   const data: Record<string, string> = {};
   let cursor: string | undefined;
-  do { const list = await env.SUBSCRIPTIONS.list({ cursor }); for (const key of list.keys) { const value = await env.SUBSCRIPTIONS.get(key.name); if (value !== null) data[key.name] = value; } cursor = list.cursor; } while (cursor);
+  do {
+    const list = await env.SUBSCRIPTIONS.list({ cursor });
+    for (const key of list.keys) {
+      const value = await env.SUBSCRIPTIONS.get(key.name);
+      if (value !== null) data[key.name] = value;
+    }
+    cursor = list.cursor;
+  } while (cursor);
   return { timestamp: new Date().toISOString(), version: '1.0', data };
 }
 
@@ -157,16 +126,22 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
     const prefix = config.path ? config.path.replace(/\/+$/, '') : 'backups/' + username;
     const key = prefix + '/' + date + '.json';
     const response = await s3Request('PUT', '/' + key, config, JSON.stringify(backupData, null, 2));
-    if (!response.ok) return { success: false, message: '上传失败 (' + response.status + '): ' + await response.text() };
+    if (!response.ok) {
+      return { success: false, message: '上传失败 (' + response.status + '): ' + await response.text() };
+    }
     return { success: true, message: '备份成功: ' + key };
-  } catch (err: any) { return { success: false, message: '备份失败: ' + err.message }; }
+  } catch (err: any) {
+    return { success: false, message: '备份失败: ' + err.message };
+  }
 }
 
 export async function listBackups(env: Env, username: string, config: S3Config): Promise<BackupInfo[]> {
   try {
     const prefix = config.path ? config.path.replace(/\/+$/, '') : 'backups/' + username;
     const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': prefix + '/' });
-    if (!response.ok) throw new Error('获取备份列表失败 (' + response.status + ')');
+    if (!response.ok) {
+      throw new Error('获取备份列表失败 (' + response.status + ')');
+    }
     const xml = await response.text();
     const backups: BackupInfo[] = [];
     const contentsRegex = /<Contents>([\s\S]*?)<\/Contents>/g;
@@ -176,59 +151,86 @@ export async function listBackups(env: Env, username: string, config: S3Config):
       const keyMatch = block.match(/<Key>([^<]+)<\/Key>/);
       const sizeMatch = block.match(/<Size>([^<]+)<\/Size>/);
       const lastModifiedMatch = block.match(/<LastModified>([^<]+)<\/LastModified>/);
-      if (keyMatch) backups.push({ key: keyMatch[1], size: sizeMatch ? parseInt(sizeMatch[1], 10) : 0, lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '' });
+      if (keyMatch) {
+        backups.push({
+          key: keyMatch[1],
+          size: sizeMatch ? parseInt(sizeMatch[1], 10) : 0,
+          lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
+        });
+      }
     }
     return backups.sort((a, b) => b.key.localeCompare(a.key));
-  } catch (err: any) { throw new Error('列出备份失败: ' + err.message); }
+  } catch (err: any) {
+    throw new Error('列出备份失败: ' + err.message);
+  }
 }
 
 export async function restoreBackup(env: Env, username: string, config: S3Config, backupKey: string): Promise<BackupResult> {
   try {
     const response = await s3Request('GET', '/' + backupKey, config);
-    if (!response.ok) return { success: false, message: '下载备份失败 (' + response.status + ')' };
+    if (!response.ok) {
+      return { success: false, message: '下载备份失败 (' + response.status + ')' };
+    }
     const backupData: BackupData = await response.json();
-    if (!backupData.data || typeof backupData.data !== 'object') return { success: false, message: '无效的备份数据格式' };
+    if (!backupData.data || typeof backupData.data !== 'object') {
+      return { success: false, message: '无效的备份数据格式' };
+    }
+    // 清空现有数据
     let cursor: string | undefined;
-    do { const list = await env.SUBSCRIPTIONS.list({ cursor }); for (const key of list.keys) await env.SUBSCRIPTIONS.delete(key.name); cursor = list.cursor; } while (cursor);
+    do {
+      const list = await env.SUBSCRIPTIONS.list({ cursor });
+      for (const key of list.keys) {
+        await env.SUBSCRIPTIONS.delete(key.name);
+      }
+      cursor = list.cursor;
+    } while (cursor);
+    // 恢复备份数据
     const entries = Object.entries(backupData.data);
-    for (const [key, value] of entries) await env.SUBSCRIPTIONS.put(key, value);
+    for (const [key, value] of entries) {
+      await env.SUBSCRIPTIONS.put(key, value);
+    }
     return { success: true, message: '恢复成功: 已恢复 ' + entries.length + ' 条数据' };
-  } catch (err: any) { return { success: false, message: '恢复失败: ' + err.message }; }
+  } catch (err: any) {
+    return { success: false, message: '恢复失败: ' + err.message };
+  }
 }
 
 export async function deleteBackup(env: Env, username: string, config: S3Config, backupKey: string): Promise<BackupResult> {
   try {
     const response = await s3Request('DELETE', '/' + backupKey, config);
-    if (response.status !== 204 && !response.ok) return { success: false, message: '删除失败 (' + response.status + ')' };
+    if (response.status !== 204 && !response.ok) {
+      return { success: false, message: '删除失败 (' + response.status + ')' };
+    }
     return { success: true, message: '删除成功: ' + backupKey };
-  } catch (err: any) { return { success: false, message: '删除失败: ' + err.message }; }
+  } catch (err: any) {
+    return { success: false, message: '删除失败: ' + err.message };
+  }
 }
 
 export async function testS3Connection(config: S3Config): Promise<{ success: boolean; message: string; details?: any }> {
   try {
-    // 使用 ListObjectsV2 API (list-type=2) 测试连接
-    const response = await s3Request("GET", "/", config, undefined, { "list-type": "2", "max-keys": "1" });
+    const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'max-keys': '1' });
     if (!response.ok) {
       const errorText = await response.text();
-      return { 
-        success: false, 
-        message: "连接失败 (" + response.status + "): " + errorText.substring(0, 200),
+      return {
+        success: false,
+        message: '连接失败 (' + response.status + '): ' + errorText.substring(0, 200),
         details: {
           url: config.endpoint,
           bucket: config.bucket,
           region: config.region,
           pathStyle: config.pathStyle,
           status: response.status,
-          error: errorText.substring(0, 500)
-        }
+          error: errorText.substring(0, 500),
+        },
       };
     }
-    return { success: true, message: "S3 连接成功" };
-  } catch (err: any) { 
-    return { 
-      success: false, 
-      message: "连接异常: " + err.message,
-      details: { error: err.message }
-    }; 
+    return { success: true, message: 'S3 连接成功' };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: '连接异常: ' + err.message,
+      details: { error: err.message },
+    };
   }
 }
