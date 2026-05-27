@@ -413,6 +413,7 @@ async function handleRestoreBackup(id: string, key: string) {
     if (result.success) {
       await loadChannels();
       await loadHistory();
+      await handleLoadEndpoints(); // 重新加载备份端列表
     }
   } catch (err: any) {
     backupManagerRef.value?.handleError(err.message || '恢复失败', 'save');
