@@ -745,6 +745,21 @@ adminApi.get('/test/bark', async (c) => {
     return c.json({ error: '请提供 Bark Key' }, 400);
   }
 
+  // 验证 server 必须是合法的 HTTPS URL，防止 SSRF
+  try {
+    const serverUrl = new URL(server);
+    if (serverUrl.protocol !== 'https:') {
+      return c.json({ error: 'Server 必须是 HTTPS URL' }, 400);
+    }
+  } catch {
+    return c.json({ error: 'Server 必须是合法的 URL' }, 400);
+  }
+
+  // 验证 key 只允许字母数字字符
+  if (!/^[a-zA-Z0-9_-]+$/.test(key)) {
+    return c.json({ error: 'Bark Key 包含非法字符' }, 400);
+  }
+
   try {
     // 发送测试请求（不实际推送，只验证 key 是否有效）
     const testUrl = `${server}/${key}/测试标题/这是一条测试消息`;

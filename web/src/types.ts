@@ -4,7 +4,6 @@
 
 /** 推送渠道标识 */
 export type PushChannel =
-  | 'webpush'
   | 'wework'
   | 'dingtalk'
   | 'feishu'

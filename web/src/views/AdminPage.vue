@@ -178,10 +178,11 @@ onMounted(async () => {
 
 // ==================== Tab 切换软刷新 ====================
 watch(activeTab, (newTab) => {
-  if (newTab === 'push') {
+  // 只在数据为空时加载，避免重复请求
+  if (newTab === 'push' && channels.value.length === 0) {
     loadChannels();
   }
-  if (newTab === 'history') {
+  if (newTab === 'history' && pushHistory.value.length === 0) {
     loadHistory();
   }
 });
@@ -463,7 +464,7 @@ function toggleChannel(ch: ChannelConfig) {
 
 // 保存渠道选择到 sessionStorage
 function saveChannelSelection() {
-  const selected = channels.value.filter(c => c.selected).map(c => c.id);
+  const selected = Array.from(selectedChannels.value);
   sessionStorage.setItem('push_selected_channels', JSON.stringify(selected));
 }
 
@@ -471,10 +472,12 @@ function saveChannelSelection() {
 function restoreChannelSelection() {
   const saved = sessionStorage.getItem('push_selected_channels');
   if (saved) {
-    const selectedIds = JSON.parse(saved);
-    channels.value.forEach(c => {
-      c.selected = selectedIds.includes(c.id);
-    });
+    try {
+      const selectedIds: string[] = JSON.parse(saved);
+      selectedChannels.value = new Set(selectedIds as PushChannel[]);
+    } catch {
+      selectedChannels.value = new Set();
+    }
   }
 }
 

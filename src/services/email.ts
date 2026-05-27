@@ -48,7 +48,7 @@ export async function sendEmail(
         </div>
         <div style="background: #f9f9f9; padding: 24px; border-radius: 0 0 12px 12px;">
           <p style="color: #333; line-height: 1.8; white-space: pre-wrap;">${bodyHtml}</p>
-          ${payload.url ? `<a href="${escapeHtml(payload.url)}" style="display: inline-block; margin-top: 16px; padding: 10px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 8px;">查看详情</a>` : ''}
+          ${payload.url ? `<a href="${escapeUrl(payload.url)}" style="display: inline-block; margin-top: 16px; padding: 10px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 8px;">查看详情</a>` : ''}
         </div>
       </div>
     `;
@@ -102,4 +102,19 @@ function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * URL 安全过滤 - 只允许 http/https 协议
+ */
+function escapeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '#';
+    }
+    return url;
+  } catch {
+    return '#';
+  }
 }

@@ -180,6 +180,22 @@ export async function dispatchPush(
     results: results,
   }));
 
+  // 清理旧记录，只保留最近 100 条
+  try {
+    const prefix = `user:${username}:push:`;
+    const list = await env.SUBSCRIPTIONS.list({ prefix });
+    if (list.keys.length > 100) {
+      const keysToDelete = list.keys
+        .sort((a, b) => b.name.localeCompare(a.name))
+        .slice(100);
+      for (const key of keysToDelete) {
+        await env.SUBSCRIPTIONS.delete(key.name);
+      }
+    }
+  } catch {
+    // 清理失败不影响主流程
+  }
+
   return results;
 }
 
