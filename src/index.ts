@@ -56,12 +56,15 @@ export default {
 
             // 检查是否到达备份时间
             const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
-            // 支持时区配置，默认 UTC+8（北京时间）
-            const tzOffset = endpoint.schedule.timezone ? parseInt(endpoint.schedule.timezone) : 8;
-            const startUtcHour = (startHour + 24 - tzOffset) % 24;
+            // 使用 IANA 时区计算当前时间在用户时区中的小时
+            const tz = endpoint.schedule.timezone || 'Asia/Shanghai';
+            const localHourStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', hour12: false, hourCycle: 'h23' });
+            const localHour = parseInt(localHourStr, 10);
+            const localMinuteStr = now.toLocaleString('en-US', { timeZone: tz, minute: '2-digit' });
+            const localMinute = parseInt(localMinuteStr, 10);
 
-            // 改为只匹配小时，避免因 Cron 触发时间偏差导致跳过
-            if (utcHour === startUtcHour && utcMinute < 5) {
+            // 匹配小时和分钟（5分钟窗口避免 Cron 偏差）
+            if (localHour === startHour && Math.abs(localMinute - startMinute) < 5) {
               const result = await uploadBackupToEndpoint(env, username, endpoint);
               console.log(`[Cron Backup] ${username}/${endpoint.name}: ${result.message}`);
             }

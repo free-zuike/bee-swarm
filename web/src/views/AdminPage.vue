@@ -548,7 +548,7 @@ const editingEndpoint = reactive<Partial<BackupEndpoint>>({
     enabled: false,
     interval: 24,
     startTime: '02:00',
-    timezone: '8'
+    timezone: 'Asia/Shanghai'
   },
   retention: 30
 });
@@ -640,7 +640,7 @@ function startCreateEndpoint() {
     enabled: false,
     interval: 24,
     startTime: '02:00',
-    timezone: '8'
+    timezone: 'Asia/Shanghai'
   };
   editingEndpoint.retention = 30;
 }
@@ -1243,31 +1243,38 @@ function formatEndpoint(ep: string): string {
                       <div class="form-group">
                         <label>时区</label>
                         <select v-model="editingEndpoint.schedule.timezone">
-                          <option value="-12">UTC-12</option>
-                          <option value="-11">UTC-11</option>
-                          <option value="-10">UTC-10</option>
-                          <option value="-9">UTC-9</option>
-                          <option value="-8">UTC-8</option>
-                          <option value="-7">UTC-7</option>
-                          <option value="-6">UTC-6</option>
-                          <option value="-5">UTC-5</option>
-                          <option value="-4">UTC-4</option>
-                          <option value="-3">UTC-3</option>
-                          <option value="-2">UTC-2</option>
-                          <option value="-1">UTC-1</option>
-                          <option value="0">UTC+0</option>
-                          <option value="1">UTC+1</option>
-                          <option value="2">UTC+2</option>
-                          <option value="3">UTC+3</option>
-                          <option value="4">UTC+4</option>
-                          <option value="5">UTC+5</option>
-                          <option value="6">UTC+6</option>
-                          <option value="7">UTC+7</option>
-                          <option value="8" selected>UTC+8（北京时间）</option>
-                          <option value="9">UTC+9</option>
-                          <option value="10">UTC+10</option>
-                          <option value="11">UTC+11</option>
-                          <option value="12">UTC+12</option>
+                          <optgroup label="亚洲">
+                            <option value="Asia/Shanghai">中国 (UTC+8)</option>
+                            <option value="Asia/Hong_Kong">香港 (UTC+8)</option>
+                            <option value="Asia/Taipei">台北 (UTC+8)</option>
+                            <option value="Asia/Tokyo">东京 (UTC+9)</option>
+                            <option value="Asia/Seoul">首尔 (UTC+9)</option>
+                            <option value="Asia/Singapore">新加坡 (UTC+8)</option>
+                            <option value="Asia/Kolkata">印度 (UTC+5:30)</option>
+                            <option value="Asia/Dubai">迪拜 (UTC+4)</option>
+                            <option value="Asia/Bangkok">曼谷 (UTC+7)</option>
+                          </optgroup>
+                          <optgroup label="美洲">
+                            <option value="America/New_York">纽约 (UTC-5/-4)</option>
+                            <option value="America/Chicago">芝加哥 (UTC-6/-5)</option>
+                            <option value="America/Denver">丹佛 (UTC-7/-6)</option>
+                            <option value="America/Los_Angeles">洛杉矶 (UTC-8/-7)</option>
+                            <option value="America/Sao_Paulo">圣保罗 (UTC-3)</option>
+                            <option value="America/Vancouver">温哥华 (UTC-8/-7)</option>
+                          </optgroup>
+                          <optgroup label="欧洲">
+                            <option value="Europe/London">伦敦 (UTC+0/+1)</option>
+                            <option value="Europe/Paris">巴黎 (UTC+1/+2)</option>
+                            <option value="Europe/Berlin">柏林 (UTC+1/+2)</option>
+                            <option value="Europe/Moscow">莫斯科 (UTC+3)</option>
+                          </optgroup>
+                          <optgroup label="大洋洲">
+                            <option value="Australia/Sydney">悉尼 (UTC+10/+11)</option>
+                            <option value="Pacific/Auckland">奥克兰 (UTC+12/+13)</option>
+                          </optgroup>
+                          <optgroup label="其他">
+                            <option value="UTC">UTC</option>
+                          </optgroup>
                         </select>
                         <span class="input-hint">备份将在此时区的开始时间触发</span>
                       </div>
