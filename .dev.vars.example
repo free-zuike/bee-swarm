@@ -1,12 +1,3 @@
-# ============================================
-# 本地开发环境变量模板
-# 复制此文件为 .dev.vars 并填入真实值
-# .dev.vars 已加入 .gitignore，不会提交到 Git
-# ============================================
-
-# 管理后台密码（必填）
-ADMIN_PASSWORD=your_secure_password_here
-
-# Web Push VAPID 密钥（运行 npm run generate-keys 生成）
-VAPID_PUBLIC_KEY=your_vapid_public_key
-VAPID_PRIVATE_KEY=your_vapid_private_key
+# 本地开发环境变量
+# 运行 wrangler dev 前需要配置 KV Namespace
+# 使用 wrangler kv:namespace create SUBSCRIPTIONS 创建

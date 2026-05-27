@@ -56,11 +56,12 @@ export default {
 
             // 检查是否到达备份时间
             const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
-            const startUtcHour = (startHour + 24 - 8) % 24; // 北京时间转 UTC
+            // 支持时区配置，默认 UTC+8（北京时间）
+            const tzOffset = endpoint.schedule.timezone ? parseInt(endpoint.schedule.timezone) : 8;
+            const startUtcHour = (startHour + 24 - tzOffset) % 24;
 
-            // 简单调度：每小时检查，如果当前时间匹配开始时间则备份
-            // 更复杂的调度逻辑可以根据 interval 来实现
-            if (utcHour === startUtcHour && utcMinute === startMinute) {
+            // 改为只匹配小时，避免因 Cron 触发时间偏差导致跳过
+            if (utcHour === startUtcHour && utcMinute < 5) {
               const result = await uploadBackupToEndpoint(env, username, endpoint);
               console.log(`[Cron Backup] ${username}/${endpoint.name}: ${result.message}`);
             }

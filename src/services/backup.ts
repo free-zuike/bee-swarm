@@ -37,6 +37,7 @@ export interface BackupEndpoint {
     enabled: boolean;
     interval: number; // 小时
     startTime: string; // HH:mm
+    timezone?: string; // 时区偏移，如 "+8"、"-5"
   };
   retention: number; // 保留份数
   lastBackup?: {

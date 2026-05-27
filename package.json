@@ -14,7 +14,6 @@
   "dependencies": {
     "aws4fetch": "^1.0.20",
     "hono": "^4.6.0",
-    "pinia": "^2.1.0",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },

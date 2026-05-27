@@ -19,20 +19,6 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-/** 认证参数（用户名+密码） */
-function authQuery(username: string, password: string): string {
-  return `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-}
-
-/** Token 认证参数 */
-function tokenAuth(token: string): RequestInit {
-  return {
-    headers: {
-      ...(token ? { 'X-Token': token } : {}),
-    },
-  };
-}
-
 /** 带 Token 的请求 */
 async function tokenRequest<T>(url: string, token: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -96,66 +82,6 @@ export async function refreshToken(refreshToken: string): Promise<{
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
   });
-}
-
-// -------------------------------------------
-// 管理接口（需用户名+密码）
-// -------------------------------------------
-
-export async function getChannels(username: string, password: string): Promise<{
-  channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
-  settings: ChannelSettings;
-  definitions: Array<{
-    id: PushChannel; name: string; icon: string;
-    fields: Array<{ key: string; label: string; type: string; placeholder: string; required: boolean }>;
-  }>;
-}> {
-  return request(`${BASE}/admin/channels${authQuery(username, password)}`);
-}
-
-export async function saveChannel(
-  username: string,
-  password: string,
-  channelId: string,
-  fields: Record<string, string>
-): Promise<{
-  success: boolean;
-  message: string;
-  channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
-}> {
-  return request(`${BASE}/admin/channels/${channelId}${authQuery(username, password)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields }),
-  });
-}
-
-export async function sendPush(
-  username: string,
-  password: string,
-  payload: { title: string; body?: string; url?: string; channels?: PushChannel[] }
-): Promise<{
-  success: boolean;
-  message: string;
-  results: Array<{ channel: PushChannel; success: boolean; message: string }>;
-}> {
-  return request(`${BASE}/admin/push${authQuery(username, password)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function getHistory(username: string, password: string): Promise<{
-  history: Array<{
-    time: string;
-    title: string;
-    body: string;
-    url: string;
-    results: Array<{ channel: PushChannel; success: boolean; message: string }>;
-  }>;
-}> {
-  return request(`${BASE}/admin/history${authQuery(username, password)}`);
 }
 
 // -------------------------------------------

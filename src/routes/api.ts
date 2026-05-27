@@ -231,6 +231,7 @@ api.post('/token', async (c) => {
   const token = crypto.randomUUID().replace(/-/g, '');
   const refreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 天后过期
+  const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30天
 
   // 如果有旧 token，删除旧索引
   if (user.token) {
@@ -240,6 +241,7 @@ api.post('/token', async (c) => {
   user.token = token;
   user.refreshToken = refreshToken;
   user.expiresAt = expiresAt;
+  user.refreshExpiresAt = refreshExpiresAt;
   await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify(user));
 
   // 创建 token 索引
@@ -264,10 +266,16 @@ api.post('/refresh', async (c) => {
       try {
         const user = JSON.parse(userData);
         if (user.refreshToken === refreshToken) {
+          // 检查 refreshToken 是否过期（refreshToken 有效期 30 天）
+          if (!user.refreshExpiresAt || user.refreshExpiresAt < Date.now()) {
+            return c.json({ error: 'Refresh token 已过期，请重新登录' }, 401);
+          }
+
           // 生成新 token
           const token = crypto.randomUUID().replace(/-/g, '');
           const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
           const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+          const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30天
 
           // 删除旧索引，创建新索引
           await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
@@ -278,6 +286,7 @@ api.post('/refresh', async (c) => {
           user.token = token;
           user.refreshToken = newRefreshToken;
           user.expiresAt = expiresAt;
+          user.refreshExpiresAt = refreshExpiresAt;
           await c.env.SUBSCRIPTIONS.put(`user:${indexedUser}`, JSON.stringify(user));
 
           return c.json({ token, refreshToken: newRefreshToken, expiresAt });
@@ -293,10 +302,16 @@ api.post('/refresh', async (c) => {
     if (data) {
       const user = JSON.parse(data);
       if (user.refreshToken === refreshToken) {
+        // 检查 refreshToken 是否过期（refreshToken 有效期 30 天）
+        if (!user.refreshExpiresAt || user.refreshExpiresAt < Date.now()) {
+          return c.json({ error: 'Refresh token 已过期，请重新登录' }, 401);
+        }
+
         // 生成新 token
         const token = crypto.randomUUID().replace(/-/g, '');
         const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
         const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+        const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30天
 
         // 删除旧索引，创建新索引
         await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
@@ -307,6 +322,7 @@ api.post('/refresh', async (c) => {
         user.token = token;
         user.refreshToken = newRefreshToken;
         user.expiresAt = expiresAt;
+        user.refreshExpiresAt = refreshExpiresAt;
         await c.env.SUBSCRIPTIONS.put(key.name, JSON.stringify(user));
 
         return c.json({ token, refreshToken: newRefreshToken, expiresAt });
