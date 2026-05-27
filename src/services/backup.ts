@@ -170,12 +170,13 @@ async function s3Request(
   return client.fetch(request);
 }
 
-// WebDAV 请求
+// WebDAV 请求（带重试）
 async function webdavRequest(
   method: string,
   path: string,
   config: WebDAVConfig,
-  body?: string | ArrayBuffer
+  body?: string | ArrayBuffer,
+  retryCount = 0
 ): Promise<Response> {
   const url = config.url.replace(/\/$/, '') + path;
   const auth = btoa(`${config.username}:${config.password}`);
@@ -185,7 +186,15 @@ async function webdavRequest(
   };
   if (body) headers['Content-Type'] = 'application/json';
   
-  return fetch(url, { method, headers, body });
+  const response = await fetch(url, { method, headers, body });
+  
+  // 429 限流时重试（最多3次，间隔1秒）
+  if (response.status === 429 && retryCount < 3) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return webdavRequest(method, path, config, body, retryCount + 1);
+  }
+  
+  return response;
 }
 
 // 上传备份到指定端点
@@ -217,10 +226,29 @@ export async function uploadBackupToEndpoint(
       const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
       const path = `${root}/backups/${username}/${filename}`;
       
-      // 确保目录存在
-      await webdavRequest('MKCOL', `/${root}/backups/${username}/`, config);
+      // 确保目录存在（忽略 405 目录已存在错误）
+      const mkcolResponse = await webdavRequest('MKCOL', `/${root}/`, config);
+      if (!mkcolResponse.ok && mkcolResponse.status !== 405) {
+        return { success: false, message: 'WebDAV 创建目录失败 (' + mkcolResponse.status + ')', endpointId: endpoint.id };
+      }
       
-      const response = await webdavRequest('PUT', path, config, JSON.stringify(backupData, null, 2));
+      await new Promise(resolve => setTimeout(resolve, 500)); // 避免限流
+      
+      const mkcolResponse2 = await webdavRequest('MKCOL', `/${root}/backups/`, config);
+      if (!mkcolResponse2.ok && mkcolResponse2.status !== 405) {
+        return { success: false, message: 'WebDAV 创建目录失败 (' + mkcolResponse2.status + ')', endpointId: endpoint.id };
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500)); // 避免限流
+      
+      const mkcolResponse3 = await webdavRequest('MKCOL', `/${root}/backups/${username}/`, config);
+      if (!mkcolResponse3.ok && mkcolResponse3.status !== 405) {
+        return { success: false, message: 'WebDAV 创建目录失败 (' + mkcolResponse3.status + ')', endpointId: endpoint.id };
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500)); // 避免限流
+      
+      const response = await webdavRequest('PUT', '/' + path, config, JSON.stringify(backupData, null, 2));
       
       if (!response.ok && response.status !== 201) {
         return { success: false, message: 'WebDAV 上传失败 (' + response.status + ')', endpointId: endpoint.id };
@@ -412,6 +440,9 @@ export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{ su
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const response = await webdavRequest('PROPFIND', '/', config);
+      if (response.status === 429) {
+        return { success: false, message: '请求过于频繁 (429)，请稍后再试' };
+      }
       if (!response.ok && response.status !== 207) {
         return { success: false, message: '连接失败 (' + response.status + ')' };
       }
