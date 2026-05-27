@@ -730,20 +730,26 @@ async function testEndpoint() {
   endpointMessage.value = null;
 
   try {
-    const configToTest = { ...editingEndpoint.config };
-    if (configToTest.endpoint) {
-      configToTest.endpoint = configToTest.endpoint.replace(/[`\s]/g, '');
+    // 构建完整的 endpoint 对象用于测试
+    const configCleaned = { ...editingEndpoint.config };
+    if (configCleaned.endpoint) {
+      configCleaned.endpoint = configCleaned.endpoint.replace(/[`\s]/g, '');
     }
-    if (configToTest.url) {
-      configToTest.url = configToTest.url.replace(/[`\s]/g, '');
+    if (configCleaned.url) {
+      configCleaned.url = configCleaned.url.replace(/[`\s]/g, '');
     }
+
+    const endpointToTest = {
+      type: editingEndpoint.type,
+      config: configCleaned
+    };
 
     let result;
     if (isCreatingNew.value) {
       // 新备份端，直接测试配置
-      result = await testBackupEndpoint(accessToken.value, 'new', configToTest);
+      result = await testBackupEndpoint(accessToken.value, 'new', endpointToTest);
     } else {
-      result = await testBackupEndpoint(accessToken.value, selectedEndpointId.value!, configToTest);
+      result = await testBackupEndpoint(accessToken.value, selectedEndpointId.value!, endpointToTest);
     }
 
     endpointMessage.value = {
