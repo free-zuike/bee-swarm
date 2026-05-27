@@ -123,8 +123,10 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
   try {
     const backupData = await exportAllData(env);
     const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const prefix = config.path ? config.path.replace(/\/+$/, '') : 'backups/' + username;
-    const key = prefix + '/' + date + '.json';
+    // 路径格式: root/backups/用户名/日期.json
+    // 如果没有配置 root，默认使用用户名
+    const root = config.path ? config.path.replace(/\/+$/, '') : username;
+    const key = `${root}/backups/${username}/${date}.json`;
     const response = await s3Request('PUT', '/' + key, config, JSON.stringify(backupData, null, 2));
     if (!response.ok) {
       return { success: false, message: '上传失败 (' + response.status + '): ' + await response.text() };
@@ -137,8 +139,8 @@ export async function uploadBackup(env: Env, username: string, config: S3Config)
 
 export async function listBackups(env: Env, username: string, config: S3Config): Promise<BackupInfo[]> {
   try {
-    const prefix = config.path ? config.path.replace(/\/+$/, '') : 'backups/' + username;
-    const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': prefix + '/' });
+    const prefix = config.path ? config.path.replace(/\/+$/, '') : username;
+    const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': prefix + '/backups/' + username + '/' });
     if (!response.ok) {
       throw new Error('获取备份列表失败 (' + response.status + ')');
     }
@@ -152,8 +154,11 @@ export async function listBackups(env: Env, username: string, config: S3Config):
       const sizeMatch = block.match(/<Size>([^<]+)<\/Size>/);
       const lastModifiedMatch = block.match(/<LastModified>([^<]+)<\/LastModified>/);
       if (keyMatch) {
+        const key = keyMatch[1];
+        // 过滤掉目录（以 / 结尾的 key）和 CommonPrefixes
+        if (key.endsWith('/')) continue;
         backups.push({
-          key: keyMatch[1],
+          key: key,
           size: sizeMatch ? parseInt(sizeMatch[1], 10) : 0,
           lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
         });
