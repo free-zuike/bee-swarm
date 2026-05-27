@@ -1,0 +1,337 @@
+<script setup lang="ts">
+// ============================================
+// 推送表单组件
+// ============================================
+import { ref, computed } from 'vue';
+import type { ChannelConfig, PushChannel, PushResult } from '@/types';
+
+const props = defineProps<{
+  channels: ChannelConfig[];
+  selectedChannels: Set<PushChannel>;
+  isPushing?: boolean;
+  pushResults?: PushResult[];
+  lastPushTime?: string;
+}>();
+
+const emit = defineEmits<{
+  push: [title: string, body: string, url: string, channels: PushChannel[]];
+  'update:selectedChannels': [channels: Set<PushChannel>];
+  refresh: [];
+}>();
+
+const pushTitle = ref('');
+const pushBody = ref('');
+const pushUrl = ref('');
+
+const enabledChannelCount = computed(() => props.channels.filter((c) => c.enabled).length);
+
+const enabledChannels = computed(() => props.channels.filter(c => c.enabled));
+
+function toggleChannel(ch: ChannelConfig) {
+  if (!ch.enabled) return;
+  const newSelection = new Set(props.selectedChannels);
+  if (newSelection.has(ch.id)) {
+    newSelection.delete(ch.id);
+  } else {
+    newSelection.add(ch.id);
+  }
+  emit('update:selectedChannels', newSelection);
+  // 保存到 sessionStorage
+  const selected = Array.from(newSelection);
+  sessionStorage.setItem('push_selected_channels', JSON.stringify(selected));
+}
+
+function doPush() {
+  if (!pushTitle.value.trim()) {
+    alert('请输入标题');
+    return;
+  }
+  const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
+  emit('push', pushTitle.value.trim(), pushBody.value.trim(), pushUrl.value.trim(), channels);
+}
+
+function isNoChannelSelectedError(results: PushResult[]): boolean {
+  if (results.length === 0) return false;
+  return results.every(r => !r.success && r.message === '未选择推送渠道');
+}
+</script>
+
+<template>
+  <div class="tab-content">
+    <!-- 统计概览 -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="label">已启用渠道</div>
+        <div class="value">{{ enabledChannelCount }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">最近推送</div>
+        <div class="value">{{ lastPushTime || '-' }}</div>
+      </div>
+    </div>
+
+    <!-- 发送推送 -->
+    <div class="panel">
+      <h2>📤 发送推送通知</h2>
+
+      <!-- 渠道选择 -->
+      <div class="form-group">
+        <label>选择推送渠道</label>
+        <div class="channel-grid">
+          <div
+            v-for="ch in enabledChannels"
+            :key="ch.id"
+            class="channel-tag"
+            :class="{ active: selectedChannels.has(ch.id) }"
+            @click="toggleChannel(ch)"
+          >
+            <span class="ch-icon">{{ ch.icon }}</span>
+            <span class="ch-name">{{ ch.name }}</span>
+          </div>
+        </div>
+        <p class="hint">点击选择/取消。不选择则不推送。</p>
+      </div>
+
+      <!-- 消息内容 -->
+      <div class="form-group">
+        <label>标题 *</label>
+        <input v-model="pushTitle" type="text" placeholder="通知标题" />
+      </div>
+      <div class="form-group">
+        <label>内容</label>
+        <textarea v-model="pushBody" placeholder="通知内容..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>跳转 URL（可选）</label>
+        <input v-model="pushUrl" type="url" placeholder="https://example.com" />
+      </div>
+
+      <button class="btn btn-primary" :disabled="isPushing" @click="doPush">
+        🚀 发送推送
+      </button>
+      <button class="btn btn-secondary" @click="$emit('refresh')">刷新渠道</button>
+
+      <!-- 推送结果 -->
+      <div v-if="pushResults?.length" class="result-list">
+        <template v-if="isNoChannelSelectedError(pushResults)">
+          <div class="result-item error">
+            <span>⚠️ 未选择任何推送渠道，请先选择后再推送</span>
+          </div>
+        </template>
+        <template v-else>
+          <div
+            v-for="r in pushResults"
+            :key="r.channel"
+            class="result-item"
+            :class="r.success ? 'success' : 'error'"
+          >
+            <span class="ch-label">
+              {{ channels.find((c) => c.id === r.channel)?.icon || '❓' }}
+              {{ channels.find((c) => c.id === r.channel)?.name || r.channel }}
+            </span>
+            <span>{{ r.message }}</span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.tab-content {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  text-align: center;
+}
+
+.stat-card .label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.stat-card .value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.panel {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+
+.panel h2 {
+  font-size: 18px;
+  color: #1a1a2e;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.channel-tag {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 2px solid #e0e0e0;
+  background: white;
+  transition: all 0.2s;
+  text-align: center;
+  user-select: none;
+}
+
+.channel-tag.active {
+  border-color: #667eea;
+  background: #f0f0ff;
+}
+
+.channel-tag .ch-icon {
+  font-size: 18px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.channel-tag .ch-name {
+  font-size: 12px;
+  color: #666;
+}
+
+.channel-tag.active .ch-name {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+  margin-left: 8px;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
+}
+
+.result-list {
+  margin-top: 16px;
+}
+
+.result-item {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-item.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.result-item.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.result-item .ch-label {
+  font-weight: 600;
+  min-width: 100px;
+}
+</style>

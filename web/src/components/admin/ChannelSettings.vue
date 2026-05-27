@@ -1,0 +1,471 @@
+<script setup lang="ts">
+// ============================================
+// 渠道设置组件
+// ============================================
+import { ref, reactive, computed } from 'vue';
+import type { ChannelConfig, ChannelDefinition, ChannelSettings } from '@/types';
+
+const props = defineProps<{
+  channels: ChannelConfig[];
+  channelDefinitions: ChannelDefinition[];
+  channelSettings: ChannelSettings;
+  accessToken: string;
+}>();
+
+const emit = defineEmits<{
+  save: [channelId: string, fields: Record<string, string>];
+  test: [channelId: string, fields: Record<string, string>];
+  'toggle-enabled': [channelId: string];
+  'update:channels': [channels: ChannelConfig[]];
+  'update:channelSettings': [settings: ChannelSettings];
+}>();
+
+// 编辑状态（未保存的值）
+const editingValues = ref<ChannelSettings>({});
+const expandedChannels = ref<Set<string>>(new Set());
+const savingChannels = reactive<Record<string, boolean>>({});
+const channelMessages = reactive<Record<string, { text: string; type: 'success' | 'error' }>>({});
+const togglingChannel = ref<string | null>(null);
+
+// 设置 Tab 中显示的渠道定义（排除 webpush）
+const settingsDefinitions = computed(() =>
+  props.channelDefinitions.filter((d) => d.id !== 'webpush')
+);
+
+function isChannelConfigured(def: ChannelDefinition): boolean {
+  return def.fields.some((f) => {
+    const key = `channel:${def.id}:${f.key}`;
+    return props.channelSettings[key] && props.channelSettings[key].trim() !== '';
+  });
+}
+
+function isChannelEnabled(channelId: string): boolean {
+  const key = `channel:${channelId}:enabled`;
+  const value = props.channelSettings[key];
+  return String(value) !== 'false';
+}
+
+function canToggleChannel(def: ChannelDefinition): boolean {
+  const prefix = `channel:${def.id}:`;
+  for (const key of Object.keys(props.channelSettings)) {
+    if (key.startsWith(prefix)) {
+      return true;
+    }
+  }
+  return isChannelConfigured(def);
+}
+
+function getSettingValue(channelId: string, fieldKey: string): string {
+  const key = `channel:${channelId}:${fieldKey}`;
+  return editingValues.value[key] ?? props.channelSettings[key] ?? '';
+}
+
+function setSettingValue(channelId: string, fieldKey: string, value: string) {
+  editingValues.value[`channel:${channelId}:${fieldKey}`] = value;
+}
+
+function isFieldEdited(channelId: string, fieldKey: string): boolean {
+  const key = `channel:${channelId}:${fieldKey}`;
+  const edited = editingValues.value[key];
+  const saved = props.channelSettings[key];
+  return edited !== undefined && edited !== saved;
+}
+
+function hasUnsavedChanges(channelId: string): boolean {
+  const prefix = `channel:${channelId}:`;
+  for (const [key, edited] of Object.entries(editingValues.value)) {
+    if (key.startsWith(prefix)) {
+      const saved = props.channelSettings[key];
+      if (edited !== saved) return true;
+    }
+  }
+  return false;
+}
+
+function toggleChannelExpand(channelId: string) {
+  if (expandedChannels.value.has(channelId)) {
+    expandedChannels.value.delete(channelId);
+  } else {
+    expandedChannels.value.clear();
+    expandedChannels.value.add(channelId);
+  }
+}
+
+async function doSaveChannel(channelId: string) {
+  if (savingChannels[channelId]) return;
+  savingChannels[channelId] = true;
+  delete channelMessages[channelId];
+
+  try {
+    const def = props.channelDefinitions.find((d) => d.id === channelId);
+    if (!def) throw new Error('渠道不存在');
+
+    const fields: Record<string, string> = {};
+    for (const field of def.fields) {
+      fields[field.key] = getSettingValue(channelId, field.key);
+    }
+
+    emit('save', channelId, fields);
+  } catch (err: any) {
+    channelMessages[channelId] = { text: err.message || '保存失败', type: 'error' };
+    savingChannels[channelId] = false;
+  }
+}
+
+async function doTestChannel(channelId: string) {
+  const def = props.channelDefinitions.find((d) => d.id === channelId);
+  if (!def) return;
+
+  const fields: Record<string, string> = {};
+  for (const field of def.fields) {
+    const editKey = `channel:${channelId}:${field.key}`;
+    fields[field.key] = editingValues.value[editKey] ?? props.channelSettings[editKey] ?? '';
+  }
+
+  const isConfigured = def.fields.filter(f => f.required).every(f => !!fields[f.key]);
+  if (!isConfigured) {
+    channelMessages[channelId] = { text: '请先配置必填项', type: 'error' };
+    return;
+  }
+
+  emit('test', channelId, fields);
+}
+
+function handleSaveSuccess(channelId: string, message: string) {
+  const def = props.channelDefinitions.find((d) => d.id === channelId);
+  if (def) {
+    for (const field of def.fields) {
+      const key = `channel:${channelId}:${field.key}`;
+      delete editingValues.value[key];
+    }
+  }
+  channelMessages[channelId] = { text: message || '保存成功', type: 'success' };
+  savingChannels[channelId] = false;
+}
+
+function handleSaveError(channelId: string, message: string) {
+  channelMessages[channelId] = { text: message || '保存失败', type: 'error' };
+  savingChannels[channelId] = false;
+}
+
+function handleTestResult(channelId: string, success: boolean, message: string) {
+  channelMessages[channelId] = { text: message, type: success ? 'success' : 'error' };
+}
+
+async function toggleChannelEnabled(channelId: string) {
+  if (togglingChannel.value) return;
+  togglingChannel.value = channelId;
+  emit('toggle-enabled', channelId);
+}
+
+function handleToggleComplete() {
+  togglingChannel.value = null;
+}
+
+defineExpose({
+  handleSaveSuccess,
+  handleSaveError,
+  handleTestResult,
+  handleToggleComplete
+});
+</script>
+
+<template>
+  <div class="panel">
+    <h2>⚙️ 渠道设置</h2>
+    <p class="hint" style="margin-bottom: 20px;">配置各推送渠道的连接参数，每个渠道可独立保存。</p>
+
+    <!-- 渠道卡片列表 -->
+    <div class="channel-cards">
+      <div
+        v-for="def in settingsDefinitions"
+        :key="def.id"
+        class="channel-card"
+      >
+        <!-- 卡片头部（可点击折叠） -->
+        <div
+          class="channel-card-header"
+          @click="toggleChannelExpand(def.id)"
+        >
+          <div class="channel-card-info">
+            <span class="channel-card-icon">{{ def.icon }}</span>
+            <span class="channel-card-name">{{ def.name }}</span>
+            <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
+            <span v-if="!canToggleChannel(def)" class="status-tag status-unconfigured">
+              未配置
+            </span>
+            <span
+              v-else
+              class="status-tag"
+              :class="isChannelEnabled(def.id) ? 'status-enabled' : 'status-disabled'"
+              @click.stop="toggleChannelEnabled(def.id)"
+            >
+              {{ isChannelEnabled(def.id) ? '已启用' : '已禁用' }}
+            </span>
+          </div>
+          <span class="expand-arrow" :class="{ expanded: expandedChannels.has(def.id) }">
+            ▾
+          </span>
+        </div>
+
+        <!-- 卡片内容（配置表单 + 独立保存按钮） -->
+        <div v-if="expandedChannels.has(def.id)" class="channel-card-body">
+          <div
+            v-for="field in def.fields"
+            :key="field.key"
+            class="form-group"
+          >
+            <label>
+              {{ field.label }}
+              <span v-if="field.required" class="required-mark">*</span>
+            </label>
+            <input
+              :type="field.type === 'password' ? 'password' : 'text'"
+              :value="getSettingValue(def.id, field.key)"
+              :placeholder="field.placeholder || `请输入${field.label}`"
+              @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
+            />
+          </div>
+
+          <!-- 该渠道独立的保存按钮和提示 -->
+          <div class="channel-save-area">
+            <div
+              v-if="channelMessages[def.id]"
+              class="channel-save-message"
+              :class="channelMessages[def.id].type"
+            >
+              {{ channelMessages[def.id].text }}
+            </div>
+            <button
+              class="btn btn-secondary btn-sm"
+              @click="doTestChannel(def.id)"
+            >
+              测试
+            </button>
+            <button
+              class="btn btn-primary btn-sm"
+              :disabled="savingChannels[def.id]"
+              @click="doSaveChannel(def.id)"
+            >
+              {{ savingChannels[def.id] ? '保存中...' : '💾 保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.panel {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+
+.panel h2 {
+  font-size: 18px;
+  color: #1a1a2e;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.channel-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.channel-card {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.channel-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.channel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.channel-card-header:hover {
+  background: #f8f8fc;
+}
+
+.channel-card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.channel-card-icon {
+  font-size: 22px;
+}
+
+.channel-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.unsaved-hint {
+  color: #f59e0b;
+  font-size: 13px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.status-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.status-enabled {
+  background: #d1fae5;
+  color: #065f46;
+}
+.status-disabled {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+.status-unconfigured {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.expand-arrow {
+  font-size: 14px;
+  color: #999;
+  transition: transform 0.3s;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.channel-card-body {
+  padding: 0 20px 20px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.required-mark {
+  color: #e74c3c;
+  margin-left: 2px;
+}
+
+.channel-save-area {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.channel-save-message {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.channel-save-message.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.channel-save-message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
+}
+
+.btn-sm {
+  padding: 8px 18px;
+  font-size: 13px;
+}
+</style>
