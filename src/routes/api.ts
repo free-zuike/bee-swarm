@@ -432,10 +432,15 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({}));
   
+  console.log(`[Test Endpoint] id=${id}, body.type=${body.type}, body.config=`, body.config);
+  
   let endpoint;
   
-  if (id === 'new' && body.type && body.config) {
-    // 测试新配置的连接（使用请求体中的配置）
+  if (id === 'new') {
+    // 测试新配置的连接（必须传入 type 和 config）
+    if (!body.type || !body.config) {
+      return c.json({ error: '测试新配置需要传入 type 和 config' }, 400);
+    }
     endpoint = {
       id: 'new',
       name: '新备份端',
@@ -453,6 +458,30 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
       return c.json({ error: '备份端不存在' }, 404);
     }
   }
+  
+  const result = await testBackupEndpoint(endpoint);
+  return c.json(result);
+});
+
+/** 测试新配置（不需要 ID） */
+adminApi.post('/backup-endpoints/test', async (c) => {
+  const body = await c.req.json();
+  
+  console.log(`[Test New Endpoint] body=`, body);
+  
+  if (!body.type || !body.config) {
+    return c.json({ error: '需要传入 type 和 config' }, 400);
+  }
+  
+  const endpoint: BackupEndpoint = {
+    id: 'new',
+    name: '新备份端',
+    type: body.type,
+    enabled: false,
+    config: body.config,
+    schedule: { enabled: false, interval: 24, startTime: '02:00' },
+    retention: 30,
+  };
   
   const result = await testBackupEndpoint(endpoint);
   return c.json(result);

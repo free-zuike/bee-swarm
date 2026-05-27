@@ -285,6 +285,14 @@ export async function deleteBackupEndpoint(token: string, id: string): Promise<{
 
 // 测试备份端连接
 export async function testBackupEndpoint(token: string, id: string, config?: any): Promise<{ success: boolean; message: string }> {
+  // 如果是测试新配置（id='new'），使用专门的 API
+  if (id === 'new') {
+    return tokenRequest(`${BASE}/admin/backup-endpoints/test`, token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: config ? JSON.stringify(config) : undefined,
+    });
+  }
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/test`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
