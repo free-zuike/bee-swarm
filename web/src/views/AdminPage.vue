@@ -620,12 +620,16 @@ async function doSaveBackupSettings() {
 
 async function doTestS3Config() {
   isTestingS3Config.value = true;
+  console.log('[Test] Starting S3 connection test...');
   try {
     // 直接传当前表单配置，后端会自动使用已保存的密钥
     const configToTest: any = { ...s3Config };
+    console.log('[Test] Config:', { endpoint: configToTest.endpoint, region: configToTest.region, bucket: configToTest.bucket, hasSecret: !!configToTest.secretAccessKey });
     const result = await testS3Config(accessToken.value, configToTest);
+    console.log('[Test] Result:', result);
     channelMessages['s3'] = { text: result.message, type: result.success ? 'success' : 'error' };
   } catch (err: any) {
+    console.log('[Test] Error:', err);
     channelMessages['s3'] = { text: err.message || '测试失败', type: 'error' };
   }
   isTestingS3Config.value = false;
