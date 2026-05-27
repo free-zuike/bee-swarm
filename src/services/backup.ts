@@ -301,6 +301,7 @@ async function cleanupOldBackupsS3(config: S3Config, root: string, username: str
 async function cleanupOldBackupsWebDAV(config: WebDAVConfig, root: string, username: string, retention: number): Promise<void> {
   try {
     const dirPath = `/${root}/backups/${username}/`;
+    const baseUrl = config.url.replace(/\/$/, '');
     const response = await webdavRequest('PROPFIND', dirPath, config);
     if (!response.ok && response.status !== 207) return;
     
@@ -316,15 +317,37 @@ async function cleanupOldBackupsWebDAV(config: WebDAVConfig, root: string, usern
       if (!hrefMatch) continue;
       
       let href = decodeURIComponent(hrefMatch[1]);
-      const prefix = dirPath.startsWith('/') ? dirPath : '/' + dirPath;
-      if (href.startsWith(prefix)) {
-        href = href.substring(prefix.length);
+      let relativePath = href;
+      
+      if (href.startsWith('/')) {
+        try {
+          const urlObj = new URL(baseUrl);
+          const basePath = urlObj.pathname;
+          const fullBase = basePath + dirPath;
+          if (href.startsWith(fullBase)) {
+            relativePath = href.substring(fullBase.length);
+          }
+        } catch {
+          if (href.includes(dirPath)) {
+            relativePath = href.substring(href.indexOf(dirPath) + dirPath.length);
+          }
+        }
+      } else {
+        const prefix = dirPath.startsWith('/') ? dirPath.substring(1) : dirPath;
+        if (relativePath.startsWith(prefix)) {
+          relativePath = relativePath.substring(prefix.length);
+        }
       }
-      if (!href || href.endsWith('/')) continue;
+      
+      if (!relativePath || relativePath.endsWith('/')) continue;
+      
+      const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
+      const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+      if (size === 0) continue;
       
       const lastModifiedMatch = block.match(/<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i);
       backups.push({
-        key: `${root}/backups/${username}${href}`,
+        key: `${root}/backups/${username}/${relativePath}`,
         lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
       });
     }
@@ -386,6 +409,13 @@ export async function listBackupsFromEndpoint(
       const xml = await response.text();
       const backups: BackupInfo[] = [];
       
+      // 计算 WebDAV 服务器的基础路径（用于从 href 中提取相对路径）
+      // 例如 url=https://dav.example.com/dav/Koofr, dirPath=/beeswarm/backups/user/
+      // PROPFIND 请求的完整 URL = https://dav.example.com/dav/Koofr/beeswarm/backups/user/
+      // 返回的 href 可能是 /dav/Koofr/beeswarm/backups/user/filename.json
+      const baseUrl = config.url.replace(/\/$/, '');
+      const fullRequestPath = baseUrl + dirPath; // 完整请求路径
+      
       // 解析 WebDAV PROPFIND 响应 (multistatus XML)
       const responseRegex = /<D:response[^>]*>([\s\S]*?)<\/D:response>/gi;
       let match;
@@ -398,25 +428,54 @@ export async function listBackupsFromEndpoint(
         if (!hrefMatch) continue;
         
         let href = decodeURIComponent(hrefMatch[1]);
-        // 去掉路径前缀，只保留文件名部分
-        const prefix = dirPath.startsWith('/') ? dirPath : '/' + dirPath;
-        if (href.startsWith(prefix)) {
-          href = href.substring(prefix.length);
+        
+        // 从 href 中提取相对于 dirPath 的文件名
+        // href 可能是完整路径如 /dav/Koofr/beeswarm/backups/user/file.json
+        // 也可能只是相对路径如 beeswarm/backups/user/file.json
+        let relativePath = href;
+        
+        // 尝试从完整 URL 中提取
+        if (href.startsWith('/')) {
+          // 绝对路径：尝试匹配 baseUrl 的路径部分
+          try {
+            const urlObj = new URL(baseUrl);
+            const basePath = urlObj.pathname; // 如 /dav/Koofr
+            const fullBase = basePath + dirPath; // 如 /dav/Koofr/beeswarm/backups/user/
+            if (href.startsWith(fullBase)) {
+              relativePath = href.substring(fullBase.length);
+            }
+          } catch {
+            // URL 解析失败，尝试直接匹配 dirPath
+            if (href.endsWith(dirPath)) {
+              relativePath = '';
+            } else if (href.includes(dirPath)) {
+              relativePath = href.substring(href.indexOf(dirPath) + dirPath.length);
+            }
+          }
+        } else {
+          // 相对路径：直接去掉 dirPath 前缀
+          const prefix = dirPath.startsWith('/') ? dirPath.substring(1) : dirPath;
+          if (relativePath.startsWith(prefix)) {
+            relativePath = relativePath.substring(prefix.length);
+          }
         }
         
         // 跳过目录本身和空路径
-        if (!href || href.endsWith('/')) continue;
+        if (!relativePath || relativePath.endsWith('/')) continue;
         
         // 提取内容长度
         const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
         const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+        
+        // 跳过 0 字节的条目（通常是目录）
+        if (size === 0) continue;
         
         // 提取最后修改时间
         const lastModifiedMatch = block.match(/<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i);
         const lastModified = lastModifiedMatch ? lastModifiedMatch[1] : '';
         
         backups.push({
-          key: `${root}/backups/${username}${href}`,
+          key: `${root}/backups/${username}/${relativePath}`,
           size,
           lastModified,
         });
