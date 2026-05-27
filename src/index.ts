@@ -10,12 +10,17 @@ import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
 const app = new Hono<{ Bindings: Env }>();
 
 // CORS
-app.use('*', cors());
+app.use('*', async (c, next) => {
+  const origin = c.req.header('Origin') || '';
+  // 允许所有来源（Workers 部署场景下难以预知来源）
+  // 如需限制，可改为: if (origin.endsWith('.workers.dev') || origin === 'https://your-domain.com')
+  await cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['Content-Type', 'X-Token', 'X-API-Key', 'X-Password'] })(c, next);
+});
 
 // 全局错误处理
 app.onError((err, c) => {
   console.error('Application Error:', err);
-  return c.json({ error: 'Internal Server Error', message: err.message }, 500);
+  return c.json({ error: 'Internal Server Error' }, 500);
 });
 
 // API 路由

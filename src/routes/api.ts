@@ -24,10 +24,45 @@ api.use('/*', cors());
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  // 生成随机 salt
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  // PBKDF2 哈希（100,000 次迭代）
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  const hashHex = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return `${saltHex}:${hashHex}`;
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [saltHex, hashHex] = stored.split(':');
+  if (!saltHex || !hashHex) {
+    // 兼容旧版 SHA-256 格式（无 salt）
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const inputHashed = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return inputHashed === stored;
+  }
+  
+  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  const computedHash = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return computedHash === hashHex;
 }
 
 function isValidEmail(email: string): boolean {
@@ -45,8 +80,8 @@ api.post('/register', async (c) => {
   if (!email || !isValidEmail(email)) {
     return c.json({ error: '请输入有效的邮箱地址' }, 400);
   }
-  if (!password || password.length < 4) {
-    return c.json({ error: '密码长度至少 4 位' }, 400);
+  if (!password || password.length < 8) {
+    return c.json({ error: '密码长度至少 8 位' }, 400);
   }
 
   const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
@@ -74,9 +109,9 @@ api.post('/login', async (c) => {
   }
 
   const { password: hashed } = JSON.parse(userData);
-  const inputHashed = await hashPassword(password);
+  const valid = await verifyPassword(password, hashed);
 
-  if (inputHashed !== hashed) {
+  if (!valid) {
     return c.json({ error: '邮箱或密码错误' }, 401);
   }
 
@@ -90,14 +125,29 @@ api.get('/apikey', async (c) => {
   let username: string | null = null;
 
   if (token) {
-    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-    for (const key of list.keys) {
-      const data = await c.env.SUBSCRIPTIONS.get(key.name);
-      if (data) {
-        const user = JSON.parse(data);
-        if (user.token === token && user.expiresAt > Date.now()) {
-          username = key.name.replace('user:', '');
-          break;
+    const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${token}`);
+    if (indexedUser) {
+      const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          if (user.token === token && user.expiresAt > Date.now()) {
+            username = indexedUser;
+          }
+        } catch {}
+      }
+    }
+    // 回退到遍历查找（兼容旧 token 无索引的情况）
+    if (!username) {
+      const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
+      for (const key of list.keys) {
+        const data = await c.env.SUBSCRIPTIONS.get(key.name);
+        if (data) {
+          const user = JSON.parse(data);
+          if (user.token === token && user.expiresAt > Date.now()) {
+            username = key.name.replace('user:', '');
+            break;
+          }
         }
       }
     }
@@ -118,8 +168,8 @@ api.get('/apikey', async (c) => {
     }
 
     const user = JSON.parse(userData);
-    const inputHashed = await hashPassword(queryPassword);
-    if (inputHashed !== user.password) {
+    const valid = await verifyPassword(queryPassword, user.password);
+    if (!valid) {
       return c.json({ error: '密码错误' }, 401);
     }
 
@@ -143,8 +193,18 @@ api.get('/apikey', async (c) => {
 
   // 生成新的 API Key
   const newApikey = crypto.randomUUID().replace(/-/g, '');
+
+  // 如果有旧 apikey，删除旧索引
+  if (user.apikey) {
+    await c.env.SUBSCRIPTIONS.delete(`apikey_index:${user.apikey}`);
+  }
+
   user.apikey = newApikey;
   await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify(user));
+
+  // 创建 apikey 索引
+  await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, username, { expirationTtl: 365 * 24 * 60 * 60 });
+
   return c.json({ apikey: newApikey });
 });
 
@@ -162,8 +222,8 @@ api.post('/token', async (c) => {
   }
 
   const user = JSON.parse(userData);
-  const inputHashed = await hashPassword(password);
-  if (inputHashed !== user.password) {
+  const valid = await verifyPassword(password, user.password);
+  if (!valid) {
     return c.json({ error: '密码错误' }, 401);
   }
 
@@ -172,10 +232,18 @@ api.post('/token', async (c) => {
   const refreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 天后过期
 
+  // 如果有旧 token，删除旧索引
+  if (user.token) {
+    await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
+  }
+
   user.token = token;
   user.refreshToken = refreshToken;
   user.expiresAt = expiresAt;
   await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify(user));
+
+  // 创建 token 索引
+  await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, email, { expirationTtl: 7 * 24 * 60 * 60 });
 
   return c.json({ token, refreshToken, expiresAt });
 });
@@ -188,7 +256,37 @@ api.post('/refresh', async (c) => {
     return c.json({ error: '请提供 refresh token' }, 400);
   }
 
-  // 查找用户
+  // 使用 token_index 快速查找
+  const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${refreshToken}`);
+  if (indexedUser) {
+    const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        if (user.refreshToken === refreshToken) {
+          // 生成新 token
+          const token = crypto.randomUUID().replace(/-/g, '');
+          const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+          const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+
+          // 删除旧索引，创建新索引
+          await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
+          await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, indexedUser, { expirationTtl: 7 * 24 * 60 * 60 });
+          await c.env.SUBSCRIPTIONS.delete(`token_index:${user.refreshToken}`);
+          await c.env.SUBSCRIPTIONS.put(`token_index:${newRefreshToken}`, indexedUser, { expirationTtl: 7 * 24 * 60 * 60 });
+
+          user.token = token;
+          user.refreshToken = newRefreshToken;
+          user.expiresAt = expiresAt;
+          await c.env.SUBSCRIPTIONS.put(`user:${indexedUser}`, JSON.stringify(user));
+
+          return c.json({ token, refreshToken: newRefreshToken, expiresAt });
+        }
+      } catch {}
+    }
+  }
+
+  // 回退到遍历查找（兼容旧 token 无索引的情况）
   const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
   for (const key of list.keys) {
     const data = await c.env.SUBSCRIPTIONS.get(key.name);
@@ -199,6 +297,12 @@ api.post('/refresh', async (c) => {
         const token = crypto.randomUUID().replace(/-/g, '');
         const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
         const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+
+        // 删除旧索引，创建新索引
+        await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
+        await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, key.name.replace('user:', ''), { expirationTtl: 7 * 24 * 60 * 60 });
+        await c.env.SUBSCRIPTIONS.delete(`token_index:${user.refreshToken}`);
+        await c.env.SUBSCRIPTIONS.put(`token_index:${newRefreshToken}`, key.name.replace('user:', ''), { expirationTtl: 7 * 24 * 60 * 60 });
 
         user.token = token;
         user.refreshToken = newRefreshToken;
@@ -222,6 +326,22 @@ adminApi.use('/*', async (c, next) => {
   // 1. 优先使用 API Key
   const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
   if (apiKey) {
+    // 使用 apikey_index 快速查找
+    const indexedUser = await c.env.SUBSCRIPTIONS.get(`apikey_index:${apiKey}`);
+    if (indexedUser) {
+      const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          if (user.apikey === apiKey) {
+            c.set('username', indexedUser);
+            await next();
+            return;
+          }
+        } catch {}
+      }
+    }
+    // 回退到遍历查找（兼容旧 apikey 无索引的情况）
     const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
     for (const key of list.keys) {
       // 跳过非用户数据键（如 s3_config）
@@ -241,12 +361,27 @@ adminApi.use('/*', async (c, next) => {
     return c.json({ error: '无效的 API Key' }, 401);
   }
 
-  // 2. 使用 Token
+  // 2. 使用 Token（O(1) 查找）
   const token = c.req.header('X-Token') || c.req.query('token');
   if (token) {
+    const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${token}`);
+    if (indexedUser) {
+      const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          if (user.token === token && user.expiresAt > Date.now()) {
+            c.set('username', indexedUser);
+            await next();
+            return;
+          }
+        } catch {}
+      }
+    }
+    // 回退到遍历查找（兼容旧 token 无索引的情况）
     const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
     for (const key of list.keys) {
-      if (key.name.includes(':s3_config') || key.name.includes(':apikey')) continue;
+      if (key.name.includes(':') && !key.name.startsWith('user:')) continue;
       const data = await c.env.SUBSCRIPTIONS.get(key.name);
       if (data) {
         try {
@@ -262,28 +397,7 @@ adminApi.use('/*', async (c, next) => {
     return c.json({ error: '无效或已过期的 Token' }, 401);
   }
 
-  // 3. 回退到用户名密码
-  const username = c.req.query('username');
-  const password = c.req.query('password') || c.req.header('X-Password') || '';
-
-  if (!username || !password) {
-    return c.json({ error: '请提供认证信息' }, 401);
-  }
-
-  const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
-  if (!userData) {
-    return c.json({ error: '用户不存在' }, 401);
-  }
-
-  const { password: hashed } = JSON.parse(userData);
-  const inputHashed = await hashPassword(password);
-
-  if (inputHashed !== hashed) {
-    return c.json({ error: '密码错误' }, 401);
-  }
-
-  c.set('username', username);
-  await next();
+  return c.json({ error: '请提供认证信息' }, 401);
 });
 
 adminApi.get('/channels', async (c) => {
@@ -389,7 +503,7 @@ adminApi.post('/backup-endpoints', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<BackupEndpoint>();
   
-  console.log(`[Add Endpoint] body.config=`, body.config);
+  console.log(`[Add Endpoint] Adding endpoint: ${body.name}, type=${body.type}`);
   
   if (!body.name || !body.type) {
     return c.json({ error: '请提供名称和类型' }, 400);
@@ -403,8 +517,6 @@ adminApi.post('/backup-endpoints', async (c) => {
     schedule: body.schedule || { enabled: false, interval: 24, startTime: '02:00' },
     retention: body.retention || 30,
   };
-  
-  console.log(`[Add Endpoint] newEndpoint.config.secretAccessKey exists:`, 'secretAccessKey' in (newEndpoint.config || {}), !!newEndpoint.config?.secretAccessKey);
   
   endpoints.push(newEndpoint);
   await saveBackupEndpoints(c.env, username, endpoints);
@@ -424,7 +536,7 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json<Partial<BackupEndpoint>>();
   
-  console.log(`[Update Endpoint] id=${id}, body.config=`, JSON.stringify(body.config));
+  console.log(`[Update Endpoint] id=${id}`);
   
   const endpoints = await getBackupEndpoints(c.env, username);
   const index = endpoints.findIndex(e => e.id === id);
@@ -443,7 +555,6 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
     if (hasOriginalSecret && !hasNewSecret) {
       // 原配置有密钥，新配置没有，保留原密钥
       body.config.secretAccessKey = existingConfig.secretAccessKey;
-      console.log(`[Update Endpoint] Preserving original secretAccessKey`);
     }
     
     // 同样处理 password
@@ -452,13 +563,11 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
     
     if (hasOriginalPassword && !hasNewPassword) {
       body.config.password = existingConfig.password;
-      console.log(`[Update Endpoint] Preserving original password`);
     }
   }
   
   // 合并更新
   endpoints[index] = { ...endpoints[index], ...body };
-  console.log(`[Update Endpoint] saved config.secretAccessKey exists:`, 'secretAccessKey' in (endpoints[index].config || {}), !!endpoints[index].config?.secretAccessKey);
   await saveBackupEndpoints(c.env, username, endpoints);
   
   // 返回时不包含密钥
@@ -488,7 +597,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({}));
   
-  console.log(`[Test Endpoint] id=${id}, body.type=${body.type}`);
+    console.log(`[Test Endpoint] id=${id}, type=${body.type}`);
   
   let endpoint;
   
@@ -506,7 +615,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
       schedule: { enabled: false, interval: 24, startTime: '02:00' },
       retention: 30,
     };
-    console.log(`[Test Endpoint] Testing NEW config:`, JSON.stringify(endpoint.config));
+    console.log(`[Test Endpoint] Testing NEW config, type=${endpoint.type}`);
   } else {
     // 测试已保存的配置 - 从 KV 读取完整配置，忽略请求体
     const endpoints = await getBackupEndpoints(c.env, username);
@@ -517,7 +626,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
     
     // 检查是否有密钥
     const hasSecret = endpoint.config?.secretAccessKey || endpoint.config?.password;
-    console.log(`[Test Endpoint] Testing SAVED config, hasSecret=${!!hasSecret}, secretAccessKey=${!!endpoint.config?.secretAccessKey}`);
+    console.log(`[Test Endpoint] Testing SAVED config, hasSecret=${!!hasSecret}`);
     
     if (!hasSecret) {
       return c.json({ 
@@ -528,7 +637,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   }
   
   const result = await testBackupEndpoint(endpoint);
-  console.log(`[Test Endpoint] Result:`, result);
+  console.log(`[Test Endpoint] Result: success=${result.success}`);
   return c.json(result);
 });
 
@@ -624,11 +733,11 @@ adminApi.post('/backup-endpoints/:id/backup', async (c) => {
 });
 
 // ============================================
-// 测试接口（无需认证）
+// 测试接口（需要认证）
 // ============================================
 
 /** 测试 Bark 配置 */
-api.get('/test/bark', async (c) => {
+adminApi.get('/test/bark', async (c) => {
   const key = c.req.query('key');
   const server = c.req.query('server') || 'https://api.day.app';
 

@@ -50,6 +50,7 @@ export interface BackupEndpoint {
 interface BackupData {
   timestamp: string;
   version: string;
+  username?: string;
   data: Record<string, string>;
 }
 
@@ -115,18 +116,18 @@ export async function deleteBackupEndpoint(env: Env, username: string, endpointI
 }
 
 // 导出所有数据
-export async function exportAllData(env: Env): Promise<BackupData> {
+export async function exportAllData(env: Env, username: string): Promise<BackupData> {
   const data: Record<string, string> = {};
   let cursor: string | undefined;
   do {
-    const list = await env.SUBSCRIPTIONS.list({ cursor });
+    const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
     for (const key of list.keys) {
       const value = await env.SUBSCRIPTIONS.get(key.name);
       if (value !== null) data[key.name] = value;
     }
     cursor = list.cursor;
   } while (cursor);
-  return { timestamp: new Date().toISOString(), version: '1.0', data };
+  return { timestamp: new Date().toISOString(), version: '1.0', username, data };
 }
 
 // 创建 S3 客户端
@@ -205,7 +206,7 @@ export async function uploadBackupToEndpoint(
   endpoint: BackupEndpoint
 ): Promise<BackupResult> {
   try {
-    const backupData = await exportAllData(env);
+    const backupData = await exportAllData(env, username);
     const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const filename = `${date}.json`;
     
@@ -518,10 +519,10 @@ export async function restoreBackupFromEndpoint(
       return { success: false, message: '无效的备份数据格式' };
     }
     
-    // 清空现有数据
+    // 清空当前用户的数据（只删除 user:${username}: 前缀的键）
     let cursor: string | undefined;
     do {
-      const list = await env.SUBSCRIPTIONS.list({ cursor });
+      const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
       for (const key of list.keys) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
