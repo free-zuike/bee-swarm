@@ -573,9 +573,11 @@ async function loadS3Config() {
 async function doSaveS3Config() {
   isSavingS3Config.value = true;
   try {
+    // 清理 endpoint，去除可能的反引号和空格
+    const cleanEndpoint = s3Config.endpoint?.replace(/[`\s]/g, '') || '';
     // 构建配置对象，只传有值的字段
     const configToSave: any = {
-      endpoint: s3Config.endpoint || undefined,
+      endpoint: cleanEndpoint || undefined,
       accessKeyId: s3Config.accessKeyId || undefined,
       bucket: s3Config.bucket || undefined,
       region: s3Config.region || 'auto',
@@ -626,7 +628,10 @@ async function doTestS3Config() {
   console.log('[Test] Starting S3 connection test...');
   try {
     // 直接传当前表单配置，后端会自动使用已保存的密钥
-    const configToTest: any = { ...s3Config };
+    const configToTest: any = { 
+      ...s3Config, 
+      endpoint: s3Config.endpoint?.replace(/[`\s]/g, '') || '' 
+    };
     console.log('[Test] Full config:', { 
       endpoint: configToTest.endpoint, 
       region: configToTest.region, 
