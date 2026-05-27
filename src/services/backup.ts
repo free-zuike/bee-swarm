@@ -542,6 +542,9 @@ export async function restoreBackupFromEndpoint(
       return { success: false, message: '无效的备份数据格式' };
     }
     
+    // 先保存当前备份端配置（防止恢复失败导致配置丢失）
+    const currentEndpointsStr = await env.SUBSCRIPTIONS.get(`user:${username}:backup_endpoints`);
+    
     // 清空当前用户的数据（只删除 user:${username}: 前缀的键）
     let cursor: string | undefined;
     let list_complete = false;
@@ -555,12 +558,19 @@ export async function restoreBackupFromEndpoint(
     } while (cursor && !list_complete);
     
     // 恢复备份数据
-    const entries = Object.entries(backupData.data);
-    for (const [key, value] of entries) {
-      await env.SUBSCRIPTIONS.put(key, value);
+    try {
+      const entries = Object.entries(backupData.data);
+      for (const [key, value] of entries) {
+        await env.SUBSCRIPTIONS.put(key, value);
+      }
+      return { success: true, message: '恢复成功: 已恢复 ' + entries.length + ' 条数据' };
+    } catch (err: any) {
+      // 恢复写入失败，尝试恢复备份端配置
+      if (currentEndpointsStr) {
+        await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
+      }
+      return { success: false, message: '恢复失败（已回滚备份端配置）: ' + err.message };
     }
-    
-    return { success: true, message: '恢复成功: 已恢复 ' + entries.length + ' 条数据' };
   } catch (err: any) {
     return { success: false, message: '恢复失败: ' + err.message };
   }
