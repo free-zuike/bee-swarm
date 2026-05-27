@@ -79,10 +79,17 @@ async function signV4(
   const signedHeaderKeysStr = sortedHeaderKeys.join(';');
   const canonicalHeaders = sortedHeaderKeys.map((k) => `${k}:${(signedHeaders[k] || '').trim()}`).join('\n') + '\n';
   const canonicalQueryString = parsedUrl.search ? parsedUrl.search.slice(1).split('&').sort().map((p) => { const [key, ...rest] = p.split('='); return `${key}=${rest.join('=')}`; }).join('&') : '';
-  const canonicalUri = parsedUrl.pathname;
+  const canonicalUri = parsedUrl.pathname || '/';
   const canonicalRequest = [method, canonicalUri, canonicalQueryString, canonicalHeaders, signedHeaderKeysStr, bodyHash].join('\n');
   const credentialScope = `${date}/${region}/s3/aws4_request`;
   const stringToSign = ['AWS4-HMAC-SHA256', datetime, credentialScope, toHex(await sha256Hash(canonicalRequest))].join('\n');
+  
+  // 调试日志
+  console.log(`[SignV4] URL: ${url}`);
+  console.log(`[SignV4] Canonical URI: ${canonicalUri}`);
+  console.log(`[SignV4] Canonical Request: ${canonicalRequest.substring(0, 200)}...`);
+  console.log(`[SignV4] Credential: ${accessKey}/${credentialScope}`);
+  
   const kDate = await hmacSha256(new TextEncoder().encode(`AWS4${secretKey}`), date);
   const kRegion = await hmacSha256(kDate, region);
   const kService = await hmacSha256(kRegion, 's3');
