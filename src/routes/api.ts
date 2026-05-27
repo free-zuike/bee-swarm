@@ -370,13 +370,26 @@ adminApi.get('/backup-endpoints', async (c) => {
   const username = c.get('username');
   await migrateOldS3Config(c.env, username);
   const endpoints = await getBackupEndpoints(c.env, username);
-  return c.json({ endpoints });
+  
+  // 返回时隐藏密钥
+  const safeEndpoints = endpoints.map(e => {
+    const safe = { ...e, config: { ...e.config } };
+    if (safe.config) {
+      delete safe.config.secretAccessKey;
+      delete safe.config.password;
+    }
+    return safe;
+  });
+  
+  return c.json({ endpoints: safeEndpoints });
 });
 
 /** 添加备份端 */
 adminApi.post('/backup-endpoints', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<BackupEndpoint>();
+  
+  console.log(`[Add Endpoint] body.config=`, body.config);
   
   if (!body.name || !body.type) {
     return c.json({ error: '请提供名称和类型' }, 400);
@@ -391,9 +404,18 @@ adminApi.post('/backup-endpoints', async (c) => {
     retention: body.retention || 30,
   };
   
+  console.log(`[Add Endpoint] newEndpoint.config=`, newEndpoint.config);
+  
   endpoints.push(newEndpoint);
   await saveBackupEndpoints(c.env, username, endpoints);
-  return c.json({ success: true, endpoint: newEndpoint });
+  
+  // 返回时不包含密钥
+  const returnedEndpoint = { ...newEndpoint, config: { ...newEndpoint.config } };
+  if (returnedEndpoint.config) {
+    delete returnedEndpoint.config.secretAccessKey;
+    delete returnedEndpoint.config.password;
+  }
+  return c.json({ success: true, endpoint: returnedEndpoint });
 });
 
 /** 更新备份端 */
@@ -402,16 +424,37 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json<Partial<BackupEndpoint>>();
   
+  console.log(`[Update Endpoint] id=${id}, body.config=`, body.config);
+  
   const endpoints = await getBackupEndpoints(c.env, username);
   const index = endpoints.findIndex(e => e.id === id);
   if (index === -1) {
     return c.json({ error: '备份端不存在' }, 404);
   }
   
+  // 保留原有的密钥（如果新配置中没有提供）
+  const existingConfig = endpoints[index].config;
+  if (body.config) {
+    if (!body.config.secretAccessKey && existingConfig?.secretAccessKey) {
+      body.config.secretAccessKey = existingConfig.secretAccessKey;
+    }
+    if (!body.config.password && existingConfig?.password) {
+      body.config.password = existingConfig.password;
+    }
+  }
+  
   // 合并更新
   endpoints[index] = { ...endpoints[index], ...body };
+  console.log(`[Update Endpoint] saved config=`, endpoints[index].config);
   await saveBackupEndpoints(c.env, username, endpoints);
-  return c.json({ success: true, endpoint: endpoints[index] });
+  
+  // 返回时不包含密钥
+  const returnedEndpoint = { ...endpoints[index], config: { ...endpoints[index].config } };
+  if (returnedEndpoint.config) {
+    delete returnedEndpoint.config.secretAccessKey;
+    delete returnedEndpoint.config.password;
+  }
+  return c.json({ success: true, endpoint: returnedEndpoint });
 });
 
 /** 删除备份端 */
@@ -432,7 +475,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({}));
   
-  console.log(`[Test Endpoint] id=${id}, body.type=${body.type}, body.config=`, body.config);
+  console.log(`[Test Endpoint] id=${id}, body.type=${body.type}`);
   
   let endpoint;
   
@@ -451,11 +494,20 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
       retention: 30,
     };
   } else {
-    // 测试已保存的配置
+    // 测试已保存的配置 - 从 KV 读取完整配置，忽略请求体
     const endpoints = await getBackupEndpoints(c.env, username);
     endpoint = endpoints.find(e => e.id === id);
     if (!endpoint) {
       return c.json({ error: '备份端不存在' }, 404);
+    }
+    
+    // 检查是否有密钥
+    const hasSecret = endpoint.config?.secretAccessKey || endpoint.config?.password;
+    if (!hasSecret) {
+      return c.json({ 
+        success: false, 
+        message: '密钥未配置，请先编辑并保存密钥后重试' 
+      });
     }
   }
   
