@@ -9,6 +9,8 @@
     "build": "vite build",
     "build:worker": "wrangler deploy --dry-run",
     "deploy": "npm run build && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'No linter configured'",
     "generate-keys": "node scripts/generate-vapid-keys.mjs"
   },
   "dependencies": {
