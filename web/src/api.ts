@@ -222,7 +222,106 @@ export async function getApiKeyWithToken(token: string, refresh?: boolean): Prom
 }
 
 // -------------------------------------------
-// S3 配置接口（Token 认证）
+// 多备份端接口（Token 认证）
+// -------------------------------------------
+
+export interface BackupEndpoint {
+  id: string;
+  name: string;
+  type: 's3' | 'webdav';
+  enabled: boolean;
+  config: {
+    endpoint?: string;
+    accessKeyId?: string;
+    secretAccessKey?: string;
+    bucket?: string;
+    region?: string;
+    path?: string;
+    pathStyle?: boolean;
+    url?: string;
+    username?: string;
+    password?: string;
+  };
+  schedule: {
+    enabled: boolean;
+    interval: number;
+    startTime: string;
+  };
+  retention: number;
+  lastBackup?: {
+    time: string;
+    status: 'success' | 'failed';
+    message?: string;
+  };
+}
+
+// 获取所有备份端
+export async function getBackupEndpoints(token: string): Promise<{ endpoints: BackupEndpoint[] }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints`, token);
+}
+
+// 添加备份端
+export async function addBackupEndpoint(token: string, endpoint: Omit<BackupEndpoint, 'id'>): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(endpoint),
+  });
+}
+
+// 更新备份端
+export async function updateBackupEndpoint(token: string, id: string, endpoint: Partial<BackupEndpoint>): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(endpoint),
+  });
+}
+
+// 删除备份端
+export async function deleteBackupEndpoint(token: string, id: string): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}`, token, { method: 'DELETE' });
+}
+
+// 测试备份端连接
+export async function testBackupEndpoint(token: string, id: string, config?: any): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/test`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: config ? JSON.stringify(config) : undefined,
+  });
+}
+
+// 列出指定备份端的备份
+export async function listBackupsFromEndpoint(token: string, id: string): Promise<{ backups: Array<{ key: string; size: number; lastModified: string }> }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backups`, token);
+}
+
+// 从指定备份端恢复
+export async function restoreBackupFromEndpoint(token: string, id: string, key: string): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/restore`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  });
+}
+
+// 删除指定备份端的备份
+export async function deleteBackupFromEndpoint(token: string, id: string, key: string): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backups`, token, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  });
+}
+
+// 手动触发所有启用的备份
+export async function backupAll(token: string): Promise<{ results: Array<{ success: boolean; message: string; endpointId?: string }> }> {
+  return tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
+}
+
+// -------------------------------------------
+// 旧版接口兼容（将被移除）
 // -------------------------------------------
 
 export async function saveS3Config(token: string, config: any) {
@@ -245,21 +344,14 @@ export async function testS3Config(token: string, config: any) {
   });
 }
 
-// -------------------------------------------
-// 备份管理接口（Token 认证）
-// -------------------------------------------
-
-// 手动备份
 export async function createBackup(token: string) {
   return tokenRequest(`${BASE}/admin/backup`, token, { method: 'POST' });
 }
 
-// 列出备份
 export async function listBackups(token: string) {
   return tokenRequest(`${BASE}/admin/backups`, token);
 }
 
-// 恢复备份
 export async function restoreBackup(token: string, key: string) {
   return tokenRequest(`${BASE}/admin/backup/restore`, token, {
     method: 'POST',
@@ -268,7 +360,6 @@ export async function restoreBackup(token: string, key: string) {
   });
 }
 
-// 删除备份
 export async function deleteBackup(token: string, key: string) {
   return tokenRequest(`${BASE}/admin/backup`, token, {
     method: 'DELETE',
