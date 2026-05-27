@@ -2,7 +2,7 @@
 // ============================================
 // 备份端管理组件
 // ============================================
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import type { BackupEndpoint } from '@/api';
 
 const props = defineProps<{
@@ -359,6 +359,11 @@ function handleError(message: string, operation: 'save' | 'delete' | 'test' | 'b
       break;
   }
 }
+
+// 组件挂载时加载数据
+onMounted(() => {
+  loadBackupEndpoints();
+});
 
 // 监听 showSettings 变化来加载数据
 function onShow() {
