@@ -357,10 +357,14 @@ async function handleAddEndpoint(endpoint: Omit<BackupEndpoint, 'id'>) {
   try {
     const result = await addBackupEndpoint(accessToken.value, endpoint);
     if (result.success) {
-      backupManagerRef.value?.handleAddResult(result.endpoint, '备份端创建成功');
-      // 刷新备份列表
+      // 创建成功后重新从 API 加载列表，验证数据是否真的保存了
+      await handleLoadEndpoints();
+      // 选中新创建的备份端
+      backupManagerRef.value?.selectEndpoint(result.endpoint.id);
+      // 加载备份列表
       const data = await listBackupsFromEndpoint(accessToken.value, result.endpoint.id);
       backupManagerRef.value?.setBackups(data.backups || []);
+      backupManagerRef.value?.handleTestResult(true, '备份端创建成功');
     }
   } catch (err: any) {
     backupManagerRef.value?.handleError(err.message || '创建失败', 'save');

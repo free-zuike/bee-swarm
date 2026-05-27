@@ -375,7 +375,8 @@ defineExpose({
   handleBackupAllResult,
   handleBackupSingleResult,
   handleError,
-  onShow
+  onShow,
+  selectEndpoint,
 });
 </script>
 
