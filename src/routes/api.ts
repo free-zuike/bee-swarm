@@ -515,30 +515,6 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   return c.json(result);
 });
 
-/** 测试新配置（不需要 ID） */
-adminApi.post('/backup-endpoints/test', async (c) => {
-  const body = await c.req.json();
-  
-  console.log(`[Test New Endpoint] body=`, body);
-  
-  if (!body.type || !body.config) {
-    return c.json({ error: '需要传入 type 和 config' }, 400);
-  }
-  
-  const endpoint: BackupEndpoint = {
-    id: 'new',
-    name: '新备份端',
-    type: body.type,
-    enabled: false,
-    config: body.config,
-    schedule: { enabled: false, interval: 24, startTime: '02:00' },
-    retention: 30,
-  };
-  
-  const result = await testBackupEndpoint(endpoint);
-  return c.json(result);
-});
-
 /** 列出指定备份端的备份 */
 adminApi.get('/backup-endpoints/:id/backups', async (c) => {
   const username = c.get('username');
