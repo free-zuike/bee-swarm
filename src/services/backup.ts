@@ -299,8 +299,44 @@ async function cleanupOldBackupsS3(config: S3Config, root: string, username: str
 
 // 清理 WebDAV 旧备份
 async function cleanupOldBackupsWebDAV(config: WebDAVConfig, root: string, username: string, retention: number): Promise<void> {
-  // WebDAV 清理逻辑简化版，实际需要 PROPFIND 获取列表
-  console.log('WebDAV 清理旧备份:', root, username, retention);
+  try {
+    const dirPath = `/${root}/backups/${username}/`;
+    const response = await webdavRequest('PROPFIND', dirPath, config);
+    if (!response.ok && response.status !== 207) return;
+    
+    const xml = await response.text();
+    const backups: { key: string; lastModified: string }[] = [];
+    
+    const responseRegex = /<D:response[^>]*>([\s\S]*?)<\/D:response>/gi;
+    let match;
+    
+    while ((match = responseRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const hrefMatch = block.match(/<D:href[^>]*>([^<]+)<\/D:href>/i);
+      if (!hrefMatch) continue;
+      
+      let href = decodeURIComponent(hrefMatch[1]);
+      const prefix = dirPath.startsWith('/') ? dirPath : '/' + dirPath;
+      if (href.startsWith(prefix)) {
+        href = href.substring(prefix.length);
+      }
+      if (!href || href.endsWith('/')) continue;
+      
+      const lastModifiedMatch = block.match(/<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i);
+      backups.push({
+        key: `${root}/backups/${username}${href}`,
+        lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
+      });
+    }
+    
+    // 按时间排序，删除旧的
+    backups.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+    for (let i = retention; i < backups.length; i++) {
+      await webdavRequest('DELETE', '/' + backups[i].key, config);
+    }
+  } catch (e) {
+    console.error('清理 WebDAV 旧备份失败:', e);
+  }
 }
 
 // 列出备份
@@ -338,8 +374,55 @@ export async function listBackupsFromEndpoint(
       return backups.sort((a, b) => b.key.localeCompare(a.key));
       
     } else if (endpoint.type === 'webdav') {
-      // WebDAV 列表需要 PROPFIND，简化处理
-      return [];
+      const config = endpoint.config as WebDAVConfig;
+      const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
+      const dirPath = `/${root}/backups/${username}/`;
+      
+      const response = await webdavRequest('PROPFIND', dirPath, config);
+      if (!response.ok && response.status !== 207) {
+        throw new Error('获取 WebDAV 备份列表失败 (' + response.status + ')');
+      }
+      
+      const xml = await response.text();
+      const backups: BackupInfo[] = [];
+      
+      // 解析 WebDAV PROPFIND 响应 (multistatus XML)
+      const responseRegex = /<D:response[^>]*>([\s\S]*?)<\/D:response>/gi;
+      let match;
+      
+      while ((match = responseRegex.exec(xml)) !== null) {
+        const block = match[1];
+        
+        // 提取 href
+        const hrefMatch = block.match(/<D:href[^>]*>([^<]+)<\/D:href>/i);
+        if (!hrefMatch) continue;
+        
+        let href = decodeURIComponent(hrefMatch[1]);
+        // 去掉路径前缀，只保留文件名部分
+        const prefix = dirPath.startsWith('/') ? dirPath : '/' + dirPath;
+        if (href.startsWith(prefix)) {
+          href = href.substring(prefix.length);
+        }
+        
+        // 跳过目录本身和空路径
+        if (!href || href.endsWith('/')) continue;
+        
+        // 提取内容长度
+        const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
+        const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+        
+        // 提取最后修改时间
+        const lastModifiedMatch = block.match(/<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i);
+        const lastModified = lastModifiedMatch ? lastModifiedMatch[1] : '';
+        
+        backups.push({
+          key: `${root}/backups/${username}${href}`,
+          size,
+          lastModified,
+        });
+      }
+      
+      return backups.sort((a, b) => b.key.localeCompare(a.key));
     }
     return [];
   } catch (err: any) {
