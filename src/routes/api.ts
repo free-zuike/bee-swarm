@@ -430,11 +430,28 @@ adminApi.delete('/backup-endpoints/:id', async (c) => {
 adminApi.post('/backup-endpoints/:id/test', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
   
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find(e => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在' }, 404);
+  let endpoint;
+  
+  if (id === 'new' && body.type && body.config) {
+    // 测试新配置的连接（使用请求体中的配置）
+    endpoint = {
+      id: 'new',
+      name: '新备份端',
+      type: body.type,
+      enabled: false,
+      config: body.config,
+      schedule: { enabled: false, interval: 24, startTime: '02:00' },
+      retention: 30,
+    };
+  } else {
+    // 测试已保存的配置
+    const endpoints = await getBackupEndpoints(c.env, username);
+    endpoint = endpoints.find(e => e.id === id);
+    if (!endpoint) {
+      return c.json({ error: '备份端不存在' }, 404);
+    }
   }
   
   const result = await testBackupEndpoint(endpoint);
