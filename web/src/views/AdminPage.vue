@@ -560,8 +560,8 @@ watch(showSettings, (val, oldVal) => {
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
         <button class="fab-item" @click="toggleLocale()">
-          <span class="fab-icon">{{ localCurrentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
-          <span class="fab-label">{{ localCurrentLocale.value === 'zh' ? 'English' : '中文' }}</span>
+          <span class="fab-icon">{{ localCurrentLocale === 'zh' ? '🇧' : '🇳' }}</span>
+          <span class="fab-label">{{ localCurrentLocale === 'zh' ? 'English' : '中文' }}</span>
         </button>
         <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
           <span class="fab-icon">📚</span>
