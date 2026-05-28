@@ -144,7 +144,7 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 24px;
 }
@@ -156,10 +156,14 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   text-align: center;
   height: 88px;
+  width: 100%;
+  min-width: 140px;
+  max-width: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: hidden;
 }
 
 .stat-card .label {
