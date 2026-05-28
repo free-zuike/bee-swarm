@@ -37,7 +37,7 @@ export function createErrorResponse(error: Error | AppError, requestId?: string)
       requestId,
     };
   }
-  
+
   return {
     error: 'Internal Server Error',
     code: ErrorCode.INTERNAL_ERROR,
@@ -50,11 +50,11 @@ export function createErrorResponse(error: Error | AppError, requestId?: string)
 export function logError(error: Error, context?: string): void {
   const requestId = crypto.randomUUID().slice(0, 8);
   const timestamp = new Date().toISOString();
-  
+
   console.error(`[${timestamp}] [${requestId}] ${context || 'Error'}:`);
   console.error(`  Message: ${error.message}`);
   console.error(`  Stack: ${error.stack}`);
-  
+
   if (error instanceof AppError) {
     console.error(`  Code: ${error.code}`);
     console.error(`  Status: ${error.statusCode}`);

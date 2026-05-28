@@ -16,9 +16,18 @@ import {
   getPushHistory,
 } from '../services/dispatcher';
 import {
-  uploadBackupToEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint,
-  getBackupEndpoints, saveBackupEndpoints, saveBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint,
-  executeAllBackups, migrateOldS3Config, type BackupEndpoint, type EndpointType
+  uploadBackupToEndpoint,
+  listBackupsFromEndpoint,
+  restoreBackupFromEndpoint,
+  deleteBackupFromEndpoint,
+  getBackupEndpoints,
+  saveBackupEndpoints,
+  saveBackupEndpoint,
+  deleteBackupEndpoint,
+  testBackupEndpoint,
+  executeAllBackups,
+  migrateOldS3Config,
+  type BackupEndpoint,
 } from '../services/backup';
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
@@ -134,7 +143,9 @@ api.get('/apikey', async (c) => {
   await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify(user));
 
   // 创建 apikey 索引
-  await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, username, { expirationTtl: 365 * 24 * 60 * 60 });
+  await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, username, {
+    expirationTtl: 365 * 24 * 60 * 60,
+  });
 
   return c.json({ apikey: newApikey });
 });
@@ -155,7 +166,8 @@ api.post('/token', validateBody(schemas.token), async (c) => {
   }
 
   const token = crypto.randomUUID().replace(/-/g, '');
-  const refreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+  const refreshToken =
+    crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
   const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
 
@@ -190,14 +202,19 @@ api.post('/refresh', validateBody(schemas.refresh), async (c) => {
           }
 
           const token = crypto.randomUUID().replace(/-/g, '');
-          const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+          const newRefreshToken =
+            crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
           const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
           const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
 
           await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
-          await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, indexedUser, { expirationTtl: 7 * 24 * 60 * 60 });
+          await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, indexedUser, {
+            expirationTtl: 7 * 24 * 60 * 60,
+          });
           await c.env.SUBSCRIPTIONS.delete(`token_index:${user.refreshToken}`);
-          await c.env.SUBSCRIPTIONS.put(`token_index:${newRefreshToken}`, indexedUser, { expirationTtl: 7 * 24 * 60 * 60 });
+          await c.env.SUBSCRIPTIONS.put(`token_index:${newRefreshToken}`, indexedUser, {
+            expirationTtl: 7 * 24 * 60 * 60,
+          });
 
           user.token = token;
           user.refreshToken = newRefreshToken;
@@ -250,7 +267,7 @@ adminApi.put('/channels/:id', async (c) => {
   // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
   // 注意：只传 enabled 时不触发此逻辑
   const def = CHANNEL_DEFINITIONS.find((d) => d.id === channelId);
-  if (def && Object.keys(body.fields).some(k => k !== 'enabled')) {
+  if (def && Object.keys(body.fields).some((k) => k !== 'enabled')) {
     const requiredFields = def.fields.filter((f) => f.required);
     const allEmpty = requiredFields.every((f) => !body.fields[f.key]);
     const allFilled = requiredFields.every((f) => !!body.fields[f.key]);
@@ -307,9 +324,9 @@ adminApi.get('/backup-endpoints', async (c) => {
   const username = c.get('username');
   await migrateOldS3Config(c.env, username);
   const endpoints = await getBackupEndpoints(c.env, username);
-  
+
   // 返回时隐藏密钥
-  const safeEndpoints = endpoints.map(e => {
+  const safeEndpoints = endpoints.map((e) => {
     const safe = { ...e, config: { ...e.config } };
     if (safe.config) {
       if ('secretAccessKey' in safe.config) {
@@ -321,7 +338,7 @@ adminApi.get('/backup-endpoints', async (c) => {
     }
     return safe;
   });
-  
+
   return c.json({ endpoints: safeEndpoints });
 });
 
@@ -329,13 +346,13 @@ adminApi.get('/backup-endpoints', async (c) => {
 adminApi.post('/backup-endpoints', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<BackupEndpoint>();
-  
+
   console.log(`[Add Endpoint] Adding endpoint: ${body.name}, type=${body.type}`);
-  
+
   if (!body.name || !body.type) {
     return c.json({ error: '请提供名称和类型', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const endpoints = await getBackupEndpoints(c.env, username);
   const newEndpoint: BackupEndpoint = {
     ...body,
@@ -344,10 +361,10 @@ adminApi.post('/backup-endpoints', async (c) => {
     schedule: body.schedule || { enabled: false, interval: 24, startTime: '02:00' },
     retention: body.retention || 30,
   };
-  
+
   endpoints.push(newEndpoint);
   await saveBackupEndpoints(c.env, username, endpoints);
-  
+
   // 返回时不包含密钥
   const returnedEndpoint = { ...newEndpoint, config: { ...newEndpoint.config } };
   if (returnedEndpoint.config) {
@@ -366,41 +383,43 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
   const body = await c.req.json<Partial<BackupEndpoint>>();
-  
+
   console.log(`[Update Endpoint] id=${id}`);
-  
+
   const endpoints = await getBackupEndpoints(c.env, username);
-  const index = endpoints.findIndex(e => e.id === id);
+  const index = endpoints.findIndex((e) => e.id === id);
   if (index === -1) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
-  
+
   // 保留原有的密钥（如果新配置中没有提供）
   // 使用 'in' 操作符检查属性是否存在，而不是检查值是否falsy
   const existingConfig = endpoints[index].config;
   if (body.config && existingConfig) {
     // 检查 secretAccessKey 是否存在于原配置中
-    const hasOriginalSecret = 'secretAccessKey' in existingConfig && (existingConfig as any).secretAccessKey;
-    const hasNewSecret = 'secretAccessKey' in (body.config || {}) && (body.config as any).secretAccessKey;
-    
+    const hasOriginalSecret =
+      'secretAccessKey' in existingConfig && (existingConfig as any).secretAccessKey;
+    const hasNewSecret =
+      'secretAccessKey' in (body.config || {}) && (body.config as any).secretAccessKey;
+
     if (hasOriginalSecret && !hasNewSecret) {
       // 原配置有密钥，新配置没有，保留原密钥
       (body.config as any).secretAccessKey = (existingConfig as any).secretAccessKey;
     }
-    
+
     // 同样处理 password
     const hasOriginalPassword = 'password' in existingConfig && (existingConfig as any).password;
     const hasNewPassword = 'password' in (body.config || {}) && (body.config as any).password;
-    
+
     if (hasOriginalPassword && !hasNewPassword) {
       (body.config as any).password = (existingConfig as any).password;
     }
   }
-  
+
   // 合并更新
   endpoints[index] = { ...endpoints[index], ...body };
   await saveBackupEndpoints(c.env, username, endpoints);
-  
+
   // 返回时不包含密钥
   const returnedEndpoint = { ...endpoints[index], config: { ...endpoints[index].config } };
   if (returnedEndpoint.config) {
@@ -418,7 +437,7 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
 adminApi.delete('/backup-endpoints/:id', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
-  
+
   const success = await deleteBackupEndpoint(c.env, username, id);
   if (!success) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
@@ -431,11 +450,11 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({}));
-  
-    console.log(`[Test Endpoint] id=${id}, type=${body.type}`);
-  
+
+  console.log(`[Test Endpoint] id=${id}, type=${body.type}`);
+
   let endpoint;
-  
+
   if (id === 'new') {
     // 测试新配置的连接（必须传入 type 和 config）
     if (!body.type || !body.config) {
@@ -454,23 +473,24 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   } else {
     // 测试已保存的配置 - 从 KV 读取完整配置，忽略请求体
     const endpoints = await getBackupEndpoints(c.env, username);
-    endpoint = endpoints.find(e => e.id === id);
+    endpoint = endpoints.find((e) => e.id === id);
     if (!endpoint) {
       return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
     }
-    
+
     // 检查是否有密钥
-    const hasSecret = (endpoint.config as any)?.secretAccessKey || (endpoint.config as any)?.password;
+    const hasSecret =
+      (endpoint.config as any)?.secretAccessKey || (endpoint.config as any)?.password;
     console.log(`[Test Endpoint] Testing SAVED config, hasSecret=${!!hasSecret}`);
-    
+
     if (!hasSecret) {
-      return c.json({ 
-        success: false, 
-        message: '密钥未配置，请先编辑并保存密钥后重试' 
+      return c.json({
+        success: false,
+        message: '密钥未配置，请先编辑并保存密钥后重试',
       });
     }
   }
-  
+
   const result = await testBackupEndpoint(endpoint);
   console.log(`[Test Endpoint] Result: success=${result.success}`);
   return c.json(result);
@@ -480,13 +500,13 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
 adminApi.get('/backup-endpoints/:id/backups', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
-  
+
   const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find(e => e.id === id);
+  const endpoint = endpoints.find((e) => e.id === id);
   if (!endpoint) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
-  
+
   try {
     const list = await listBackupsFromEndpoint(c.env, username, endpoint);
     return c.json({ backups: list });
@@ -500,17 +520,17 @@ adminApi.post('/backup-endpoints/:id/restore', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
   const { key } = await c.req.json<{ key: string }>();
-  
+
   if (!key) {
     return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find(e => e.id === id);
+  const endpoint = endpoints.find((e) => e.id === id);
   if (!endpoint) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
-  
+
   const result = await restoreBackupFromEndpoint(c.env, username, endpoint, key);
   return c.json(result);
 });
@@ -520,17 +540,17 @@ adminApi.delete('/backup-endpoints/:id/backups', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
   const { key } = await c.req.json<{ key: string }>();
-  
+
   if (!key) {
     return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find(e => e.id === id);
+  const endpoint = endpoints.find((e) => e.id === id);
   if (!endpoint) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
-  
+
   const result = await deleteBackupFromEndpoint(c.env, username, endpoint, key);
   return c.json(result);
 });
@@ -546,16 +566,16 @@ adminApi.post('/backup-all', async (c) => {
 adminApi.post('/backup-endpoints/:id/backup', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
-  
+
   const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find(e => e.id === id);
+  const endpoint = endpoints.find((e) => e.id === id);
   if (!endpoint) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
-  
+
   const result = await uploadBackupToEndpoint(c.env, username, endpoint);
   result.endpointName = endpoint.name;
-  
+
   // 更新最后备份状态
   endpoint.lastBackup = {
     time: new Date().toISOString(),
@@ -563,7 +583,7 @@ adminApi.post('/backup-endpoints/:id/backup', async (c) => {
     message: result.message,
   };
   await saveBackupEndpoint(c.env, username, endpoint);
-  
+
   return c.json(result);
 });
 
@@ -599,7 +619,7 @@ adminApi.get('/test/bark', async (c) => {
     // 发送测试请求（不实际推送，只验证 key 是否有效）
     const testUrl = `${server}/${key}/测试标题/这是一条测试消息`;
     const res = await fetch(testUrl);
-    const data = await res.json() as { code: number; message: string };
+    const data = (await res.json()) as { code: number; message: string };
 
     if (data.code === 200) {
       return c.json({

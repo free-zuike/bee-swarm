@@ -38,9 +38,7 @@ export async function sendNtfy(
     };
 
     if (payload.url) {
-      body.actions = JSON.stringify([
-        { action: 'view', label: '查看详情', url: payload.url },
-      ]);
+      body.actions = JSON.stringify([{ action: 'view', label: '查看详情', url: payload.url }]);
     }
 
     const res = await fetch(`${server}`, {

@@ -10,14 +10,7 @@ export interface PushPayload {
   icon?: string;
 }
 
-export type PushChannel =
-  | 'wework'
-  | 'dingtalk'
-  | 'feishu'
-  | 'telegram'
-  | 'bark'
-  | 'ntfy'
-  | 'email';
+export type PushChannel = 'wework' | 'dingtalk' | 'feishu' | 'telegram' | 'bark' | 'ntfy' | 'email';
 
 export interface PushRequest extends PushPayload {
   channels?: PushChannel[];

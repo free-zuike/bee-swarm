@@ -53,7 +53,7 @@ export function useAuth() {
     refreshTokenValue.value = '';
     tokenExpiresAt.value = 0;
 
-    Object.values(STORAGE_KEYS).forEach(key => {
+    Object.values(STORAGE_KEYS).forEach((key) => {
       sessionStorage.removeItem(key);
     });
   };

@@ -23,7 +23,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.refresh': '重新生成',
     'button.generate_api_key': '生成 API Key',
     'label.api_key': '🔑 API Key',
-    'hint.api_key': '使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。',
+    'hint.api_key':
+      '使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。',
     'tab.push': '推送消息',
     'tab.history': '推送历史',
     'label.title': '标题',
@@ -177,7 +178,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.create': '创建',
     'label.backup_list': '备份列表',
     'label.loading_backups': '加载备份列表...',
-    'label.no_backups': '暂无备份'
+    'label.no_backups': '暂无备份',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -193,7 +194,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.refresh': 'Regenerate',
     'button.generate_api_key': 'Generate API Key',
     'label.api_key': '🔑 API Key',
-    'hint.api_key': 'Use API Key to call push API without exposing credentials. Refresh to generate new Key, old Key will be invalid immediately.',
+    'hint.api_key':
+      'Use API Key to call push API without exposing credentials. Refresh to generate new Key, old Key will be invalid immediately.',
     'tab.push': 'Push Message',
     'tab.history': 'Push History',
     'label.title': 'Title',
@@ -272,7 +274,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'error.no_channel_selected_full': 'No push channels selected, please select first',
     'label.push_history': 'Push History',
     'label.mail': 'Email',
-    'hint.channel_settings': 'Configure connection parameters for each push channel. Each channel can be saved independently.',
+    'hint.channel_settings':
+      'Configure connection parameters for each push channel. Each channel can be saved independently.',
     'label.unsaved': 'Unsaved',
     'label.unconfigured': 'Unconfigured',
     'label.enabled': 'Enabled',
@@ -280,7 +283,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.enter': 'Enter',
     'label.saving': 'Saving...',
     'label.backing_up': 'Backing up...',
-    'hint.backup': 'Configure multiple backup endpoints. Data will be backed up to all enabled locations.',
+    'hint.backup':
+      'Configure multiple backup endpoints. Data will be backed up to all enabled locations.',
     'label.no_backup_endpoints': 'No backup endpoints',
     'button.add_first_endpoint': 'Add first endpoint',
     'label.new_backup_endpoint': 'New Endpoint',
@@ -347,8 +351,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.create': 'Create',
     'label.backup_list': 'Backup List',
     'label.loading_backups': 'Loading backup list...',
-    'label.no_backups': 'No backups'
-  }
+    'label.no_backups': 'No backups',
+  },
 };
 
 export function getLocale(): Locale {

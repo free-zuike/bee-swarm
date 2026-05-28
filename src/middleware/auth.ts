@@ -6,9 +6,12 @@ import type { Env } from '../types';
  * 支持通过 X-API-Key、X-Token 或查询参数认证
  * 使用索引查找，O(1) 时间复杂度
  */
-export async function authMiddleware(c: Context<{ Bindings: Env; Variables: { username: string } }>, next: Next) {
+export async function authMiddleware(
+  c: Context<{ Bindings: Env; Variables: { username: string } }>,
+  next: Next
+) {
   const requestId = crypto.randomUUID().slice(0, 8);
-  
+
   // 1. 优先使用 API Key
   const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
   if (apiKey) {

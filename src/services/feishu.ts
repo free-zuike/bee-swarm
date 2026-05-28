@@ -72,7 +72,7 @@ export async function sendFeishu(
       }),
     });
 
-    const data = await res.json() as { code: number; msg: string };
+    const data = (await res.json()) as { code: number; msg: string };
 
     if (data.code === 0) {
       return {

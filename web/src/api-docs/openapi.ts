@@ -18,19 +18,20 @@ export interface OpenAPISpec {
 
 export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
   const isZh = locale === 'zh';
-  
-  const t = (zh: string, en: string) => isZh ? zh : en;
+
+  const t = (zh: string, en: string) => (isZh ? zh : en);
 
   return {
     openapi: '3.0.3',
     info: {
       title: t('Bee Swarm API 文档', 'Bee Swarm API Documentation'),
-      description: t('多渠道推送通知系统的 API 文档', 'API documentation for the multi-channel push notification system'),
+      description: t(
+        '多渠道推送通知系统的 API 文档',
+        'API documentation for the multi-channel push notification system'
+      ),
       version: '2.0.0',
     },
-    servers: [
-      { url: window.location.origin },
-    ],
+    servers: [{ url: window.location.origin }],
     tags: [
       { name: 'auth', description: t('认证相关', 'Authentication') },
       { name: 'channels', description: t('渠道管理', 'Channel Management') },
@@ -73,7 +74,11 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
             title: { type: 'string', description: t('推送标题', 'Push title') },
             body: { type: 'string', description: t('推送内容', 'Push body') },
             url: { type: 'string', description: t('点击跳转链接', 'Click URL') },
-            channels: { type: 'array', items: { type: 'string' }, description: t('目标渠道', 'Target channels') },
+            channels: {
+              type: 'array',
+              items: { type: 'string' },
+              description: t('目标渠道', 'Target channels'),
+            },
           },
         },
         ChannelDefinition: {
@@ -226,7 +231,10 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         post: {
           tags: ['auth'],
           summary: t('刷新 Token', 'Refresh Token'),
-          description: t('使用 Refresh Token 刷新访问 Token', 'Refresh access token using refresh token'),
+          description: t(
+            '使用 Refresh Token 刷新访问 Token',
+            'Refresh access token using refresh token'
+          ),
           requestBody: {
             required: true,
             content: {
@@ -266,7 +274,10 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         get: {
           tags: ['auth'],
           summary: t('获取或生成 API Key', 'Get or Generate API Key'),
-          description: t('获取现有 API Key 或生成新的', 'Get existing API Key or generate a new one'),
+          description: t(
+            '获取现有 API Key 或生成新的',
+            'Get existing API Key or generate a new one'
+          ),
           parameters: [
             {
               name: 'refresh',
@@ -309,7 +320,10 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
                     properties: {
                       channels: { type: 'array', items: { type: 'object' } },
                       settings: { type: 'object' },
-                      definitions: { type: 'array', items: { $ref: '#/components/schemas/ChannelDefinition' } },
+                      definitions: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/ChannelDefinition' },
+                      },
                     },
                   },
                 },
@@ -436,7 +450,10 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
                   schema: {
                     type: 'object',
                     properties: {
-                      endpoints: { type: 'array', items: { $ref: '#/components/schemas/BackupEndpoint' } },
+                      endpoints: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/BackupEndpoint' },
+                      },
                     },
                   },
                 },
@@ -485,7 +502,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('更新备份端配置', 'Update backup endpoint configuration'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID', 'Backup endpoint ID') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID', 'Backup endpoint ID'),
+            },
           ],
           requestBody: {
             required: true,
@@ -521,7 +543,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('删除备份端配置', 'Delete backup endpoint configuration'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID', 'Backup endpoint ID') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID', 'Backup endpoint ID'),
+            },
           ],
           responses: {
             '200': {
@@ -544,7 +571,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('测试备份端连接是否正常', 'Test if backup endpoint connection is working'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID 或 "new"', 'Backup endpoint ID or "new"') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID 或 "new"', 'Backup endpoint ID or "new"'),
+            },
           ],
           responses: {
             '200': {
@@ -573,7 +605,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('列出备份端的所有备份文件', 'List all backup files on the endpoint'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID', 'Backup endpoint ID') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID', 'Backup endpoint ID'),
+            },
           ],
           responses: {
             '200': {
@@ -599,7 +636,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('删除指定的备份文件', 'Delete specified backup file'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID', 'Backup endpoint ID') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID', 'Backup endpoint ID'),
+            },
           ],
           requestBody: {
             required: true,
@@ -637,7 +679,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('从备份文件恢复数据', 'Restore data from backup file'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID', 'Backup endpoint ID') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID', 'Backup endpoint ID'),
+            },
           ],
           requestBody: {
             required: true,
@@ -675,7 +722,12 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           description: t('手动触发单个备份端的备份', 'Manually trigger backup for single endpoint'),
           security: [{ bearerAuth: [] }],
           parameters: [
-            { name: 'id', in: 'path', required: true, description: t('备份端 ID', 'Backup endpoint ID') },
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: t('备份端 ID', 'Backup endpoint ID'),
+            },
           ],
           responses: {
             '200': {

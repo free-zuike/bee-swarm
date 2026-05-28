@@ -16,16 +16,19 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('*', securityHeaders());
 
 // 限流配置
-app.use('*', rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  message: '请求过于频繁，请稍后重试',
-}));
+app.use(
+  '*',
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    message: '请求过于频繁，请稍后重试',
+  })
+);
 
 // CORS 配置
 app.use('*', async (c, next) => {
   const origin = c.req.header('Origin') || '';
-  
+
   // 检查是否允许该来源
   const isAllowedOrigin = (): boolean => {
     // 开发环境允许 localhost
@@ -38,10 +41,14 @@ app.use('*', async (c, next) => {
     }
     // 检查环境变量配置的允许来源列表
     const allowedOrigins = c.env.ALLOWED_ORIGINS?.split(',') || [];
-    if (allowedOrigins.some(allowedOrigin => 
-      origin === allowedOrigin || 
-      (allowedOrigin.includes('*') && new RegExp(`^${allowedOrigin.replace('*', '.*')}$`).test(origin))
-    )) {
+    if (
+      allowedOrigins.some(
+        (allowedOrigin) =>
+          origin === allowedOrigin ||
+          (allowedOrigin.includes('*') &&
+            new RegExp(`^${allowedOrigin.replace('*', '.*')}$`).test(origin))
+      )
+    ) {
       return true;
     }
     // 生产环境默认不允许其他来源
@@ -61,13 +68,13 @@ app.use('*', async (c, next) => {
 // 全局错误处理
 app.onError((err, c) => {
   const requestId = crypto.randomUUID().slice(0, 8);
-  
+
   if ('statusCode' in err && typeof err.statusCode === 'number') {
     logError(err, 'Application Error');
     const response = createErrorResponse(err as Error, requestId);
     return c.json(response, (err as any).statusCode);
   }
-  
+
   logError(err, 'Unexpected Error');
   const response = createErrorResponse(err, requestId);
   return c.json(response, 500);
@@ -95,19 +102,19 @@ function convertTimezone(tz: string): string {
 }
 
 function getLocalTime(now: Date, tz: string): { hour: number; minute: number } {
-  const localHourStr = now.toLocaleString('en-US', { 
-    timeZone: tz, 
-    hour: '2-digit', 
-    hour12: false, 
-    hourCycle: 'h23' 
+  const localHourStr = now.toLocaleString('en-US', {
+    timeZone: tz,
+    hour: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
   });
-  const localMinuteStr = now.toLocaleString('en-US', { 
-    timeZone: tz, 
-    minute: '2-digit' 
+  const localMinuteStr = now.toLocaleString('en-US', {
+    timeZone: tz,
+    minute: '2-digit',
   });
   return {
     hour: parseInt(localHourStr, 10),
-    minute: parseInt(localMinuteStr, 10)
+    minute: parseInt(localMinuteStr, 10),
   };
 }
 
@@ -116,25 +123,25 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const now = new Date();
-    
+
     try {
       let cursor: string | undefined;
       let list_complete = false;
       let totalEndpoints = 0;
       let executedBackups = 0;
-      
+
       do {
         const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
-        
+
         for (const key of list.keys) {
           const username = key.name.replace('user:', '');
           if (username.includes(':')) continue;
 
           const endpoints = await getBackupEndpoints(env, username);
           totalEndpoints += endpoints.length;
-          
+
           for (const endpoint of endpoints) {
             if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
 
@@ -152,8 +159,10 @@ export default {
         cursor = (list as any).cursor;
         list_complete = list.list_complete ?? false;
       } while (cursor && !list_complete);
-      
-      console.log(`[Cron Backup] Completed: ${executedBackups}/${totalEndpoints} endpoints checked`);
+
+      console.log(
+        `[Cron Backup] Completed: ${executedBackups}/${totalEndpoints} endpoints checked`
+      );
     } catch (err: any) {
       console.error(`[Cron Backup] Error: ${err.message}`, err.stack);
     }

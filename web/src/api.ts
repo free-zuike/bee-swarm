@@ -9,10 +9,12 @@ const BASE = '/api';
 async function handleResponseError(res: Response): Promise<Error> {
   let errorMsg = `请求失败 (${res.status})`;
   try {
-    const body = await res.json() as any;
+    const body = (await res.json()) as any;
     if (body.error) errorMsg = body.error;
     else if (body.message) errorMsg = body.message;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return new Error(errorMsg);
 }
 
@@ -27,7 +29,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 /** 带 Token 的请求 */
 async function tokenRequest<T>(url: string, token: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
-    ...(options?.headers as Record<string, string> || {}),
+    ...((options?.headers as Record<string, string>) || {}),
     'X-Token': token,
   };
   const res = await fetch(url, { ...options, headers });
@@ -41,7 +43,10 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
 // 公开接口
 // -------------------------------------------
 
-export async function register(email: string, password: string): Promise<{ success: boolean; message: string }> {
+export async function register(
+  email: string,
+  password: string
+): Promise<{ success: boolean; message: string }> {
   return request(`${BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +54,10 @@ export async function register(email: string, password: string): Promise<{ succe
   });
 }
 
-export async function login(email: string, password: string): Promise<{ success: boolean; message: string; email: string }> {
+export async function login(
+  email: string,
+  password: string
+): Promise<{ success: boolean; message: string; email: string }> {
   return request(`${BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -58,7 +66,10 @@ export async function login(email: string, password: string): Promise<{ success:
 }
 
 /** 获取访问 Token */
-export async function getToken(email: string, password: string): Promise<{
+export async function getToken(
+  email: string,
+  password: string
+): Promise<{
   token: string;
   refreshToken: string;
   expiresAt: number;
@@ -91,8 +102,16 @@ export async function getChannelsWithToken(token: string): Promise<{
   channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
   settings: ChannelSettings;
   definitions: Array<{
-    id: PushChannel; name: string; icon: string;
-    fields: Array<{ key: string; label: string; type: string; placeholder: string; required: boolean }>;
+    id: PushChannel;
+    name: string;
+    icon: string;
+    fields: Array<{
+      key: string;
+      label: string;
+      type: string;
+      placeholder: string;
+      required: boolean;
+    }>;
   }>;
 }> {
   return tokenRequest(`${BASE}/admin/channels`, token);
@@ -141,7 +160,10 @@ export async function getHistoryWithToken(token: string): Promise<{
   return tokenRequest(`${BASE}/admin/history`, token);
 }
 
-export async function getApiKeyWithToken(token: string, refresh?: boolean): Promise<{ apikey: string }> {
+export async function getApiKeyWithToken(
+  token: string,
+  refresh?: boolean
+): Promise<{ apikey: string }> {
   const url = refresh ? `${BASE}/apikey?refresh=true` : `${BASE}/apikey`;
   return tokenRequest(url, token);
 }
@@ -187,7 +209,10 @@ export async function getBackupEndpoints(token: string): Promise<{ endpoints: Ba
 }
 
 // 添加备份端
-export async function addBackupEndpoint(token: string, endpoint: Omit<BackupEndpoint, 'id'>): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
+export async function addBackupEndpoint(
+  token: string,
+  endpoint: Omit<BackupEndpoint, 'id'>
+): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -196,7 +221,11 @@ export async function addBackupEndpoint(token: string, endpoint: Omit<BackupEndp
 }
 
 // 更新备份端
-export async function updateBackupEndpoint(token: string, id: string, endpoint: Partial<BackupEndpoint>): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
+export async function updateBackupEndpoint(
+  token: string,
+  id: string,
+  endpoint: Partial<BackupEndpoint>
+): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}`, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -205,12 +234,19 @@ export async function updateBackupEndpoint(token: string, id: string, endpoint: 
 }
 
 // 删除备份端
-export async function deleteBackupEndpoint(token: string, id: string): Promise<{ success: boolean; message: string }> {
+export async function deleteBackupEndpoint(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}`, token, { method: 'DELETE' });
 }
 
 // 测试备份端连接
-export async function testBackupEndpoint(token: string, id: string, config?: any): Promise<{ success: boolean; message: string }> {
+export async function testBackupEndpoint(
+  token: string,
+  id: string,
+  config?: any
+): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/test`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -219,12 +255,19 @@ export async function testBackupEndpoint(token: string, id: string, config?: any
 }
 
 // 列出指定备份端的备份
-export async function listBackupsFromEndpoint(token: string, id: string): Promise<{ backups: Array<{ key: string; size: number; lastModified: string }> }> {
+export async function listBackupsFromEndpoint(
+  token: string,
+  id: string
+): Promise<{ backups: Array<{ key: string; size: number; lastModified: string }> }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backups`, token);
 }
 
 // 从指定备份端恢复
-export async function restoreBackupFromEndpoint(token: string, id: string, key: string): Promise<{ success: boolean; message: string }> {
+export async function restoreBackupFromEndpoint(
+  token: string,
+  id: string,
+  key: string
+): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/restore`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -233,7 +276,11 @@ export async function restoreBackupFromEndpoint(token: string, id: string, key: 
 }
 
 // 删除指定备份端的备份
-export async function deleteBackupFromEndpoint(token: string, id: string, key: string): Promise<{ success: boolean; message: string }> {
+export async function deleteBackupFromEndpoint(
+  token: string,
+  id: string,
+  key: string
+): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backups`, token, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
@@ -242,11 +289,16 @@ export async function deleteBackupFromEndpoint(token: string, id: string, key: s
 }
 
 // 手动触发所有启用的备份
-export async function backupAll(token: string): Promise<{ results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> }> {
+export async function backupAll(token: string): Promise<{
+  results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string }>;
+}> {
   return tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
 }
 
 // 手动触发单个备份端备份
-export async function backupSingleEndpoint(token: string, id: string): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
+export async function backupSingleEndpoint(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
 }

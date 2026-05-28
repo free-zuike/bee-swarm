@@ -44,7 +44,7 @@ export async function sendBark(
     }
 
     const res = await fetch(url.toString());
-    const data = await res.json() as { code: number; message: string };
+    const data = (await res.json()) as { code: number; message: string };
 
     if (data.code === 200) {
       return {

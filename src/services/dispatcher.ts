@@ -2,7 +2,15 @@
 // 推送调度器
 // 渠道配置按用户隔离，存储在 KV 中
 // ============================================
-import type { Env, PushPayload, PushChannel, ChannelResult, ChannelConfig, ChannelDefinition, ChannelSettings } from '../types';
+import type {
+  Env,
+  PushPayload,
+  PushChannel,
+  ChannelResult,
+  ChannelConfig,
+  ChannelDefinition,
+  ChannelSettings,
+} from '../types';
 import { sendWework } from './wework';
 import { sendDingtalk } from './dingtalk';
 import { sendFeishu } from './feishu';
@@ -17,7 +25,13 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     name: '企业微信',
     icon: '💼',
     fields: [
-      { key: 'webhook_url', label: 'Webhook URL', type: 'url', placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx', required: true },
+      {
+        key: 'webhook_url',
+        label: 'Webhook URL',
+        type: 'url',
+        placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx',
+        required: true,
+      },
     ],
   },
   {
@@ -25,7 +39,13 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     name: '钉钉',
     icon: '🅰️',
     fields: [
-      { key: 'webhook_url', label: 'Webhook URL', type: 'url', placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=xxx', required: true },
+      {
+        key: 'webhook_url',
+        label: 'Webhook URL',
+        type: 'url',
+        placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=xxx',
+        required: true,
+      },
       { key: 'secret', label: '加签密钥', type: 'text', placeholder: 'SEC...', required: false },
     ],
   },
@@ -34,7 +54,13 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     name: '飞书',
     icon: '🪶',
     fields: [
-      { key: 'webhook_url', label: 'Webhook URL', type: 'url', placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx', required: true },
+      {
+        key: 'webhook_url',
+        label: 'Webhook URL',
+        type: 'url',
+        placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx',
+        required: true,
+      },
     ],
   },
   {
@@ -42,8 +68,20 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     name: 'Telegram',
     icon: '✈️',
     fields: [
-      { key: 'bot_token', label: 'Bot Token', type: 'password', placeholder: '123456:ABC-DEF...', required: true },
-      { key: 'chat_id', label: 'Chat ID', type: 'text', placeholder: '你的 Chat ID', required: true },
+      {
+        key: 'bot_token',
+        label: 'Bot Token',
+        type: 'password',
+        placeholder: '123456:ABC-DEF...',
+        required: true,
+      },
+      {
+        key: 'chat_id',
+        label: 'Chat ID',
+        type: 'text',
+        placeholder: '你的 Chat ID',
+        required: true,
+      },
     ],
   },
   {
@@ -51,8 +89,20 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     name: 'Bark',
     icon: '📱',
     fields: [
-      { key: 'key', label: 'Bark Key', type: 'text', placeholder: 'https://api.day.app/xxx 中的 xxx', required: true },
-      { key: 'server', label: '服务器地址', type: 'url', placeholder: 'https://api.day.app（默认官方服务器）', required: false },
+      {
+        key: 'key',
+        label: 'Bark Key',
+        type: 'text',
+        placeholder: 'https://api.day.app/xxx 中的 xxx',
+        required: true,
+      },
+      {
+        key: 'server',
+        label: '服务器地址',
+        type: 'url',
+        placeholder: 'https://api.day.app（默认官方服务器）',
+        required: false,
+      },
     ],
   },
   {
@@ -61,7 +111,13 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     icon: '📢',
     fields: [
       { key: 'topic', label: '主题名称', type: 'text', placeholder: 'my-topic', required: true },
-      { key: 'server', label: '服务器地址', type: 'url', placeholder: 'https://ntfy.sh（默认官方服务器）', required: false },
+      {
+        key: 'server',
+        label: '服务器地址',
+        type: 'url',
+        placeholder: 'https://ntfy.sh（默认官方服务器）',
+        required: false,
+      },
     ],
   },
   {
@@ -69,14 +125,35 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
     name: '邮件',
     icon: '📧',
     fields: [
-      { key: 'api_key', label: 'Resend API Key', type: 'password', placeholder: 're_xxx', required: true },
-      { key: 'from', label: '发件人地址', type: 'text', placeholder: 'noreply@example.com', required: true },
-      { key: 'to', label: '收件人地址', type: 'text', placeholder: '多个用逗号分隔', required: true },
+      {
+        key: 'api_key',
+        label: 'Resend API Key',
+        type: 'password',
+        placeholder: 're_xxx',
+        required: true,
+      },
+      {
+        key: 'from',
+        label: '发件人地址',
+        type: 'text',
+        placeholder: 'noreply@example.com',
+        required: true,
+      },
+      {
+        key: 'to',
+        label: '收件人地址',
+        type: 'text',
+        placeholder: '多个用逗号分隔',
+        required: true,
+      },
     ],
   },
 ];
 
-export async function loadUserChannelSettings(username: string, env: Env): Promise<ChannelSettings> {
+export async function loadUserChannelSettings(
+  username: string,
+  env: Env
+): Promise<ChannelSettings> {
   const prefix = `user:${username}:ch:`;
   const list = await env.SUBSCRIPTIONS.list({ prefix });
   const settings: ChannelSettings = {};
@@ -116,7 +193,9 @@ export function isChannelEnabled(channelId: PushChannel, settings: ChannelSettin
   // 再检查必填字段是否已配置
   const def = CHANNEL_DEFINITIONS.find((c) => c.id === channelId);
   if (!def) return false;
-  return def.fields.filter((f) => f.required).every((f) => !!settings[`channel:${channelId}:${f.key}`]);
+  return def.fields
+    .filter((f) => f.required)
+    .every((f) => !!settings[`channel:${channelId}:${f.key}`]);
 }
 
 export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
@@ -128,7 +207,10 @@ export function getChannelConfigs(settings: ChannelSettings): ChannelConfig[] {
   }));
 }
 
-function buildChannelEnv(channelId: PushChannel, settings: ChannelSettings): Record<string, string> {
+function buildChannelEnv(
+  channelId: PushChannel,
+  settings: ChannelSettings
+): Record<string, string> {
   const prefix = `channel:${channelId}:`;
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(settings)) {
@@ -155,7 +237,13 @@ export async function dispatchPush(
   const targetChannels = CHANNEL_DEFINITIONS.filter((ch) => channels.includes(ch.id));
 
   if (targetChannels.length === 0) {
-    return [{ channel: 'wework' as PushChannel, success: false, message: '没有可用的推送渠道，请先在设置中配置' }];
+    return [
+      {
+        channel: 'wework' as PushChannel,
+        success: false,
+        message: '没有可用的推送渠道，请先在设置中配置',
+      },
+    ];
   }
 
   // 检查是否有已启用且已配置的渠道
@@ -168,26 +256,29 @@ export async function dispatchPush(
     return [{ channel: 'wework' as PushChannel, success: false, message: '没有已启用的推送渠道' }];
   }
 
-  const results = await Promise.all(enabledChannels.map((ch) => sendToChannel(ch.id, payload, settings)));
+  const results = await Promise.all(
+    enabledChannels.map((ch) => sendToChannel(ch.id, payload, settings))
+  );
 
   // 保存推送记录
   const recordKey = `user:${username}:push:${Date.now()}`;
-  await env.SUBSCRIPTIONS.put(recordKey, JSON.stringify({
-    time: new Date().toISOString(),
-    title: payload.title,
-    body: payload.body,
-    url: payload.url,
-    results: results,
-  }));
+  await env.SUBSCRIPTIONS.put(
+    recordKey,
+    JSON.stringify({
+      time: new Date().toISOString(),
+      title: payload.title,
+      body: payload.body,
+      url: payload.url,
+      results: results,
+    })
+  );
 
   // 清理旧记录，只保留最近 100 条
   try {
     const prefix = `user:${username}:push:`;
     const list = await env.SUBSCRIPTIONS.list({ prefix });
     if (list.keys.length > 100) {
-      const keysToDelete = list.keys
-        .sort((a, b) => b.name.localeCompare(a.name))
-        .slice(100);
+      const keysToDelete = list.keys.sort((a, b) => b.name.localeCompare(a.name)).slice(100);
       for (const key of keysToDelete) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
@@ -217,13 +308,21 @@ async function sendToChannel(
 ): Promise<ChannelResult> {
   const channelEnv = buildChannelEnv(channel, settings);
   switch (channel) {
-    case 'wework': return sendWework(payload, channelEnv);
-    case 'dingtalk': return sendDingtalk(payload, channelEnv);
-    case 'feishu': return sendFeishu(payload, channelEnv);
-    case 'telegram': return sendTelegram(payload, channelEnv);
-    case 'bark': return sendBark(payload, channelEnv);
-    case 'ntfy': return sendNtfy(payload, channelEnv);
-    case 'email': return sendEmail(payload, channelEnv);
-    default: return { channel, success: false, message: `未知渠道: ${channel}` };
+    case 'wework':
+      return sendWework(payload, channelEnv);
+    case 'dingtalk':
+      return sendDingtalk(payload, channelEnv);
+    case 'feishu':
+      return sendFeishu(payload, channelEnv);
+    case 'telegram':
+      return sendTelegram(payload, channelEnv);
+    case 'bark':
+      return sendBark(payload, channelEnv);
+    case 'ntfy':
+      return sendNtfy(payload, channelEnv);
+    case 'email':
+      return sendEmail(payload, channelEnv);
+    default:
+      return { channel, success: false, message: `未知渠道: ${channel}` };
   }
 }

@@ -38,8 +38,7 @@ export async function sendEmail(
       .join('\n');
 
     // 构建 HTML 邮件内容
-    const bodyHtml = escapeHtml(payload.body || '')
-      .replace(/\n/g, '<br>'); // 换行转 <br>
+    const bodyHtml = escapeHtml(payload.body || '').replace(/\n/g, '<br>'); // 换行转 <br>
 
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, sans-serif;">
@@ -57,19 +56,19 @@ export async function sendEmail(
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.api_key}`,
+        Authorization: `Bearer ${env.api_key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         from: env.from,
-        to: env.to.split(',').map((e) => e.trim()),  // 支持多个收件人
+        to: env.to.split(',').map((e) => e.trim()), // 支持多个收件人
         subject: payload.title,
         html,
         text, // 纯文本 fallback
       }),
     });
 
-    const data = await res.json() as { id?: string; error?: { message: string } };
+    const data = (await res.json()) as { id?: string; error?: { message: string } };
 
     if (res.ok && data.id) {
       return {
