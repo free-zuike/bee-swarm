@@ -455,17 +455,17 @@ defineExpose({
             <h4>{{ t('label.s3_config') }}</h4>
             <div class="form-row">
               <div class="form-group">
-                <label>Endpoint *</label>
+                <label>{{ t('label.s3_endpoint') }}</label>
                 <input v-model="editingEndpoint.config.endpoint" placeholder="https://s3.example.com" />
               </div>
               <div class="form-group">
-                <label>Region</label>
+                <label>{{ t('label.s3_region') }}</label>
                 <input v-model="editingEndpoint.config.region" placeholder="auto" />
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Access Key ID *</label>
+                <label>{{ t('label.s3_access_key') }}</label>
                 <input v-model="editingEndpoint.config.accessKeyId" placeholder="AKIA..." />
               </div>
               <div class="form-group">
@@ -475,7 +475,7 @@ defineExpose({
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Bucket *</label>
+                <label>{{ t('label.s3_bucket') }}</label>
                 <input v-model="editingEndpoint.config.bucket" placeholder="my-backup-bucket" />
               </div>
               <div class="form-group">
@@ -497,7 +497,7 @@ defineExpose({
             <h4>{{ t('label.webdav_config') }}</h4>
             <div class="form-row">
               <div class="form-group">
-                <label>URL *</label>
+                <label>{{ t('label.webdav_url') }}</label>
                 <input v-model="editingEndpoint.config.url" placeholder="https://dav.example.com/backup" />
               </div>
             </div>
