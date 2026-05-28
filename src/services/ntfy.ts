@@ -64,11 +64,11 @@ export async function sendNtfy(
       success: false,
       message: `ntfy 推送失败: ${res.status} ${text || res.statusText}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'ntfy',
       success: false,
-      message: `ntfy 推送异常: ${err.message}`,
+      message: `ntfy 推送异常: ${(err as Error).message}`,
     };
   }
 }

@@ -9,7 +9,7 @@ const BASE = '/api';
 async function handleResponseError(res: Response): Promise<Error> {
   let errorMsg = `请求失败 (${res.status})`;
   try {
-    const body = (await res.json()) as any;
+    const body = (await res.json()) as { error?: string; message?: string };
     if (body.error) errorMsg = body.error;
     else if (body.message) errorMsg = body.message;
   } catch {
@@ -245,7 +245,7 @@ export async function deleteBackupEndpoint(
 export async function testBackupEndpoint(
   token: string,
   id: string,
-  config?: any
+  config?: { type?: string; config?: Record<string, unknown> }
 ): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/test`, token, {
     method: 'POST',

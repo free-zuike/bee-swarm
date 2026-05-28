@@ -11,6 +11,17 @@ import type {
   ChannelDefinition,
   ChannelSettings,
 } from '../types';
+
+interface PushHistoryRecord {
+  id: string;
+  title: string;
+  body?: string;
+  channels: string[];
+  url?: string;
+  status: string;
+  results: ChannelResult[];
+  createdAt: string;
+}
 import { sendWework } from './wework';
 import { sendDingtalk } from './dingtalk';
 import { sendFeishu } from './feishu';
@@ -290,13 +301,17 @@ export async function dispatchPush(
   return results;
 }
 
-export async function getPushHistory(username: string, env: Env, limit = 50): Promise<any[]> {
+export async function getPushHistory(
+  username: string,
+  env: Env,
+  limit = 50
+): Promise<PushHistoryRecord[]> {
   const prefix = `user:${username}:push:`;
   const list = await env.SUBSCRIPTIONS.list({ prefix, limit: limit });
-  const records: any[] = [];
+  const records: PushHistoryRecord[] = [];
   for (const key of list.keys.sort((a, b) => b.name.localeCompare(a.name))) {
     const data = await env.SUBSCRIPTIONS.get(key.name);
-    if (data) records.push(JSON.parse(data));
+    if (data) records.push(JSON.parse(data) as PushHistoryRecord);
   }
   return records;
 }

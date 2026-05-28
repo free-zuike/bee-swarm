@@ -63,11 +63,11 @@ export async function sendTelegram(
       success: false,
       message: `Telegram 推送失败: ${data.description}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'telegram',
       success: false,
-      message: `Telegram 推送异常: ${err.message}`,
+      message: `Telegram 推送异常: ${(err as Error).message}`,
     };
   }
 }

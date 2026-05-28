@@ -2,6 +2,11 @@ import type { Context, Next } from 'hono';
 import type { Env } from '../types';
 import { z, type ZodSchema, type ZodIssue } from 'zod';
 
+interface ValidatedBodyContext {
+  validatedBody?: unknown;
+  validatedQuery?: unknown;
+}
+
 function formatZodErrors(errors: ZodIssue[]) {
   return errors.map((err) => ({
     field: err.path.join('.'),
@@ -27,7 +32,7 @@ export function validateBody<T>(schema: ZodSchema<T>) {
         );
       }
 
-      (c as any).validatedBody = result.data;
+      (c as Context<{ Bindings: Env }> & ValidatedBodyContext).validatedBody = result.data;
       await next();
     } catch (err) {
       const zodError = err as unknown as { errors: ZodIssue[] };
@@ -71,7 +76,7 @@ export function validateQuery<T>(schema: ZodSchema<T>) {
         );
       }
 
-      (c as any).validatedQuery = result.data;
+      (c as Context<{ Bindings: Env }> & ValidatedBodyContext).validatedQuery = result.data;
       await next();
     } catch (err) {
       const zodError = err as unknown as { errors: ZodIssue[] };

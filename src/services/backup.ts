@@ -144,7 +144,7 @@ export async function exportAllData(env: Env, username: string): Promise<BackupD
       const value = await env.SUBSCRIPTIONS.get(key.name);
       if (value !== null) data[key.name] = value;
     }
-    cursor = (list as any).cursor;
+    cursor = (list as { cursor?: string }).cursor;
   } while (cursor && !listComplete);
   return { timestamp: new Date().toISOString(), version: '1.0', username, data };
 }
@@ -337,8 +337,12 @@ export async function uploadBackupToEndpoint(
     }
 
     return { success: true, message: '备份成功', endpointId: endpoint.id };
-  } catch (err: any) {
-    return { success: false, message: '备份失败: ' + err.message, endpointId: endpoint.id };
+  } catch (err) {
+    return {
+      success: false,
+      message: '备份失败: ' + (err as Error).message,
+      endpointId: endpoint.id,
+    };
   }
 }
 
@@ -578,8 +582,8 @@ export async function listBackupsFromEndpoint(
       return backups.sort((a, b) => b.key.localeCompare(a.key));
     }
     return [];
-  } catch (err: any) {
-    throw new Error('列出备份失败: ' + err.message);
+  } catch (err) {
+    throw new Error('列出备份失败: ' + (err as Error).message);
   }
 }
 
@@ -625,7 +629,7 @@ export async function restoreBackupFromEndpoint(
       for (const key of list.keys) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
-      cursor = (list as any).cursor;
+      cursor = (list as { cursor?: string }).cursor;
       list_complete = list.list_complete ?? false;
     } while (cursor && !list_complete);
 
@@ -636,15 +640,15 @@ export async function restoreBackupFromEndpoint(
         await env.SUBSCRIPTIONS.put(key, value);
       }
       return { success: true, message: '恢复成功: 已恢复 ' + entries.length + ' 条数据' };
-    } catch (err: any) {
+    } catch (err) {
       // 恢复写入失败，尝试恢复备份端配置
       if (currentEndpointsStr) {
         await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
       }
-      return { success: false, message: '恢复失败（已回滚备份端配置）: ' + err.message };
+      return { success: false, message: '恢复失败（已回滚备份端配置）: ' + (err as Error).message };
     }
-  } catch (err: any) {
-    return { success: false, message: '恢复失败: ' + err.message };
+  } catch (err) {
+    return { success: false, message: '恢复失败: ' + (err as Error).message };
   }
 }
 
@@ -673,8 +677,8 @@ export async function deleteBackupFromEndpoint(
       return { success: false, message: '删除失败 (' + response.status + ')' };
     }
     return { success: true, message: '删除成功' };
-  } catch (err: any) {
-    return { success: false, message: '删除失败: ' + err.message };
+  } catch (err) {
+    return { success: false, message: '删除失败: ' + (err as Error).message };
   }
 }
 
@@ -710,8 +714,8 @@ export async function testBackupEndpoint(
     }
 
     return { success: false, message: '不支持的备份类型' };
-  } catch (err: any) {
-    return { success: false, message: '连接异常: ' + err.message };
+  } catch (err) {
+    return { success: false, message: '连接异常: ' + (err as Error).message };
   }
 }
 

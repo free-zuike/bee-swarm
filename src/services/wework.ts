@@ -70,11 +70,11 @@ export async function sendWework(
       success: false,
       message: `企业微信推送失败: ${errmsg}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'wework',
       success: false,
-      message: `企业微信推送异常: ${err.message}`,
+      message: `企业微信推送异常: ${(err as Error).message}`,
     };
   }
 }

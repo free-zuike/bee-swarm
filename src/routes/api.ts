@@ -29,7 +29,14 @@ import {
   executeAllBackups,
   migrateOldS3Config,
   type BackupEndpoint,
+  type S3Config,
+  type WebDAVConfig,
 } from '../services/backup';
+
+type ValidatedContext = {
+  validatedBody?: unknown;
+  validatedQuery?: unknown;
+};
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
@@ -40,7 +47,7 @@ api.use('/*', cors());
 // ============================================
 
 api.post('/register', validateBody(schemas.register), async (c) => {
-  const body = (c as any).validatedBody as { email: string; password: string };
+  const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
   const { email, password } = body;
 
   const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
@@ -55,7 +62,7 @@ api.post('/register', validateBody(schemas.register), async (c) => {
 });
 
 api.post('/login', validateBody(schemas.login), async (c) => {
-  const body = (c as any).validatedBody as { email: string; password: string };
+  const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
   const { email, password } = body;
 
   const userData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
@@ -133,7 +140,7 @@ api.get('/apikey', async (c) => {
 
 /** 使用用户名密码获取 API Key（POST 方式，更安全） */
 api.post('/apikey', validateBody(schemas.apikey), async (c) => {
-  const body = (c as any).validatedBody as {
+  const body = (c as ValidatedContext).validatedBody as {
     username: string;
     password: string;
     refresh?: boolean;
@@ -178,7 +185,7 @@ api.post('/apikey', validateBody(schemas.apikey), async (c) => {
 });
 
 api.post('/token', validateBody(schemas.token), async (c) => {
-  const body = (c as any).validatedBody as { email: string; password: string };
+  const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
   const { email, password } = body;
 
   const userData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
@@ -214,7 +221,7 @@ api.post('/token', validateBody(schemas.token), async (c) => {
 });
 
 api.post('/refresh', validateBody(schemas.refresh), async (c) => {
-  const body = (c as any).validatedBody as { refreshToken: string };
+  const body = (c as ValidatedContext).validatedBody as { refreshToken: string };
   const { refreshToken } = body;
 
   const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${refreshToken}`);
@@ -365,8 +372,6 @@ adminApi.post('/backup-endpoints', async (c) => {
   const username = c.get('username');
   const body = await c.req.json<BackupEndpoint>();
 
-  console.log(`[Add Endpoint] Adding endpoint: ${body.name}, type=${body.type}`);
-
   if (!body.name || !body.type) {
     return c.json({ error: '请提供名称和类型', code: 'VALIDATION_ERROR' }, 400);
   }
@@ -396,8 +401,6 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json<Partial<BackupEndpoint>>();
 
-  console.log(`[Update Endpoint] id=${id}`);
-
   const endpoints = await getBackupEndpoints(c.env, username);
   const index = endpoints.findIndex((e) => e.id === id);
   if (index === -1) {
@@ -408,23 +411,22 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   // 使用 'in' 操作符检查属性是否存在，而不是检查值是否falsy
   const existingConfig = endpoints[index].config;
   if (body.config && existingConfig) {
-    // 检查 secretAccessKey 是否存在于原配置中
-    const hasOriginalSecret =
-      'secretAccessKey' in existingConfig && (existingConfig as any).secretAccessKey;
-    const hasNewSecret =
-      'secretAccessKey' in (body.config || {}) && (body.config as any).secretAccessKey;
+    const existingS3 = existingConfig as Partial<S3Config>;
+    const existingWebDAV = existingConfig as Partial<WebDAVConfig>;
+    const newConfig = body.config as Partial<S3Config & WebDAVConfig>;
+
+    const hasOriginalSecret = !!existingS3.secretAccessKey;
+    const hasNewSecret = !!newConfig.secretAccessKey;
 
     if (hasOriginalSecret && !hasNewSecret) {
-      // 原配置有密钥，新配置没有，保留原密钥
-      (body.config as any).secretAccessKey = (existingConfig as any).secretAccessKey;
+      newConfig.secretAccessKey = existingS3.secretAccessKey;
     }
 
-    // 同样处理 password
-    const hasOriginalPassword = 'password' in existingConfig && (existingConfig as any).password;
-    const hasNewPassword = 'password' in (body.config || {}) && (body.config as any).password;
+    const hasOriginalPassword = !!existingWebDAV.password;
+    const hasNewPassword = !!newConfig.password;
 
     if (hasOriginalPassword && !hasNewPassword) {
-      (body.config as any).password = (existingConfig as any).password;
+      newConfig.password = existingWebDAV.password;
     }
   }
 
@@ -457,8 +459,6 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({}));
 
-  console.log(`[Test Endpoint] id=${id}, type=${body.type}`);
-
   let endpoint;
 
   if (id === 'new') {
@@ -475,7 +475,6 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
       schedule: { enabled: false, interval: 24, startTime: '02:00' },
       retention: 30,
     };
-    console.log(`[Test Endpoint] Testing NEW config, type=${endpoint.type}`);
   } else {
     // 测试已保存的配置 - 从 KV 读取完整配置，忽略请求体
     const endpoints = await getBackupEndpoints(c.env, username);
@@ -485,9 +484,9 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
     }
 
     // 检查是否有密钥
-    const hasSecret =
-      (endpoint.config as any)?.secretAccessKey || (endpoint.config as any)?.password;
-    console.log(`[Test Endpoint] Testing SAVED config, hasSecret=${!!hasSecret}`);
+    const s3Config = endpoint.config as Partial<S3Config>;
+    const webdavConfig = endpoint.config as Partial<WebDAVConfig>;
+    const hasSecret = !!s3Config.secretAccessKey || !!webdavConfig.password;
 
     if (!hasSecret) {
       return c.json({
@@ -498,7 +497,6 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   }
 
   const result = await testBackupEndpoint(endpoint);
-  console.log(`[Test Endpoint] Result: success=${result.success}`);
   return c.json(result);
 });
 
@@ -516,8 +514,8 @@ adminApi.get('/backup-endpoints/:id/backups', async (c) => {
   try {
     const list = await listBackupsFromEndpoint(c.env, username, endpoint);
     return c.json({ backups: list });
-  } catch (err: any) {
-    return c.json({ error: err.message, code: 'INTERNAL_ERROR' }, 500);
+  } catch (err) {
+    return c.json({ error: (err as Error).message, code: 'INTERNAL_ERROR' }, 500);
   }
 });
 
@@ -640,10 +638,10 @@ adminApi.get('/test/bark', async (c) => {
       message: `Bark 测试失败: ${data.message}`,
       code: data.code,
     });
-  } catch (err: any) {
+  } catch (err) {
     return c.json({
       success: false,
-      message: `请求异常: ${err.message}`,
+      message: `请求异常: ${(err as Error).message}`,
     });
   }
 });

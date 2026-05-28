@@ -72,7 +72,8 @@ app.onError((err, c) => {
   if ('statusCode' in err && typeof err.statusCode === 'number') {
     logError(err, 'Application Error');
     const response = createErrorResponse(err as Error, requestId);
-    return c.json(response, (err as any).statusCode);
+    const statusCode = (err as { statusCode: number }).statusCode as 400 | 401 | 403 | 404 | 500;
+    return c.json(response, statusCode);
   }
 
   logError(err, 'Unexpected Error');
@@ -129,8 +130,6 @@ export default {
     try {
       let cursor: string | undefined;
       let list_complete = false;
-      let totalEndpoints = 0;
-      let executedBackups = 0;
 
       do {
         const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
@@ -140,7 +139,6 @@ export default {
           if (username.includes(':')) continue;
 
           const endpoints = await getBackupEndpoints(env, username);
-          totalEndpoints += endpoints.length;
 
           for (const endpoint of endpoints) {
             if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
@@ -150,21 +148,15 @@ export default {
             const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
             if (localHour === startHour && Math.abs(localMinute - startMinute) < 5) {
-              const result = await uploadBackupToEndpoint(env, username, endpoint);
-              executedBackups++;
-              console.log(`[Cron Backup] ${username}/${endpoint.name}: ${result.message}`);
+              await uploadBackupToEndpoint(env, username, endpoint);
             }
           }
         }
-        cursor = (list as any).cursor;
+        cursor = (list as { cursor?: string }).cursor;
         list_complete = list.list_complete ?? false;
       } while (cursor && !list_complete);
-
-      console.log(
-        `[Cron Backup] Completed: ${executedBackups}/${totalEndpoints} endpoints checked`
-      );
-    } catch (err: any) {
-      console.error(`[Cron Backup] Error: ${err.message}`, err.stack);
+    } catch (err) {
+      console.error(`[Cron Backup] Error: ${(err as Error).message}`, (err as Error).stack);
     }
   },
 };

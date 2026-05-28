@@ -98,11 +98,11 @@ export async function sendDingtalk(
       success: false,
       message: `钉钉推送失败: ${data.errmsg}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'dingtalk',
       success: false,
-      message: `钉钉推送异常: ${err.message}`,
+      message: `钉钉推送异常: ${(err as Error).message}`,
     };
   }
 }

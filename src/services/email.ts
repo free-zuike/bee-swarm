@@ -83,11 +83,11 @@ export async function sendEmail(
       success: false,
       message: `邮件发送失败: ${data.error?.message || '未知错误'}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'email',
       success: false,
-      message: `邮件发送异常: ${err.message}`,
+      message: `邮件发送异常: ${(err as Error).message}`,
     };
   }
 }
