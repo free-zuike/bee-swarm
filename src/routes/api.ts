@@ -334,15 +334,7 @@ adminApi.post('/push', async (c) => {
     return c.json({ error: '请输入标题', code: 'VALIDATION_ERROR' }, 400);
   }
 
-  const startTime = Date.now();
   const results = await dispatchPush(body, body.channels, username, c.env);
-  const elapsed = Date.now() - startTime;
-
-  // 记录推送统计数据
-  const metrics = new MetricsCollector(c.env, username);
-  for (const result of results) {
-    await metrics.recordPush(result.channel, result.success, elapsed);
-  }
 
   const successCount = results.filter((r) => r.success).length;
   const failedCount = results.filter((r) => !r.success).length;

@@ -395,6 +395,17 @@ export async function dispatchPushWithOptions(
     })
   );
 
+  // 记录推送统计数据
+  try {
+    const { MetricsCollector } = await import('./metrics');
+    const metrics = new MetricsCollector(env, username);
+    for (const result of results) {
+      await metrics.recordPush(result.channel, result.success, 0);
+    }
+  } catch {
+    // 统计记录失败不影响主流程
+  }
+
   try {
     const prefix = `user:${username}:push:`;
     const list = await env.SUBSCRIPTIONS.list({ prefix });
