@@ -893,6 +893,7 @@ defineExpose({
   display: flex;
   gap: 16px;
   margin-bottom: 12px;
+  min-height: 70px;
 }
 
 .form-row .form-group {
@@ -912,6 +913,11 @@ defineExpose({
   color: var(--text-primary, #4b5563);
   margin-bottom: 6px;
   display: block;
+  height: 20px;
+  line-height: 20px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .endpoint-form .form-group input,
