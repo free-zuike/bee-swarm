@@ -778,6 +778,9 @@ watch(showSettings, (val, oldVal) => {
   padding: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: background 0.3s;
+  height: 52px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .tab-nav.dark {
@@ -798,6 +801,11 @@ watch(showSettings, (val, oldVal) => {
   height: 40px;
   line-height: 20px;
   box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tab-btn.dark {
