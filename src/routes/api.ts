@@ -15,7 +15,11 @@ import {
   saveUserChannelSetting,
   CHANNEL_DEFINITIONS,
   getPushHistory,
+  deletePushHistory,
+  healthCheckChannel,
 } from '../services/dispatcher';
+import { PushService } from '../services/push';
+import { MetricsCollector } from '../services/metrics';
 import {
   uploadBackupToEndpoint,
   listBackupsFromEndpoint,
@@ -644,6 +648,253 @@ adminApi.get('/test/bark', async (c) => {
       message: `请求异常: ${(err as Error).message}`,
     });
   }
+});
+
+// ============================================
+// 渠道管理
+// ============================================
+
+/** 渠道健康检查 */
+adminApi.get('/channels/health', async (c) => {
+  const username = c.get('username');
+  const channelId = c.req.query('channel');
+
+  const settings = await loadUserChannelSettings(username, c.env);
+
+  if (channelId) {
+    const result = await healthCheckChannel(channelId as PushChannel, settings);
+    return c.json(result);
+  }
+
+  const results = await Promise.all(
+    CHANNEL_DEFINITIONS.map((ch) => healthCheckChannel(ch.id, settings))
+  );
+  return c.json({ channels: results });
+});
+
+/** 删除推送历史 */
+adminApi.delete('/history', async (c) => {
+  const username = c.get('username');
+  await deletePushHistory(username, c.env);
+  return c.json({ success: true, message: '推送历史已清除' });
+});
+
+// ============================================
+// 模板管理
+// ============================================
+
+/** 获取所有模板 */
+adminApi.get('/templates', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const templates = await pushService.getTemplates();
+  return c.json({ templates });
+});
+
+/** 创建模板 */
+adminApi.post('/templates', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    name: string;
+    title: string;
+    content: string;
+    channels?: PushChannel[];
+    url?: string;
+    imageUrl?: string;
+    useMarkdown?: boolean;
+  };
+
+  if (!body.name || !body.title) {
+    return c.json({ error: '模板名称和标题不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const template = await pushService.saveTemplate({
+    name: body.name,
+    title: body.title,
+    content: body.content || '',
+    channels: body.channels,
+    url: body.url,
+    imageUrl: body.imageUrl,
+    useMarkdown: body.useMarkdown,
+  });
+
+  return c.json({ success: true, template });
+});
+
+/** 更新模板 */
+adminApi.put('/templates/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as Partial<{
+    name: string;
+    title: string;
+    content: string;
+    channels: PushChannel[];
+    url: string;
+    imageUrl: string;
+    useMarkdown: boolean;
+  }>;
+
+  const pushService = new PushService(c.env, username);
+  const template = await pushService.updateTemplate(id, body);
+
+  if (!template) {
+    return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, template });
+});
+
+/** 删除模板 */
+adminApi.delete('/templates/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const deleted = await pushService.deleteTemplate(id);
+
+  if (!deleted) {
+    return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, message: '模板已删除' });
+});
+
+// ============================================
+// 渠道分组管理
+// ============================================
+
+/** 获取所有分组 */
+adminApi.get('/groups', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const groups = await pushService.getChannelGroups();
+  return c.json({ groups });
+});
+
+/** 创建分组 */
+adminApi.post('/groups', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { name: string; channels: PushChannel[] };
+
+  if (!body.name || !body.channels?.length) {
+    return c.json({ error: '分组名称和渠道不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const group = await pushService.saveChannelGroup({
+    name: body.name,
+    channels: body.channels,
+  });
+
+  return c.json({ success: true, group });
+});
+
+/** 删除分组 */
+adminApi.delete('/groups/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const deleted = await pushService.deleteChannelGroup(id);
+
+  if (!deleted) {
+    return c.json({ error: '分组不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, message: '分组已删除' });
+});
+
+// ============================================
+// 定时推送管理
+// ============================================
+
+/** 获取定时推送列表 */
+adminApi.get('/scheduled', async (c) => {
+  const username = c.get('username');
+  const status = c.req.query('status') as
+    | 'pending'
+    | 'processing'
+    | 'completed'
+    | 'failed'
+    | undefined;
+
+  const pushService = new PushService(c.env, username);
+  const pushes = await pushService.getScheduledPushes(status);
+  return c.json({ scheduled: pushes });
+});
+
+/** 创建定时推送 */
+adminApi.post('/scheduled', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    title: string;
+    content?: string;
+    channels: PushChannel[];
+    url?: string;
+    scheduledAt: string;
+    templateId?: string;
+  };
+
+  if (!body.title || !body.scheduledAt || !body.channels?.length) {
+    return c.json({ error: '标题、推送时间和渠道不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const scheduledTime = new Date(body.scheduledAt);
+  if (isNaN(scheduledTime.getTime())) {
+    return c.json({ error: '无效的定时时间', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  if (scheduledTime <= new Date()) {
+    return c.json({ error: '定时时间必须是将来的时间', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const push = await pushService.createScheduledPush({
+    title: body.title,
+    content: body.content || '',
+    channels: body.channels,
+    url: body.url,
+    scheduledAt: body.scheduledAt,
+    templateId: body.templateId,
+  });
+
+  return c.json({ success: true, scheduled: push });
+});
+
+/** 取消定时推送 */
+adminApi.delete('/scheduled/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const cancelled = await pushService.cancelScheduledPush(id);
+
+  if (!cancelled) {
+    return c.json({ error: '定时推送不存在或已执行', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, message: '定时推送已取消' });
+});
+
+// ============================================
+// 推送统计
+// ============================================
+
+/** 获取推送统计 */
+adminApi.get('/stats', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const stats = await pushService.getPushStats();
+  return c.json(stats);
+});
+
+/** 获取会话指标 */
+adminApi.get('/metrics', async (c) => {
+  const username = c.get('username');
+  const metrics = new MetricsCollector(c.env, username);
+  return c.json(metrics.getSessionMetrics());
 });
 
 api.route('/admin', adminApi);
