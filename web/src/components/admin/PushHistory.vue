@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { t } from '@/i18n';
 import type { ChannelConfig } from '@/types';
 
 interface HistoryRecord {
@@ -18,20 +20,25 @@ const props = defineProps<{
   loading?: boolean;
   channels: ChannelConfig[];
 }>();
+
+const locale = computed(() => {
+  const lang = localStorage.getItem('bee_swarm_locale') || 'zh';
+  return lang === 'zh' ? 'zh-CN' : 'en-US';
+});
 </script>
 
 <template>
   <div class="tab-content">
     <div class="panel">
-      <h2>📜 推送历史</h2>
+      <h2>📜 {{ t('label.push_history') }}</h2>
 
       <div v-if="loading" class="loading-placeholder">
         <div class="loading-spinner"></div>
-        <p>加载中...</p>
+        <p>{{ t('label.loading') }}</p>
       </div>
 
       <div v-else-if="history.length === 0" class="empty">
-        <p>暂无推送记录</p>
+        <p>{{ t('label.no_history') }}</p>
       </div>
 
       <div v-else class="history-list">
@@ -42,7 +49,7 @@ const props = defineProps<{
         >
           <div class="history-header">
             <div class="history-title">{{ record.title }}</div>
-            <div class="history-time">{{ new Date(record.time).toLocaleString('zh-CN') }}</div>
+            <div class="history-time">{{ new Date(record.time).toLocaleString(locale) }}</div>
           </div>
           <div v-if="record.body" class="history-body">{{ record.body }}</div>
           <div v-if="record.url" class="history-url">
@@ -56,7 +63,7 @@ const props = defineProps<{
               :class="result.success ? 'success' : 'error'"
             >
               <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
-              <span class="result-channel">{{ channels.find((c) => c.id === result.channel)?.icon || '' }} {{ result.channel }}</span>
+              <span class="result-channel">{{ channels.find((c) => c.id === result.channel)?.icon || '' }} {{ channels.find((c) => c.id === result.channel)?.name || result.channel }}</span>
               <span class="result-message">{{ result.message }}</span>
             </div>
           </div>

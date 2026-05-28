@@ -3,6 +3,7 @@
 // 推送表单组件
 // ============================================
 import { ref, computed } from 'vue';
+import { t } from '@/i18n';
 import type { ChannelConfig, PushChannel, PushResult } from '@/types';
 
 const props = defineProps<{
@@ -42,7 +43,7 @@ function toggleChannel(ch: ChannelConfig) {
 
 function doPush() {
   if (!pushTitle.value.trim()) {
-    alert('请输入标题');
+    alert(t('error.required', { field: t('label.title') }));
     return;
   }
   const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
@@ -51,7 +52,7 @@ function doPush() {
 
 function isNoChannelSelectedError(results: PushResult[]): boolean {
   if (results.length === 0) return false;
-  return results.every(r => !r.success && r.message === '未选择推送渠道');
+  return results.every(r => !r.success && r.message === t('error.no_channel_selected'));
 }
 </script>
 
@@ -59,20 +60,20 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   <div class="tab-content">
     <div class="stats">
       <div class="stat-card">
-        <div class="label">已启用渠道</div>
+        <div class="label">{{ t('label.enabled_channels') }}</div>
         <div class="value">{{ enabledChannelCount }}</div>
       </div>
       <div class="stat-card">
-        <div class="label">最近推送</div>
+        <div class="label">{{ t('label.last_push') }}</div>
         <div class="value">{{ lastPushTime || '-' }}</div>
       </div>
     </div>
 
     <div class="panel">
-      <h2>📤 发送推送通知</h2>
+      <h2>📤 {{ t('label.push_notification') }}</h2>
 
       <div class="form-group">
-        <label>选择推送渠道</label>
+        <label>{{ t('label.select_channels') }}</label>
         <div class="channel-grid">
           <div
             v-for="ch in enabledChannels"
@@ -85,31 +86,31 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
             <span class="ch-name">{{ ch.name }}</span>
           </div>
         </div>
-        <p class="hint">点击选择/取消。不选择则不推送。</p>
+        <p class="hint">{{ t('hint.channel_selection') }}</p>
       </div>
 
       <div class="form-group">
-        <label>标题 *</label>
-        <input v-model="pushTitle" type="text" placeholder="通知标题" />
+        <label>{{ t('label.title') }} *</label>
+        <input v-model="pushTitle" type="text" :placeholder="t('placeholder.title')" />
       </div>
       <div class="form-group">
-        <label>内容</label>
-        <textarea v-model="pushBody" placeholder="通知内容..."></textarea>
+        <label>{{ t('label.content') }}</label>
+        <textarea v-model="pushBody" :placeholder="t('placeholder.content')"></textarea>
       </div>
       <div class="form-group">
-        <label>跳转 URL（可选）</label>
+        <label>{{ t('label.url') }} ({{ t('label.optional') }})</label>
         <input v-model="pushUrl" type="url" placeholder="https://example.com" />
       </div>
 
       <button class="btn btn-primary" :disabled="isPushing" @click="doPush">
-        🚀 发送推送
+        🚀 {{ t('button.push') }}
       </button>
-      <button class="btn btn-secondary" @click="$emit('refresh')">刷新渠道</button>
+      <button class="btn btn-secondary" @click="$emit('refresh')">{{ t('button.refresh_channels') }}</button>
 
       <div v-if="pushResults?.length" class="result-list">
         <template v-if="isNoChannelSelectedError(pushResults)">
           <div class="result-item error">
-            <span>⚠️ 未选择任何推送渠道，请先选择后再推送</span>
+            <span>⚠️ {{ t('error.no_channel_selected_full') }}</span>
           </div>
         </template>
         <template v-else>

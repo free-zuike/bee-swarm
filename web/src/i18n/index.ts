@@ -87,7 +87,19 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.no_history': '暂无推送历史',
     'button.clear_history': '清空历史',
     'confirm.clear_history': '确定要清空所有推送历史吗？',
-    'label.loading': '加载中...'
+    'label.loading': '加载中...',
+    'label.enabled_channels': '已启用渠道',
+    'label.push_notification': '发送推送通知',
+    'label.select_channels': '选择推送渠道',
+    'label.optional': '可选',
+    'label.url': '跳转 URL',
+    'hint.channel_selection': '点击选择/取消。不选择则不推送。',
+    'placeholder.title': '通知标题',
+    'placeholder.content': '通知内容...',
+    'button.refresh_channels': '刷新渠道',
+    'error.no_channel_selected': '未选择推送渠道',
+    'error.no_channel_selected_full': '未选择任何推送渠道，请先选择后再推送',
+    'label.push_history': '推送历史'
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -167,7 +179,19 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.no_history': 'No push history',
     'button.clear_history': 'Clear History',
     'confirm.clear_history': 'Are you sure you want to clear all push history?',
-    'label.loading': 'Loading...'
+    'label.loading': 'Loading...',
+    'label.enabled_channels': 'Enabled Channels',
+    'label.push_notification': 'Send Push Notification',
+    'label.select_channels': 'Select Channels',
+    'label.optional': 'Optional',
+    'label.url': 'Redirect URL',
+    'hint.channel_selection': 'Click to select/deselect. No push if none selected.',
+    'placeholder.title': 'Notification Title',
+    'placeholder.content': 'Notification content...',
+    'button.refresh_channels': 'Refresh Channels',
+    'error.no_channel_selected': 'No channel selected',
+    'error.no_channel_selected_full': 'No push channels selected, please select first',
+    'label.push_history': 'Push History'
   }
 };
 
