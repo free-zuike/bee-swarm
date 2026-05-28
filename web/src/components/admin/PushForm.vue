@@ -147,6 +147,9 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 24px;
+  height: 88px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .stat-card {
