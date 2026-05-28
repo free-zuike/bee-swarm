@@ -602,24 +602,25 @@ watch(showSettings, (val, oldVal) => {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: #f0f2f5;
+  background: var(--bg-primary, #f0f2f5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  color: #666;
+  color: var(--text-secondary, #666);
+  transition: background 0.3s, color 0.3s;
 }
 
 .loading-overlay.dark {
-  background: #1e1e1e;
-  color: #e0e0e0;
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-secondary, #999);
 }
 
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid #e0e0e0;
+  border: 3px solid var(--border-color, #e0e0e0);
   border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -633,24 +634,26 @@ watch(showSettings, (val, oldVal) => {
 
 .page {
   min-height: 100vh;
-  background: #f0f2f5;
+  background: var(--bg-primary, #f0f2f5);
+  transition: background 0.3s;
 }
 
 .page.dark {
-  background: #1e1e1e;
+  background: var(--bg-primary, #1e1e1e);
 }
 
 .header {
-  background: white;
+  background: var(--bg-panel, white);
   padding: 16px 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background 0.3s;
 }
 
 .header.dark {
-  background: #2d2d2d;
+  background: var(--bg-panel, #2d2d2d);
 }
 
 .header-left {
@@ -667,24 +670,26 @@ watch(showSettings, (val, oldVal) => {
 
 .header h1 {
   font-size: 20px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
+  transition: color 0.3s;
 }
 
 .header.dark h1 {
-  color: #e0e0e0;
+  color: var(--text-primary, #e0e0e0);
 }
 
 .header-email {
   font-size: 13px;
-  color: #999;
-  background: #f5f5f5;
+  color: var(--text-secondary, #999);
+  background: var(--bg-secondary, #f5f5f5);
   padding: 4px 12px;
   border-radius: 20px;
+  transition: color 0.3s, background 0.3s;
 }
 
 .header.dark .header-email {
-  color: #999;
-  background: #3c3c3c;
+  color: var(--text-secondary, #999);
+  background: var(--bg-secondary, #3c3c3c);
 }
 
 .logout {
@@ -709,14 +714,15 @@ watch(showSettings, (val, oldVal) => {
   display: flex;
   gap: 4px;
   margin-bottom: 24px;
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 12px;
   padding: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: background 0.3s;
 }
 
 .tab-nav.dark {
-  background: #2d2d2d;
+  background: var(--bg-panel, #2d2d2d);
 }
 
 .tab-btn {
@@ -728,22 +734,22 @@ watch(showSettings, (val, oldVal) => {
   font-weight: 600;
   cursor: pointer;
   background: transparent;
-  color: #666;
+  color: var(--text-secondary, #666);
   transition: all 0.2s;
 }
 
 .tab-btn.dark {
-  color: #999;
+  color: var(--text-secondary, #999);
 }
 
 .tab-btn:hover {
-  background: #f5f5f5;
-  color: #333;
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #333);
 }
 
 .tab-btn.dark:hover {
-  background: #3c3c3c;
-  color: #e0e0e0;
+  background: var(--bg-secondary, #3c3c3c);
+  color: var(--text-primary, #e0e0e0);
 }
 
 .tab-btn.active {
@@ -769,28 +775,30 @@ watch(showSettings, (val, oldVal) => {
 /* ==================== 面板 ==================== */
 
 .panel {
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   margin-bottom: 24px;
+  transition: background 0.3s;
 }
 
 .panel.dark {
-  background: #2d2d2d;
+  background: var(--bg-panel, #2d2d2d);
 }
 
 .panel h2 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  transition: color 0.3s, border-bottom-color 0.3s;
 }
 
 .panel.dark h2 {
-  color: #e0e0e0;
-  border-bottom-color: #3c3c3c;
+  color: var(--text-primary, #e0e0e0);
+  border-bottom-color: var(--border-color, #3c3c3c);
 }
 
 /* ==================== 按钮 ==================== */
@@ -820,11 +828,11 @@ watch(showSettings, (val, oldVal) => {
 }
 
 .btn-icon-btn:hover {
-  background: #f0f0f0;
+  background: var(--bg-secondary, #f0f0f0);
 }
 
 .dark .btn-icon-btn:hover {
-  background: #3c3c3c;
+  background: var(--bg-secondary, #3c3c3c);
 }
 
 .btn-primary {
@@ -843,22 +851,22 @@ watch(showSettings, (val, oldVal) => {
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
   margin-left: 8px;
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: var(--border-color, #e0e0e0);
 }
 
 .btn-secondary.dark {
-  background: #3c3c3c;
-  color: #e0e0e0;
+  background: var(--bg-secondary, #3c3c3c);
+  color: var(--text-primary, #e0e0e0);
 }
 
 .btn-secondary.dark:hover {
-  background: #4c4c4c;
+  background: var(--border-color, #4c4c4c);
 }
 
 .btn-warning {
@@ -873,26 +881,28 @@ watch(showSettings, (val, oldVal) => {
 /* ==================== API Key ==================== */
 
 .api-key-panel {
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 0;
+  transition: background 0.3s;
 }
 
 .api-key-panel.dark {
-  background: #3c3c3c;
+  background: var(--bg-secondary, #3c3c3c);
 }
 
 .api-key-panel h3 {
   font-size: 16px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 8px;
   padding-bottom: 0;
   border-bottom: none;
+  transition: color 0.3s;
 }
 
 .api-key-panel.dark h3 {
-  color: #e0e0e0;
+  color: var(--text-primary, #e0e0e0);
 }
 
 .api-key-display {
@@ -903,28 +913,30 @@ watch(showSettings, (val, oldVal) => {
 }
 
 .api-key-display code {
-  background: #e9ecef;
+  background: var(--bg-panel, #e9ecef);
   padding: 8px 12px;
   border-radius: 4px;
   font-family: monospace;
   word-break: break-all;
   flex: 1;
   font-size: 13px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
+  transition: background 0.3s, color 0.3s;
 }
 
 .api-key-display code.dark {
-  background: #2d2d2d;
-  color: #e0e0e0;
+  background: var(--bg-panel, #2d2d2d);
+  color: var(--text-primary, #e0e0e0);
 }
 
 .hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-top: 4px;
+  transition: color 0.3s;
 }
 
 .dark .hint {
-  color: #888;
+  color: var(--text-secondary, #888);
 }
 </style>

@@ -81,14 +81,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="api-docs-container">
+  <div class="api-docs-container" :class="{ dark: isDark }">
     <div class="docs-header">
       <div class="header-left">
         <button class="btn btn-icon" @click="goBack">←</button>
         <h1>🐝 Bee Swarm API Docs</h1>
       </div>
       <div class="header-actions">
-        <button class="btn btn-sm btn-secondary" @click="toggleLocale">
+        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="toggleLocale">
           {{ currentLocale === 'zh' ? 'English' : '中文' }}
         </button>
       </div>
@@ -100,8 +100,13 @@ onMounted(() => {
 <style scoped>
 .api-docs-container {
   min-height: 100vh;
-  background: var(--bg-primary, #f5f5f5);
+  background: var(--bg-primary, #f0f2f5);
   padding: 20px;
+  transition: background 0.3s;
+}
+
+.api-docs-container.dark {
+  background: var(--bg-primary, #1e1e1e);
 }
 
 .docs-header {
@@ -125,6 +130,10 @@ onMounted(() => {
   font-size: 24px;
 }
 
+.api-docs-container.dark .header-left h1 {
+  color: var(--text-primary, #e0e0e0);
+}
+
 .btn-icon {
   background: transparent;
   border: none;
@@ -137,6 +146,42 @@ onMounted(() => {
 
 .btn-icon:hover {
   background: var(--bg-secondary, #e0e0e0);
+}
+
+.api-docs-container.dark .btn-icon {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.api-docs-container.dark .btn-icon:hover {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.btn-secondary {
+  background: var(--bg-secondary, #e0e0e0);
+  color: var(--text-primary, #1a1a2e);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--border-color, #d0d0d0);
+}
+
+.btn-secondary.dark {
+  background: var(--bg-secondary, #3c3c3c);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.btn-secondary.dark:hover {
+  background: var(--border-color, #4c4c4c);
 }
 
 .swagger-ui-wrapper {
@@ -192,8 +237,8 @@ onMounted(() => {
 }
 
 :deep(.swagger-ui .opblock) {
-  background: var(--bg-panel, white);
-  border-color: var(--border-color, #e0e0e0);
+  background: white;
+  border-color: #e0e0e0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -211,7 +256,7 @@ onMounted(() => {
 }
 
 :deep(.swagger-ui .scheme-container) {
-  background: var(--bg-secondary, #e0e0e0);
+  background: #f5f5f5;
   border-bottom-color: var(--border-color, #e0e0e0);
 }
 
@@ -236,26 +281,26 @@ onMounted(() => {
 }
 
 :deep(.swagger-ui select) {
-  background: var(--bg-secondary, #e0e0e0);
+  background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
 :deep(.swagger-ui input[type=text]),
 :deep(.swagger-ui input[type=password]) {
-  background: var(--bg-secondary, #e0e0e0);
+  background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
 :deep(.swagger-ui textarea) {
-  background: var(--bg-secondary, #e0e0e0);
+  background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
 :deep(.swagger-ui .btn) {
-  background: var(--bg-tertiary, #f5f5f5);
+  background: #f5f5f5;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
@@ -278,7 +323,7 @@ onMounted(() => {
 }
 
 :deep(.swagger-ui .example) {
-  background: var(--bg-secondary, #e0e0e0);
+  background: #f5f5f5;
   color: var(--text-primary, #1a1a2e);
 }
 
@@ -300,7 +345,7 @@ onMounted(() => {
 }
 
 :deep(.swagger-ui .highlight-code) {
-  background: var(--bg-secondary, #e0e0e0);
+  background: #f5f5f5;
 }
 
 :deep(.swagger-ui .highlight-code code) {
