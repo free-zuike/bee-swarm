@@ -499,27 +499,14 @@ watch(showSettings, (val, oldVal) => {
         <h1>{{ t('app.title') }}</h1>
         <span class="header-email">{{ email }}</span>
       </div>
-      <div class="header-right">
-        <button class="btn btn-sm btn-icon-btn" :class="{ dark: isDark }" @click="themeStore.toggleTheme">
-          {{ isDark ? '☀️' : '🌙' }}
-        </button>
-        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="toggleLocale">
-          {{ currentLocale.value === 'zh' ? 'English' : '中文' }}
-        </button>
-        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="goToApiDocs">{{ t('button.api_docs') }}</button>
-        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="showSettings = !showSettings">
-          {{ showSettings ? t('button.hide_settings') : t('button.settings') }}
-        </button>
-        <span class="logout" @click="logout">{{ t('button.logout') }}</span>
-      </div>
       
-      <!-- 右上角悬浮按钮 -->
+      <!-- 右上角头像悬浮按钮 -->
       <button 
         class="fab-toggle" 
         :class="{ dark: isDark, active: showFabMenu }"
         @click="showFabMenu = !showFabMenu"
       >
-        ⚙️
+        👤
       </button>
       
       <!-- 悬浮菜单 -->
@@ -1209,14 +1196,14 @@ watch(showSettings, (val, oldVal) => {
   display: block;
   position: fixed;
   top: 12px;
-  right: 520px;
+  right: 20px;
   width: 40px;
   height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
   color: white;
-  font-size: 18px;
+  font-size: 20px;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
   cursor: pointer;
   z-index: 1000;
@@ -1235,7 +1222,7 @@ watch(showSettings, (val, oldVal) => {
   display: none;
   position: fixed;
   top: 60px;
-  right: 520px;
+  right: 20px;
   background: var(--bg-panel, white);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
@@ -1290,19 +1277,5 @@ watch(showSettings, (val, oldVal) => {
 
 .fab-menu.dark .fab-label {
   color: var(--text-primary, #e0e0e0);
-}
-
-@media (max-width: 768px) {
-  .fab-toggle {
-    right: 20px;
-  }
-  
-  .fab-menu {
-    right: 20px;
-  }
-  
-  .header-right {
-    display: none;
-  }
 }
 </style>
