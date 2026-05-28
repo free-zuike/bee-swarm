@@ -8,6 +8,8 @@ export interface PushPayload {
   body?: string;
   url?: string;
   icon?: string;
+  imageUrl?: string;
+  markdown?: boolean;
 }
 
 export type PushChannel =
@@ -17,16 +19,23 @@ export type PushChannel =
   | 'telegram'
   | 'bark'
   | 'ntfy'
-  | 'email';
+  | 'email'
+  | 'slack'
+  | 'discord'
+  | 'webpush';
 
 export interface PushRequest extends PushPayload {
   channels?: PushChannel[];
+  scheduledAt?: string;
+  templateId?: string;
 }
 
 export interface ChannelResult {
   channel: PushChannel;
   success: boolean;
   message: string;
+  latencyMs?: number;
+  retries?: number;
 }
 
 // 用户相关类型
@@ -40,8 +49,8 @@ export interface UserToken {
 export interface ChannelField {
   key: string;
   label: string;
-  type: 'text' | 'password' | 'url';
-  placeholder: string;
+  type: 'text' | 'password' | 'url' | 'checkbox';
+  placeholder?: string;
   required: boolean;
 }
 
@@ -49,7 +58,11 @@ export interface ChannelDefinition {
   id: PushChannel;
   name: string;
   icon: string;
+  description?: string;
   fields: ChannelField[];
+  supportsMarkdown?: boolean;
+  supportsImages?: boolean;
+  supportsScheduled?: boolean;
 }
 
 export interface ChannelConfig {
@@ -57,6 +70,8 @@ export interface ChannelConfig {
   name: string;
   icon: string;
   enabled: boolean;
+  lastTested?: string;
+  healthy?: boolean;
 }
 
 export type ChannelSettings = Record<string, string>;
@@ -112,4 +127,77 @@ export interface BackupResult {
   message: string;
   endpointId?: string;
   endpointName?: string;
+  key?: string;
+}
+
+// 模板相关类型
+export interface PushTemplate {
+  id: string;
+  name: string;
+  title: string;
+  content: string;
+  channels?: PushChannel[];
+  url?: string;
+  imageUrl?: string;
+  useMarkdown?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChannelGroup {
+  id: string;
+  name: string;
+  channels: PushChannel[];
+  createdAt: string;
+}
+
+export interface ScheduledPush {
+  id: string;
+  templateId?: string;
+  title: string;
+  content: string;
+  channels: PushChannel[];
+  url?: string;
+  scheduledAt: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  createdBy: string;
+  createdAt: string;
+  completedAt?: string;
+  results?: ChannelResult[];
+}
+
+// 统计相关类型
+export interface PushMetrics {
+  total: number;
+  success: number;
+  failed: number;
+  byChannel: Record<string, { success: number; failed: number }>;
+  avgLatency: number;
+  lastPushAt?: string;
+}
+
+export interface DailyMetrics {
+  date: string;
+  pushes: number;
+  success: number;
+  failed: number;
+  byChannel: Record<string, number>;
+}
+
+export interface PushStats {
+  session: {
+    total: number;
+    success: number;
+    failed: number;
+  };
+  trend: {
+    rate: number;
+    direction: 'up' | 'down' | 'stable';
+  };
+  recent: Array<{
+    date: string;
+    pushes: number;
+    success: number;
+    failed: number;
+  }>;
 }

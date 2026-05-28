@@ -44,7 +44,7 @@ export async function sendBark(
     }
 
     const res = await fetch(url.toString());
-    const data = await res.json() as { code: number; message: string };
+    const data = (await res.json()) as { code: number; message: string };
 
     if (data.code === 200) {
       return {
@@ -59,11 +59,11 @@ export async function sendBark(
       success: false,
       message: `Bark 推送失败: ${data.message}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'bark',
       success: false,
-      message: `Bark 推送异常: ${err.message}`,
+      message: `Bark 推送异常: ${(err as Error).message}`,
     };
   }
 }

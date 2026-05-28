@@ -37,21 +37,18 @@ export async function sendTelegram(
       text += `\n\n<a href="${payload.url}">查看详情</a>`;
     }
 
-    const res = await fetch(
-      `https://api.telegram.org/bot${env.bot_token}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: env.chat_id,
-          text,
-          parse_mode: 'HTML',  // 使用 HTML 解析模式
-          disable_web_page_preview: false,
-        }),
-      }
-    );
+    const res = await fetch(`https://api.telegram.org/bot${env.bot_token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: env.chat_id,
+        text,
+        parse_mode: 'HTML', // 使用 HTML 解析模式
+        disable_web_page_preview: false,
+      }),
+    });
 
-    const data = await res.json() as { ok: boolean; description?: string };
+    const data = (await res.json()) as { ok: boolean; description?: string };
 
     if (data.ok) {
       return {
@@ -66,11 +63,11 @@ export async function sendTelegram(
       success: false,
       message: `Telegram 推送失败: ${data.description}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'telegram',
       success: false,
-      message: `Telegram 推送异常: ${err.message}`,
+      message: `Telegram 推送异常: ${(err as Error).message}`,
     };
   }
 }
@@ -80,8 +77,5 @@ export async function sendTelegram(
  * 防止消息内容中的 HTML 标签被 Telegram 解析
  */
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

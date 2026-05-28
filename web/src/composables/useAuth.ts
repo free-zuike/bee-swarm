@@ -1,13 +1,6 @@
 import { ref } from 'vue';
 import { getToken, refreshToken as refreshTokenApi } from '@/api';
 
-interface AuthState {
-  email: string;
-  accessToken: string;
-  refreshTokenValue: string;
-  tokenExpiresAt: number;
-}
-
 const STORAGE_KEYS = {
   EMAIL: 'push_hub_email',
   TOKEN: 'push_hub_token',
@@ -53,7 +46,7 @@ export function useAuth() {
     refreshTokenValue.value = '';
     tokenExpiresAt.value = 0;
 
-    Object.values(STORAGE_KEYS).forEach(key => {
+    Object.values(STORAGE_KEYS).forEach((key) => {
       sessionStorage.removeItem(key);
     });
   };

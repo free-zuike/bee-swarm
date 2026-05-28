@@ -1,7 +1,7 @@
 import { reactive } from 'vue';
 
 const state = reactive({
-  isDark: false
+  isDark: false,
 });
 
 function initTheme() {
@@ -44,8 +44,10 @@ initTheme();
 
 export function useThemeStore() {
   return {
-    get isDark() { return state.isDark; },
-    toggleTheme
+    get isDark() {
+      return state.isDark;
+    },
+    toggleTheme,
   };
 }
 

@@ -28,7 +28,9 @@ export async function sendFeishu(
   try {
     // 构建飞书富文本消息
     // 飞书使用 post 格式，支持更丰富的排版
-    const content: any[][] = [
+    type FeishuContentItem = { tag: string; text?: string; href?: string };
+    type FeishuContentRow = FeishuContentItem[];
+    const content: FeishuContentRow[] = [
       // 标题行
       [
         {
@@ -72,7 +74,7 @@ export async function sendFeishu(
       }),
     });
 
-    const data = await res.json() as { code: number; msg: string };
+    const data = (await res.json()) as { code: number; msg: string };
 
     if (data.code === 0) {
       return {
@@ -87,11 +89,11 @@ export async function sendFeishu(
       success: false,
       message: `飞书推送失败: ${data.msg}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'feishu',
       success: false,
-      message: `飞书推送异常: ${err.message}`,
+      message: `飞书推送异常: ${(err as Error).message}`,
     };
   }
 }

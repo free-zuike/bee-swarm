@@ -16,6 +16,10 @@ import PushForm from '@/components/admin/PushForm.vue';
 import ChannelSettingsPanel from '@/components/admin/ChannelSettings.vue';
 import PushHistory from '@/components/admin/PushHistory.vue';
 import BackupManager from '@/components/admin/BackupManager.vue';
+import StatsDashboard from '@/components/StatsDashboard.vue';
+import TemplateManager from '@/components/TemplateManager.vue';
+import GroupManager from '@/components/GroupManager.vue';
+import ScheduledPushManager from '@/components/ScheduledPushManager.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -62,7 +66,7 @@ const refreshTokenValue = ref('');
 const tokenExpiresAt = ref(0);
 
 // ==================== Dashboard Tab ====================
-const activeTab = ref<'push' | 'history'>('push');
+const activeTab = ref<'push' | 'history' | 'stats' | 'templates' | 'groups' | 'scheduled'>('stats');
 
 // ==================== 设置面板 ====================
 const showSettings = ref(false);
@@ -623,6 +627,13 @@ watch(showSettings, (val, oldVal) => {
         <div class="tab-nav" :class="{ dark: isDark }">
           <button
             class="tab-btn"
+            :class="{ active: activeTab === 'stats', dark: isDark }"
+            @click="activeTab = 'stats'"
+          >
+            📊 {{ t('tab.stats') || '统计' }}
+          </button>
+          <button
+            class="tab-btn"
             :class="{ active: activeTab === 'push', dark: isDark }"
             @click="activeTab = 'push'"
           >
@@ -633,9 +644,36 @@ watch(showSettings, (val, oldVal) => {
             :class="{ active: activeTab === 'history', dark: isDark }"
             @click="activeTab = 'history'"
           >
-            {{ t('tab.history') }}
+            📜 {{ t('tab.history') }}
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'templates', dark: isDark }"
+            @click="activeTab = 'templates'"
+          >
+            📝 模板
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'groups', dark: isDark }"
+            @click="activeTab = 'groups'"
+          >
+            📁 分组
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'scheduled', dark: isDark }"
+            @click="activeTab = 'scheduled'"
+          >
+            ⏰ 定时
           </button>
         </div>
+
+        <!-- ==================== 统计仪表盘 Tab ==================== -->
+        <StatsDashboard
+          v-if="activeTab === 'stats'"
+          :access-token="accessToken"
+        />
 
         <!-- ==================== 推送 Tab ==================== -->
         <PushForm
@@ -655,6 +693,24 @@ watch(showSettings, (val, oldVal) => {
           :history="pushHistory"
           :loading="isLoadingHistory"
           :channels="channels"
+        />
+
+        <!-- ==================== 模板管理 Tab ==================== -->
+        <TemplateManager
+          v-if="activeTab === 'templates'"
+          :access-token="accessToken"
+        />
+
+        <!-- ==================== 渠道分组 Tab ==================== -->
+        <GroupManager
+          v-if="activeTab === 'groups'"
+          :access-token="accessToken"
+          :channels="channels"
+        />
+
+        <!-- ==================== 定时推送 Tab ==================== -->
+        <ScheduledPushManager
+          v-if="activeTab === 'scheduled'"
         />
       </template>
 

@@ -6,13 +6,29 @@ import { cors } from 'hono/cors';
 import type { Env } from './types';
 import api from './routes/api';
 import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
+import { rateLimit } from './middleware/rateLimit';
+import { securityHeaders } from './middleware/securityHeaders';
+import { createErrorResponse, logError } from './utils/errors';
 
 const app = new Hono<{ Bindings: Env }>();
+
+// 安全 HTTP 头
+app.use('*', securityHeaders());
+
+// 限流配置
+app.use(
+  '*',
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    message: '请求过于频繁，请稍后重试',
+  })
+);
 
 // CORS 配置
 app.use('*', async (c, next) => {
   const origin = c.req.header('Origin') || '';
-  
+
   // 检查是否允许该来源
   const isAllowedOrigin = (): boolean => {
     // 开发环境允许 localhost
@@ -23,8 +39,20 @@ app.use('*', async (c, next) => {
     if (origin.endsWith('.workers.dev')) {
       return true;
     }
-    // 允许所有来源（生产环境可根据需要限制）
-    return true;
+    // 检查环境变量配置的允许来源列表
+    const allowedOrigins = c.env.ALLOWED_ORIGINS?.split(',') || [];
+    if (
+      allowedOrigins.some(
+        (allowedOrigin) =>
+          origin === allowedOrigin ||
+          (allowedOrigin.includes('*') &&
+            new RegExp(`^${allowedOrigin.replace('*', '.*')}$`).test(origin))
+      )
+    ) {
+      return true;
+    }
+    // 生产环境默认不允许其他来源
+    return false;
   };
 
   const allowedOrigin = isAllowedOrigin() ? origin : '';
@@ -39,8 +67,18 @@ app.use('*', async (c, next) => {
 
 // 全局错误处理
 app.onError((err, c) => {
-  console.error('Application Error:', err);
-  return c.json({ error: 'Internal Server Error' }, 500);
+  const requestId = crypto.randomUUID().slice(0, 8);
+
+  if ('statusCode' in err && typeof err.statusCode === 'number') {
+    logError(err, 'Application Error');
+    const response = createErrorResponse(err as Error, requestId);
+    const statusCode = (err as { statusCode: number }).statusCode as 400 | 401 | 403 | 404 | 500;
+    return c.json(response, statusCode);
+  }
+
+  logError(err, 'Unexpected Error');
+  const response = createErrorResponse(err, requestId);
+  return c.json(response, 500);
 });
 
 // API 路由
@@ -51,61 +89,74 @@ app.notFound(async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
+function convertTimezone(tz: string): string {
+  if (/^-?\d+$/.test(tz)) {
+    const offset = parseInt(tz, 10);
+    if (offset === 8) return 'Asia/Shanghai';
+    if (offset === 0) return 'UTC';
+    if (offset === 9) return 'Asia/Tokyo';
+    if (offset === -5) return 'America/New_York';
+    if (offset === -8) return 'America/Los_Angeles';
+    return 'UTC';
+  }
+  return tz;
+}
+
+function getLocalTime(now: Date, tz: string): { hour: number; minute: number } {
+  const localHourStr = now.toLocaleString('en-US', {
+    timeZone: tz,
+    hour: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
+  });
+  const localMinuteStr = now.toLocaleString('en-US', {
+    timeZone: tz,
+    minute: '2-digit',
+  });
+  return {
+    hour: parseInt(localHourStr, 10),
+    minute: parseInt(localMinuteStr, 10),
+  };
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
   },
 
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // 每小时触发，检查每个用户的备份端调度设置
+  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const now = new Date();
-    const utcHour = now.getUTCHours();
-    const utcMinute = now.getUTCMinutes();
 
     try {
       let cursor: string | undefined;
       let list_complete = false;
+
       do {
         const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
+
         for (const key of list.keys) {
           const username = key.name.replace('user:', '');
           if (username.includes(':')) continue;
 
           const endpoints = await getBackupEndpoints(env, username);
+
           for (const endpoint of endpoints) {
             if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
 
-            // 检查是否到达备份时间
             const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
-            // 使用 IANA 时区计算当前时间在用户时区中的小时（兼容旧数据的数字时区）
-            let tz = endpoint.schedule.timezone || 'Asia/Shanghai';
-            // 兼容旧数据：如果是纯数字，转换为 IANA 时区
-            if (/^-?\d+$/.test(tz)) {
-              const offset = parseInt(tz, 10);
-              if (offset === 8) tz = 'Asia/Shanghai';
-              else if (offset === 0) tz = 'UTC';
-              else if (offset === 9) tz = 'Asia/Tokyo';
-              else if (offset === -5) tz = 'America/New_York';
-              else if (offset === -8) tz = 'America/Los_Angeles';
-              else tz = 'UTC';
-            }
-            const localHourStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', hour12: false, hourCycle: 'h23' });
-            const localHour = parseInt(localHourStr, 10);
-            const localMinuteStr = now.toLocaleString('en-US', { timeZone: tz, minute: '2-digit' });
-            const localMinute = parseInt(localMinuteStr, 10);
+            const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
+            const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
-            // 匹配小时和分钟（5分钟窗口避免 Cron 偏差）
             if (localHour === startHour && Math.abs(localMinute - startMinute) < 5) {
-              const result = await uploadBackupToEndpoint(env, username, endpoint);
-              console.log(`[Cron Backup] ${username}/${endpoint.name}: ${result.message}`);
+              await uploadBackupToEndpoint(env, username, endpoint);
             }
           }
         }
-        cursor = (list as any).cursor;
+        cursor = (list as { cursor?: string }).cursor;
         list_complete = list.list_complete ?? false;
       } while (cursor && !list_complete);
-    } catch (err: any) {
-      console.error(`[Cron Backup] Error: ${err.message}`);
+    } catch (err) {
+      console.error(`[Cron Backup] Error: ${(err as Error).message}`, (err as Error).stack);
     }
   },
 };

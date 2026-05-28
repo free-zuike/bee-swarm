@@ -19,7 +19,7 @@ async function generateSign(secret: string): Promise<{ timestamp: string; sign: 
   // 钉钉加签格式: timestamp + "\n" + secret
   const encoder = new TextEncoder();
   const signData = encoder.encode(timestamp + '\n' + secret);
-  
+
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -83,7 +83,7 @@ export async function sendDingtalk(
       }),
     });
 
-    const data = await res.json() as { errcode: number; errmsg: string };
+    const data = (await res.json()) as { errcode: number; errmsg: string };
 
     if (data.errcode === 0) {
       return {
@@ -98,11 +98,11 @@ export async function sendDingtalk(
       success: false,
       message: `钉钉推送失败: ${data.errmsg}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'dingtalk',
       success: false,
-      message: `钉钉推送异常: ${err.message}`,
+      message: `钉钉推送异常: ${(err as Error).message}`,
     };
   }
 }

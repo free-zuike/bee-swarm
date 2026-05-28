@@ -38,9 +38,7 @@ export async function sendNtfy(
     };
 
     if (payload.url) {
-      body.actions = JSON.stringify([
-        { action: 'view', label: '查看详情', url: payload.url },
-      ]);
+      body.actions = JSON.stringify([{ action: 'view', label: '查看详情', url: payload.url }]);
     }
 
     const res = await fetch(`${server}`, {
@@ -66,11 +64,11 @@ export async function sendNtfy(
       success: false,
       message: `ntfy 推送失败: ${res.status} ${text || res.statusText}`,
     };
-  } catch (err: any) {
+  } catch (err) {
     return {
       channel: 'ntfy',
       success: false,
-      message: `ntfy 推送异常: ${err.message}`,
+      message: `ntfy 推送异常: ${(err as Error).message}`,
     };
   }
 }

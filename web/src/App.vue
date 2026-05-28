@@ -23,7 +23,8 @@ body {
 }
 
 /* 强制显示滚动条避免布局跳动 */
-html, body {
+html,
+body {
   overflow-y: scroll;
   overflow-x: hidden;
 }

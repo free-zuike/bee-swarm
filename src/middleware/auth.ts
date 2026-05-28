@@ -4,8 +4,14 @@ import type { Env } from '../types';
 /**
  * 认证中间件
  * 支持通过 X-API-Key、X-Token 或查询参数认证
+ * 使用索引查找，O(1) 时间复杂度
  */
-export async function authMiddleware(c: Context<{ Bindings: Env; Variables: { username: string } }>, next: Next) {
+export async function authMiddleware(
+  c: Context<{ Bindings: Env; Variables: { username: string } }>,
+  next: Next
+) {
+  const requestId = crypto.randomUUID().slice(0, 8);
+
   // 1. 优先使用 API Key
   const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
   if (apiKey) {
@@ -19,24 +25,12 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: { us
             c.set('username', indexedUser);
             await next();
             return;
+          } else {
+            console.warn(`[Auth-${requestId}] API Key mismatch for user: ${indexedUser}`);
           }
-        } catch { /* ignore */ }
-      }
-    }
-    // 回退到遍历查找（兼容旧 apikey 无索引的情况）
-    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-    for (const key of list.keys) {
-      if (key.name.includes(':s3_config') || key.name.includes(':apikey')) continue;
-      const data = await c.env.SUBSCRIPTIONS.get(key.name);
-      if (data) {
-        try {
-          const user = JSON.parse(data);
-          if (user.apikey === apiKey) {
-            c.set('username', key.name.replace('user:', ''));
-            await next();
-            return;
-          }
-        } catch { /* ignore */ }
+        } catch (err) {
+          console.error(`[Auth-${requestId}] Failed to parse user data: ${(err as Error).message}`);
+        }
       }
     }
     return c.json({ error: '无效的 API Key' }, 401);
@@ -51,28 +45,21 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: { us
       if (userData) {
         try {
           const user = JSON.parse(userData);
-          if (user.token === token && user.expiresAt > Date.now()) {
-            c.set('username', indexedUser);
-            await next();
-            return;
+          if (user.token === token) {
+            if (user.expiresAt > Date.now()) {
+              c.set('username', indexedUser);
+              await next();
+              return;
+            } else {
+              console.warn(`[Auth-${requestId}] Token expired for user: ${indexedUser}`);
+              return c.json({ error: 'Token 已过期，请重新登录' }, 401);
+            }
+          } else {
+            console.warn(`[Auth-${requestId}] Token mismatch for user: ${indexedUser}`);
           }
-        } catch { /* ignore */ }
-      }
-    }
-    // 回退到遍历查找（兼容旧 token 无索引的情况）
-    const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-    for (const key of list.keys) {
-      if (key.name.includes(':') && !key.name.startsWith('user:')) continue;
-      const data = await c.env.SUBSCRIPTIONS.get(key.name);
-      if (data) {
-        try {
-          const user = JSON.parse(data);
-          if (user.token === token && user.expiresAt > Date.now()) {
-            c.set('username', key.name.replace('user:', ''));
-            await next();
-            return;
-          }
-        } catch { /* ignore */ }
+        } catch (err) {
+          console.error(`[Auth-${requestId}] Failed to parse user data: ${(err as Error).message}`);
+        }
       }
     }
     return c.json({ error: '无效或已过期的 Token' }, 401);

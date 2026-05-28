@@ -77,28 +77,40 @@ export async function getBackupEndpoints(env: Env, username: string): Promise<Ba
   if (!configStr) return [];
   try {
     return JSON.parse(configStr);
-  } catch (e) {
+  } catch {
     console.error(`[Backup] Failed to parse endpoints for ${username}`);
     return [];
   }
 }
 
 // 保存用户的所有备份端
-export async function saveBackupEndpoints(env: Env, username: string, endpoints: BackupEndpoint[]): Promise<void> {
+export async function saveBackupEndpoints(
+  env: Env,
+  username: string,
+  endpoints: BackupEndpoint[]
+): Promise<void> {
   const kvKey = `user:${username}:backup_endpoints`;
   await env.SUBSCRIPTIONS.put(kvKey, JSON.stringify(endpoints));
 }
 
 // 获取单个备份端
-export async function getBackupEndpoint(env: Env, username: string, endpointId: string): Promise<BackupEndpoint | null> {
+export async function getBackupEndpoint(
+  env: Env,
+  username: string,
+  endpointId: string
+): Promise<BackupEndpoint | null> {
   const endpoints = await getBackupEndpoints(env, username);
-  return endpoints.find(e => e.id === endpointId) || null;
+  return endpoints.find((e) => e.id === endpointId) || null;
 }
 
 // 添加或更新备份端
-export async function saveBackupEndpoint(env: Env, username: string, endpoint: BackupEndpoint): Promise<void> {
+export async function saveBackupEndpoint(
+  env: Env,
+  username: string,
+  endpoint: BackupEndpoint
+): Promise<void> {
   const endpoints = await getBackupEndpoints(env, username);
-  const index = endpoints.findIndex(e => e.id === endpoint.id);
+  const index = endpoints.findIndex((e) => e.id === endpoint.id);
   if (index >= 0) {
     endpoints[index] = endpoint;
   } else {
@@ -108,9 +120,13 @@ export async function saveBackupEndpoint(env: Env, username: string, endpoint: B
 }
 
 // 删除备份端
-export async function deleteBackupEndpoint(env: Env, username: string, endpointId: string): Promise<boolean> {
+export async function deleteBackupEndpoint(
+  env: Env,
+  username: string,
+  endpointId: string
+): Promise<boolean> {
   const endpoints = await getBackupEndpoints(env, username);
-  const newEndpoints = endpoints.filter(e => e.id !== endpointId);
+  const newEndpoints = endpoints.filter((e) => e.id !== endpointId);
   if (newEndpoints.length === endpoints.length) return false;
   await saveBackupEndpoints(env, username, newEndpoints);
   return true;
@@ -120,16 +136,16 @@ export async function deleteBackupEndpoint(env: Env, username: string, endpointI
 export async function exportAllData(env: Env, username: string): Promise<BackupData> {
   const data: Record<string, string> = {};
   let cursor: string | undefined;
-  let list_complete = false;
+  let listComplete = false;
   do {
     const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
+    listComplete = list.list_complete ?? false;
     for (const key of list.keys) {
       const value = await env.SUBSCRIPTIONS.get(key.name);
       if (value !== null) data[key.name] = value;
     }
-    cursor = (list as any).cursor;
-    list_complete = list.list_complete ?? false;
-  } while (cursor && !list_complete);
+    cursor = (list as { cursor?: string }).cursor;
+  } while (cursor && !listComplete);
   return { timestamp: new Date().toISOString(), version: '1.0', username, data };
 }
 
@@ -146,9 +162,11 @@ function createS3Client(config: S3Config): AwsClient {
 
 // 构建 S3 URL
 function buildS3Url(config: S3Config, path: string, query?: Record<string, string>): string {
-  const endpoint = config.endpoint.startsWith('http') ? config.endpoint : `https://${config.endpoint}`;
+  const endpoint = config.endpoint.startsWith('http')
+    ? config.endpoint
+    : `https://${config.endpoint}`;
   const queryString = query ? '?' + new URLSearchParams(query).toString() : '';
-  
+
   if (config.pathStyle) {
     return `${endpoint}/${config.bucket}${path}${queryString}`;
   } else {
@@ -167,10 +185,10 @@ async function s3Request(
 ): Promise<Response> {
   const client = createS3Client(config);
   const url = buildS3Url(config, path, query);
-  
+
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
-  
+
   const request = new Request(url, { method, headers, body });
   return client.fetch(request);
 }
@@ -185,20 +203,20 @@ async function webdavRequest(
 ): Promise<Response> {
   const url = config.url.replace(/\/$/, '') + path;
   const auth = btoa(`${config.username}:${config.password}`);
-  
+
   const headers: Record<string, string> = {
-    'Authorization': `Basic ${auth}`,
+    Authorization: `Basic ${auth}`,
   };
   if (body) headers['Content-Type'] = 'application/json';
-  
+
   const response = await fetch(url, { method, headers, body });
-  
+
   // 429 限流时重试（最多3次，间隔1秒）
   if (response.status === 429 && retryCount < 3) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return webdavRequest(method, path, config, body, retryCount + 1);
   }
-  
+
   return response;
 }
 
@@ -210,7 +228,7 @@ export async function uploadBackupToEndpoint(
 ): Promise<BackupResult> {
   try {
     const backupData = await exportAllData(env, username);
-    
+
     // 使用端点配置的时区生成文件名（兼容旧数据的数字时区）
     let tz = endpoint.schedule?.timezone || 'Asia/Shanghai';
     // 兼容旧数据：如果是纯数字，转换为 IANA 时区
@@ -223,83 +241,131 @@ export async function uploadBackupToEndpoint(
       else if (offset === -8) tz = 'America/Los_Angeles';
       else tz = 'UTC';
     }
-    const dateStr = new Date().toLocaleString('sv-SE', {
-      timeZone: tz,
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false,
-    }).replace(/[:\s]/g, '-').replace(/T/g, '-');
+    const dateStr = new Date()
+      .toLocaleString('sv-SE', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+      .replace(/[:\s]/g, '-')
+      .replace(/T/g, '-');
     const filename = `${dateStr}.json`;
-    
+
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
       const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
       const key = `${root}/backups/${username}/${filename}`;
-      const response = await s3Request('PUT', '/' + key, config, JSON.stringify(backupData, null, 2));
-      
+      const response = await s3Request(
+        'PUT',
+        '/' + key,
+        config,
+        JSON.stringify(backupData, null, 2)
+      );
+
       if (!response.ok) {
-        return { success: false, message: 'S3 上传失败 (' + response.status + ')', endpointId: endpoint.id };
+        return {
+          success: false,
+          message: 'S3 上传失败 (' + response.status + ')',
+          endpointId: endpoint.id,
+        };
       }
-      
+
       // 清理旧备份
       await cleanupOldBackupsS3(config, root, username, endpoint.retention);
-      
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
       const path = `${root}/backups/${username}/${filename}`;
-      
+
       // 确保目录存在（忽略 405 目录已存在错误）
       const mkcolResponse = await webdavRequest('MKCOL', `/${root}/`, config);
       if (!mkcolResponse.ok && mkcolResponse.status !== 405) {
-        return { success: false, message: 'WebDAV 创建目录失败 (' + mkcolResponse.status + ')', endpointId: endpoint.id };
+        return {
+          success: false,
+          message: 'WebDAV 创建目录失败 (' + mkcolResponse.status + ')',
+          endpointId: endpoint.id,
+        };
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 500)); // 避免限流
-      
+
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 避免限流
+
       const mkcolResponse2 = await webdavRequest('MKCOL', `/${root}/backups/`, config);
       if (!mkcolResponse2.ok && mkcolResponse2.status !== 405) {
-        return { success: false, message: 'WebDAV 创建目录失败 (' + mkcolResponse2.status + ')', endpointId: endpoint.id };
+        return {
+          success: false,
+          message: 'WebDAV 创建目录失败 (' + mkcolResponse2.status + ')',
+          endpointId: endpoint.id,
+        };
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 500)); // 避免限流
-      
+
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 避免限流
+
       const mkcolResponse3 = await webdavRequest('MKCOL', `/${root}/backups/${username}/`, config);
       if (!mkcolResponse3.ok && mkcolResponse3.status !== 405) {
-        return { success: false, message: 'WebDAV 创建目录失败 (' + mkcolResponse3.status + ')', endpointId: endpoint.id };
+        return {
+          success: false,
+          message: 'WebDAV 创建目录失败 (' + mkcolResponse3.status + ')',
+          endpointId: endpoint.id,
+        };
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 500)); // 避免限流
-      
-      const response = await webdavRequest('PUT', '/' + path, config, JSON.stringify(backupData, null, 2));
-      
+
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 避免限流
+
+      const response = await webdavRequest(
+        'PUT',
+        '/' + path,
+        config,
+        JSON.stringify(backupData, null, 2)
+      );
+
       if (!response.ok && response.status !== 201 && response.status !== 204) {
         const errorText = await response.text().catch(() => '');
-        return { success: false, message: 'WebDAV 上传失败 (' + response.status + '): ' + errorText.substring(0, 200), endpointId: endpoint.id };
+        return {
+          success: false,
+          message: 'WebDAV 上传失败 (' + response.status + '): ' + errorText.substring(0, 200),
+          endpointId: endpoint.id,
+        };
       }
-      
+
       // 清理旧备份
       await cleanupOldBackupsWebDAV(config, root, username, endpoint.retention);
     }
-    
+
     return { success: true, message: '备份成功', endpointId: endpoint.id };
-  } catch (err: any) {
-    return { success: false, message: '备份失败: ' + err.message, endpointId: endpoint.id };
+  } catch (err) {
+    return {
+      success: false,
+      message: '备份失败: ' + (err as Error).message,
+      endpointId: endpoint.id,
+    };
   }
 }
 
 // 清理 S3 旧备份
-async function cleanupOldBackupsS3(config: S3Config, root: string, username: string, retention: number): Promise<void> {
+async function cleanupOldBackupsS3(
+  config: S3Config,
+  root: string,
+  username: string,
+  retention: number
+): Promise<void> {
   try {
     const prefix = `${root}/backups/${username}/`;
-    const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': prefix });
+    const response = await s3Request('GET', '/', config, undefined, {
+      'list-type': '2',
+      prefix: prefix,
+    });
     if (!response.ok) return;
-    
+
     const xml = await response.text();
     const backups: { key: string; lastModified: string }[] = [];
     const contentsRegex = /<Contents>([\s\S]*?)<\/Contents>/g;
     let match;
-    
+
     while ((match = contentsRegex.exec(xml)) !== null) {
       const block = match[1];
       const keyMatch = block.match(/<Key>([^<]+)<\/Key>/);
@@ -308,7 +374,7 @@ async function cleanupOldBackupsS3(config: S3Config, root: string, username: str
         backups.push({ key: keyMatch[1], lastModified: lastModifiedMatch?.[1] || '' });
       }
     }
-    
+
     // 按时间排序，删除旧的
     backups.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
     for (let i = retention; i < backups.length; i++) {
@@ -320,27 +386,32 @@ async function cleanupOldBackupsS3(config: S3Config, root: string, username: str
 }
 
 // 清理 WebDAV 旧备份
-async function cleanupOldBackupsWebDAV(config: WebDAVConfig, root: string, username: string, retention: number): Promise<void> {
+async function cleanupOldBackupsWebDAV(
+  config: WebDAVConfig,
+  root: string,
+  username: string,
+  retention: number
+): Promise<void> {
   try {
     const dirPath = `/${root}/backups/${username}/`;
     const baseUrl = config.url.replace(/\/$/, '');
     const response = await webdavRequest('PROPFIND', dirPath, config);
     if (!response.ok && response.status !== 207) return;
-    
+
     const xml = await response.text();
     const backups: { key: string; lastModified: string }[] = [];
-    
+
     const responseRegex = /<D:response[^>]*>([\s\S]*?)<\/D:response>/gi;
     let match;
-    
+
     while ((match = responseRegex.exec(xml)) !== null) {
       const block = match[1];
       const hrefMatch = block.match(/<D:href[^>]*>([^<]+)<\/D:href>/i);
       if (!hrefMatch) continue;
-      
+
       let href = decodeURIComponent(hrefMatch[1]);
       let relativePath = href;
-      
+
       if (href.startsWith('/')) {
         try {
           const urlObj = new URL(baseUrl);
@@ -360,20 +431,22 @@ async function cleanupOldBackupsWebDAV(config: WebDAVConfig, root: string, usern
           relativePath = relativePath.substring(prefix.length);
         }
       }
-      
+
       if (!relativePath || relativePath.endsWith('/')) continue;
-      
+
       const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
       const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
       if (size === 0) continue;
-      
-      const lastModifiedMatch = block.match(/<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i);
+
+      const lastModifiedMatch = block.match(
+        /<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i
+      );
       backups.push({
         key: `${root}/backups/${username}/${relativePath}`,
         lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
       });
     }
-    
+
     // 按时间排序，删除旧的
     backups.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
     for (let i = retention; i < backups.length; i++) {
@@ -394,15 +467,18 @@ export async function listBackupsFromEndpoint(
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
       const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
-      const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'prefix': `${root}/backups/${username}/` });
-      
+      const response = await s3Request('GET', '/', config, undefined, {
+        'list-type': '2',
+        prefix: `${root}/backups/${username}/`,
+      });
+
       if (!response.ok) throw new Error('获取备份列表失败 (' + response.status + ')');
-      
+
       const xml = await response.text();
       const backups: BackupInfo[] = [];
       const contentsRegex = /<Contents>([\s\S]*?)<\/Contents>/g;
       let match;
-      
+
       while ((match = contentsRegex.exec(xml)) !== null) {
         const block = match[1];
         const keyMatch = block.match(/<Key>([^<]+)<\/Key>/);
@@ -417,45 +493,43 @@ export async function listBackupsFromEndpoint(
         }
       }
       return backups.sort((a, b) => b.key.localeCompare(a.key));
-      
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
       const dirPath = `/${root}/backups/${username}/`;
-      
+
       const response = await webdavRequest('PROPFIND', dirPath, config);
       if (!response.ok && response.status !== 207) {
         throw new Error('获取 WebDAV 备份列表失败 (' + response.status + ')');
       }
-      
+
       const xml = await response.text();
       const backups: BackupInfo[] = [];
-      
+
       // 计算 WebDAV 服务器的基础路径（用于从 href 中提取相对路径）
       // 例如 url=https://dav.example.com/dav/Koofr, dirPath=/beeswarm/backups/user/
       // PROPFIND 请求的完整 URL = https://dav.example.com/dav/Koofr/beeswarm/backups/user/
       // 返回的 href 可能是 /dav/Koofr/beeswarm/backups/user/filename.json
       const baseUrl = config.url.replace(/\/$/, '');
-      const fullRequestPath = baseUrl + dirPath; // 完整请求路径
-      
+
       // 解析 WebDAV PROPFIND 响应 (multistatus XML)
       const responseRegex = /<D:response[^>]*>([\s\S]*?)<\/D:response>/gi;
       let match;
-      
+
       while ((match = responseRegex.exec(xml)) !== null) {
         const block = match[1];
-        
+
         // 提取 href
         const hrefMatch = block.match(/<D:href[^>]*>([^<]+)<\/D:href>/i);
         if (!hrefMatch) continue;
-        
+
         let href = decodeURIComponent(hrefMatch[1]);
-        
+
         // 从 href 中提取相对于 dirPath 的文件名
         // href 可能是完整路径如 /dav/Koofr/beeswarm/backups/user/file.json
         // 也可能只是相对路径如 beeswarm/backups/user/file.json
         let relativePath = href;
-        
+
         // 尝试从完整 URL 中提取
         if (href.startsWith('/')) {
           // 绝对路径：尝试匹配 baseUrl 的路径部分
@@ -481,33 +555,35 @@ export async function listBackupsFromEndpoint(
             relativePath = relativePath.substring(prefix.length);
           }
         }
-        
+
         // 跳过目录本身和空路径
         if (!relativePath || relativePath.endsWith('/')) continue;
-        
+
         // 提取内容长度
         const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
         const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
-        
+
         // 跳过 0 字节的条目（通常是目录）
         if (size === 0) continue;
-        
+
         // 提取最后修改时间
-        const lastModifiedMatch = block.match(/<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i);
+        const lastModifiedMatch = block.match(
+          /<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i
+        );
         const lastModified = lastModifiedMatch ? lastModifiedMatch[1] : '';
-        
+
         backups.push({
           key: `${root}/backups/${username}/${relativePath}`,
           size,
           lastModified,
         });
       }
-      
+
       return backups.sort((a, b) => b.key.localeCompare(a.key));
     }
     return [];
-  } catch (err: any) {
-    throw new Error('列出备份失败: ' + err.message);
+  } catch (err) {
+    throw new Error('列出备份失败: ' + (err as Error).message);
   }
 }
 
@@ -520,7 +596,7 @@ export async function restoreBackupFromEndpoint(
 ): Promise<BackupResult> {
   try {
     let response: Response;
-    
+
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
       response = await s3Request('GET', '/' + backupKey, config);
@@ -532,19 +608,19 @@ export async function restoreBackupFromEndpoint(
     } else {
       return { success: false, message: '不支持的备份类型' };
     }
-    
+
     if (!response.ok) {
       return { success: false, message: '下载备份失败 (' + response.status + ')' };
     }
-    
+
     const backupData: BackupData = await response.json();
     if (!backupData.data || typeof backupData.data !== 'object') {
       return { success: false, message: '无效的备份数据格式' };
     }
-    
+
     // 先保存当前备份端配置（防止恢复失败导致配置丢失）
     const currentEndpointsStr = await env.SUBSCRIPTIONS.get(`user:${username}:backup_endpoints`);
-    
+
     // 清空当前用户的数据（只删除 user:${username}: 前缀的键）
     let cursor: string | undefined;
     let list_complete = false;
@@ -553,10 +629,10 @@ export async function restoreBackupFromEndpoint(
       for (const key of list.keys) {
         await env.SUBSCRIPTIONS.delete(key.name);
       }
-      cursor = (list as any).cursor;
+      cursor = (list as { cursor?: string }).cursor;
       list_complete = list.list_complete ?? false;
     } while (cursor && !list_complete);
-    
+
     // 恢复备份数据
     try {
       const entries = Object.entries(backupData.data);
@@ -564,15 +640,15 @@ export async function restoreBackupFromEndpoint(
         await env.SUBSCRIPTIONS.put(key, value);
       }
       return { success: true, message: '恢复成功: 已恢复 ' + entries.length + ' 条数据' };
-    } catch (err: any) {
+    } catch (err) {
       // 恢复写入失败，尝试恢复备份端配置
       if (currentEndpointsStr) {
         await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
       }
-      return { success: false, message: '恢复失败（已回滚备份端配置）: ' + err.message };
+      return { success: false, message: '恢复失败（已回滚备份端配置）: ' + (err as Error).message };
     }
-  } catch (err: any) {
-    return { success: false, message: '恢复失败: ' + err.message };
+  } catch (err) {
+    return { success: false, message: '恢复失败: ' + (err as Error).message };
   }
 }
 
@@ -585,7 +661,7 @@ export async function deleteBackupFromEndpoint(
 ): Promise<BackupResult> {
   try {
     let response: Response;
-    
+
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
       response = await s3Request('DELETE', '/' + backupKey, config);
@@ -596,28 +672,35 @@ export async function deleteBackupFromEndpoint(
     } else {
       return { success: false, message: '不支持的备份类型' };
     }
-    
+
     if (response.status !== 204 && !response.ok) {
       return { success: false, message: '删除失败 (' + response.status + ')' };
     }
     return { success: true, message: '删除成功' };
-  } catch (err: any) {
-    return { success: false, message: '删除失败: ' + err.message };
+  } catch (err) {
+    return { success: false, message: '删除失败: ' + (err as Error).message };
   }
 }
 
 // 测试备份端连接
-export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{ success: boolean; message: string }> {
+export async function testBackupEndpoint(
+  endpoint: BackupEndpoint
+): Promise<{ success: boolean; message: string }> {
   try {
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
-      const response = await s3Request('GET', '/', config, undefined, { 'list-type': '2', 'max-keys': '1' });
+      const response = await s3Request('GET', '/', config, undefined, {
+        'list-type': '2',
+        'max-keys': '1',
+      });
       if (!response.ok) {
         const errorText = await response.text();
-        return { success: false, message: '连接失败 (' + response.status + '): ' + errorText.substring(0, 200) };
+        return {
+          success: false,
+          message: '连接失败 (' + response.status + '): ' + errorText.substring(0, 200),
+        };
       }
       return { success: true, message: 'S3 连接成功' };
-      
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const response = await webdavRequest('PROPFIND', '/', config);
@@ -629,27 +712,27 @@ export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{ su
       }
       return { success: true, message: 'WebDAV 连接成功' };
     }
-    
+
     return { success: false, message: '不支持的备份类型' };
-  } catch (err: any) {
-    return { success: false, message: '连接异常: ' + err.message };
+  } catch (err) {
+    return { success: false, message: '连接异常: ' + (err as Error).message };
   }
 }
 
 // 执行所有启用的备份
 export async function executeAllBackups(env: Env, username: string): Promise<BackupResult[]> {
   const endpoints = await getBackupEndpoints(env, username);
-  const enabledEndpoints = endpoints.filter(e => e.enabled);
-  
+  const enabledEndpoints = endpoints.filter((e) => e.enabled);
+
   if (enabledEndpoints.length === 0) {
     return [{ success: false, message: '没有启用的备份端' }];
   }
-  
+
   const results: BackupResult[] = [];
   for (const endpoint of enabledEndpoints) {
     const result = await uploadBackupToEndpoint(env, username, endpoint);
     result.endpointName = endpoint.name;
-    
+
     // 更新最后备份状态
     endpoint.lastBackup = {
       time: new Date().toISOString(),
@@ -657,10 +740,10 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
       message: result.message,
     };
     await saveBackupEndpoint(env, username, endpoint);
-    
+
     results.push(result);
   }
-  
+
   return results;
 }
 
@@ -668,14 +751,14 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
 export async function migrateOldS3Config(env: Env, username: string): Promise<void> {
   const oldConfigStr = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
   if (!oldConfigStr) return;
-  
+
   try {
     const oldConfig: S3Config = JSON.parse(oldConfigStr);
     const endpoints = await getBackupEndpoints(env, username);
-    
+
     // 如果已经有备份端，不重复迁移
     if (endpoints.length > 0) return;
-    
+
     // 创建新的备份端
     const newEndpoint: BackupEndpoint = {
       id: crypto.randomUUID(),
@@ -690,10 +773,10 @@ export async function migrateOldS3Config(env: Env, username: string): Promise<vo
       },
       retention: 30,
     };
-    
+
     endpoints.push(newEndpoint);
     await saveBackupEndpoints(env, username, endpoints);
-    
+
     // 删除旧配置
     await env.SUBSCRIPTIONS.delete(`user:${username}:s3_config`);
   } catch (e) {
