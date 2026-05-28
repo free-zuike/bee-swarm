@@ -302,3 +302,212 @@ export async function backupSingleEndpoint(
 ): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
 }
+
+// -------------------------------------------
+// 推送模板接口
+// -------------------------------------------
+
+export interface PushTemplate {
+  id: string;
+  name: string;
+  title: string;
+  content: string;
+  channels?: PushChannel[];
+  url?: string;
+  imageUrl?: string;
+  useMarkdown?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 获取所有模板
+export async function getTemplates(token: string): Promise<{ templates: PushTemplate[] }> {
+  return tokenRequest(`${BASE}/admin/templates`, token);
+}
+
+// 创建模板
+export async function createTemplate(
+  token: string,
+  template: Omit<PushTemplate, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<{ success: boolean; template: PushTemplate }> {
+  return tokenRequest(`${BASE}/admin/templates`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(template),
+  });
+}
+
+// 更新模板
+export async function updateTemplate(
+  token: string,
+  id: string,
+  template: Partial<PushTemplate>
+): Promise<{ success: boolean; template: PushTemplate }> {
+  return tokenRequest(`${BASE}/admin/templates/${id}`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(template),
+  });
+}
+
+// 删除模板
+export async function deleteTemplate(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/templates/${id}`, token, { method: 'DELETE' });
+}
+
+// -------------------------------------------
+// 渠道分组接口
+// -------------------------------------------
+
+export interface ChannelGroup {
+  id: string;
+  name: string;
+  channels: PushChannel[];
+  createdAt: string;
+}
+
+// 获取所有分组
+export async function getChannelGroups(token: string): Promise<{ groups: ChannelGroup[] }> {
+  return tokenRequest(`${BASE}/admin/groups`, token);
+}
+
+// 创建分组
+export async function createChannelGroup(
+  token: string,
+  group: { name: string; channels: PushChannel[] }
+): Promise<{ success: boolean; group: ChannelGroup }> {
+  return tokenRequest(`${BASE}/admin/groups`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(group),
+  });
+}
+
+// 删除分组
+export async function deleteChannelGroup(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/groups/${id}`, token, { method: 'DELETE' });
+}
+
+// -------------------------------------------
+// 定时推送接口
+// -------------------------------------------
+
+export interface ScheduledPush {
+  id: string;
+  title: string;
+  content: string;
+  channels: PushChannel[];
+  url?: string;
+  scheduledAt: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  createdBy: string;
+}
+
+// 获取定时推送列表
+export async function getScheduledPushes(
+  token: string,
+  status?: string
+): Promise<{ scheduled: ScheduledPush[] }> {
+  const url = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
+  return tokenRequest(url, token);
+}
+
+// 创建定时推送
+export async function createScheduledPush(
+  token: string,
+  push: {
+    title: string;
+    content?: string;
+    channels: PushChannel[];
+    url?: string;
+    scheduledAt: string;
+    templateId?: string;
+  }
+): Promise<{ success: boolean; scheduled: ScheduledPush }> {
+  return tokenRequest(`${BASE}/admin/scheduled`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(push),
+  });
+}
+
+// 取消定时推送
+export async function cancelScheduledPush(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+}
+
+// 删除定时推送
+export async function deleteScheduledPush(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+}
+
+// -------------------------------------------
+// 推送统计接口
+// -------------------------------------------
+
+export interface PushStats {
+  session: { total: number; success: number; failed: number };
+  trend: { rate: number; direction: 'up' | 'down' | 'stable' };
+  recent: Array<{ date: string; pushes: number; success: number; failed: number }>;
+}
+
+export interface PushMetrics {
+  total: number;
+  success: number;
+  failed: number;
+  byChannel: Record<string, { success: number; failed: number }>;
+  avgLatency: number;
+  lastPushAt?: string;
+}
+
+// 获取推送统计
+export async function getPushStats(token: string): Promise<PushStats> {
+  return tokenRequest(`${BASE}/admin/stats`, token);
+}
+
+// 获取会话指标
+export async function getPushMetrics(token: string): Promise<PushMetrics> {
+  return tokenRequest(`${BASE}/admin/metrics`, token);
+}
+
+// -------------------------------------------
+// 渠道健康检查
+// -------------------------------------------
+
+export interface ChannelHealth {
+  channel: PushChannel;
+  healthy: boolean;
+  message: string;
+}
+
+// 检查单个渠道健康状态
+export async function checkChannelHealth(
+  token: string,
+  channel: PushChannel
+): Promise<ChannelHealth> {
+  return tokenRequest(`${BASE}/admin/channels/health?channel=${channel}`, token);
+}
+
+// 检查所有渠道健康状态
+export async function checkAllChannelsHealth(
+  token: string
+): Promise<{ channels: ChannelHealth[] }> {
+  return tokenRequest(`${BASE}/admin/channels/health`, token);
+}
+
+// 删除推送历史
+export async function clearHistory(token: string): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/history`, token, { method: 'DELETE' });
+}
