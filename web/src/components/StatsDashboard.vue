@@ -46,7 +46,7 @@
             <div class="stat-label">{{ t('dashboard.successRate') }}</div>
             <div class="trend-indicator" :class="stats.trend.direction">
               <span class="trend-icon">→</span>
-              {{ stats.trend.direction === 'up' ? 'dashboard.trend.up' : stats.trend.direction === 'down' ? 'dashboard.trend.down' : 'dashboard.trend.stable' }}
+              {{ stats.trend.direction === 'up' ? t('dashboard.trend.up') : stats.trend.direction === 'down' ? t('dashboard.trend.down') : t('dashboard.trend.stable') }}
             </div>
           </div>
         </div>
