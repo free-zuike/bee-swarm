@@ -31,11 +31,11 @@ function toggleLocale() {
   setLocale(newLocale);
   // 确保菜单关闭时强制更新
   if (showFabMenu.value) {
-    const wasOpen = true;
+    const wasOpen = showFabMenu.value;
     showFabMenu.value = false;
     setTimeout(() => {
       showFabMenu.value = wasOpen;
-    }, 0);
+    }, 50);
   }
 }
 
