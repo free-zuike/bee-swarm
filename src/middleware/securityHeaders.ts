@@ -15,7 +15,7 @@ export function securityHeaders() {
     // 内容安全策略（根据需要调整）
     c.res.headers.set(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:; font-src 'self' https://unpkg.com https://fonts.gstatic.com;"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:; font-src 'self' https://unpkg.com https://fonts.gstatic.com; connect-src 'self' https://unpkg.com;"
     );
 
     // 引用策略
