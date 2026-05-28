@@ -513,7 +513,7 @@ watch(showSettings, (val, oldVal) => {
         <span class="logout" @click="logout">{{ t('button.logout') }}</span>
       </div>
       
-      <!-- 移动端悬浮按钮 -->
+      <!-- 右上角悬浮按钮 -->
       <button 
         class="fab-toggle" 
         :class="{ dark: isDark, active: showFabMenu }"
@@ -522,8 +522,12 @@ watch(showSettings, (val, oldVal) => {
         ⚙️
       </button>
       
-      <!-- 移动端悬浮菜单 -->
-      <div v-if="showFabMenu" class="fab-menu" :class="{ dark: isDark }">
+      <!-- 悬浮菜单 -->
+      <div 
+        class="fab-menu" 
+        :class="{ dark: isDark, show: showFabMenu }"
+        v-if="showFabMenu"
+      >
         <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
@@ -1200,19 +1204,19 @@ watch(showSettings, (val, oldVal) => {
   }
 }
 
-/* ==================== 移动端悬浮菜单 ==================== */
+/* ==================== 右上角悬浮菜单 ==================== */
 .fab-toggle {
-  display: none;
+  display: block;
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
+  top: 12px;
+  right: 520px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
   color: white;
-  font-size: 20px;
+  font-size: 18px;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
   cursor: pointer;
   z-index: 1000;
@@ -1230,14 +1234,18 @@ watch(showSettings, (val, oldVal) => {
 .fab-menu {
   display: none;
   position: fixed;
-  bottom: 80px;
-  right: 20px;
+  top: 60px;
+  right: 520px;
   background: var(--bg-panel, white);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   padding: 8px;
   z-index: 999;
   min-width: 180px;
+}
+
+.fab-menu.show {
+  display: block;
 }
 
 .fab-menu.dark {
@@ -1285,9 +1293,12 @@ watch(showSettings, (val, oldVal) => {
 }
 
 @media (max-width: 768px) {
-  .fab-toggle,
+  .fab-toggle {
+    right: 20px;
+  }
+  
   .fab-menu {
-    display: block;
+    right: 20px;
   }
   
   .header-right {
