@@ -263,6 +263,9 @@ defineExpose({
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
+  height: 32px;
+  line-height: 32px;
+  box-sizing: border-box;
 }
 
 .hint {

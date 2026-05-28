@@ -667,6 +667,9 @@ defineExpose({
   margin: 0;
   padding: 0;
   border: none;
+  height: 24px;
+  line-height: 24px;
+  box-sizing: border-box;
 }
 
 .backup-endpoints-layout {

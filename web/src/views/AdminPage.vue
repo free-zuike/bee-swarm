@@ -856,6 +856,9 @@ watch(showSettings, (val, oldVal) => {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
   transition: color 0.3s, border-bottom-color 0.3s;
+  height: 32px;
+  line-height: 32px;
+  box-sizing: border-box;
 }
 
 .panel.dark h2 {
