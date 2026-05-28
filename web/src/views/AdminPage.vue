@@ -20,9 +20,14 @@ const router = useRouter();
 const themeStore = useThemeStore();
 
 const isDark = computed(() => themeStore.isDark);
+const currentLocale = ref<'zh' | 'en'>('zh');
 
 function goToApiDocs() {
   router.push('/docs');
+}
+
+function toggleLocale() {
+  currentLocale.value = currentLocale.value === 'zh' ? 'en' : 'zh';
 }
 
 // ==================== 页面状态 ====================
@@ -492,7 +497,10 @@ watch(showSettings, (val, oldVal) => {
       </div>
       <div class="header-right">
         <button class="btn btn-sm btn-icon-btn" @click="themeStore.toggleTheme">
-          {{ isDark ? '☀️' : '🌙' }}
+          {{ isDark ? '🌙' : '☀️' }}
+        </button>
+        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="toggleLocale">
+          {{ currentLocale === 'zh' ? 'English' : '中文' }}
         </button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="goToApiDocs">📚 API 文档</button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="showSettings = !showSettings">

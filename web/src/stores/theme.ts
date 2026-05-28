@@ -1,11 +1,10 @@
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 
-let isDark = ref(false);
+const isDark = ref(false);
 
-// 初始化主题
 function initTheme() {
   const savedTheme = localStorage.getItem('bee_swarm_theme');
-  if (savedTheme) {
+  if (savedTheme !== null) {
     isDark.value = savedTheme === 'dark';
   } else {
     isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -13,14 +12,12 @@ function initTheme() {
   applyTheme();
 }
 
-// 切换主题
 function toggleTheme() {
   isDark.value = !isDark.value;
   localStorage.setItem('bee_swarm_theme', isDark.value ? 'dark' : 'light');
   applyTheme();
 }
 
-// 应用主题到文档
 function applyTheme() {
   if (isDark.value) {
     document.documentElement.classList.add('dark');
@@ -41,20 +38,11 @@ function applyTheme() {
   }
 }
 
+initTheme();
+
 export function useThemeStore() {
-  onMounted(() => {
-    // 如果还没初始化，初始化一次
-    if (localStorage.getItem('bee_swarm_theme') === null) {
-      initTheme();
-    }
-  });
-  
   return {
     isDark: computed(() => isDark.value),
-    toggleTheme,
-    initTheme
+    toggleTheme
   };
 }
-
-// 立即初始化
-initTheme();

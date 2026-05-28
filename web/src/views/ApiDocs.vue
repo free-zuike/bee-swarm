@@ -1,49 +1,43 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
 import { getOpenAPISpec } from '@/api-docs/openapi';
-import SwaggerUI from 'swagger-ui';
-import 'swagger-ui/dist/swagger-ui.css';
 
 const themeStore = useThemeStore();
 const router = useRouter();
 
 const containerRef = ref<HTMLElement | null>(null);
-let uiInstance: any = null;
 const currentLocale = ref<'zh' | 'en'>('zh');
-
 const isDark = computed(() => themeStore.isDark);
 
-function initSwaggerUI() {
+async function initSwaggerUI() {
   if (!containerRef.value) return;
 
-  containerRef.value.innerHTML = '';
-
-  uiInstance = SwaggerUI({
-    domNode: containerRef.value,
-    spec: getOpenAPISpec(currentLocale.value),
-    deepLinking: true,
-    displayOperationId: true,
-    defaultModelsExpandDepth: 1,
-    defaultModelExpandDepth: 1,
-    persistAuthorization: true,
-    tryItOutEnabled: false,
-    syntaxHighlight: {
-      activate: true,
-      theme: isDark.value ? 'monokai' : 'agate'
-    },
-    requestSnippets: {
-      generators: {
-        curl_bash: {
-          title: 'curl',
-          syntax: 'bash',
-        },
-      },
-      defaultExpanded: true,
-    },
-  });
-
+  try {
+    containerRef.value.innerHTML = '';
+    
+    const SwaggerUIBundle = (window as any).SwaggerUIBundle;
+    if (SwaggerUIBundle) {
+      SwaggerUIBundle({
+        domNode: containerRef.value,
+        spec: getOpenAPISpec(currentLocale.value),
+        deepLinking: true,
+        displayOperationId: true,
+        defaultModelsExpandDepth: 1,
+        defaultModelExpandDepth: 1,
+        persistAuthorization: true,
+        tryItOutEnabled: false,
+        syntaxHighlight: {
+          activate: true,
+          theme: isDark.value ? 'monokai' : 'agate'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Failed to initialize Swagger UI:', error);
+  }
+  
   applyTheme();
 }
 
@@ -70,12 +64,11 @@ function goBack() {
 
 watch(isDark, () => {
   applyTheme();
-  if (uiInstance) {
-    initSwaggerUI();
-  }
+  initSwaggerUI();
 });
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick();
   initSwaggerUI();
 });
 </script>
@@ -97,7 +90,7 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped>
+<style>
 .api-docs-container {
   min-height: 100vh;
   background: var(--bg-primary, #f0f2f5);
@@ -198,298 +191,298 @@ onMounted(() => {
 }
 
 /* 覆盖 swagger-ui 的样式 */
-:deep(.swagger-ui) {
+.swagger-ui {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .topbar) {
+.swagger-ui .topbar {
   background: var(--bg-secondary, #e0e0e0);
   display: none;
 }
 
-:deep(.swagger-ui .info) {
+.swagger-ui .info {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .info hgroup.main a) {
+.swagger-ui .info hgroup.main a {
   color: #667eea;
 }
 
-:deep(.swagger-ui .opblock .opblock-summary-method) {
+.swagger-ui .opblock .opblock-summary-method {
   background: #667eea;
   color: white;
 }
 
-:deep(.swagger-ui .opblock.opblock-get .opblock-summary-method) {
+.swagger-ui .opblock.opblock-get .opblock-summary-method {
   background: #61affe;
 }
 
-:deep(.swagger-ui .opblock.opblock-post .opblock-summary-method) {
+.swagger-ui .opblock.opblock-post .opblock-summary-method {
   background: #49cc90;
 }
 
-:deep(.swagger-ui .opblock.opblock-put .opblock-summary-method) {
+.swagger-ui .opblock.opblock-put .opblock-summary-method {
   background: #fca130;
 }
 
-:deep(.swagger-ui .opblock.opblock-delete .opblock-summary-method) {
+.swagger-ui .opblock.opblock-delete .opblock-summary-method {
   background: #f93e3e;
 }
 
-:deep(.swagger-ui .opblock) {
+.swagger-ui .opblock {
   background: white;
   border-color: #e0e0e0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-:deep(.swagger-ui .opblock-summary-path) {
+.swagger-ui .opblock-summary-path {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .opblock-summary-description) {
+.swagger-ui .opblock-summary-description {
   color: var(--text-secondary, #666);
 }
 
-:deep(.swagger-ui .opblock-tag) {
+.swagger-ui .opblock-tag {
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
-:deep(.swagger-ui .scheme-container) {
+.swagger-ui .scheme-container {
   background: #f5f5f5;
   border-bottom-color: var(--border-color, #e0e0e0);
 }
 
-:deep(.swagger-ui .models) {
+.swagger-ui .models {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .model-title) {
+.swagger-ui .model-title {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .parameter__name) {
+.swagger-ui .parameter__name {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .parameter__type) {
+.swagger-ui .parameter__type {
   color: var(--text-secondary, #666);
 }
 
-:deep(.swagger-ui .parameter__in) {
+.swagger-ui .parameter__in {
   color: var(--text-muted, #999);
 }
 
-:deep(.swagger-ui select) {
+.swagger-ui select {
   background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
-:deep(.swagger-ui input[type=text]),
-:deep(.swagger-ui input[type=password]) {
+.swagger-ui input[type=text],
+.swagger-ui input[type=password] {
   background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
-:deep(.swagger-ui textarea) {
+.swagger-ui textarea {
   background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
-:deep(.swagger-ui .btn) {
+.swagger-ui .btn {
   background: #f5f5f5;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
 }
 
-:deep(.swagger-ui .btn:hover) {
+.swagger-ui .btn:hover {
   background: #667eea;
   color: white;
   border-color: #667eea;
 }
 
-:deep(.swagger-ui .btn.primary) {
+.swagger-ui .btn.primary {
   background: #667eea;
   color: white;
   border-color: #667eea;
 }
 
-:deep(.swagger-ui .btn.primary:hover) {
+.swagger-ui .btn.primary:hover {
   background: #5a6fd6;
   border-color: #5a6fd6;
 }
 
-:deep(.swagger-ui .example) {
+.swagger-ui .example {
   background: #f5f5f5;
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .response-col_status) {
+.swagger-ui .response-col_status {
   color: var(--text-primary, #1a1a2e);
 }
 
-:deep(.swagger-ui .response-col_description) {
+.swagger-ui .response-col_description {
   color: var(--text-secondary, #666);
 }
 
-:deep(.swagger-ui .tab) {
+.swagger-ui .tab {
   color: var(--text-secondary, #666);
 }
 
-:deep(.swagger-ui .tab.active) {
+.swagger-ui .tab.active {
   color: #667eea;
   border-color: #667eea;
 }
 
-:deep(.swagger-ui .highlight-code) {
+.swagger-ui .highlight-code {
   background: #f5f5f5;
 }
 
-:deep(.swagger-ui .highlight-code code) {
+.swagger-ui .highlight-code code {
   color: var(--text-primary, #1a1a2e);
 }
 
 /* 深色主题样式 */
-.swagger-dark :deep(.swagger-ui) {
+.swagger-dark .swagger-ui {
   background: #1e1e1e;
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .info) {
+.swagger-dark .swagger-ui .info {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .opblock) {
+.swagger-dark .swagger-ui .opblock {
   background: #2d2d2d;
   border-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui .opblock-summary-path) {
+.swagger-dark .swagger-ui .opblock-summary-path {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .opblock-summary-description) {
+.swagger-dark .swagger-ui .opblock-summary-description {
   color: #999;
 }
 
-.swagger-dark :deep(.swagger-ui .opblock-tag) {
+.swagger-dark .swagger-ui .opblock-tag {
   color: #e0e0e0;
   border-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui .scheme-container) {
+.swagger-dark .swagger-ui .scheme-container {
   background: #2d2d2d;
   border-bottom-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui .models) {
+.swagger-dark .swagger-ui .models {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .model-title) {
+.swagger-dark .swagger-ui .model-title {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .parameter__name) {
+.swagger-dark .swagger-ui .parameter__name {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .parameter__type) {
+.swagger-dark .swagger-ui .parameter__type {
   color: #999;
 }
 
-.swagger-dark :deep(.swagger-ui select) {
+.swagger-dark .swagger-ui select {
   background: #2d2d2d;
   color: #e0e0e0;
   border-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui input[type=text]),
-.swagger-dark :deep(.swagger-ui input[type=password]) {
+.swagger-dark .swagger-ui input[type=text],
+.swagger-dark .swagger-ui input[type=password] {
   background: #2d2d2d;
   color: #e0e0e0;
   border-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui textarea) {
+.swagger-dark .swagger-ui textarea {
   background: #2d2d2d;
   color: #e0e0e0;
   border-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui .btn) {
+.swagger-dark .swagger-ui .btn {
   background: #3c3c3c;
   color: #e0e0e0;
   border-color: #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui .example) {
+.swagger-dark .swagger-ui .example {
   background: #2d2d2d;
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .response-col_status) {
+.swagger-dark .swagger-ui .response-col_status {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .response-col_description) {
+.swagger-dark .swagger-ui .response-col_description {
   color: #999;
 }
 
-.swagger-dark :deep(.swagger-ui .tab) {
+.swagger-dark .swagger-ui .tab {
   color: #999;
 }
 
-.swagger-dark :deep(.swagger-ui .tab.active) {
+.swagger-dark .swagger-ui .tab.active {
   color: #667eea;
   border-color: #667eea;
 }
 
-.swagger-dark :deep(.swagger-ui .highlight-code) {
+.swagger-dark .swagger-ui .highlight-code {
   background: #2d2d2d;
 }
 
-.swagger-dark :deep(.swagger-ui .highlight-code code) {
+.swagger-dark .swagger-ui .highlight-code code {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .opblock-description-wrapper p),
-.swagger-dark :deep(.swagger-ui .opblock-external-docs-wrapper p),
-.swagger-dark :deep(.swagger-ui .opblock-title_normal p) {
+.swagger-dark .swagger-ui .opblock-description-wrapper p,
+.swagger-dark .swagger-ui .opblock-external-docs-wrapper p,
+.swagger-dark .swagger-ui .opblock-title_normal p {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui table thead tr td),
-.swagger-dark :deep(.swagger-ui table thead tr th) {
+.swagger-dark .swagger-ui table thead tr td,
+.swagger-dark .swagger-ui table thead tr th {
   color: #e0e0e0;
   border-bottom: 1px solid #3c3c3c;
 }
 
-.swagger-dark :deep(.swagger-ui .renderedMarkdown p) {
+.swagger-dark .swagger-ui .renderedMarkdown p {
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .markdown code) {
+.swagger-dark .swagger-ui .markdown code {
   background: #2d2d2d;
   border-color: #3c3c3c;
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .renderedMarkdown code) {
+.swagger-dark .swagger-ui .renderedMarkdown code {
   background: #2d2d2d;
   border-color: #3c3c3c;
   color: #e0e0e0;
 }
 
-.swagger-dark :deep(.swagger-ui .opblock-body pre.microlight) {
+.swagger-dark .swagger-ui .opblock-body pre.microlight {
   background: #2d2d2d !important;
   color: #e0e0e0 !important;
 }
 
-.swagger-dark :deep(.swagger-ui .model-box) {
+.swagger-dark .swagger-ui .model-box {
   background: #2d2d2d !important;
   border-color: #3c3c3c !important;
 }
