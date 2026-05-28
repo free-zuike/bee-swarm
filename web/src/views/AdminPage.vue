@@ -40,19 +40,13 @@ function goToApiDocs() {
 }
 
 function toggleLocale() {
-  const wasOpen = showFabMenu.value;
   // 先切换语言
   const newLocale: 'zh' | 'en' = localCurrentLocale.value === 'zh' ? 'en' : 'zh';
   setLocale(newLocale);
   localCurrentLocale.value = newLocale;
   
-  // 关闭菜单，然后重新打开以显示更新后的内容
-  if (wasOpen) {
-    showFabMenu.value = false;
-    setTimeout(() => {
-      showFabMenu.value = true;
-    }, 100);
-  }
+  // 关闭菜单
+  showFabMenu.value = false;
 }
 
 // ==================== 页面状态 ====================
