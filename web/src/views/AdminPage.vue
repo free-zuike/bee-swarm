@@ -645,6 +645,25 @@ watch(showSettings, (val, oldVal) => {
   min-height: 100vh;
   background: var(--bg-primary, #f0f2f5);
   transition: background 0.3s;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
+.page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.page::-webkit-scrollbar-thumb {
+  background: var(--border-color, #ccc);
+  border-radius: 4px;
+}
+
+.page::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary, #999);
 }
 
 .page.dark {
