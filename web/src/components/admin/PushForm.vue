@@ -202,6 +202,11 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   transition: all 0.2s;
   text-align: center;
   user-select: none;
+  height: 56px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .channel-tag.active {

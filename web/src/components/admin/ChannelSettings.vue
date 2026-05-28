@@ -293,6 +293,8 @@ defineExpose({
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  height: 60px;
+  box-sizing: border-box;
 }
 
 .channel-card-header:hover {

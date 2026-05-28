@@ -693,6 +693,8 @@ defineExpose({
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color, #e0e0e0);
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .sidebar-title {
@@ -751,6 +753,8 @@ defineExpose({
   transition: all 0.2s;
   border: 1px solid transparent;
   background: var(--bg-panel, white);
+  height: 56px;
+  box-sizing: border-box;
 }
 
 .endpoint-item:hover {

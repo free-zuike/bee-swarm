@@ -873,11 +873,17 @@ watch(showSettings, (val, oldVal) => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
+  height: 44px;
+  box-sizing: border-box;
+  line-height: 20px;
 }
 
 .btn-sm {
   padding: 8px 18px;
   font-size: 13px;
+  height: 36px;
+  line-height: 20px;
+  box-sizing: border-box;
 }
 
 .btn-icon-btn {
