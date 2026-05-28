@@ -70,7 +70,9 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
     </div>
 
     <div class="panel">
-      <h2>📤 {{ t('label.push_notification') }}</h2>
+      <div class="panel-header">
+        <h2>📤 {{ t('label.push_notification') }}</h2>
+      </div>
 
       <div class="form-group">
         <label>{{ t('label.select_channels') }}</label>
@@ -200,20 +202,26 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   margin-bottom: 24px;
+  position: relative;
+}
+
+.panel-header {
+  height: 50px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
 }
 
 .panel h2 {
   font-size: 18px;
   color: var(--text-primary, #1a1a2e);
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
-  height: 50px;
+  margin: 0;
+  padding: 0;
   line-height: 36px;
-  box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .channel-grid {
