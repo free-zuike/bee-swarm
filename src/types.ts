@@ -26,6 +26,7 @@ export interface Env {
   SUBSCRIPTIONS: KVNamespace;
   ASSETS: Fetcher;
   ALLOWED_ORIGINS?: string;
+  LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
 }
 
 declare module 'hono' {
