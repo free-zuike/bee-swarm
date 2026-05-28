@@ -10,10 +10,6 @@ export const SENSITIVE_FIELDS = [
   'chat_id',
   'api_key',
   'webhook_url',
-  'from',
-  'to',
-  'username',
-  'avatar_url',
   'access_token',
 ] as const;
 

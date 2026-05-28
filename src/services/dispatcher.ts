@@ -11,6 +11,7 @@ import type {
   ChannelDefinition,
   ChannelSettings,
 } from '../types';
+import { PUSH_CONFIG } from '../utils/constants';
 
 interface PushHistoryRecord {
   id: string;
@@ -445,7 +446,7 @@ export async function dispatchPushWithOptions(
       results: results,
       status: results.every((r) => r.success) ? 'success' : 'partial',
     }),
-    { expirationTtl: 7 * 24 * 60 * 60 } // 7 天自动过期
+    { expirationTtl: PUSH_CONFIG.historyRetentionSeconds } // 自动过期
   );
 
   // 记录推送统计数据
@@ -471,8 +472,8 @@ async function sendToChannelWithRetry(
   options: PushOptions
 ): Promise<ChannelResult> {
   const channelEnv = buildChannelEnv(channel, settings);
-  const maxRetries = options.retries ?? 2;
-  const timeout = options.timeout ?? 10000;
+  const maxRetries = options.retries ?? PUSH_CONFIG.maxRetries;
+  const timeout = options.timeout ?? PUSH_CONFIG.timeout;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -494,7 +495,7 @@ async function sendToChannelWithRetry(
           message: `推送失败: ${(err as Error).message}`,
         };
       }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      await new Promise((resolve) => setTimeout(resolve, PUSH_CONFIG.retryBaseDelayMs * Math.pow(2, attempt)));
     }
   }
 
