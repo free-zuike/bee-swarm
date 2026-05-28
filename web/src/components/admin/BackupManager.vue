@@ -1129,5 +1129,35 @@ hr {
     flex-direction: column;
     gap: 12px;
   }
+
+  .endpoint-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .endpoint-actions .btn {
+    flex: 1;
+    min-width: 100px;
+    max-width: 150px;
+  }
+
+  .endpoint-actions .btn:last-child {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .endpoint-actions .btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+
+  .endpoint-actions .btn:last-child {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
 }
 </style>
