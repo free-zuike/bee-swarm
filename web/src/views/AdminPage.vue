@@ -511,9 +511,9 @@ watch(showSettings, (val, oldVal) => {
       
       <!-- 悬浮菜单 -->
       <div 
-        class="fab-menu" 
-        :class="{ dark: isDark, show: showFabMenu }"
         v-if="showFabMenu"
+        class="fab-menu" 
+        :class="{ dark: isDark }"
       >
         <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
@@ -1219,7 +1219,6 @@ watch(showSettings, (val, oldVal) => {
 }
 
 .fab-menu {
-  display: none;
   position: fixed;
   top: 60px;
   right: 20px;
@@ -1229,10 +1228,6 @@ watch(showSettings, (val, oldVal) => {
   padding: 8px;
   z-index: 999;
   min-width: 180px;
-}
-
-.fab-menu.show {
-  display: block;
 }
 
 .fab-menu.dark {
