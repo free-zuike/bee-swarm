@@ -175,13 +175,14 @@ import {
   deleteTemplate,
   type PushTemplate,
 } from '@/api';
-import { useAuth } from '@/composables/useAuth';
 
 const emit = defineEmits<{
   (e: 'use-template', template: PushTemplate): void;
 }>();
 
-const { token } = useAuth();
+const props = defineProps<{
+  accessToken: string;
+}>();
 
 const loading = ref(true);
 const saving = ref(false);
@@ -217,10 +218,10 @@ onMounted(async () => {
 });
 
 async function loadTemplates() {
-  if (!token.value) return;
+  if (!props.accessToken) return;
   loading.value = true;
   try {
-    const data = await getTemplates(token.value);
+    const data = await getTemplates(props.accessToken);
     templates.value = data.templates;
   } catch (err) {
     console.error('Failed to load templates:', err);
@@ -246,10 +247,10 @@ function confirmDelete(template: PushTemplate) {
 }
 
 async function doDelete() {
-  if (!token.value || !deletingTemplate.value) return;
+  if (!props.accessToken || !deletingTemplate.value) return;
   deleting.value = true;
   try {
-    await deleteTemplate(token.value, deletingTemplate.value.id);
+    await deleteTemplate(props.accessToken, deletingTemplate.value.id);
     templates.value = templates.value.filter((t) => t.id !== deletingTemplate.value!.id);
     deletingTemplate.value = null;
   } catch (err) {
@@ -286,7 +287,7 @@ function closeModal() {
 }
 
 async function saveTemplate() {
-  if (!token.value || !form.name || !form.title) return;
+  if (!props.accessToken || !form.name || !form.title) return;
   saving.value = true;
   try {
     const templateData = {
@@ -299,13 +300,13 @@ async function saveTemplate() {
     };
 
     if (editingTemplate.value) {
-      const result = await updateTemplate(token.value, editingTemplate.value.id, templateData);
+      const result = await updateTemplate(props.accessToken, editingTemplate.value.id, templateData);
       const index = templates.value.findIndex((t) => t.id === editingTemplate.value!.id);
       if (index !== -1) {
         templates.value[index] = result.template;
       }
     } else {
-      const result = await createTemplate(token.value, templateData);
+      const result = await createTemplate(props.accessToken, templateData);
       templates.value.unshift(result.template);
     }
     closeModal();

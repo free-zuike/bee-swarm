@@ -129,13 +129,15 @@ import {
   type ChannelGroup,
   type PushChannel,
 } from '@/api';
-import { useAuth } from '@/composables/useAuth';
 
 const emit = defineEmits<{
   (e: 'use-group', channels: PushChannel[]): void;
 }>();
 
-const { token } = useAuth();
+const props = defineProps<{
+  accessToken: string;
+  channels?: Array<{ id: string; name: string; icon: string; enabled: boolean }>;
+}>();
 
 const loading = ref(true);
 const saving = ref(false);
@@ -166,10 +168,10 @@ onMounted(async () => {
 });
 
 async function loadGroups() {
-  if (!token.value) return;
+  if (!props.accessToken) return;
   loading.value = true;
   try {
-    const data = await getChannelGroups(token.value);
+    const data = await getChannelGroups(props.accessToken);
     groups.value = data.groups;
   } catch (err) {
     console.error('Failed to load groups:', err);
@@ -183,10 +185,10 @@ function confirmDelete(group: ChannelGroup) {
 }
 
 async function doDelete() {
-  if (!token.value || !deletingGroup.value) return;
+  if (!props.accessToken || !deletingGroup.value) return;
   deleting.value = true;
   try {
-    await deleteChannelGroup(token.value, deletingGroup.value.id);
+    await deleteChannelGroup(props.accessToken, deletingGroup.value.id);
     groups.value = groups.value.filter((g) => g.id !== deletingGroup.value!.id);
     deletingGroup.value = null;
   } catch (err) {
@@ -210,10 +212,10 @@ function toggleChannel(channelId: string) {
 }
 
 async function saveGroup() {
-  if (!token.value || !form.name || form.channels.length === 0) return;
+  if (!props.accessToken || !form.name || form.channels.length === 0) return;
   saving.value = true;
   try {
-    const result = await createChannelGroup(token.value, {
+    const result = await createChannelGroup(props.accessToken, {
       name: form.name,
       channels: form.channels as PushChannel[],
     });

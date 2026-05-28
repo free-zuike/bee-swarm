@@ -99,12 +99,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { getPushStats, getPushMetrics } from '@/api';
-import { useAuth } from '@/composables/useAuth';
 
-const { token } = useAuth();
+const props = defineProps<{
+  accessToken: string;
+}>();
 
 const loading = ref(true);
 const error = ref('');
@@ -115,13 +116,14 @@ const stats = ref({
 });
 const metrics = ref<{ total: number; success: number; failed: number; byChannel: Record<string, { success: number; failed: number }>; avgLatency: number } | null>(null);
 
-onMounted(async () => {
-  if (!token.value) return;
+async function loadData() {
+  if (!props.accessToken) return;
 
+  loading.value = true;
   try {
     const [statsData, metricsData] = await Promise.all([
-      getPushStats(token.value),
-      getPushMetrics(token.value),
+      getPushStats(props.accessToken),
+      getPushMetrics(props.accessToken),
     ]);
     stats.value = statsData;
     metrics.value = metricsData;
@@ -130,7 +132,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(loadData);
+watch(() => props.accessToken, loadData);
 
 function getBarHeight(value: number, total: number): number {
   if (total === 0) return 0;

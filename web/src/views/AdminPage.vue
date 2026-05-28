@@ -711,6 +711,7 @@ watch(showSettings, (val, oldVal) => {
         <!-- ==================== 定时推送 Tab ==================== -->
         <ScheduledPushManager
           v-if="activeTab === 'scheduled'"
+          :access-token="accessToken"
         />
       </template>
 

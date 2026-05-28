@@ -186,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteScheduledPush, getTemplates } from '../api';
 
 interface ScheduledPush {
@@ -213,6 +213,14 @@ interface Template {
   content: string;
 }
 
+const props = defineProps<{
+  accessToken: string;
+}>();
+
+const emit = defineEmits<{
+  (e: 'use-template', template: Template): void;
+}>();
+
 const loading = ref(false);
 const creating = ref(false);
 const scheduledPushes = ref<ScheduledPush[]>([]);
@@ -234,12 +242,12 @@ const statusFilters = [
 const availableChannels = [
   { id: 'email', name: '邮件', icon: '📧' },
   { id: 'sms', name: '短信', icon: '📱' },
-  { id: 'push', name: '推送', icon: '🔔' },
+  { id: 'push', name: '推送', icon: '' },
   { id: 'wechat', name: '微信', icon: '💬' },
   { id: 'dingtalk', name: '钉钉', icon: '🚀' },
   { id: 'feishu', name: '飞书', icon: '📮' },
   { id: 'telegram', name: 'Telegram', icon: '✈️' },
-  { id: 'slack', name: 'Slack', icon: '💼' },
+  { id: 'slack', name: 'Slack', icon: '' },
   { id: 'discord', name: 'Discord', icon: '🎮' },
   { id: 'webpush', name: 'Web Push', icon: '🌐' }
 ];
@@ -309,9 +317,10 @@ function setQuickSchedule(type: string) {
 }
 
 async function loadScheduledPushes() {
+  if (!props.accessToken) return;
   loading.value = true;
   try {
-    const data = await getScheduledPushes('');
+    const data = await getScheduledPushes(props.accessToken);
     scheduledPushes.value = data.scheduled || [];
   } catch (error) {
     console.error('加载定时推送失败:', error);
@@ -321,8 +330,9 @@ async function loadScheduledPushes() {
 }
 
 async function loadTemplates() {
+  if (!props.accessToken) return;
   try {
-    const data = await getTemplates('');
+    const data = await getTemplates(props.accessToken);
     templates.value = data.templates || [];
   } catch (error) {
     console.error('加载模板失败:', error);
@@ -330,6 +340,10 @@ async function loadTemplates() {
 }
 
 async function createScheduledPushHandler() {
+  if (!props.accessToken) {
+    alert('请先登录');
+    return;
+  }
   if (newPush.value.channels.length === 0) {
     alert('请至少选择一个渠道');
     return;
@@ -339,7 +353,7 @@ async function createScheduledPushHandler() {
 
   creating.value = true;
   try {
-    await createScheduledPush('', {
+    await createScheduledPush(props.accessToken, {
       name: newPush.value.name,
       content: newPush.value.content,
       scheduledTime,
@@ -370,10 +384,11 @@ async function createScheduledPushHandler() {
 }
 
 async function cancelPush(id: string) {
+  if (!props.accessToken) return;
   if (!confirm('确定要取消这个定时推送吗？')) return;
 
   try {
-    await cancelScheduledPush('', id);
+    await cancelScheduledPush(props.accessToken, id);
     await loadScheduledPushes();
   } catch (error) {
     console.error('取消定时推送失败:', error);
@@ -382,10 +397,11 @@ async function cancelPush(id: string) {
 }
 
 async function deletePush(id: string) {
+  if (!token.value) return;
   if (!confirm('确定要删除这个定时推送吗？')) return;
 
   try {
-    await deleteScheduledPush('', id);
+    await deleteScheduledPush(token.value, id);
     await loadScheduledPushes();
   } catch (error) {
     console.error('删除定时推送失败:', error);
@@ -394,10 +410,11 @@ async function deletePush(id: string) {
 }
 
 async function testPush(push: ScheduledPush) {
+  if (!token.value) return;
   if (!confirm('确定要立即执行这个推送进行测试吗？')) return;
 
   try {
-    await createScheduledPush('', {
+    await createScheduledPush(token.value, {
       name: `[测试] ${push.name}`,
       content: push.content,
       scheduledTime: new Date().toISOString(),
