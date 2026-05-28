@@ -1145,6 +1145,24 @@ hr {
   .endpoint-actions .btn:last-child {
     min-width: 120px;
   }
+
+  .backup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .backup-actions-item {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .backup-actions-item .btn {
+    flex: none;
+    min-width: 70px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1158,6 +1176,16 @@ hr {
   .endpoint-actions .btn:last-child {
     flex: 1 1 100%;
     min-width: 100%;
+  }
+
+  .backup-actions-item {
+    gap: 4px;
+  }
+
+  .backup-actions-item .btn {
+    min-width: 60px;
+    padding: 5px 10px;
+    font-size: 11px;
   }
 }
 </style>

@@ -553,14 +553,14 @@ watch(showSettings, (val, oldVal) => {
         v-if="showFabMenu"
         class="fab-menu" 
         :class="{ dark: isDark }"
-        :key="`${localCurrentLocale.value}-${isDark.value ? 'dark' : 'light'}`"
+        :key="`${localCurrentLocale}-${isDark ? 'dark' : 'light'}`"
       >
         <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
         <button class="fab-item" @click="toggleLocale()">
-          <span class="fab-icon">{{ localCurrentLocale === 'zh' ? '🇧' : '🇳' }}</span>
+          <span class="fab-icon">{{ localCurrentLocale === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
           <span class="fab-label">{{ localCurrentLocale === 'zh' ? 'English' : '中文' }}</span>
         </button>
         <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
