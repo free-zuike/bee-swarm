@@ -653,7 +653,8 @@ watch(showSettings, (val, oldVal) => {
 
 .header {
   background: var(--bg-panel, white);
-  padding: 16px 24px;
+  padding: 0 24px;
+  height: 64px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   display: flex;
   justify-content: space-between;
@@ -718,6 +719,8 @@ watch(showSettings, (val, oldVal) => {
   color: var(--text-primary, #1a1a2e);
   transition: color 0.3s;
   white-space: nowrap;
+  flex-shrink: 0;
+  width: 130px;
 }
 
 .header.dark h1 {
