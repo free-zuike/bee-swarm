@@ -155,6 +155,11 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   text-align: center;
+  height: 88px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-card .label {
