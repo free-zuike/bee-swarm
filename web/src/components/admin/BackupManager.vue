@@ -299,8 +299,29 @@ function handleDeleteResult(message: string) {
   isDeletingEndpoint.value = false;
 }
 
-function handleTestResult(success: boolean, message: string) {
-  endpointMessage.value = { text: message, type: success ? 'success' : 'error' };
+function handleTestResult(success: boolean, result: any) {
+  let displayText = '';
+  if (typeof result === 'string') {
+    displayText = result;
+  } else if (result && result.message) {
+    const msgKey = result.message;
+    if (msgKey === 'msg.s3_connection_success') {
+      displayText = t('msg.s3_connection_success');
+    } else if (msgKey === 'msg.webdav_connection_success') {
+      displayText = t('msg.webdav_connection_success');
+    } else if (msgKey === 'msg.too_many_requests') {
+      displayText = t('msg.too_many_requests', { status: result.statusCode });
+    } else if (msgKey === 'msg.connection_failed') {
+      displayText = t('msg.connection_failed', { status: result.statusCode });
+    } else if (msgKey === 'msg.unsupported_backup_type') {
+      displayText = t('msg.unsupported_backup_type');
+    } else if (msgKey === 'msg.connection_error') {
+      displayText = t('msg.connection_error', { message: result.errorMessage || '' });
+    } else {
+      displayText = result.message;
+    }
+  }
+  endpointMessage.value = { text: displayText, type: success ? 'success' : 'error' };
   isTestingEndpoint.value = false;
 }
 
@@ -315,7 +336,11 @@ function handleBackupSingleResult(message: string, type: 'success' | 'error') {
 }
 
 function handleError(message: string, operation: 'save' | 'delete' | 'test' | 'backup') {
-  endpointMessage.value = { text: message || '操作失败', type: 'error' };
+  let displayText = message || t('msg.operation_failed');
+  if (displayText.startsWith('msg.')) {
+    displayText = t(displayText);
+  }
+  endpointMessage.value = { text: displayText, type: 'error' };
   switch (operation) {
     case 'save':
       isSavingEndpoint.value = false;
@@ -944,6 +969,10 @@ defineExpose({
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  height: auto !important;
+  line-height: 1.4 !important;
+  overflow: visible !important;
+  white-space: normal !important;
 }
 
 .input-hint {

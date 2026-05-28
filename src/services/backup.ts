@@ -800,22 +800,22 @@ export async function testBackupEndpoint(
           message: '连接失败 (' + response.status + '): ' + errorText.substring(0, 200),
         };
       }
-      return { success: true, message: 'S3 连接成功' };
+      return { success: true, message: 'msg.s3_connection_success', statusCode: null };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const response = await webdavRequest('PROPFIND', '/', config);
       if (response.status === 429) {
-        return { success: false, message: '请求过于频繁 (429)，请稍后再试' };
+        return { success: false, message: 'msg.too_many_requests', statusCode: 429 };
       }
       if (!response.ok && response.status !== 207) {
-        return { success: false, message: '连接失败 (' + response.status + ')' };
+        return { success: false, message: 'msg.connection_failed', statusCode: response.status };
       }
-      return { success: true, message: 'WebDAV 连接成功' };
+      return { success: true, message: 'msg.webdav_connection_success', statusCode: null };
     }
 
-    return { success: false, message: '不支持的备份类型' };
+    return { success: false, message: 'msg.unsupported_backup_type', statusCode: null };
   } catch (err) {
-    return { success: false, message: '连接异常: ' + (err as Error).message };
+    return { success: false, message: 'msg.connection_error', statusCode: null, errorMessage: (err as Error).message };
   }
 }
 

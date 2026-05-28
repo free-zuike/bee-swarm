@@ -427,9 +427,9 @@ async function handleDeleteEndpoint(id: string) {
 async function handleTestEndpoint(id: string | null, endpoint: Partial<BackupEndpoint>) {
   try {
     const result = await testBackupEndpoint(accessToken.value, id || 'new', endpoint);
-    backupManagerRef.value?.handleTestResult(result.success, result.message);
+    backupManagerRef.value?.handleTestResult(result.success, result);
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '测试失败', 'test'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.test_failed', 'test'));
   }
 }
 
