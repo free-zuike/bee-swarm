@@ -785,7 +785,7 @@ export async function deleteBackupFromEndpoint(
 // 测试备份端连接
 export async function testBackupEndpoint(
   endpoint: BackupEndpoint
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; statusCode?: number | null; errorMessage?: string }> {
   try {
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
