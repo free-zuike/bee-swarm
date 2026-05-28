@@ -717,6 +717,8 @@ watch(showSettings, (val, oldVal) => {
   font-size: 20px;
   color: var(--text-primary, #1a1a2e);
   transition: color 0.3s;
+  width: 120px;
+  flex-shrink: 0;
 }
 
 .header.dark h1 {
