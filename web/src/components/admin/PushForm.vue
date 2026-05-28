@@ -279,6 +279,11 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   font-weight: 600;
   color: var(--text-primary, #333);
   margin-bottom: 6px;
+  height: 20px;
+  line-height: 20px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .form-group input,
@@ -310,6 +315,11 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   font-size: 12px;
   color: var(--text-secondary, #999);
   margin-top: 4px;
+  height: 18px;
+  line-height: 18px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .btn {
