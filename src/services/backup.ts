@@ -646,7 +646,6 @@ export async function restoreBackupFromEndpoint(
       response = await s3Request('GET', '/' + backupKey, config);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
-      // 确保 backupKey 以 / 开头
       const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
       response = await webdavRequest('GET', normalizedKey, config);
     } else {
@@ -665,27 +664,65 @@ export async function restoreBackupFromEndpoint(
     // 先保存当前备份端配置（防止恢复失败导致配置丢失）
     const currentEndpointsStr = await env.SUBSCRIPTIONS.get(`user:${username}:backup_endpoints`);
 
-    // 清空当前用户的数据（只删除 user:${username}: 前缀的键）
+    // 收集所有要删除的旧键
+    const keysToDelete: string[] = [];
     let cursor: string | undefined;
     let list_complete = false;
     do {
       const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
       for (const key of list.keys) {
-        await env.SUBSCRIPTIONS.delete(key.name);
+        keysToDelete.push(key.name);
       }
       cursor = (list as { cursor?: string }).cursor;
       list_complete = list.list_complete ?? false;
     } while (cursor && !list_complete);
 
-    // 恢复备份数据
+    // 先将备份数据写入临时键，验证完整性
+    const tempPrefix = `temp_restore:${username}:`;
+    const entries = Object.entries(backupData.data);
+
     try {
-      const entries = Object.entries(backupData.data);
+      // 第一步：写入临时键
       for (const [key, value] of entries) {
-        await env.SUBSCRIPTIONS.put(key, value);
+        const tempKey = tempPrefix + key;
+        await env.SUBSCRIPTIONS.put(tempKey, value);
       }
+
+      // 第二步：验证临时数据完整性
+      const verifiedCount = await verifyTempRestoreData(env, tempPrefix, entries.length);
+      if (verifiedCount !== entries.length) {
+        // 验证失败，清理临时数据
+        await cleanupTempRestoreData(env, tempPrefix);
+        return { success: false, message: `备份数据验证失败（${verifiedCount}/${entries.length}）` };
+      }
+
+      // 第三步：删除旧数据
+      for (const key of keysToDelete) {
+        await env.SUBSCRIPTIONS.delete(key);
+      }
+
+      // 第四步：将临时数据移动到正式键
+      for (const [key] of entries) {
+        const tempKey = tempPrefix + key;
+        const value = await env.SUBSCRIPTIONS.get(tempKey);
+        if (value !== null) {
+          await env.SUBSCRIPTIONS.put(key, value);
+          await env.SUBSCRIPTIONS.delete(tempKey);
+        }
+      }
+
+      // 第五步：清理剩余的临时键
+      await cleanupTempRestoreData(env, tempPrefix);
+
+      // 第六步：恢复备份端配置
+      if (currentEndpointsStr) {
+        await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
+      }
+
       return { success: true, message: '恢复成功: 已恢复 ' + entries.length + ' 条数据' };
     } catch (err) {
-      // 恢复写入失败，尝试恢复备份端配置
+      // 恢复失败，清理临时数据并恢复备份端配置
+      await cleanupTempRestoreData(env, tempPrefix);
       if (currentEndpointsStr) {
         await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
       }
@@ -693,6 +730,39 @@ export async function restoreBackupFromEndpoint(
     }
   } catch (err) {
     return { success: false, message: '恢复失败: ' + (err as Error).message };
+  }
+}
+
+/**
+ * 验证临时恢复数据的完整性
+ */
+async function verifyTempRestoreData(
+  env: Env,
+  tempPrefix: string,
+  expectedCount: number
+): Promise<number> {
+  let verifiedCount = 0;
+  const list = await env.SUBSCRIPTIONS.list({ prefix: tempPrefix, limit: expectedCount + 10 });
+  for (const key of list.keys) {
+    const value = await env.SUBSCRIPTIONS.get(key.name);
+    if (value !== null) {
+      verifiedCount++;
+    }
+  }
+  return verifiedCount;
+}
+
+/**
+ * 清理临时恢复数据
+ */
+async function cleanupTempRestoreData(env: Env, tempPrefix: string): Promise<void> {
+  try {
+    const list = await env.SUBSCRIPTIONS.list({ prefix: tempPrefix });
+    for (const key of list.keys) {
+      await env.SUBSCRIPTIONS.delete(key.name);
+    }
+  } catch {
+    // 清理失败不影响主流程
   }
 }
 

@@ -73,11 +73,7 @@ export class DiscordChannel extends BaseChannel {
     };
 
     if (payload.body) {
-      if (payload.markdown) {
-        embed.description = payload.body;
-      } else {
-        embed.description = payload.body;
-      }
+      embed.description = payload.body;
     }
 
     if (payload.imageUrl) {

@@ -201,3 +201,9 @@ export interface PushStats {
     failed: number;
   }>;
 }
+
+export interface ChannelHealth {
+  channel: PushChannel;
+  healthy: boolean;
+  message: string;
+}

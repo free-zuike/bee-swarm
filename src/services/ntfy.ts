@@ -29,9 +29,11 @@ export async function sendNtfy(
   try {
     const server = env.server || 'https://ntfy.sh';
 
+    // ntfy API 要求 topic 在 URL 路径中，而非 body
+    const url = new URL(`/${env.topic}`, server);
+
     // 使用 JSON body 发送，支持 Markdown 渲染
     const body: Record<string, string> = {
-      topic: env.topic,
       title: payload.title,
       message: payload.body || '',
       priority: 'default',
@@ -41,7 +43,7 @@ export async function sendNtfy(
       body.actions = JSON.stringify([{ action: 'view', label: '查看详情', url: payload.url }]);
     }
 
-    const res = await fetch(`${server}`, {
+    const res = await fetch(url.toString(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

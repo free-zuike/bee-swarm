@@ -62,15 +62,13 @@ export function rateLimit(config: RateLimitConfig = {}) {
     const remaining = Math.max(0, max - entry.count);
     const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
 
-    if (headers) {
-      c.res.headers.set('X-RateLimit-Limit', String(max));
-      c.res.headers.set('X-RateLimit-Remaining', String(remaining));
-      c.res.headers.set('X-RateLimit-Reset', String(Math.floor(entry.resetTime / 1000)));
-    }
-
     if (entry.count > max) {
+      const responseHeaders = new Headers();
       if (headers) {
-        c.res.headers.set('Retry-After', String(retryAfter));
+        responseHeaders.set('X-RateLimit-Limit', String(max));
+        responseHeaders.set('X-RateLimit-Remaining', '0');
+        responseHeaders.set('X-RateLimit-Reset', String(Math.floor(entry.resetTime / 1000)));
+        responseHeaders.set('Retry-After', String(retryAfter));
       }
       return c.json(
         {
@@ -78,10 +76,17 @@ export function rateLimit(config: RateLimitConfig = {}) {
           code: ErrorCode.RATE_LIMITED,
           timestamp: new Date().toISOString(),
         },
-        429
+        { status: 429, headers: responseHeaders }
       );
     }
 
     await next();
+
+    // 响应头需要在 next() 之后设置（此时 c.res 已生成）
+    if (headers && c.res) {
+      c.res.headers.set('X-RateLimit-Limit', String(max));
+      c.res.headers.set('X-RateLimit-Remaining', String(remaining));
+      c.res.headers.set('X-RateLimit-Reset', String(Math.floor(entry.resetTime / 1000)));
+    }
   };
 }

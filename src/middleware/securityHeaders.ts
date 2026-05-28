@@ -6,9 +6,6 @@ export function securityHeaders() {
     // 防止浏览器嗅探 Content-Type
     c.res.headers.set('X-Content-Type-Options', 'nosniff');
 
-    // 防止 XSS 攻击
-    c.res.headers.set('X-XSS-Protection', '1; mode=block');
-
     // 防止点击劫持
     c.res.headers.set('X-Frame-Options', 'DENY');
 

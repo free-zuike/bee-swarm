@@ -541,15 +541,29 @@ export async function getPushHistory(
   const prefix = `user:${username}:push:`;
   const pageSize = options.pageSize || 20;
   const page = options.page || 1;
-  const limit = pageSize + 1; // 多取一条判断是否有更多
 
-  const list = await env.SUBSCRIPTIONS.list({ prefix, limit });
+  // 先获取 total（遍历计数，避免分页时 total 不准确）
+  let total = 0;
+  let cursor: string | undefined;
+  let listComplete = false;
+  do {
+    const list = await env.SUBSCRIPTIONS.list({ prefix, limit: 100, cursor });
+    total += list.keys.length;
+    cursor = (list as { cursor?: string }).cursor;
+    listComplete = list.list_complete ?? false;
+  } while (cursor && !listComplete);
 
-  if (list.keys.length === 0) return { records: [], total: 0, hasMore: false };
+  if (total === 0) return { records: [], total: 0, hasMore: false };
 
-  // 并行读取推送历史
+  // 获取当前页数据
+  const limit = pageSize + 1;
+  const skip = (page - 1) * pageSize;
+  const list = await env.SUBSCRIPTIONS.list({ prefix, limit, cursor: undefined });
+
+  if (list.keys.length === 0) return { records: [], total, hasMore: false };
+
   const sortedKeys = [...list.keys].sort((a, b) => b.name.localeCompare(a.name));
-  const pageKeys = sortedKeys.slice((page - 1) * pageSize, page * pageSize + 1);
+  const pageKeys = sortedKeys.slice(skip, skip + limit);
   const readPromises = pageKeys.map(async (key) => {
     const data = await env.SUBSCRIPTIONS.get(key.name);
     return data ? (JSON.parse(data) as PushHistoryRecord) : null;
@@ -558,17 +572,22 @@ export async function getPushHistory(
   const results = await Promise.all(readPromises);
   const records = results.filter((r): r is PushHistoryRecord => r !== null);
   const hasMore = records.length > pageSize;
-  if (hasMore) records.pop(); // 去掉多余的那条
+  if (hasMore) records.pop();
 
-  return { records, total: sortedKeys.length, hasMore };
+  return { records, total, hasMore };
 }
 
 export async function deletePushHistory(username: string, env: Env): Promise<void> {
   const prefix = `user:${username}:push:`;
-  const list = await env.SUBSCRIPTIONS.list({ prefix });
-  for (const key of list.keys) {
-    await env.SUBSCRIPTIONS.delete(key.name);
-  }
+  let cursor: string | undefined;
+  let listComplete = false;
+  do {
+    const list = await env.SUBSCRIPTIONS.list({ prefix, cursor });
+    const deletePromises = list.keys.map((key) => env.SUBSCRIPTIONS.delete(key.name));
+    await Promise.all(deletePromises);
+    cursor = (list as { cursor?: string }).cursor;
+    listComplete = list.list_complete ?? false;
+  } while (cursor && !listComplete);
 }
 
 export async function healthCheckChannel(

@@ -1,7 +1,7 @@
 // ============================================
 // API 服务封装
 // ============================================
-import type { PushChannel, ChannelSettings } from '@/types';
+import type { PushChannel, ChannelSettings, BackupEndpoint, PushTemplate, ChannelGroup, ScheduledPush, PushStats, PushMetrics, ChannelHealth } from '@/types';
 
 const BASE = '/api';
 
@@ -34,6 +34,14 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
   };
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('bee_swarm_token');
+      localStorage.removeItem('bee_swarm_refresh_token');
+      localStorage.removeItem('bee_swarm_expires_at');
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
+    }
     throw await handleResponseError(res);
   }
   return res.json();
@@ -172,37 +180,6 @@ export async function getApiKeyWithToken(
 // 多备份端接口（Token 认证）
 // -------------------------------------------
 
-export interface BackupEndpoint {
-  id: string;
-  name: string;
-  type: 's3' | 'webdav';
-  enabled: boolean;
-  config: {
-    endpoint?: string;
-    accessKeyId?: string;
-    secretAccessKey?: string;
-    bucket?: string;
-    region?: string;
-    path?: string;
-    pathStyle?: boolean;
-    url?: string;
-    username?: string;
-    password?: string;
-  };
-  schedule: {
-    enabled: boolean;
-    interval: number;
-    startTime: string;
-    timezone?: string;
-  };
-  retention: number;
-  lastBackup?: {
-    time: string;
-    status: 'success' | 'failed';
-    message?: string;
-  };
-}
-
 // 获取所有备份端
 export async function getBackupEndpoints(token: string): Promise<{ endpoints: BackupEndpoint[] }> {
   return tokenRequest(`${BASE}/admin/backup-endpoints`, token);
@@ -307,19 +284,6 @@ export async function backupSingleEndpoint(
 // 推送模板接口
 // -------------------------------------------
 
-export interface PushTemplate {
-  id: string;
-  name: string;
-  title: string;
-  content: string;
-  channels?: PushChannel[];
-  url?: string;
-  imageUrl?: string;
-  useMarkdown?: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // 获取所有模板
 export async function getTemplates(token: string): Promise<{ templates: PushTemplate[] }> {
   return tokenRequest(`${BASE}/admin/templates`, token);
@@ -362,13 +326,6 @@ export async function deleteTemplate(
 // 渠道分组接口
 // -------------------------------------------
 
-export interface ChannelGroup {
-  id: string;
-  name: string;
-  channels: PushChannel[];
-  createdAt: string;
-}
-
 // 获取所有分组
 export async function getChannelGroups(token: string): Promise<{ groups: ChannelGroup[] }> {
   return tokenRequest(`${BASE}/admin/groups`, token);
@@ -397,17 +354,6 @@ export async function deleteChannelGroup(
 // -------------------------------------------
 // 定时推送接口
 // -------------------------------------------
-
-export interface ScheduledPush {
-  id: string;
-  title: string;
-  content: string;
-  channels: PushChannel[];
-  url?: string;
-  scheduledAt: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  createdBy: string;
-}
 
 // 获取定时推送列表
 export async function getScheduledPushes(
@@ -457,21 +403,6 @@ export async function deleteScheduledPush(
 // 推送统计接口
 // -------------------------------------------
 
-export interface PushStats {
-  session: { total: number; success: number; failed: number };
-  trend: { rate: number; direction: 'up' | 'down' | 'stable' };
-  recent: Array<{ date: string; pushes: number; success: number; failed: number }>;
-}
-
-export interface PushMetrics {
-  total: number;
-  success: number;
-  failed: number;
-  byChannel: Record<string, { success: number; failed: number }>;
-  avgLatency: number;
-  lastPushAt?: string;
-}
-
 // 获取推送统计
 export async function getPushStats(token: string): Promise<PushStats> {
   return tokenRequest(`${BASE}/admin/stats`, token);
@@ -485,12 +416,6 @@ export async function getPushMetrics(token: string): Promise<PushMetrics> {
 // -------------------------------------------
 // 渠道健康检查
 // -------------------------------------------
-
-export interface ChannelHealth {
-  channel: PushChannel;
-  healthy: boolean;
-  message: string;
-}
 
 // 检查单个渠道健康状态
 export async function checkChannelHealth(

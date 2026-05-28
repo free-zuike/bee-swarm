@@ -4,6 +4,8 @@ import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import prettierPlugin from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
+import vuePlugin from 'eslint-plugin-vue';
+import vueParser from 'vue-eslint-parser';
 
 export default [
   pluginJs.configs.recommended,
@@ -68,6 +70,35 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       'no-unused-vars': 'off',
+      'no-console': ['error', { allow: ['warn', 'error', 'log'] }],
+    },
+  },
+  {
+    files: ['web/src/**/*.vue'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.es2021,
+      },
+      parser: vueParser,
+      parserOptions: {
+        parser: tsParser,
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+    },
+    plugins: {
+      vue: vuePlugin,
+      '@typescript-eslint': tsPlugin,
+      prettier: prettierPlugin,
+    },
+    rules: {
+      ...vuePlugin.configs['flat/recommended'].rules,
+      ...prettierConfig.rules,
+      'prettier/prettier': 'error',
+      'vue/multi-word-component-names': 'off',
+      'vue/no-v-html': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': ['error', { allow: ['warn', 'error', 'log'] }],
     },
   },

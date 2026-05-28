@@ -40,13 +40,12 @@ api.post('/register', validateBody(schemas.register), async (c) => {
   const { email, password } = body;
 
   const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
-  if (existing) {
-    return c.json({ error: '该邮箱已被注册', code: 'CONFLICT' }, 409);
+  if (!existing) {
+    const hashed = await hashPassword(password);
+    await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
   }
 
-  const hashed = await hashPassword(password);
-  await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
-
+  // 统一返回成功，防止邮箱枚举攻击
   return c.json({ success: true, message: '注册成功' });
 });
 
@@ -364,6 +363,23 @@ adminApi.get('/test/bark', async (c) => {
     if (serverUrl.protocol !== 'https:') {
       return c.json({ error: 'Server 必须是 HTTPS URL', code: 'VALIDATION_ERROR' }, 400);
     }
+
+    // 验证 server 不指向内网地址，防止 DNS rebinding 攻击
+    const hostname = serverUrl.hostname.toLowerCase();
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('169.254.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('172.') ||
+      hostname === '[::1]' ||
+      hostname.startsWith('fc00:') ||
+      hostname.startsWith('fe80:')
+    ) {
+      return c.json({ error: 'Server 不允许使用内网地址', code: 'VALIDATION_ERROR' }, 400);
+    }
   } catch {
     return c.json({ error: 'Server 必须是合法的 URL', code: 'VALIDATION_ERROR' }, 400);
   }
@@ -375,8 +391,9 @@ adminApi.get('/test/bark', async (c) => {
 
   try {
     // 发送测试请求（不实际推送，只验证 key 是否有效）
-    const testUrl = `${server}/${key}/测试标题/这是一条测试消息`;
-    const res = await fetch(testUrl);
+    const testUrl = new URL(`${server}/${key}/测试标题`);
+    testUrl.searchParams.set('body', '这是一条测试消息');
+    const res = await fetch(testUrl.toString());
     const data = (await res.json()) as { code: number; message: string };
 
     if (data.code === 200) {

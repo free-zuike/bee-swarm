@@ -88,11 +88,12 @@ export class WebPushChannel extends BaseChannel {
       silent: false,
     });
 
+    const vapidToken = await this.getVapidToken(subscription);
     const response = await fetch(subscription.endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `vapid t=${this.getVapidToken(subscription)}, k=${this.vapidKeys!.publicKey}`,
+        Authorization: `vapid t=${vapidToken}, k=${this.vapidKeys!.publicKey}`,
         'Content-Length': pushData.length.toString(),
         TTL: '86400',
       },
@@ -102,7 +103,7 @@ export class WebPushChannel extends BaseChannel {
     return response;
   }
 
-  private getVapidToken(subscription: WebPushSubscription): string {
+  private async getVapidToken(subscription: WebPushSubscription): Promise<string> {
     const audience = new URL(subscription.endpoint).origin;
     const now = Math.floor(Date.now() / 1000);
 
@@ -116,9 +117,93 @@ export class WebPushChannel extends BaseChannel {
     );
 
     const signingInput = `${protectedHeader}.${jwtPayload}`;
-    const key = this.urlBase64Decode(this.vapidKeys!.privateKey);
+    const privateKey = this.urlBase64Decode(this.vapidKeys!.privateKey);
 
-    return `${signingInput}.${btoa(String.fromCharCode(...new Uint8Array(key)))}`;
+    // 使用 ECDSA P-256 进行真正的签名
+    const keyPair = await this.importPrivateKey(privateKey);
+    const signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: { name: 'SHA-256' } },
+      keyPair,
+      new TextEncoder().encode(signingInput)
+    );
+
+    // 将 ASN.1 格式的 ECDSA 签名转换为 ES256 固定长度 (r || s) 格式
+    const rawSignature = this.ecdsaAsn1ToRaw(new Uint8Array(signature));
+
+    return `${signingInput}.${this.binaryToBase64(rawSignature)}`;
+  }
+
+  /**
+   * 将原始 32 字节私钥导入为 ECDSA P-256 CryptoKey
+   */
+  private async importPrivateKey(rawKey: Uint8Array): Promise<CryptoKey> {
+    // 使用 JWK 格式导入 EC P-256 私钥
+    const jwk: JsonWebKey = {
+      kty: 'EC',
+      crv: 'P-256',
+      d: this.urlBase64EncodePrivate(rawKey),
+      ext: true,
+    };
+
+    return crypto.subtle.importKey(
+      'jwk',
+      jwk,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['sign']
+    );
+  }
+
+  /**
+   * 将原始私钥转换为 JWK d 参数（URL-safe Base64）
+   */
+  private urlBase64EncodePrivate(rawKey: Uint8Array): string {
+    const base64 = this.binaryToBase64(rawKey);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  private binaryToBase64(buffer: Uint8Array): string {
+    let binary = '';
+    for (let i = 0; i < buffer.length; i++) {
+      binary += String.fromCharCode(buffer[i]);
+    }
+    return btoa(binary);
+  }
+
+  /**
+   * 将 ASN.1 DER 编码的 ECDSA 签名转换为 ES256 原始格式 (64 字节 r||s)
+   */
+  private ecdsaAsn1ToRaw(der: Uint8Array): Uint8Array {
+    // ASN.1 SEQUENCE
+    if (der[0] !== 0x30) throw new Error('Invalid ASN.1 signature');
+    let offset = 2; // skip SEQUENCE tag + length
+
+    // r INTEGER
+    if (der[offset] !== 0x02) throw new Error('Invalid ASN.1 r');
+    const rLen = der[offset + 1];
+    const rStart = offset + 2;
+    const rEnd = rStart + rLen;
+
+    // 跳过前导 0x00（如果存在）
+    const r = der.subarray(rStart, rEnd);
+    const rPadded = r.length === 32 ? r : (r[0] === 0x00 ? r.subarray(1) : r);
+
+    offset = rEnd;
+
+    // s INTEGER
+    if (der[offset] !== 0x02) throw new Error('Invalid ASN.1 s');
+    const sLen = der[offset + 1];
+    const sStart = offset + 2;
+    const sEnd = sStart + sLen;
+
+    const s = der.subarray(sStart, sEnd);
+    const sPadded = s.length === 32 ? s : (s[0] === 0x00 ? s.subarray(1) : s);
+
+    // 补齐到 32 字节
+    const result = new Uint8Array(64);
+    result.set(rPadded, 32 - rPadded.length);
+    result.set(sPadded, 64 - sPadded.length);
+    return result;
   }
 
   private urlBase64Decode(str: string): Uint8Array {
@@ -150,9 +235,33 @@ export async function sendWebPush(
   return channel.sendWithRetry(payload);
 }
 
-export function generateVAPIDKeys(): VAPIDKeys {
+/**
+ * 生成 ECDSA P-256 VAPID 密钥对
+ * 返回 URL-safe Base64 编码的公钥和私钥
+ */
+export async function generateVAPIDKeys(): Promise<VAPIDKeys> {
+  const keyPair = await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify']
+  );
+
+  // 导出私钥为原始 32 字节
+  const privateKeyRaw = await crypto.subtle.exportKey('raw', keyPair.privateKey);
+  // 导出公钥为未压缩格式（65 字节：0x04 || x || y），去掉 0x04 前缀得到 64 字节
+  const publicKeyRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+
   return {
-    publicKey: crypto.randomUUID().replace(/-/g, ''),
-    privateKey: crypto.randomUUID().replace(/-/g, ''),
+    publicKey: urlBase64Encode(new Uint8Array(publicKeyRaw).subarray(1)),
+    privateKey: urlBase64Encode(new Uint8Array(privateKeyRaw)),
   };
+}
+
+function urlBase64Encode(buffer: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  const base64 = btoa(binary);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }

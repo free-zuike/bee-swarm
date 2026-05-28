@@ -17,6 +17,13 @@ export type {
   BackupInfo,
   BackupResult,
   EndpointType,
+  PushTemplate,
+  ChannelGroup,
+  ScheduledPush,
+  PushStats,
+  PushMetrics,
+  DailyMetrics,
+  ChannelHealth,
 } from '../../types';
 
 /** Web Push 订阅对象（仅前端使用） */

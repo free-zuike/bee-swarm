@@ -42,15 +42,18 @@ app.use('*', async (c, next) => {
     }
     // 检查环境变量配置的允许来源列表
     const allowedOrigins = c.env.ALLOWED_ORIGINS?.split(',') || [];
-    if (
-      allowedOrigins.some(
-        (allowedOrigin) =>
-          origin === allowedOrigin ||
-          (allowedOrigin.includes('*') &&
-            new RegExp(`^${allowedOrigin.replace('*', '.*')}$`).test(origin))
-      )
-    ) {
-      return true;
+    for (const allowedOrigin of allowedOrigins) {
+      if (origin === allowedOrigin) {
+        return true;
+      }
+      // 安全处理通配符：转义正则特殊字符，只允许首尾单星号
+      if (allowedOrigin.includes('*')) {
+        const escaped = escapeRegex(allowedOrigin.replace(/\*/g, '__WILDCARD__'));
+        const pattern = new RegExp(`^${escaped.replace(/__WILDCARD__/g, '[a-zA-Z0-9._-]+')}$`);
+        if (pattern.test(origin)) {
+          return true;
+        }
+      }
     }
     // 生产环境默认不允许其他来源
     return false;
@@ -65,6 +68,13 @@ app.use('*', async (c, next) => {
     credentials: true,
   })(c, next);
 });
+
+/**
+ * 转义正则表达式特殊字符（保留 __WILDCARD__ 占位符）
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // 全局错误处理
 app.onError((err, c) => {
@@ -135,7 +145,7 @@ export default {
             const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
             const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
-            if (localHour === startHour && Math.abs(localMinute - startMinute) < 5) {
+            if (localHour === startHour && Math.abs(localMinute - startMinute) <= 5) {
               await uploadBackupToEndpoint(env, username, endpoint);
             }
           }
