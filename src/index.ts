@@ -147,10 +147,28 @@ export default {
             if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
 
             const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
+            const interval = endpoint.schedule.interval || 24;
             const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
             const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
-            if (localHour === startHour && Math.abs(localMinute - startMinute) <= 5) {
+            // 计算应该执行备份的小时（从 startHour 开始，每隔 interval 小时）
+            let shouldRun = false;
+            if (interval >= 24) {
+              // 每天或更长周期：只在 startHour 触发
+              if (localHour === startHour && Math.abs(localMinute - startMinute) <= 5) {
+                shouldRun = true;
+              }
+            } else {
+              // 小于 24 小时：从 startHour 开始每隔 interval 小时触发
+              for (let h = startHour; h < 24; h += interval) {
+                if (h === localHour && Math.abs(localMinute - startMinute) <= 5) {
+                  shouldRun = true;
+                  break;
+                }
+              }
+            }
+
+            if (shouldRun) {
               await uploadBackupToEndpoint(env, username, endpoint);
             }
           }
