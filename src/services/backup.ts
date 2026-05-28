@@ -178,7 +178,7 @@ function sanitizeBackupValue(key: string, value: string): string {
           parsed.map((endpoint: BackupEndpoint) => {
             const sanitized = { ...endpoint };
             if (sanitized.config) {
-              sanitized.config = filterSensitiveConfig(sanitized.config);
+              sanitized.config = filterSensitiveConfig(sanitized.config as unknown as Record<string, unknown>) as unknown as S3Config | WebDAVConfig;
             }
             return sanitized;
           })

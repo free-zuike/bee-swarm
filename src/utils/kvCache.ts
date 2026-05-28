@@ -59,9 +59,9 @@ export async function cachedKvList(
   c: Context,
   env: Env,
   options: { prefix?: string; cursor?: string; limit?: number }
-): Promise<KVNamespaceListResult<unknown, unknown>> {
+): Promise<KVNamespaceListResult<string, string>> {
   const cacheKey = `list:${options.prefix || ''}:${options.cursor || ''}`;
-  const cached = getFromCache<KVNamespaceListResult<unknown, unknown>>(c, cacheKey);
+  const cached = getFromCache<KVNamespaceListResult<string, string>>(c, cacheKey);
   if (cached !== null) return cached;
 
   const result = await env.SUBSCRIPTIONS.list(options);
