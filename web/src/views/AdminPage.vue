@@ -641,29 +641,36 @@ watch(showSettings, (val, oldVal) => {
 
 /* ==================== 主页面 ==================== */
 
-.page {
-  min-height: 100vh;
-  background: var(--bg-primary, #f0f2f5);
-  transition: background 0.3s;
+html, body {
   overflow-y: scroll;
   overflow-x: hidden;
 }
 
-.page::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
   width: 8px;
 }
 
-.page::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.page::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
   background: var(--border-color, #ccc);
   border-radius: 4px;
 }
 
-.page::-webkit-scrollbar-thumb:hover {
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary, #999);
+}
+
+.page {
+  min-height: 100vh;
+  background: var(--bg-primary, #f0f2f5);
+  transition: background 0.3s;
 }
 
 .page.dark {
@@ -734,8 +741,11 @@ watch(showSettings, (val, oldVal) => {
 .header-right .logout {
   flex-shrink: 0;
   width: 60px;
+  height: 36px;
+  line-height: 36px;
   text-align: center;
   white-space: nowrap;
+  font-size: 14px;
 }
 
 .header h1 {
@@ -745,6 +755,8 @@ watch(showSettings, (val, oldVal) => {
   white-space: nowrap;
   flex-shrink: 0;
   width: 130px;
+  height: 40px;
+  line-height: 40px;
 }
 
 .header.dark h1 {
