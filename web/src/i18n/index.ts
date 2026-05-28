@@ -370,6 +370,21 @@ export function initLocale(): void {
   }
 }
 
+// 使用 computed 属性确保 t 函数能响应式
+export function useTranslation() {
+  return function t(key: string, params: Record<string, string> = {}): string {
+    // 通过访问 currentLocale.value 确保响应式依赖被追踪
+    const locale = currentLocale.value;
+    const message = messages[locale][key] || key;
+    let result = message;
+    for (const [paramKey, paramValue] of Object.entries(params)) {
+      result = result.replace(`{${paramKey}}`, paramValue);
+    }
+    return result;
+  };
+}
+
+// 保持原有的 t 函数，用于非组件场景
 export function t(key: string, params: Record<string, string> = {}): string {
   // 通过访问 currentLocale.value 确保响应式依赖被追踪
   const locale = currentLocale.value;

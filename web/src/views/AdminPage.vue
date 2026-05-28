@@ -5,7 +5,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
-import { setLocale, t, currentLocale } from '@/i18n';
+import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult } from '@/types';
@@ -29,6 +29,14 @@ function goToApiDocs() {
 function toggleLocale() {
   const newLocale: 'zh' | 'en' = currentLocale.value === 'zh' ? 'en' : 'zh';
   setLocale(newLocale);
+  // 确保菜单关闭时强制更新
+  if (showFabMenu.value) {
+    const wasOpen = true;
+    showFabMenu.value = false;
+    setTimeout(() => {
+      showFabMenu.value = wasOpen;
+    }, 0);
+  }
 }
 
 // ==================== 页面状态 ====================
@@ -57,15 +65,19 @@ const showSettings = ref(false);
 const showFabMenu = ref(false);
 
 // 确保菜单文本响应语言变化
-const localeText = computed(() => ({
-  toggleTheme: t('button.toggle_theme'),
-  apiDocs: t('button.api_docs'),
-  settings: t('button.settings'),
-  hideSettings: t('button.hide_settings'),
-  logout: t('button.logout'),
-  toggleLocale: currentLocale.value === 'zh' ? 'English' : '中文',
-  toggleLocaleIcon: currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳'
-}));
+const localeText = computed(() => {
+  // 确保访问 currentLocale.value 以触发响应式更新
+  const _ = currentLocale.value;
+  return {
+    toggleTheme: t('button.toggle_theme'),
+    apiDocs: t('button.api_docs'),
+    settings: t('button.settings'),
+    hideSettings: t('button.hide_settings'),
+    logout: t('button.logout'),
+    toggleLocale: currentLocale.value === 'zh' ? 'English' : '中文',
+    toggleLocaleIcon: currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳'
+  };
+});
 
 // ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
@@ -523,29 +535,29 @@ watch(showSettings, (val, oldVal) => {
       <!-- 悬浮菜单 -->
       <div 
         v-if="showFabMenu"
-        :key="currentLocale.value"
         class="fab-menu" 
         :class="{ dark: isDark }"
+        :key="`${currentLocale.value}-${isDark.value ? 'dark' : 'light'}`"
       >
         <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
-          <span class="fab-label">{{ localeText.toggleTheme }}</span>
+          <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
         <button class="fab-item" @click="toggleLocale(); showFabMenu = false">
-          <span class="fab-icon">{{ localeText.toggleLocaleIcon }}</span>
-          <span class="fab-label">{{ localeText.toggleLocale }}</span>
+          <span class="fab-icon">{{ currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
+          <span class="fab-label">{{ currentLocale.value === 'zh' ? 'English' : '中文' }}</span>
         </button>
         <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
           <span class="fab-icon">📚</span>
-          <span class="fab-label">{{ localeText.apiDocs }}</span>
+          <span class="fab-label">{{ t('button.api_docs') }}</span>
         </button>
         <button class="fab-item" @click="showSettings = !showSettings; showFabMenu = false">
           <span class="fab-icon">⚙️</span>
-          <span class="fab-label">{{ showSettings ? localeText.hideSettings : localeText.settings }}</span>
+          <span class="fab-label">{{ showSettings ? t('button.hide_settings') : t('button.settings') }}</span>
         </button>
         <button class="fab-item fab-logout" @click="logout(); showFabMenu = false">
           <span class="fab-icon">🚪</span>
-          <span class="fab-label">{{ localeText.logout }}</span>
+          <span class="fab-label">{{ t('button.logout') }}</span>
         </button>
       </div>
     </header>
