@@ -394,4 +394,96 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   font-weight: 600;
   min-width: 100px;
 }
+
+/* ==================== 移动端响应式 ==================== */
+@media (max-width: 768px) {
+  .panel {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .panel-header {
+    height: auto;
+    margin-bottom: 12px;
+  }
+
+  .panel h2 {
+    font-size: 16px;
+    height: auto;
+    line-height: 1.4;
+  }
+
+  .panel h3 {
+    font-size: 14px;
+    height: auto;
+  }
+
+  .channel-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .channel-tag {
+    height: 48px;
+  }
+
+  .channel-tag .ch-icon {
+    font-size: 16px;
+    margin-bottom: 1px;
+  }
+
+  .channel-tag .ch-name {
+    font-size: 11px;
+  }
+
+  .stats {
+    height: auto;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    height: 72px;
+    padding: 8px;
+  }
+
+  .stat-card .label {
+    font-size: 11px;
+    top: 12px;
+  }
+
+  .stat-card .value {
+    font-size: 20px;
+    top: 32px;
+  }
+
+  .btn-fixed {
+    min-width: 140px;
+    width: 140px;
+    font-size: 13px;
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    height: 64px;
+  }
+
+  .stat-card .label {
+    font-size: 10px;
+  }
+
+  .stat-card .value {
+    font-size: 18px;
+  }
+
+  .btn-fixed {
+    min-width: 120px;
+    width: 120px;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}
 </style>

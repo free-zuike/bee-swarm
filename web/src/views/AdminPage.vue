@@ -1018,4 +1018,149 @@ watch(showSettings, (val, oldVal) => {
 .dark .hint {
   color: var(--text-secondary, #888);
 }
+
+/* ==================== 移动端响应式 ==================== */
+@media (max-width: 768px) {
+  .header {
+    padding: 0 12px;
+    height: 56px;
+  }
+
+  .header-left {
+    min-width: auto;
+    gap: 8px;
+  }
+
+  .header h1 {
+    font-size: 16px;
+    width: auto;
+  }
+
+  .header-email {
+    display: none;
+  }
+
+  .header-right {
+    min-width: auto;
+    gap: 4px;
+  }
+
+  .header-right .btn-secondary {
+    width: auto;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .header-right .logout {
+    width: auto;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .container {
+    padding: 0 12px;
+    margin: 16px auto;
+  }
+
+  .tab-nav {
+    gap: 4px;
+    padding: 4px;
+    height: auto;
+  }
+
+  .tab-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    height: auto;
+    line-height: 1.4;
+  }
+
+  .stats {
+    height: auto;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    height: 72px;
+    padding: 8px;
+  }
+
+  .stat-card .label {
+    font-size: 11px;
+    top: 12px;
+  }
+
+  .stat-card .value {
+    font-size: 20px;
+    top: 32px;
+  }
+
+  .panel {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .panel-header {
+    height: auto;
+  }
+
+  .panel h2 {
+    font-size: 16px;
+    height: auto;
+    line-height: 1.4;
+    margin-bottom: 12px;
+  }
+
+  .panel h3 {
+    font-size: 14px;
+    height: auto;
+  }
+
+  .channel-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .channel-tag {
+    height: 48px;
+  }
+
+  .channel-tag .ch-icon {
+    font-size: 16px;
+    margin-bottom: 1px;
+  }
+
+  .channel-tag .ch-name {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-right .btn-secondary {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .header-right .logout {
+    display: none;
+  }
+
+  .tab-btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .stat-card {
+    height: 64px;
+  }
+
+  .stat-card .label {
+    font-size: 10px;
+  }
+
+  .stat-card .value {
+    font-size: 18px;
+  }
+}
 </style>
