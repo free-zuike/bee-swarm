@@ -104,10 +104,10 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
         <input v-model="pushUrl" type="url" placeholder="https://example.com" />
       </div>
 
-      <button class="btn btn-primary" :disabled="isPushing" @click="doPush">
+      <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
         🚀 {{ t('button.push') }}
       </button>
-      <button class="btn btn-secondary" @click="$emit('refresh')">{{ t('button.refresh_channels') }}</button>
+      <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">{{ t('button.refresh_channels') }}</button>
 
       <div v-if="pushResults?.length" class="result-list">
         <template v-if="isNoChannelSelectedError(pushResults)">
@@ -355,6 +355,15 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 .btn-secondary:hover {
   background: var(--border-color, #e0e0e0);
+}
+
+.btn-fixed {
+  min-width: 120px;
+  width: 120px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .result-list {
