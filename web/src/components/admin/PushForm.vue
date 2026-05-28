@@ -358,8 +358,8 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 }
 
 .btn-fixed {
-  min-width: 140px;
-  width: 140px;
+  min-width: 180px;
+  width: 180px;
   box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
