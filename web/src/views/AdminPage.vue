@@ -641,32 +641,6 @@ watch(showSettings, (val, oldVal) => {
 
 /* ==================== 主页面 ==================== */
 
-html, body {
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  width: 8px;
-}
-
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb {
-  background: var(--border-color, #ccc);
-  border-radius: 4px;
-}
-
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary, #999);
-}
-
 .page {
   min-height: 100vh;
   background: var(--bg-primary, #f0f2f5);
@@ -821,6 +795,9 @@ body::-webkit-scrollbar-thumb:hover {
   background: transparent;
   color: var(--text-secondary, #666);
   transition: all 0.2s;
+  height: 40px;
+  line-height: 20px;
+  box-sizing: border-box;
 }
 
 .tab-btn.dark {
