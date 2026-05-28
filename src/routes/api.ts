@@ -78,7 +78,9 @@ api.get('/apikey', async (c) => {
           if (user.token === token && user.expiresAt > Date.now()) {
             username = indexedUser;
           }
-        } catch {}
+        } catch (err) {
+          console.error(`[APIKey] Failed to parse user data: ${(err as Error).message}`);
+        }
       }
     }
   }
@@ -99,14 +101,14 @@ api.get('/apikey', async (c) => {
     const user = JSON.parse(userData);
     const valid = await verifyPassword(queryPassword, user.password);
     if (!valid) {
-      return c.json({ error: '密码错误' }, 401);
+      return c.json({ error: '密码错误', code: 'AUTH_ERROR' }, 401);
     }
 
     username = queryUsername;
   }
 
   if (!username) {
-    return c.json({ error: '认证失败' }, 401);
+    return c.json({ error: '认证失败', code: 'AUTH_ERROR' }, 401);
   }
 
   // 获取或生成 API Key
@@ -205,7 +207,9 @@ api.post('/refresh', validateBody(schemas.refresh), async (c) => {
 
           return c.json({ token, refreshToken: newRefreshToken, expiresAt });
         }
-      } catch {}
+      } catch (err) {
+        console.error(`[Refresh] Failed to parse user data: ${(err as Error).message}`);
+      }
     }
   }
 
@@ -232,13 +236,13 @@ adminApi.put('/channels/:id', async (c) => {
   const channelId = c.req.param('id') as PushChannel;
 
   if (!CHANNEL_DEFINITIONS.find((d) => d.id === channelId)) {
-    return c.json({ error: '无效的渠道 ID' }, 400);
+    return c.json({ error: '无效的渠道 ID', code: 'VALIDATION_ERROR' }, 400);
   }
 
   const body = await c.req.json<{ fields: Record<string, string> }>();
 
   if (!body.fields || typeof body.fields !== 'object') {
-    return c.json({ error: '无效的配置数据' }, 400);
+    return c.json({ error: '无效的配置数据', code: 'VALIDATION_ERROR' }, 400);
   }
 
   await saveUserChannelSetting(username, channelId, body.fields, c.env);
@@ -272,7 +276,7 @@ adminApi.post('/push', async (c) => {
   const body: PushRequest = await c.req.json();
 
   if (!body.title) {
-    return c.json({ error: '请输入标题' }, 400);
+    return c.json({ error: '请输入标题', code: 'VALIDATION_ERROR' }, 400);
   }
 
   const results = await dispatchPush(body, body.channels, username, c.env);
@@ -329,7 +333,7 @@ adminApi.post('/backup-endpoints', async (c) => {
   console.log(`[Add Endpoint] Adding endpoint: ${body.name}, type=${body.type}`);
   
   if (!body.name || !body.type) {
-    return c.json({ error: '请提供名称和类型' }, 400);
+    return c.json({ error: '请提供名称和类型', code: 'VALIDATION_ERROR' }, 400);
   }
   
   const endpoints = await getBackupEndpoints(c.env, username);
@@ -368,7 +372,7 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   const endpoints = await getBackupEndpoints(c.env, username);
   const index = endpoints.findIndex(e => e.id === id);
   if (index === -1) {
-    return c.json({ error: '备份端不存在' }, 404);
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
   
   // 保留原有的密钥（如果新配置中没有提供）
@@ -417,7 +421,7 @@ adminApi.delete('/backup-endpoints/:id', async (c) => {
   
   const success = await deleteBackupEndpoint(c.env, username, id);
   if (!success) {
-    return c.json({ error: '备份端不存在' }, 404);
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
   return c.json({ success: true, message: '备份端已删除' });
 });
@@ -435,7 +439,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
   if (id === 'new') {
     // 测试新配置的连接（必须传入 type 和 config）
     if (!body.type || !body.config) {
-      return c.json({ error: '测试新配置需要传入 type 和 config' }, 400);
+      return c.json({ error: '测试新配置需要传入 type 和 config', code: 'VALIDATION_ERROR' }, 400);
     }
     endpoint = {
       id: 'new',
@@ -452,7 +456,7 @@ adminApi.post('/backup-endpoints/:id/test', async (c) => {
     const endpoints = await getBackupEndpoints(c.env, username);
     endpoint = endpoints.find(e => e.id === id);
     if (!endpoint) {
-      return c.json({ error: '备份端不存在' }, 404);
+      return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
     }
     
     // 检查是否有密钥
@@ -480,14 +484,14 @@ adminApi.get('/backup-endpoints/:id/backups', async (c) => {
   const endpoints = await getBackupEndpoints(c.env, username);
   const endpoint = endpoints.find(e => e.id === id);
   if (!endpoint) {
-    return c.json({ error: '备份端不存在' }, 404);
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
   
   try {
     const list = await listBackupsFromEndpoint(c.env, username, endpoint);
     return c.json({ backups: list });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: err.message, code: 'INTERNAL_ERROR' }, 500);
   }
 });
 
@@ -498,13 +502,13 @@ adminApi.post('/backup-endpoints/:id/restore', async (c) => {
   const { key } = await c.req.json<{ key: string }>();
   
   if (!key) {
-    return c.json({ error: '请提供备份文件 key' }, 400);
+    return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
   }
   
   const endpoints = await getBackupEndpoints(c.env, username);
   const endpoint = endpoints.find(e => e.id === id);
   if (!endpoint) {
-    return c.json({ error: '备份端不存在' }, 404);
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
   
   const result = await restoreBackupFromEndpoint(c.env, username, endpoint, key);
@@ -518,13 +522,13 @@ adminApi.delete('/backup-endpoints/:id/backups', async (c) => {
   const { key } = await c.req.json<{ key: string }>();
   
   if (!key) {
-    return c.json({ error: '请提供备份文件 key' }, 400);
+    return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
   }
   
   const endpoints = await getBackupEndpoints(c.env, username);
   const endpoint = endpoints.find(e => e.id === id);
   if (!endpoint) {
-    return c.json({ error: '备份端不存在' }, 404);
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
   
   const result = await deleteBackupFromEndpoint(c.env, username, endpoint, key);
@@ -546,7 +550,7 @@ adminApi.post('/backup-endpoints/:id/backup', async (c) => {
   const endpoints = await getBackupEndpoints(c.env, username);
   const endpoint = endpoints.find(e => e.id === id);
   if (!endpoint) {
-    return c.json({ error: '备份端不存在' }, 404);
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
   
   const result = await uploadBackupToEndpoint(c.env, username, endpoint);
@@ -573,22 +577,22 @@ adminApi.get('/test/bark', async (c) => {
   const server = c.req.query('server') || 'https://api.day.app';
 
   if (!key) {
-    return c.json({ error: '请提供 Bark Key' }, 400);
+    return c.json({ error: '请提供 Bark Key', code: 'VALIDATION_ERROR' }, 400);
   }
 
   // 验证 server 必须是合法的 HTTPS URL，防止 SSRF
   try {
     const serverUrl = new URL(server);
     if (serverUrl.protocol !== 'https:') {
-      return c.json({ error: 'Server 必须是 HTTPS URL' }, 400);
+      return c.json({ error: 'Server 必须是 HTTPS URL', code: 'VALIDATION_ERROR' }, 400);
     }
   } catch {
-    return c.json({ error: 'Server 必须是合法的 URL' }, 400);
+    return c.json({ error: 'Server 必须是合法的 URL', code: 'VALIDATION_ERROR' }, 400);
   }
 
   // 验证 key 只允许字母数字字符
   if (!/^[a-zA-Z0-9_-]+$/.test(key)) {
-    return c.json({ error: 'Bark Key 包含非法字符' }, 400);
+    return c.json({ error: 'Bark Key 包含非法字符', code: 'VALIDATION_ERROR' }, 400);
   }
 
   try {
