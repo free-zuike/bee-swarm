@@ -418,4 +418,83 @@ watch(() => props.accessToken, loadData);
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .stat-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  .stat-value.large {
+    font-size: 30px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .section h3 {
+    font-size: 14px;
+  }
+
+  .bar-chart {
+    height: 100px;
+    gap: 8px;
+  }
+
+  .bar-label {
+    font-size: 10px;
+  }
+
+  .channel-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .channel-stat-card {
+    padding: 12px;
+  }
+
+  .avg-latency {
+    font-size: 13px;
+    padding: 10px 14px;
+  }
+
+  .latency-value {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .bar-chart {
+    padding: 0;
+  }
+}
 </style>

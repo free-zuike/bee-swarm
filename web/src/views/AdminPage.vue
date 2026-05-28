@@ -657,21 +657,21 @@ watch(showSettings, (val, oldVal) => {
             :class="{ active: activeTab === 'templates', dark: isDark }"
             @click="activeTab = 'templates'"
           >
-            📝 模板
+            📝 {{ t('tab.templates') }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: activeTab === 'groups', dark: isDark }"
             @click="activeTab = 'groups'"
           >
-            📁 分组
+            📁 {{ t('tab.groups') }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: activeTab === 'scheduled', dark: isDark }"
             @click="activeTab = 'scheduled'"
           >
-            ⏰ 定时
+            ⏰ {{ t('tab.scheduled') }}
           </button>
         </div>
 
@@ -1186,13 +1186,17 @@ watch(showSettings, (val, oldVal) => {
     gap: 4px;
     padding: 4px;
     height: auto;
+    overflow-x: auto;
+    flex-wrap: nowrap;
   }
 
   .tab-btn {
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 8px 8px;
+    font-size: 11px;
     height: auto;
-    line-height: 1.4;
+    line-height: 1.3;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 
   .stats {
