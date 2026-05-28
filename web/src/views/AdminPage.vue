@@ -20,7 +20,9 @@ const router = useRouter();
 const themeStore = useThemeStore();
 
 const isDark = computed(() => themeStore.isDark);
-const currentLocale = ref<'zh' | 'en'>('zh');
+
+const savedLocale = localStorage.getItem('bee_swarm_locale') as 'zh' | 'en' | null;
+const currentLocale = ref<'zh' | 'en'>(savedLocale || 'zh');
 
 function goToApiDocs() {
   router.push('/docs');
@@ -28,6 +30,7 @@ function goToApiDocs() {
 
 function toggleLocale() {
   currentLocale.value = currentLocale.value === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('bee_swarm_locale', currentLocale.value);
 }
 
 // ==================== 页面状态 ====================
@@ -674,6 +677,26 @@ watch(showSettings, (val, oldVal) => {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 380px;
+  justify-content: flex-end;
+}
+
+.header-right .btn {
+  flex-shrink: 0;
+}
+
+.header-right .btn-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.header-right .btn-secondary {
+  min-width: 80px;
+  text-align: center;
 }
 
 .header h1 {

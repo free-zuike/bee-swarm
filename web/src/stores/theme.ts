@@ -42,7 +42,7 @@ initTheme();
 
 export function useThemeStore() {
   return {
-    isDark: computed(() => isDark.value),
+    isDark,
     toggleTheme
   };
 }
