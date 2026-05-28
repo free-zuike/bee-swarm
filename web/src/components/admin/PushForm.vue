@@ -152,7 +152,7 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 .stat-card {
   background: var(--bg-panel, white);
   border-radius: 12px;
-  padding: 16px;
+  padding: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   text-align: center;
   height: 88px;
@@ -160,15 +160,17 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   min-width: 140px;
   max-width: 100%;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  position: relative;
   overflow: hidden;
 }
 
 .stat-card .label {
   font-size: 12px;
   color: var(--text-secondary, #999);
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
   height: 16px;
   line-height: 16px;
   overflow: hidden;
@@ -179,6 +181,10 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   font-size: 24px;
   font-weight: 700;
   color: var(--text-primary, #1a1a2e);
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
   height: 32px;
   line-height: 32px;
   overflow: hidden;
