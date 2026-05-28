@@ -1,25 +1,173 @@
-// 国际化类型定义
 export type Locale = 'zh' | 'en';
 
 export interface LocaleMessages {
   [key: string]: string;
 }
 
-// 当前语言
 let currentLocale: Locale = 'zh';
 
-// 获取当前语言
+const messages: Record<Locale, LocaleMessages> = {
+  zh: {
+    'app.title': '🐝 蜂群',
+    'button.api_docs': '📚 API 文档',
+    'button.settings': '⚙️ 设置',
+    'button.hide_settings': '收起设置',
+    'button.logout': '退出',
+    'button.refresh': '重新生成',
+    'button.generate_api_key': '生成 API Key',
+    'label.api_key': '🔑 API Key',
+    'hint.api_key': '使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。',
+    'tab.push': '推送消息',
+    'tab.history': '推送历史',
+    'label.title': '标题',
+    'label.content': '内容',
+    'label.channels': '推送渠道',
+    'button.push': '发送推送',
+    'button.clear': '清空',
+    'label.select_all': '全选',
+    'label.time': '时间',
+    'label.channel': '渠道',
+    'label.status': '状态',
+    'status.success': '成功',
+    'status.failed': '失败',
+    'label.email': '邮箱',
+    'label.password': '密码',
+    'label.confirm_password': '确认密码',
+    'button.login': '登录',
+    'button.register': '注册',
+    'link.forgot_password': '忘记密码？',
+    'link.no_account': '没有账号？',
+    'link.have_account': '已有账号？',
+    'error.required': '请输入{field}',
+    'error.email_format': '请输入有效的邮箱地址',
+    'error.password_length': '密码长度至少6位',
+    'error.password_match': '两次输入的密码不一致',
+    'error.login_failed': '登录失败，请检查邮箱或密码',
+    'error.register_failed': '注册失败',
+    'success.register': '注册成功，请登录',
+    'success.push': '推送任务已提交',
+    'success.api_key_generated': 'API Key 已生成',
+    'success.api_key_refreshed': 'API Key 已刷新',
+    'error.push_failed': '推送失败',
+    'label.backup': '数据备份',
+    'label.backup_endpoints': '备份端点',
+    'button.add_endpoint': '添加备份端点',
+    'button.test_connection': '测试连接',
+    'button.backup_all': '备份全部',
+    'button.restore': '恢复',
+    'button.delete': '删除',
+    'button.backup': '备份',
+    'label.endpoint_name': '端点名称',
+    'label.endpoint_url': '端点 URL',
+    'label.endpoint_type': '端点类型',
+    'label.endpoint_settings': '端点设置',
+    'label.endpoint_status': '连接状态',
+    'status.connected': '已连接',
+    'status.disconnected': '未连接',
+    'success.backup_created': '备份端创建成功',
+    'success.backup_updated': '备份端更新成功',
+    'success.backup_deleted': '备份端已删除',
+    'success.backup_completed': '备份完成',
+    'success.restore_completed': '恢复完成',
+    'label.channel_settings': '渠道设置',
+    'label.channel_name': '渠道名称',
+    'label.channel_enabled': '启用',
+    'button.save': '保存',
+    'button.test': '测试',
+    'success.channel_saved': '渠道设置已保存',
+    'success.channel_tested': '测试成功',
+    'error.channel_test_failed': '测试失败',
+    'label.last_push': '上次推送',
+    'label.no_history': '暂无推送历史',
+    'button.clear_history': '清空历史',
+    'confirm.clear_history': '确定要清空所有推送历史吗？'
+  },
+  en: {
+    'app.title': '🐝 Bee Swarm',
+    'button.api_docs': '📚 API Docs',
+    'button.settings': '⚙️ Settings',
+    'button.hide_settings': 'Hide Settings',
+    'button.logout': 'Logout',
+    'button.refresh': 'Regenerate',
+    'button.generate_api_key': 'Generate API Key',
+    'label.api_key': '🔑 API Key',
+    'hint.api_key': 'Use API Key to call push API without exposing credentials. Refresh to generate new Key, old Key will be invalid immediately.',
+    'tab.push': 'Push Message',
+    'tab.history': 'Push History',
+    'label.title': 'Title',
+    'label.content': 'Content',
+    'label.channels': 'Channels',
+    'button.push': 'Send Push',
+    'button.clear': 'Clear',
+    'label.select_all': 'Select All',
+    'label.time': 'Time',
+    'label.channel': 'Channel',
+    'label.status': 'Status',
+    'status.success': 'Success',
+    'status.failed': 'Failed',
+    'label.email': 'Email',
+    'label.password': 'Password',
+    'label.confirm_password': 'Confirm Password',
+    'button.login': 'Login',
+    'button.register': 'Register',
+    'link.forgot_password': 'Forgot password?',
+    'link.no_account': 'No account?',
+    'link.have_account': 'Already have an account?',
+    'error.required': 'Please enter {field}',
+    'error.email_format': 'Please enter a valid email',
+    'error.password_length': 'Password must be at least 6 characters',
+    'error.password_match': 'Passwords do not match',
+    'error.login_failed': 'Login failed, please check email or password',
+    'error.register_failed': 'Registration failed',
+    'success.register': 'Registration successful, please login',
+    'success.push': 'Push task submitted',
+    'success.api_key_generated': 'API Key generated',
+    'success.api_key_refreshed': 'API Key refreshed',
+    'error.push_failed': 'Push failed',
+    'label.backup': 'Data Backup',
+    'label.backup_endpoints': 'Backup Endpoints',
+    'button.add_endpoint': 'Add Endpoint',
+    'button.test_connection': 'Test Connection',
+    'button.backup_all': 'Backup All',
+    'button.restore': 'Restore',
+    'button.delete': 'Delete',
+    'button.backup': 'Backup',
+    'label.endpoint_name': 'Endpoint Name',
+    'label.endpoint_url': 'Endpoint URL',
+    'label.endpoint_type': 'Endpoint Type',
+    'label.endpoint_settings': 'Endpoint Settings',
+    'label.endpoint_status': 'Connection Status',
+    'status.connected': 'Connected',
+    'status.disconnected': 'Disconnected',
+    'success.backup_created': 'Backup endpoint created',
+    'success.backup_updated': 'Backup endpoint updated',
+    'success.backup_deleted': 'Backup endpoint deleted',
+    'success.backup_completed': 'Backup completed',
+    'success.restore_completed': 'Restore completed',
+    'label.channel_settings': 'Channel Settings',
+    'label.channel_name': 'Channel Name',
+    'label.channel_enabled': 'Enabled',
+    'button.save': 'Save',
+    'button.test': 'Test',
+    'success.channel_saved': 'Channel settings saved',
+    'success.channel_tested': 'Test successful',
+    'error.channel_test_failed': 'Test failed',
+    'label.last_push': 'Last Push',
+    'label.no_history': 'No push history',
+    'button.clear_history': 'Clear History',
+    'confirm.clear_history': 'Are you sure you want to clear all push history?'
+  }
+};
+
 export function getLocale(): Locale {
   return currentLocale;
 }
 
-// 设置语言
 export function setLocale(locale: Locale): void {
   currentLocale = locale;
   localStorage.setItem('bee_swarm_locale', locale);
 }
 
-// 初始化语言
 export function initLocale(): void {
   const saved = localStorage.getItem('bee_swarm_locale') as Locale;
   if (saved && ['zh', 'en'].includes(saved)) {
@@ -28,4 +176,13 @@ export function initLocale(): void {
     const browserLang = navigator.language.split('-')[0];
     currentLocale = browserLang === 'zh' ? 'zh' : 'en';
   }
+}
+
+export function t(key: string, params: Record<string, string> = {}): string {
+  const message = messages[currentLocale][key] || key;
+  let result = message;
+  for (const [paramKey, paramValue] of Object.entries(params)) {
+    result = result.replace(`{${paramKey}}`, paramValue);
+  }
+  return result;
 }

@@ -5,6 +5,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
+import { setLocale, getLocale, t } from '@/i18n';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult } from '@/types';
@@ -21,17 +22,20 @@ const themeStore = useThemeStore();
 
 const isDark = computed(() => themeState.isDark);
 
-const savedLocale = localStorage.getItem('bee_swarm_locale') as 'zh' | 'en' | null;
-const currentLocale = ref<'zh' | 'en'>(savedLocale || 'zh');
+const currentLocale = ref<'zh' | 'en'>(getLocale());
 
 function goToApiDocs() {
   router.push('/docs');
 }
 
 function toggleLocale() {
-  currentLocale.value = currentLocale.value === 'zh' ? 'en' : 'zh';
-  localStorage.setItem('bee_swarm_locale', currentLocale.value);
+  const newLocale: 'zh' | 'en' = currentLocale.value === 'zh' ? 'en' : 'zh';
+  currentLocale.value = newLocale;
+  setLocale(newLocale);
 }
+
+watch(currentLocale, () => {
+});
 
 // ==================== 页面状态 ====================
 const pageState = ref<'loading' | 'auth' | 'dashboard'>('loading');
@@ -495,7 +499,7 @@ watch(showSettings, (val, oldVal) => {
   <div v-else class="page" :class="{ dark: isDark }">
     <header class="header" :class="{ dark: isDark }">
       <div class="header-left">
-        <h1>🐝 蜂群</h1>
+        <h1>{{ t('app.title') }}</h1>
         <span class="header-email">{{ email }}</span>
       </div>
       <div class="header-right">
@@ -505,11 +509,11 @@ watch(showSettings, (val, oldVal) => {
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="toggleLocale">
           {{ currentLocale === 'zh' ? 'English' : '中文' }}
         </button>
-        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="goToApiDocs">📚 API 文档</button>
+        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="goToApiDocs">{{ t('button.api_docs') }}</button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="showSettings = !showSettings">
-          {{ showSettings ? '收起设置' : '⚙️ 设置' }}
+          {{ showSettings ? t('button.hide_settings') : t('button.settings') }}
         </button>
-        <span class="logout" @click="logout">退出</span>
+        <span class="logout" @click="logout">{{ t('button.logout') }}</span>
       </div>
     </header>
 
@@ -519,14 +523,14 @@ watch(showSettings, (val, oldVal) => {
         <!-- API Key 面板 -->
         <div class="panel" :class="{ dark: isDark }">
           <div class="api-key-panel" :class="{ dark: isDark }">
-            <h3>🔑 API Key</h3>
-            <p class="hint">使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。</p>
+            <h3>{{ t('label.api_key') }}</h3>
+            <p class="hint">{{ t('hint.api_key') }}</p>
             <div v-if="apiKey" class="api-key-display">
               <code :class="{ dark: isDark }">{{ apiKey }}</code>
-              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">重新生成</button>
+              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">{{ t('button.refresh') }}</button>
             </div>
             <div v-else>
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">生成 API Key</button>
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">{{ t('button.generate_api_key') }}</button>
             </div>
           </div>
         </div>
@@ -571,14 +575,14 @@ watch(showSettings, (val, oldVal) => {
             :class="{ active: activeTab === 'push', dark: isDark }"
             @click="activeTab = 'push'"
           >
-            📤 推送
+            📤 {{ t('tab.push') }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: activeTab === 'history', dark: isDark }"
             @click="activeTab = 'history'"
           >
-            推送历史
+            {{ t('tab.history') }}
           </button>
         </div>
 
