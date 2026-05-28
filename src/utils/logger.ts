@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import type { Env } from '../types';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -25,22 +26,34 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
-const currentLevel = (): LogLevel => {
-  const envLevel = (globalThis as { LOG_LEVEL?: string }).LOG_LEVEL || 'info';
-  return envLevel as LogLevel;
-};
+const DEFAULT_LOG_LEVEL: LogLevel = 'info';
 
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel()];
+let cachedLogLevel: LogLevel | null = null;
+let lastCheckTime = 0;
+
+function getLogLevel(env?: Env): LogLevel {
+  const now = Date.now();
+  if (cachedLogLevel && now - lastCheckTime < 60000) {
+    return cachedLogLevel;
+  }
+
+  const level = env?.LOG_LEVEL || (globalThis as { LOG_LEVEL?: string }).LOG_LEVEL || DEFAULT_LOG_LEVEL;
+  cachedLogLevel = (level as LogLevel) in LOG_LEVELS ? (level as LogLevel) : DEFAULT_LOG_LEVEL;
+  lastCheckTime = now;
+  return cachedLogLevel;
+}
+
+function shouldLog(level: LogLevel, env?: Env): boolean {
+  return LOG_LEVELS[level] >= LOG_LEVELS[getLogLevel(env)];
 }
 
 function formatLog(entry: LogEntry): string {
   return JSON.stringify(entry);
 }
 
-export function createLogger(context?: { requestId?: string; userId?: string }) {
+export function createLogger(context?: { requestId?: string; userId?: string }, env?: Env) {
   function log(level: LogLevel, message: string, metadata?: Record<string, unknown>) {
-    if (!shouldLog(level)) return;
+    if (!shouldLog(level, env)) return;
 
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
@@ -57,7 +70,7 @@ export function createLogger(context?: { requestId?: string; userId?: string }) 
         message: metadata.error.message,
         stack: metadata.error.stack,
       };
-      delete metadata?.error;
+      delete (metadata as Record<string, unknown>).error;
     }
 
     if (level === 'error' || level === 'warn') {
@@ -79,7 +92,7 @@ export function createLogger(context?: { requestId?: string; userId?: string }) 
 export function requestLogger(c: Context, next: () => Promise<void>) {
   const requestId = crypto.randomUUID().slice(0, 8);
   const start = Date.now();
-  const logger = createLogger({ requestId });
+  const logger = createLogger({ requestId }, c.env as unknown as Env);
 
   c.set('requestId', requestId);
   c.set('logger', logger);

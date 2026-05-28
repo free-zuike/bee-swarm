@@ -1,11 +1,18 @@
 <script setup lang="ts">
-// ============================================
-// 根组件
-// ============================================
+import { useLoadingStore } from '@/stores/loading';
+
+const loadingStore = useLoadingStore();
 </script>
 
 <template>
-  <router-view />
+  <div>
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="loadingStore.globalLoading" class="global-loading-overlay"></div>
+      </Transition>
+    </Teleport>
+    <router-view />
+  </div>
 </template>
 
 <style>
@@ -48,5 +55,30 @@ body::-webkit-scrollbar-thumb {
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+/* 全局加载遮罩层 */
+.global-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  pointer-events: all;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

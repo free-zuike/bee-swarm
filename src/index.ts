@@ -92,6 +92,11 @@ app.onError((err, c) => {
   return c.json(response, 500);
 });
 
+// 健康检查端点（无需认证，供负载均衡器使用）
+app.get('/health', async (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
+});
+
 // API 路由
 app.route('/api', api);
 
