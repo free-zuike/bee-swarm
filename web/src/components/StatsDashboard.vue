@@ -1,105 +1,98 @@
 <template>
   <div class="stats-dashboard">
-    <h2 class="section-title">{{ t('dashboard.title') }}</h2>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📊 {{ t('dashboard.title') }}</h2>
+      </div>
 
-    <div v-if="loading" class="loading">
-      <div class="spinner"></div>
-    </div>
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <span>{{ t('common.loading') || '加载中...' }}</span>
+      </div>
 
-    <div v-else-if="error" class="error-message">
-      {{ error }}
-    </div>
+      <div v-else-if="error" class="error-state">
+        <p>{{ error }}</p>
+        <button class="btn btn-primary" @click="loadData">{{ t('common.retry') || '重试' }}</button>
+      </div>
 
-    <template v-else>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon total">📊</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.session.total }}</div>
-            <div class="stat-label">{{ t('dashboard.totalPushes') }}</div>
+      <div v-else class="stats-content">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.session.total }}</div>
+              <div class="stat-label">{{ t('dashboard.totalPushes') }}</div>
+            </div>
           </div>
-        </div>
 
-        <div class="stat-card">
-          <div class="stat-icon success">✅</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.session.success }}</div>
-            <div class="stat-label">{{ t('dashboard.successful') }}</div>
+          <div class="stat-card success">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.session.success }}</div>
+              <div class="stat-label">{{ t('dashboard.successful') }}</div>
+            </div>
           </div>
-        </div>
 
-        <div class="stat-card">
-          <div class="stat-icon failed">❌</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.session.failed }}</div>
-            <div class="stat-label">{{ t('dashboard.failed') }}</div>
+          <div class="stat-card failed">
+            <div class="stat-icon">❌</div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.session.failed }}</div>
+              <div class="stat-label">{{ t('dashboard.failed') }}</div>
+            </div>
           </div>
-        </div>
 
-        <div class="stat-card highlight">
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.trend.rate.toFixed(1) }}%</div>
+          <div class="stat-card">
+            <div class="stat-value large">{{ successRate }}%</div>
             <div class="stat-label">{{ t('dashboard.successRate') }}</div>
-            <div class="stat-trend" :class="stats.trend.direction">
-              <span v-if="stats.trend.direction === 'up'">📈</span>
-              <span v-else-if="stats.trend.direction === 'down'">📉</span>
-              <span v-else>➡️</span>
-              {{ t(`dashboard.trend.${stats.trend.direction}`) }}
+            <div class="trend-indicator" :class="stats.trend.direction">
+              <span class="trend-icon">→</span>
+              {{ stats.trend.direction === 'up' ? 'dashboard.trend.up' : stats.trend.direction === 'down' ? 'dashboard.trend.down' : 'dashboard.trend.stable' }}
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="recent-chart">
-        <h3>{{ t('dashboard.recentActivity') }}</h3>
-        <div class="chart-container">
-          <div class="chart-bars">
-            <div
-              v-for="day in stats.recent"
-              :key="day.date"
-              class="chart-bar-group"
-            >
-              <div class="chart-bar-wrapper">
-                <div
-                  class="chart-bar success"
-                  :style="{ height: getBarHeight(day.success, day.pushes) + '%' }"
-                  :title="`${t('dashboard.successful')}: ${day.success}`"
-                ></div>
-                <div
-                  class="chart-bar failed"
-                  :style="{ height: getBarHeight(day.failed, day.pushes) + '%' }"
-                  :title="`${t('dashboard.failed')}: ${day.failed}`"
-                ></div>
+        <div class="section">
+          <h3>{{ t('dashboard.recentActivity') }}</h3>
+          <div class="bar-chart">
+            <div v-for="(item, i) in stats.recent" :key="i" class="bar-group">
+              <div class="bar-container">
+                <div class="bar bar-success" :style="{ height: `${(item.success / maxRecent) * 100}%` }"></div>
+                <div class="bar bar-failed" :style="{ height: `${(item.failed / maxRecent) * 100}%` }"></div>
               </div>
-              <div class="chart-label">{{ formatDate(day.date) }}</div>
+              <div class="bar-label">{{ item.date }}</div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div v-if="metrics" class="metrics-details">
-        <h3>{{ t('dashboard.channelStats') }}</h3>
-        <div class="channel-stats">
-          <div
-            v-for="(data, channel) in metrics.byChannel"
-            :key="channel"
-            class="channel-stat"
-          >
-            <span class="channel-name">{{ channel }}</span>
-            <span class="channel-success">✅ {{ data.success }}</span>
-            <span class="channel-failed">❌ {{ data.failed }}</span>
+        <div v-if="metrics" class="section">
+          <h3>{{ t('dashboard.channelStats') }}</h3>
+          <div class="channel-stats-grid">
+            <div v-for="(data, channel) in metrics.byChannel" :key="channel" class="channel-stat-card">
+              <div class="channel-name">{{ channel }}</div>
+              <div class="channel-values">
+                <span class="success-val">✓ {{ data.success }}</span>
+                <span class="failed-val"> {{ data.failed }}</span>
+              </div>
+              <div class="channel-bar">
+                <div class="channel-bar-fill" :style="{ width: `${channelRate(data)}%` }"></div>
+              </div>
+            </div>
           </div>
         </div>
-        <div v-if="metrics.avgLatency" class="avg-latency">
-          {{ t('dashboard.avgLatency') }}: {{ metrics.avgLatency.toFixed(0) }}ms
+
+        <div class="section">
+          <div class="avg-latency">
+            <span>{{ t('dashboard.avgLatency') }}</span>
+            <span class="latency-value">{{ metrics?.avgLatency || 0 }}ms</span>
+          </div>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { getPushStats, getPushMetrics } from '@/api';
 
@@ -116,10 +109,27 @@ const stats = ref({
 });
 const metrics = ref<{ total: number; success: number; failed: number; byChannel: Record<string, { success: number; failed: number }>; avgLatency: number } | null>(null);
 
+const successRate = computed(() => {
+  const total = stats.value.session.total;
+  if (total === 0) return '0.0';
+  return ((stats.value.session.success / total) * 100).toFixed(1);
+});
+
+const maxRecent = computed(() => {
+  return Math.max(...stats.value.recent.map((r) => Math.max(r.success, r.failed)), 1);
+});
+
+function channelRate(data: { success: number; failed: number }): number {
+  const total = data.success + data.failed;
+  if (total === 0) return 0;
+  return (data.success / total) * 100;
+}
+
 async function loadData() {
   if (!props.accessToken) return;
 
   loading.value = true;
+  error.value = '';
   try {
     const [statsData, metricsData] = await Promise.all([
       getPushStats(props.accessToken),
@@ -136,233 +146,276 @@ async function loadData() {
 
 onMounted(loadData);
 watch(() => props.accessToken, loadData);
-
-function getBarHeight(value: number, total: number): number {
-  if (total === 0) return 0;
-  return (value / total) * 100;
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
-}
 </script>
 
 <style scoped>
 .stats-dashboard {
-  padding: 1rem;
+  padding: 0;
 }
 
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: var(--color-text);
+.panel {
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.loading {
+.panel-header {
+  height: 50px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  box-sizing: border-box;
   display: flex;
-  justify-content: center;
-  padding: 3rem;
+  align-items: flex-start;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.panel h2 {
+  font-size: 18px;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+  padding: 0;
+  line-height: 36px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-message {
-  color: var(--color-error);
+.loading-state {
   text-align: center;
-  padding: 2rem;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.error-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #ff4d4f;
+}
+
+.error-state .btn {
+  margin-top: 16px;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
 }
 
 .stat-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 10px;
+  padding: 20px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.stat-card.highlight {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%);
-  border: none;
-  color: white;
-}
-
-.stat-card.highlight .stat-label {
-  color: rgba(255, 255, 255, 0.8);
+  gap: 16px;
 }
 
 .stat-icon {
-  font-size: 2rem;
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.stat-content {
+.stat-info {
   flex: 1;
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.2;
+  color: var(--text-primary, #1a1a2e);
+  line-height: 1;
+}
+
+.stat-value.large {
+  font-size: 36px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .stat-label {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  margin-top: 0.25rem;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  margin-top: 4px;
 }
 
-.stat-trend {
-  font-size: 0.75rem;
-  margin-top: 0.5rem;
+.trend-indicator {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
 }
 
-.stat-trend.up {
-  color: #22c55e;
+.trend-indicator.up {
+  color: #52c41a;
 }
 
-.stat-trend.down {
-  color: #ef4444;
+.trend-indicator.down {
+  color: #ff4d4f;
 }
 
-.stat-card.highlight .stat-trend {
-  color: rgba(255, 255, 255, 0.9);
+.section {
+  margin-top: 24px;
 }
 
-.recent-chart {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+.section h3 {
+  font-size: 15px;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
-.recent-chart h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.chart-container {
-  height: 200px;
-}
-
-.chart-bars {
+.bar-chart {
   display: flex;
-  justify-content: space-between;
+  gap: 12px;
   align-items: flex-end;
-  height: 100%;
-  gap: 0.5rem;
+  height: 120px;
+  padding: 0 8px;
 }
 
-.chart-bar-group {
+.bar-group {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   height: 100%;
+  justify-content: flex-end;
 }
 
-.chart-bar-wrapper {
+.bar-container {
+  width: 100%;
   display: flex;
   gap: 2px;
-  height: calc(100% - 24px);
   align-items: flex-end;
-  width: 100%;
-  max-width: 30px;
+  flex: 1;
+  max-width: 40px;
 }
 
-.chart-bar {
-  width: 50%;
+.bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
   min-height: 4px;
-  border-radius: 4px 4px 0 0;
-  transition: height 0.3s ease;
 }
 
-.chart-bar.success {
-  background: #22c55e;
+.bar-success {
+  background: linear-gradient(180deg, #52c41a 0%, #73d13d 100%);
 }
 
-.chart-bar.failed {
-  background: #ef4444;
+.bar-failed {
+  background: linear-gradient(180deg, #ff4d4f 0%, #ff7875 100%);
 }
 
-.chart-label {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  margin-top: 0.5rem;
+.bar-label {
+  font-size: 11px;
+  color: var(--text-secondary, #666);
+  margin-top: 8px;
+  text-align: center;
 }
 
-.metrics-details {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1.5rem;
+.channel-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
 }
 
-.metrics-details h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.channel-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.channel-stat {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.5rem;
-  background: var(--color-background);
+.channel-stat-card {
+  background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
+  padding: 14px;
 }
 
 .channel-name {
-  font-weight: 500;
-  min-width: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 8px;
 }
 
-.channel-success,
-.channel-failed {
-  font-size: 0.875rem;
+.channel-values {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.success-val {
+  color: #52c41a;
+  font-size: 13px;
+}
+
+.failed-val {
+  color: #ff4d4f;
+  font-size: 13px;
+}
+
+.channel-bar {
+  height: 6px;
+  background: #e8e8e8;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.channel-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
 }
 
 .avg-latency {
-  margin-top: 1rem;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+}
+
+.latency-value {
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

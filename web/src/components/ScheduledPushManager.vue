@@ -1,86 +1,86 @@
 <template>
   <div class="scheduled-push-manager">
-    <div class="section-header">
-      <h3>定时推送管理</h3>
-      <button class="btn btn-primary" @click="showCreateModal = true" :disabled="loading">
-        <span class="icon">+</span> 创建定时推送
-      </button>
-    </div>
-
-    <div v-if="loading && scheduledPushes.length === 0" class="loading-state">
-      <div class="spinner"></div>
-      <span>加载中...</span>
-    </div>
-
-    <div v-else-if="scheduledPushes.length === 0" class="empty-state">
-      <div class="empty-icon">📅</div>
-      <p>暂无定时推送</p>
-      <button class="btn btn-secondary" @click="showCreateModal = true">创建第一个定时推送</button>
-    </div>
-
-    <div v-else class="scheduled-list">
-      <div class="filter-bar">
-        <button 
-          v-for="status in statusFilters" 
-          :key="status.value"
-          :class="['filter-btn', { active: filterStatus === status.value }]"
-          @click="filterStatus = status.value"
-        >
-          {{ status.label }}
-          <span class="count">{{ getCountByStatus(status.value) }}</span>
+    <div class="panel">
+      <div class="panel-header">
+        <h2> {{ t('scheduled.title') }}</h2>
+        <button class="btn btn-primary" @click="showCreateModal = true" :disabled="creating">
+          + {{ t('scheduled.create') }}
         </button>
       </div>
 
-      <div class="push-cards">
-        <div v-for="push in filteredPushes" :key="push.id" class="push-card" :class="`status-${push.status}`">
-          <div class="card-header">
-            <span class="status-badge" :class="push.status">{{ getStatusLabel(push.status) }}</span>
-            <div class="card-actions">
-              <button v-if="push.status === 'pending'" class="btn-icon" @click="cancelPush(push.id)" title="取消">
-                ❌
+      <div v-if="loading && scheduledPushes.length === 0" class="loading-state">
+        <div class="spinner"></div>
+        <span>{{ t('common.loading') || '加载中...' }}</span>
+      </div>
+
+      <div v-else-if="scheduledPushes.length === 0" class="empty-state">
+        <div class="empty-icon"></div>
+        <p>{{ t('scheduled.empty') }}</p>
+        <button class="btn btn-primary" @click="showCreateModal = true">{{ t('scheduled.createFirst') }}</button>
+      </div>
+
+      <div v-else class="scheduled-list">
+        <div class="filter-bar">
+          <button
+            v-for="status in statusFilters"
+            :key="status.value"
+            :class="['filter-btn', { active: filterStatus === status.value }]"
+            @click="filterStatus = status.value"
+          >
+            {{ status.label }}
+            <span class="count">{{ getCountByStatus(status.value) }}</span>
+          </button>
+        </div>
+
+        <div class="push-cards">
+          <div v-for="push in filteredPushes" :key="push.id" class="push-card" :class="`status-${push.status}`">
+            <div class="card-header">
+              <span class="status-badge" :class="push.status">{{ getStatusLabel(push.status) }}</span>
+              <div class="card-actions">
+                <button v-if="push.status === 'pending'" class="btn-icon" @click="cancelPush(push.id)" title="取消">❌</button>
+                <button class="btn-icon" @click="deletePush(push.id)" title="删除">🗑️</button>
+              </div>
+            </div>
+
+            <div class="card-body">
+              <h4 class="push-title">{{ push.name }}</h4>
+              <p class="push-content">{{ push.content }}</p>
+
+              <div class="push-meta">
+                <div class="meta-item">
+                  <span class="meta-label">执行时间:</span>
+                  <span class="meta-value">{{ formatDateTime(push.scheduledTime) }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">渠道:</span>
+                  <span class="meta-value channels">
+                    <span v-for="ch in push.channels" :key="ch" class="channel-tag">{{ ch }}</span>
+                  </span>
+                </div>
+                <div class="meta-item" v-if="push.templateId">
+                  <span class="meta-label">模板:</span>
+                  <span class="meta-value">{{ push.templateId }}</span>
+                </div>
+              </div>
+
+              <div v-if="push.metadata" class="push-metadata">
+                <div class="meta-item" v-if="push.metadata.retries !== undefined">
+                  <span class="meta-label">重试次数:</span>
+                  <span class="meta-value">{{ push.metadata.retries }}/{{ push.metadata.maxRetries || 3 }}</span>
+                </div>
+                <div v-if="push.metadata.lastError" class="error-info">
+                  <span class="meta-label">最后错误:</span>
+                  <span class="meta-value error">{{ push.metadata.lastError }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <span class="created-at">创建于 {{ formatDateTime(push.createdAt) }}</span>
+              <button v-if="push.status === 'pending'" class="btn btn-small btn-secondary" @click="testPush(push)">
+                测试执行
               </button>
-              <button class="btn-icon" @click="deletePush(push.id)" title="删除">🗑️</button>
             </div>
-          </div>
-
-          <div class="card-body">
-            <h4 class="push-title">{{ push.name }}</h4>
-            <p class="push-content">{{ push.content }}</p>
-            
-            <div class="push-meta">
-              <div class="meta-item">
-                <span class="label">执行时间:</span>
-                <span class="value">{{ formatDateTime(push.scheduledTime) }}</span>
-              </div>
-              <div class="meta-item">
-                <span class="label">渠道:</span>
-                <span class="value channels">
-                  <span v-for="ch in push.channels" :key="ch" class="channel-tag">{{ ch }}</span>
-                </span>
-              </div>
-              <div class="meta-item" v-if="push.templateId">
-                <span class="label">模板:</span>
-                <span class="value">{{ push.templateId }}</span>
-              </div>
-            </div>
-
-            <div v-if="push.metadata" class="push-metadata">
-              <div class="meta-item" v-if="push.metadata.retries !== undefined">
-                <span class="label">重试次数:</span>
-                <span class="value">{{ push.metadata.retries }}/{{ push.metadata.maxRetries || 3 }}</span>
-              </div>
-              <div v-if="push.metadata.lastError" class="error-info">
-                <span class="label">最后错误:</span>
-                <span class="value error">{{ push.metadata.lastError }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="card-footer">
-            <span class="created-at">创建于 {{ formatDateTime(push.createdAt) }}</span>
-            <button v-if="push.status === 'pending'" class="btn btn-small" @click="testPush(push)">
-              测试执行
-            </button>
           </div>
         </div>
       </div>
@@ -89,15 +89,14 @@
     <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
       <div class="modal">
         <div class="modal-header">
-          <h3>创建定时推送</h3>
+          <h3>{{ t('scheduled.create') }}</h3>
           <button class="btn-close" @click="showCreateModal = false">&times;</button>
         </div>
 
-        <form @submit.prevent="createScheduledPush" class="modal-body">
+        <form @submit.prevent="createScheduledPushHandler" class="modal-body">
           <div class="form-group">
-            <label for="name">任务名称</label>
+            <label>任务名称</label>
             <input
-              id="name"
               v-model="newPush.name"
               type="text"
               placeholder="例如: 每日早报"
@@ -106,9 +105,8 @@
           </div>
 
           <div class="form-group">
-            <label for="content">消息内容</label>
+            <label>消息内容</label>
             <textarea
-              id="content"
               v-model="newPush.content"
               placeholder="输入推送内容..."
               rows="3"
@@ -142,11 +140,7 @@
             <label>目标渠道</label>
             <div class="channels-grid">
               <label v-for="ch in availableChannels" :key="ch.id" class="channel-checkbox">
-                <input
-                  type="checkbox"
-                  :value="ch.id"
-                  v-model="newPush.channels"
-                />
+                <input type="checkbox" :value="ch.id" v-model="newPush.channels" />
                 <span class="channel-icon">{{ ch.icon }}</span>
                 <span class="channel-name">{{ ch.name }}</span>
               </label>
@@ -154,8 +148,8 @@
           </div>
 
           <div class="form-group">
-            <label for="template">使用模板 (可选)</label>
-            <select id="template" v-model="newPush.templateId">
+            <label>使用模板 (可选)</label>
+            <select v-model="newPush.templateId">
               <option value="">不使用模板</option>
               <option v-for="t in templates" :key="t.id" :value="t.id">
                 {{ t.name }} ({{ t.channel }})
@@ -164,8 +158,8 @@
           </div>
 
           <div class="form-group">
-            <label for="retries">重试次数</label>
-            <select id="retries" v-model="newPush.maxRetries">
+            <label>重试次数</label>
+            <select v-model="newPush.maxRetries">
               <option :value="0">不重试</option>
               <option :value="1">1次</option>
               <option :value="3">3次</option>
@@ -174,9 +168,9 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" @click="showCreateModal = false">取消</button>
+            <button type="button" class="btn btn-secondary" @click="showCreateModal = false">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn btn-primary" :disabled="creating">
-              {{ creating ? '创建中...' : '创建定时推送' }}
+              {{ creating ? (t('common.saving') || '创建中...') : '创建定时推送' }}
             </button>
           </div>
         </form>
@@ -187,7 +181,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteScheduledPush, getTemplates } from '../api';
+import { t } from '@/i18n';
+import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteScheduledPush, getTemplates } from '@/api';
 
 interface ScheduledPush {
   id: string;
@@ -217,10 +212,6 @@ const props = defineProps<{
   accessToken: string;
 }>();
 
-const emit = defineEmits<{
-  (e: 'use-template', template: Template): void;
-}>();
-
 const loading = ref(false);
 const creating = ref(false);
 const scheduledPushes = ref<ScheduledPush[]>([]);
@@ -241,13 +232,13 @@ const statusFilters = [
 
 const availableChannels = [
   { id: 'email', name: '邮件', icon: '📧' },
-  { id: 'sms', name: '短信', icon: '📱' },
-  { id: 'push', name: '推送', icon: '' },
+  { id: 'sms', name: '短信', icon: '' },
+  { id: 'push', name: '推送', icon: '🔔' },
   { id: 'wechat', name: '微信', icon: '💬' },
   { id: 'dingtalk', name: '钉钉', icon: '🚀' },
   { id: 'feishu', name: '飞书', icon: '📮' },
   { id: 'telegram', name: 'Telegram', icon: '✈️' },
-  { id: 'slack', name: 'Slack', icon: '' },
+  { id: 'slack', name: 'Slack', icon: '💼' },
   { id: 'discord', name: 'Discord', icon: '🎮' },
   { id: 'webpush', name: 'Web Push', icon: '🌐' }
 ];
@@ -397,11 +388,11 @@ async function cancelPush(id: string) {
 }
 
 async function deletePush(id: string) {
-  if (!token.value) return;
+  if (!props.accessToken) return;
   if (!confirm('确定要删除这个定时推送吗？')) return;
 
   try {
-    await deleteScheduledPush(token.value, id);
+    await deleteScheduledPush(props.accessToken, id);
     await loadScheduledPushes();
   } catch (error) {
     console.error('删除定时推送失败:', error);
@@ -410,11 +401,11 @@ async function deletePush(id: string) {
 }
 
 async function testPush(push: ScheduledPush) {
-  if (!token.value) return;
+  if (!props.accessToken) return;
   if (!confirm('确定要立即执行这个推送进行测试吗？')) return;
 
   try {
-    await createScheduledPush(token.value, {
+    await createScheduledPush(props.accessToken, {
       name: `[测试] ${push.name}`,
       content: push.content,
       scheduledTime: new Date().toISOString(),
@@ -433,27 +424,48 @@ onMounted(() => {
   loadScheduledPushes();
   loadTemplates();
 });
+watch(() => props.accessToken, () => {
+  loadScheduledPushes();
+  loadTemplates();
+});
 </script>
 
 <style scoped>
 .scheduled-push-manager {
-  padding: 20px;
+  padding: 0;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.panel {
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.panel-header {
+  height: 50px;
   margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.section-header h3 {
-  margin: 0;
+.panel h2 {
   font-size: 18px;
-  color: #333;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+  padding: 0;
+  line-height: 36px;
 }
 
-.loading-state,
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -478,25 +490,26 @@ onMounted(() => {
 
 .filter-btn {
   padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: #fff;
-  border-radius: 16px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 20px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
+  color: var(--text-secondary, #666);
 }
 
 .filter-btn:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: #667eea;
+  color: #667eea;
 }
 
 .filter-btn.active {
-  background: #1890ff;
-  border-color: #1890ff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
   color: #fff;
 }
 
@@ -513,19 +526,24 @@ onMounted(() => {
 
 .push-cards {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .push-card {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #ddd;
+  border: 1px solid var(--border-color, #f0f0f0);
+  border-left: 4px solid var(--border-color, #e0e0e0);
+  transition: all 0.2s;
+}
+
+.push-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .push-card.status-pending {
-  border-left-color: #1890ff;
+  border-left-color: #667eea;
 }
 
 .push-card.status-running {
@@ -555,31 +573,31 @@ onMounted(() => {
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .status-badge.pending {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: #667eea20;
+  color: #667eea;
 }
 
 .status-badge.running {
-  background: #fffbe6;
+  background: #faad1420;
   color: #faad14;
 }
 
 .status-badge.completed {
-  background: #f6ffed;
+  background: #52c41a20;
   color: #52c41a;
 }
 
 .status-badge.failed {
-  background: #fff2f0;
+  background: #ff4d4f20;
   color: #ff4d4f;
 }
 
 .status-badge.cancelled {
-  background: #f5f5f5;
+  background: #e8e8e8;
   color: #999;
 }
 
@@ -594,12 +612,12 @@ onMounted(() => {
   cursor: pointer;
   font-size: 16px;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: background 0.2s;
 }
 
 .btn-icon:hover {
-  background: #f5f5f5;
+  background: #e8e8e8;
 }
 
 .card-body {
@@ -608,14 +626,14 @@ onMounted(() => {
 
 .push-title {
   margin: 0 0 8px;
-  font-size: 16px;
-  color: #333;
+  font-size: 15px;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .push-content {
   margin: 0 0 12px;
-  color: #666;
-  font-size: 14px;
+  color: var(--text-secondary, #666);
+  font-size: 13px;
   line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -637,35 +655,36 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.meta-item .label {
+.meta-label {
   color: #999;
   min-width: 70px;
 }
 
-.meta-item .value {
-  color: #333;
+.meta-value {
+  color: var(--text-primary, #333);
 }
 
-.meta-item .channels {
+.meta-value.channels {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
 
 .channel-tag {
-  background: #f5f5f5;
+  font-size: 12px;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  background: #e8e8e8;
+  color: #666;
 }
 
 .push-metadata {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px dashed #eee;
+  border-top: 1px dashed var(--border-color, #f0f0f0);
 }
 
-.error-info .value.error {
+.error-info .meta-value.error {
   color: #ff4d4f;
 }
 
@@ -674,7 +693,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-color, #f0f0f0);
 }
 
 .created-at {
@@ -696,8 +715,8 @@ onMounted(() => {
 }
 
 .modal {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--bg-panel, white);
+  border-radius: 12px;
   width: 90%;
   max-width: 560px;
   max-height: 90vh;
@@ -709,12 +728,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .btn-close {
@@ -742,19 +762,30 @@ onMounted(() => {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  font-size: 14px;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
   font-size: 14px;
   box-sizing: border-box;
+  font-family: inherit;
+  background: var(--bg-panel, white);
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .form-group textarea {
@@ -778,37 +809,37 @@ onMounted(() => {
 
 .btn-quick {
   padding: 4px 10px;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-quick:hover {
-  background: #e6e6e6;
+  border-color: #667eea;
 }
 
 .channels-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .channel-checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .channel-checkbox:hover {
-  border-color: #1890ff;
+  border-color: #667eea;
 }
 
 .channel-checkbox input {
@@ -828,58 +859,54 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
   padding-top: 20px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-color, #f0f0f0);
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 10px 24px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .btn-primary {
-  background: #1890ff;
-  color: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
-.btn-primary:hover {
-  background: #40a9ff;
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
-  background: #d9d9d9;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background: #f5f5f5;
-  color: #333;
+  background: var(--bg-secondary, #f8f9fa);
+  color: var(--text-primary, #333);
+  border: 2px solid var(--border-color, #e0e0e0);
 }
 
 .btn-secondary:hover {
-  background: #e6e6e6;
+  border-color: #667eea;
 }
 
 .btn-small {
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 13px;
-}
-
-.btn .icon {
-  font-size: 16px;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
   border: 3px solid #f3f3f3;
-  border-top: 3px solid #1890ff;
+  border-top: 3px solid #667eea;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 12px;

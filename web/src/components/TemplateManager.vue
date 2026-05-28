@@ -1,164 +1,109 @@
 <template>
   <div class="template-manager">
-    <div class="header">
-      <h2 class="section-title">{{ t('templates.title') }}</h2>
-      <button class="btn-primary" @click="showCreateModal = true">
-        + {{ t('templates.create') }}
-      </button>
-    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📝 {{ t('templates.title') }}</h2>
+        <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
+          + {{ t('templates.create') }}
+        </button>
+      </div>
 
-    <div v-if="loading" class="loading">
-      <div class="spinner"></div>
-    </div>
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <span>{{ t('common.loading') || '加载中...' }}</span>
+      </div>
 
-    <div v-else-if="templates.length === 0" class="empty-state">
-      <div class="empty-icon">📝</div>
-      <p>{{ t('templates.empty') }}</p>
-      <button class="btn-secondary" @click="showCreateModal = true">
-        {{ t('templates.createFirst') }}
-      </button>
-    </div>
+      <div v-else-if="templates.length === 0" class="empty-state">
+        <div class="empty-icon">📝</div>
+        <p>{{ t('templates.empty') }}</p>
+        <button class="btn btn-primary" @click="openCreateModal">{{ t('templates.createFirst') }}</button>
+      </div>
 
-    <div v-else class="template-grid">
-      <div
-        v-for="template in templates"
-        :key="template.id"
-        class="template-card"
-      >
-        <div class="template-header">
-          <h3 class="template-name">{{ template.name }}</h3>
+      <div v-else class="template-list">
+        <div v-for="tpl in templates" :key="tpl.id" class="template-item">
+          <div class="template-info">
+            <div class="template-name">{{ tpl.name }}</div>
+            <div class="template-title">{{ tpl.title }}</div>
+            <div class="template-content">{{ tpl.content }}</div>
+            <div class="template-meta">
+              <span class="meta-tag channel">{{ tpl.channel }}</span>
+              <span v-if="tpl.useMarkdown" class="meta-tag">Markdown</span>
+              <span v-if="tpl.url" class="meta-tag">URL: {{ tpl.url }}</span>
+            </div>
+          </div>
           <div class="template-actions">
-            <button class="btn-icon" @click="editTemplate(template)" :title="t('common.edit')">
-              ✏️
+            <button class="btn btn-small btn-secondary" @click="useTemplate(tpl)">
+              {{ t('templates.use') }}
             </button>
-            <button class="btn-icon" @click="confirmDelete(template)" :title="t('common.delete')">
-              🗑️
-            </button>
+            <button class="btn-icon" @click="editTemplate(tpl)" title="{{ t('common.edit') }}">✏️</button>
+            <button class="btn-icon" @click="confirmDelete(tpl)" title="{{ t('common.delete') }}">🗑️</button>
           </div>
-        </div>
-
-        <div class="template-content">
-          <div class="template-title">{{ template.title }}</div>
-          <div class="template-body">{{ template.content || t('templates.noContent') }}</div>
-        </div>
-
-        <div class="template-meta">
-          <div v-if="template.channels?.length" class="template-channels">
-            <span
-              v-for="ch in template.channels"
-              :key="ch"
-              class="channel-badge"
-            >
-              {{ getChannelIcon(ch) }}
-            </span>
-          </div>
-          <div class="template-date">
-            {{ formatDate(template.updatedAt) }}
-          </div>
-        </div>
-
-        <div class="template-footer">
-          <button class="btn-sm btn-primary" @click="useTemplate(template)">
-            {{ t('templates.use') }}
-          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="showCreateModal || editingTemplate" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingTemplate ? t('templates.edit') : t('templates.create') }}</h3>
-          <button class="btn-close" @click="closeModal">×</button>
+          <button class="btn-close" @click="closeModal">&times;</button>
         </div>
-
-        <div class="modal-body">
+        <form @submit.prevent="saveTemplate" class="modal-body">
           <div class="form-group">
-            <label>{{ t('templates.name') }}</label>
-            <input
-              v-model="form.name"
-              type="text"
-              :placeholder="t('templates.namePlaceholder')"
-            />
+            <label>{{ t('templates.name') }} *</label>
+            <input v-model="form.name" type="text" :placeholder="t('templates.namePlaceholder')" required />
           </div>
-
           <div class="form-group">
-            <label>{{ t('templates.title') }}</label>
-            <input
-              v-model="form.title"
-              type="text"
-              :placeholder="t('templates.titlePlaceholder')"
-            />
+            <label>{{ t('label.title') }} *</label>
+            <input v-model="form.title" type="text" :placeholder="t('templates.titlePlaceholder')" required />
           </div>
-
           <div class="form-group">
-            <label>{{ t('templates.content') }}</label>
-            <textarea
-              v-model="form.content"
-              :placeholder="t('templates.contentPlaceholder')"
-              rows="4"
-            ></textarea>
+            <label>{{ t('label.content') || '内容' }}</label>
+            <textarea v-model="form.content" :placeholder="t('templates.contentPlaceholder')" rows="4"></textarea>
           </div>
-
           <div class="form-group">
             <label>{{ t('templates.url') }}</label>
-            <input
-              v-model="form.url"
-              type="url"
-              :placeholder="t('templates.urlPlaceholder')"
-            />
+            <input v-model="form.url" type="url" :placeholder="t('templates.urlPlaceholder')" />
           </div>
-
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input v-model="form.useMarkdown" type="checkbox" />
-              {{ t('templates.useMarkdown') }}
-            </label>
-          </div>
-
           <div class="form-group">
             <label>{{ t('templates.channels') }}</label>
-            <div class="channel-selector">
-              <button
-                v-for="ch in availableChannels"
-                :key="ch.id"
-                class="channel-btn"
-                :class="{ active: form.channels.includes(ch.id) }"
-                @click="toggleChannel(ch.id)"
-              >
-                {{ ch.icon }}
-                {{ ch.name }}
-              </button>
+            <div class="channels-grid">
+              <label v-for="ch in allChannels" :key="ch" class="channel-checkbox">
+                <input type="checkbox" :value="ch" v-model="form.channels" />
+                <span>{{ ch }}</span>
+              </label>
             </div>
           </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeModal">
-            {{ t('common.cancel') }}
-          </button>
-          <button class="btn-primary" @click="saveTemplate" :disabled="saving">
-            {{ saving ? t('common.saving') : t('common.save') }}
-          </button>
-        </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="form.useMarkdown" />
+              <span>{{ t('templates.useMarkdown') }}</span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn btn-primary" :disabled="saving">
+              {{ saving ? (t('common.saving') || '保存中...') : (t('common.save') || '保存') }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
-    <div v-if="deletingTemplate" class="modal-overlay" @click.self="deletingTemplate = null">
-      <div class="modal modal-sm">
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
+      <div class="modal modal-small">
         <div class="modal-header">
           <h3>{{ t('templates.confirmDelete') }}</h3>
+          <button class="btn-close" @click="showDeleteConfirm = false">&times;</button>
         </div>
         <div class="modal-body">
-          <p>{{ t('templates.deleteConfirm', { name: deletingTemplate.name }) }}</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="deletingTemplate = null">
-            {{ t('common.cancel') }}
-          </button>
-          <button class="btn-danger" @click="doDelete" :disabled="deleting">
-            {{ deleting ? t('common.deleting') : t('common.delete') }}
-          </button>
+          <p>{{ t('templates.deleteConfirm', { name: deletingTemplate?.name }) }}</p>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showDeleteConfirm = false">{{ t('common.cancel') }}</button>
+            <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
+              {{ deleting ? (t('common.deleting') || '删除中...') : t('common.delete') }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -187,22 +132,13 @@ const props = defineProps<{
 const loading = ref(true);
 const saving = ref(false);
 const deleting = ref(false);
-const templates = ref<PushTemplate[]>([]);
-const showCreateModal = ref(false);
+const showModal = ref(false);
+const showDeleteConfirm = ref(false);
 const editingTemplate = ref<PushTemplate | null>(null);
 const deletingTemplate = ref<PushTemplate | null>(null);
+const templates = ref<PushTemplate[]>([]);
 
-const availableChannels = [
-  { id: 'wework', icon: '💼', name: '企业微信' },
-  { id: 'dingtalk', icon: '🅰️', name: '钉钉' },
-  { id: 'feishu', icon: '🪶', name: '飞书' },
-  { id: 'telegram', icon: '✈️', name: 'Telegram' },
-  { id: 'bark', icon: '📱', name: 'Bark' },
-  { id: 'ntfy', icon: '📢', name: 'ntfy' },
-  { id: 'email', icon: '📧', name: '邮件' },
-  { id: 'slack', icon: '💬', name: 'Slack' },
-  { id: 'discord', icon: '🎮', name: 'Discord' },
-];
+const allChannels = ['email', 'sms', 'push', 'wechat', 'dingtalk', 'feishu', 'telegram', 'slack', 'discord', 'webpush'];
 
 const form = reactive({
   name: '',
@@ -213,37 +149,40 @@ const form = reactive({
   channels: [] as string[],
 });
 
-onMounted(async () => {
-  await loadTemplates();
-});
-
-async function loadTemplates() {
-  if (!props.accessToken) return;
-  loading.value = true;
-  try {
-    const data = await getTemplates(props.accessToken);
-    templates.value = data.templates;
-  } catch (err) {
-    console.error('Failed to load templates:', err);
-  } finally {
-    loading.value = false;
-  }
+function openCreateModal() {
+  editingTemplate.value = null;
+  form.name = '';
+  form.title = '';
+  form.content = '';
+  form.url = '';
+  form.useMarkdown = false;
+  form.channels = [];
+  showModal.value = true;
 }
 
-function editTemplate(template: PushTemplate) {
-  editingTemplate.value = template;
-  Object.assign(form, {
-    name: template.name,
-    title: template.title,
-    content: template.content,
-    url: template.url || '',
-    useMarkdown: template.useMarkdown || false,
-    channels: template.channels || [],
-  });
+function editTemplate(tpl: PushTemplate) {
+  editingTemplate.value = tpl;
+  form.name = tpl.name;
+  form.title = tpl.title;
+  form.content = tpl.content;
+  form.url = tpl.url || '';
+  form.useMarkdown = tpl.useMarkdown || false;
+  form.channels = tpl.channels ? [...tpl.channels] : [];
+  showModal.value = true;
 }
 
-function confirmDelete(template: PushTemplate) {
-  deletingTemplate.value = template;
+function closeModal() {
+  showModal.value = false;
+  editingTemplate.value = null;
+}
+
+function useTemplate(tpl: PushTemplate) {
+  emit('use-template', tpl);
+}
+
+function confirmDelete(tpl: PushTemplate) {
+  deletingTemplate.value = tpl;
+  showDeleteConfirm.value = true;
 }
 
 async function doDelete() {
@@ -252,38 +191,13 @@ async function doDelete() {
   try {
     await deleteTemplate(props.accessToken, deletingTemplate.value.id);
     templates.value = templates.value.filter((t) => t.id !== deletingTemplate.value!.id);
+    showDeleteConfirm.value = false;
     deletingTemplate.value = null;
   } catch (err) {
-    console.error('Failed to delete template:', err);
+    alert((err as Error).message);
   } finally {
     deleting.value = false;
   }
-}
-
-function useTemplate(template: PushTemplate) {
-  emit('use-template', template);
-}
-
-function toggleChannel(channelId: string) {
-  const index = form.channels.indexOf(channelId);
-  if (index === -1) {
-    form.channels.push(channelId);
-  } else {
-    form.channels.splice(index, 1);
-  }
-}
-
-function closeModal() {
-  showCreateModal.value = false;
-  editingTemplate.value = null;
-  Object.assign(form, {
-    name: '',
-    title: '',
-    content: '',
-    url: '',
-    useMarkdown: false,
-    channels: [],
-  });
 }
 
 async function saveTemplate() {
@@ -307,219 +221,157 @@ async function saveTemplate() {
       }
     } else {
       const result = await createTemplate(props.accessToken, templateData);
-      templates.value.unshift(result.template);
+      templates.value.push(result.template);
     }
     closeModal();
   } catch (err) {
-    console.error('Failed to save template:', err);
+    alert((err as Error).message);
   } finally {
     saving.value = false;
   }
 }
 
-function getChannelIcon(channelId: string): string {
-  return availableChannels.find((c) => c.id === channelId)?.icon || '📢';
+async function loadTemplates() {
+  if (!props.accessToken) return;
+  loading.value = true;
+  try {
+    const data = await getTemplates(props.accessToken);
+    templates.value = data.templates || [];
+  } catch (err) {
+    console.error('加载模板失败:', err);
+  } finally {
+    loading.value = false;
+  }
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
+onMounted(loadTemplates);
 </script>
 
 <style scoped>
 .template-manager {
-  padding: 1rem;
+  padding: 0;
 }
 
-.header {
+.panel {
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.panel-header {
+  height: 50px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  box-sizing: border-box;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  justify-content: space-between;
 }
 
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-text);
+.panel h2 {
+  font-size: 18px;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+  padding: 0;
+  line-height: 36px;
 }
 
-.btn-primary {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #4f46e5;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.btn-secondary:hover {
-  background: var(--color-background);
-}
-
-.btn-danger {
-  background: var(--color-error);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.btn-danger:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  font-size: 1rem;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-
-.btn-icon:hover {
-  opacity: 1;
-}
-
-.btn-sm {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.875rem;
-}
-
-.loading {
-  display: flex;
-  justify-content: center;
-  padding: 3rem;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
 }
 
 .empty-state {
   text-align: center;
-  padding: 3rem;
-  color: var(--color-text-secondary);
+  padding: 60px 20px;
+  color: #666;
 }
 
 .empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: 48px;
+  margin-bottom: 16px;
 }
 
 .empty-state p {
-  margin-bottom: 1rem;
+  margin: 0 0 16px;
 }
 
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-}
-
-.template-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1rem;
+.template-list {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
-.template-header {
+.template-item {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.75rem;
+  align-items: center;
+  padding: 16px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #f0f0f0);
+  transition: all 0.2s;
+}
+
+.template-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.template-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .template-name {
-  font-size: 1rem;
+  font-size: 15px;
   font-weight: 600;
-  margin: 0;
-}
-
-.template-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.template-content {
-  flex: 1;
-  margin-bottom: 0.75rem;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 4px;
 }
 
 .template-title {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
 }
 
-.template-body {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
+.template-content {
+  font-size: 13px;
+  color: #888;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  margin-bottom: 8px;
 }
 
 .template-meta {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 0.75rem;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.template-channels {
+.meta-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e8e8e8;
+  color: #666;
+}
+
+.meta-tag.channel {
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  color: #667eea;
+  font-weight: 600;
+}
+
+.template-actions {
   display: flex;
-  gap: 0.25rem;
-}
-
-.channel-badge {
-  font-size: 0.875rem;
-}
-
-.template-footer {
-  border-top: 1px solid var(--color-border);
-  padding-top: 0.75rem;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .modal-overlay {
@@ -536,82 +388,115 @@ function formatDate(dateStr: string): string {
 }
 
 .modal {
-  background: var(--color-surface);
-  border-radius: 16px;
+  background: var(--bg-panel, white);
+  border-radius: 12px;
   width: 90%;
-  max-width: 500px;
+  max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
 }
 
-.modal-sm {
-  max-width: 400px;
+.modal-small {
+  max-width: 420px;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--color-border);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 16px;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .btn-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 24px;
   cursor: pointer;
-  color: var(--color-text-secondary);
+  color: #999;
+  padding: 0;
+  line-height: 1;
+}
+
+.btn-close:hover {
+  color: #333;
 }
 
 .modal-body {
-  padding: 1.5rem;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--color-border);
+  padding: 20px;
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  font-size: 14px;
 }
 
-.form-group input[type="text"],
-.form-group input[type="url"],
+.form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
+  padding: 10px 14px;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
-  font-size: 0.875rem;
-  background: var(--color-background);
-  color: var(--color-text);
+  font-size: 14px;
+  box-sizing: border-box;
+  font-family: inherit;
+  background: var(--bg-panel, white);
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .form-group textarea {
   resize: vertical;
 }
 
-.checkbox-label {
-  display: flex !important;
+.channels-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.channel-checkbox {
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.channel-checkbox:hover {
+  border-color: #667eea;
+}
+
+.channel-checkbox input {
+  width: auto;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
 }
 
@@ -619,29 +504,89 @@ function formatDate(dateStr: string): string {
   width: auto;
 }
 
-.channel-selector {
+.form-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color, #f0f0f0);
 }
 
-.channel-btn {
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  padding: 0.375rem 0.75rem;
-  border-radius: 20px;
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 0.875rem;
   transition: all 0.2s;
 }
 
-.channel-btn:hover {
-  border-color: var(--color-primary);
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
-.channel-btn.active {
-  background: var(--color-primary);
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg-secondary, #f8f9fa);
+  color: var(--text-primary, #333);
+  border: 2px solid var(--border-color, #e0e0e0);
+}
+
+.btn-secondary:hover {
+  border-color: #667eea;
+}
+
+.btn-danger {
+  background: #ff4d4f;
   color: white;
-  border-color: var(--color-primary);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ff7875;
+}
+
+.btn-small {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
