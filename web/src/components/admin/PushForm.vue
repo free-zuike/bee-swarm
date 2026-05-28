@@ -36,7 +36,6 @@ function toggleChannel(ch: ChannelConfig) {
     newSelection.add(ch.id);
   }
   emit('update:selectedChannels', newSelection);
-  // 保存到 sessionStorage
   const selected = Array.from(newSelection);
   sessionStorage.setItem('push_selected_channels', JSON.stringify(selected));
 }
@@ -58,7 +57,6 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 <template>
   <div class="tab-content">
-    <!-- 统计概览 -->
     <div class="stats">
       <div class="stat-card">
         <div class="label">已启用渠道</div>
@@ -70,11 +68,9 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
       </div>
     </div>
 
-    <!-- 发送推送 -->
     <div class="panel">
       <h2>📤 发送推送通知</h2>
 
-      <!-- 渠道选择 -->
       <div class="form-group">
         <label>选择推送渠道</label>
         <div class="channel-grid">
@@ -92,7 +88,6 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
         <p class="hint">点击选择/取消。不选择则不推送。</p>
       </div>
 
-      <!-- 消息内容 -->
       <div class="form-group">
         <label>标题 *</label>
         <input v-model="pushTitle" type="text" placeholder="通知标题" />
@@ -111,7 +106,6 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
       </button>
       <button class="btn btn-secondary" @click="$emit('refresh')">刷新渠道</button>
 
-      <!-- 推送结果 -->
       <div v-if="pushResults?.length" class="result-list">
         <template v-if="isNoChannelSelectedError(pushResults)">
           <div class="result-item error">
@@ -155,7 +149,7 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -164,18 +158,18 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 .stat-card .label {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-bottom: 4px;
 }
 
 .stat-card .value {
   font-size: 24px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .panel {
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -184,10 +178,10 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 .panel h2 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
 .channel-grid {
@@ -202,8 +196,8 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   border-radius: 8px;
   font-size: 13px;
   cursor: pointer;
-  border: 2px solid #e0e0e0;
-  background: white;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
   transition: all 0.2s;
   text-align: center;
   user-select: none;
@@ -222,7 +216,7 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 .channel-tag .ch-name {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .channel-tag.active .ch-name {
@@ -238,7 +232,7 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
   margin-bottom: 6px;
 }
 
@@ -246,12 +240,14 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 .form-group textarea {
   width: 100%;
   padding: 10px 14px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
   transition: border-color 0.3s;
   font-family: inherit;
   box-sizing: border-box;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #1a1a2e);
 }
 
 .form-group input:focus,
@@ -267,7 +263,7 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 
 .hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-top: 4px;
 }
 
@@ -297,13 +293,13 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
   margin-left: 8px;
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: var(--border-color, #e0e0e0);
 }
 
 .result-list {

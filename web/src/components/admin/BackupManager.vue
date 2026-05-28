@@ -1,8 +1,5 @@
 <script setup lang="ts">
-// ============================================
-// 备份端管理组件
-// ============================================
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import type { BackupEndpoint } from '@/api';
 
 const props = defineProps<{
@@ -22,7 +19,6 @@ const emit = defineEmits<{
   'backup-single': [id: string];
 }>();
 
-// 备份端列表
 const backupEndpoints = ref<BackupEndpoint[]>([]);
 const selectedEndpointId = ref<string | null>(null);
 const isLoadingEndpoints = ref(false);
@@ -33,11 +29,9 @@ const isBackingUpAll = ref(false);
 const isBackingUpSingle = ref(false);
 const endpointMessage = ref<{ text: string; type: 'success' | 'error' } | null>(null);
 
-// 当前选中备份端的备份列表
 const endpointBackups = ref<Array<{ key: string; size: number; lastModified: string }>>([]);
 const isLoadingEndpointBackups = ref(false);
 
-// 编辑中的备份端数据
 const editingEndpoint = reactive<Partial<BackupEndpoint>>({
   name: '',
   type: 's3',
@@ -54,30 +48,24 @@ const editingEndpoint = reactive<Partial<BackupEndpoint>>({
 
 const isCreatingNew = ref(false);
 
-// 计算选中的备份端
 const selectedEndpoint = computed(() => {
   if (isCreatingNew.value) return null;
   return backupEndpoints.value.find(e => e.id === selectedEndpointId.value) || null;
 });
 
-// 加载备份端列表
 function loadBackupEndpoints() {
   isLoadingEndpoints.value = true;
   emit('load-endpoints');
 }
 
-// 设置备份端列表（由父组件调用）
 function setEndpoints(endpoints: BackupEndpoint[]) {
   backupEndpoints.value = endpoints || [];
-  // 如果当前选中的不存在了，重置选择
   if (selectedEndpointId.value && !backupEndpoints.value.find(e => e.id === selectedEndpointId.value)) {
     selectedEndpointId.value = backupEndpoints.value.length > 0 ? backupEndpoints.value[0].id : null;
   }
-  // 默认选中第一个
   if (!selectedEndpointId.value && backupEndpoints.value.length > 0) {
     selectedEndpointId.value = backupEndpoints.value[0].id;
   }
-  // 同步编辑状态
   if (selectedEndpointId.value && !isCreatingNew.value) {
     const endpoint = backupEndpoints.value.find(e => e.id === selectedEndpointId.value);
     if (endpoint) {
@@ -88,7 +76,6 @@ function setEndpoints(endpoints: BackupEndpoint[]) {
   isLoadingEndpoints.value = false;
 }
 
-// 选择备份端
 function selectEndpoint(id: string) {
   selectedEndpointId.value = id;
   isCreatingNew.value = false;
@@ -100,7 +87,6 @@ function selectEndpoint(id: string) {
   }
 }
 
-// 复制备份端数据到编辑状态
 function copyEndpointToEditing(endpoint: BackupEndpoint) {
   editingEndpoint.name = endpoint.name;
   editingEndpoint.type = endpoint.type;
@@ -114,7 +100,6 @@ function copyEndpointToEditing(endpoint: BackupEndpoint) {
   editingEndpoint.retention = endpoint.retention;
 }
 
-// 开始创建新备份端
 function startCreateEndpoint() {
   isCreatingNew.value = true;
   selectedEndpointId.value = null;
@@ -133,7 +118,6 @@ function startCreateEndpoint() {
   editingEndpoint.retention = 30;
 }
 
-// 取消创建
 function cancelCreateEndpoint() {
   isCreatingNew.value = false;
   endpointMessage.value = null;
@@ -143,7 +127,6 @@ function cancelCreateEndpoint() {
   }
 }
 
-// 保存备份端（创建或更新）
 async function saveEndpoint() {
   if (!editingEndpoint.name?.trim()) {
     endpointMessage.value = { text: '请输入备份端名称', type: 'error' };
@@ -178,7 +161,6 @@ async function saveEndpoint() {
   }
 }
 
-// 删除备份端
 function deleteEndpoint() {
   if (!selectedEndpointId.value) return;
   if (!confirm('确定要删除此备份端吗？相关的备份数据不会被删除。')) return;
@@ -186,7 +168,6 @@ function deleteEndpoint() {
   emit('delete-endpoint', selectedEndpointId.value);
 }
 
-// 测试备份端连接
 async function testEndpoint() {
   if (!selectedEndpointId.value && !isCreatingNew.value) return;
 
@@ -209,40 +190,34 @@ async function testEndpoint() {
   emit('test-endpoint', isCreatingNew.value ? null : selectedEndpointId.value, endpointToTest);
 }
 
-// 加载选中备份端的备份列表
 function loadEndpointBackups() {
   if (!selectedEndpointId.value) return;
   isLoadingEndpointBackups.value = true;
   emit('list-backups', selectedEndpointId.value);
 }
 
-// 设置备份列表（由父组件调用）
 function setBackups(backups: Array<{ key: string; size: number; lastModified: string }>) {
   endpointBackups.value = backups || [];
   isLoadingEndpointBackups.value = false;
 }
 
-// 从备份端恢复
 function restoreFromEndpoint(key: string) {
   if (!selectedEndpointId.value) return;
   if (!confirm('确定要从此备份恢复吗？这将覆盖当前所有数据！')) return;
   emit('restore-backup', selectedEndpointId.value, key);
 }
 
-// 删除备份端上的备份
 function deleteEndpointBackup(key: string) {
   if (!selectedEndpointId.value) return;
   if (!confirm('确定要删除此备份吗？')) return;
   emit('delete-backup', selectedEndpointId.value, key);
 }
 
-// 手动触发所有备份
 function doBackupAll() {
   isBackingUpAll.value = true;
   emit('backup-all');
 }
 
-// 手动触发单个备份端备份
 function doBackupSingle() {
   if (!selectedEndpointId.value) return;
   isBackingUpSingle.value = true;
@@ -250,7 +225,6 @@ function doBackupSingle() {
   emit('backup-single', selectedEndpointId.value);
 }
 
-// 格式化备份端状态
 function getEndpointStatusText(endpoint: BackupEndpoint): string {
   if (!endpoint.enabled) return '已禁用';
   if (!endpoint.lastBackup) return '未备份';
@@ -263,7 +237,6 @@ function getEndpointStatusClass(endpoint: BackupEndpoint): string {
   return endpoint.lastBackup.status === 'success' ? 'status-success' : 'status-error';
 }
 
-// 格式化备份时间
 function formatLastBackupTime(endpoint: BackupEndpoint): string {
   if (!endpoint.lastBackup?.time) return '从未';
   const date = new Date(endpoint.lastBackup.time);
@@ -295,7 +268,6 @@ function formatBackupTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-CN');
 }
 
-// 处理操作结果（由父组件调用）
 function handleAddResult(endpoint: BackupEndpoint, message: string) {
   backupEndpoints.value.push(endpoint);
   selectedEndpointId.value = endpoint.id;
@@ -360,12 +332,10 @@ function handleError(message: string, operation: 'save' | 'delete' | 'test' | 'b
   }
 }
 
-// 组件挂载时加载数据
 onMounted(() => {
   loadBackupEndpoints();
 });
 
-// 监听 showSettings 变化来加载数据
 function onShow() {
   loadBackupEndpoints();
 }
@@ -395,9 +365,7 @@ defineExpose({
     </div>
     <p class="hint">配置多个备份端，数据将同时备份到所有启用的地点</p>
 
-    <!-- 多备份端布局 -->
     <div class="backup-endpoints-layout">
-      <!-- 左侧：备份端列表 -->
       <div class="endpoints-sidebar">
         <div class="sidebar-header">
           <span class="sidebar-title">备份地点</span>
@@ -439,7 +407,6 @@ defineExpose({
             </div>
           </div>
 
-          <!-- 新建项 -->
           <div v-if="isCreatingNew" class="endpoint-item active creating">
             <div class="endpoint-icon">➕</div>
             <div class="endpoint-info">
@@ -452,14 +419,12 @@ defineExpose({
         </div>
       </div>
 
-      <!-- 右侧：备份端详情 -->
       <div class="endpoints-content">
         <div v-if="!selectedEndpointId && !isCreatingNew" class="endpoint-empty-state">
           <p>请从左侧选择一个备份地点，或添加新的备份地点</p>
         </div>
 
         <div v-else class="endpoint-form">
-          <!-- 基本信息 -->
           <div class="form-section">
             <h4>基本信息</h4>
             <div class="form-row">
@@ -485,7 +450,6 @@ defineExpose({
             </div>
           </div>
 
-          <!-- S3 配置 -->
           <div v-if="editingEndpoint.type === 's3'" class="form-section">
             <h4>S3 配置</h4>
             <div class="form-row">
@@ -528,7 +492,6 @@ defineExpose({
             </div>
           </div>
 
-          <!-- WebDAV 配置 -->
           <div v-else class="form-section">
             <h4>WebDAV 配置</h4>
             <div class="form-row">
@@ -549,7 +512,6 @@ defineExpose({
             </div>
           </div>
 
-          <!-- 调度设置 -->
           <div class="form-section">
             <h4>调度设置</h4>
             <div class="form-row">
@@ -608,7 +570,6 @@ defineExpose({
             </div>
           </div>
 
-          <!-- 保留策略 -->
           <div class="form-section">
             <h4>保留策略</h4>
             <div class="form-row">
@@ -620,12 +581,10 @@ defineExpose({
             </div>
           </div>
 
-          <!-- 消息提示 -->
           <div v-if="endpointMessage" class="endpoint-message" :class="endpointMessage.type">
             {{ endpointMessage.text }}
           </div>
 
-          <!-- 操作按钮 -->
           <div class="endpoint-actions">
             <button v-if="isCreatingNew" class="btn" @click="cancelCreateEndpoint">
               取消
@@ -644,7 +603,6 @@ defineExpose({
             </button>
           </div>
 
-          <!-- 当前备份端的备份列表 -->
           <div v-if="!isCreatingNew && selectedEndpoint" class="endpoint-backups-section">
             <hr />
             <h4>备份列表</h4>
@@ -676,14 +634,14 @@ defineExpose({
 
 <style scoped>
 .backup-panel {
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   padding: 16px;
   border-radius: 8px;
 }
 
 .backup-panel h3 {
   font-size: 16px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 8px;
   padding-bottom: 0;
   border-bottom: none;
@@ -691,7 +649,7 @@ defineExpose({
 
 .hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-top: 4px;
 }
 
@@ -704,7 +662,7 @@ defineExpose({
 
 .backup-header h3 {
   font-size: 16px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin: 0;
   padding: 0;
   border: none;
@@ -717,11 +675,10 @@ defineExpose({
   min-height: 400px;
 }
 
-/* 左侧边栏 */
 .endpoints-sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
   padding: 12px;
   display: flex;
@@ -734,13 +691,13 @@ defineExpose({
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
 }
 
 .sidebar-title {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary, #374151);
 }
 
 .btn-add-endpoint {
@@ -767,7 +724,7 @@ defineExpose({
 .endpoints-empty {
   text-align: center;
   padding: 24px 12px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   font-size: 13px;
 }
 
@@ -792,15 +749,16 @@ defineExpose({
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid transparent;
+  background: var(--bg-panel, white);
 }
 
 .endpoint-item:hover {
-  background: white;
-  border-color: #e0e0e0;
+  background: var(--bg-secondary, white);
+  border-color: var(--border-color, #e0e0e0);
 }
 
 .endpoint-item.active {
-  background: white;
+  background: var(--bg-panel, white);
   border-color: #667eea;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
 }
@@ -818,7 +776,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 8px;
   flex-shrink: 0;
 }
@@ -831,7 +789,7 @@ defineExpose({
 .endpoint-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -854,7 +812,7 @@ defineExpose({
 
 .endpoint-time {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
 }
 
 .endpoint-status {
@@ -884,7 +842,6 @@ defineExpose({
   background: #f59e0b;
 }
 
-/* 右侧内容区 */
 .endpoints-content {
   flex: 1;
   min-width: 0;
@@ -896,12 +853,12 @@ defineExpose({
   justify-content: center;
   height: 100%;
   min-height: 300px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   font-size: 14px;
 }
 
 .endpoint-form {
-  background: #f8f9fa;
+  background: var(--bg-panel, #f8f9fa);
   border-radius: 8px;
   padding: 20px;
 }
@@ -913,10 +870,10 @@ defineExpose({
 .form-section h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary, #374151);
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
 }
 
 .form-row {
@@ -939,7 +896,7 @@ defineExpose({
 .endpoint-form .form-group label {
   font-size: 13px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-primary, #4b5563);
   margin-bottom: 6px;
   display: block;
 }
@@ -948,10 +905,11 @@ defineExpose({
 .endpoint-form .form-group select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color, #d1d5db);
   border-radius: 6px;
   font-size: 13px;
-  background: white;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #1a1a2e);
   box-sizing: border-box;
 }
 
@@ -972,7 +930,7 @@ defineExpose({
 .input-hint {
   display: block;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   margin-top: 4px;
 }
 
@@ -1000,7 +958,7 @@ defineExpose({
   justify-content: flex-end;
   gap: 10px;
   padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color, #e0e0e0);
 }
 
 .endpoint-backups-section {
@@ -1010,7 +968,7 @@ defineExpose({
 .endpoint-backups-section h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary, #374151);
   margin-bottom: 12px;
 }
 
@@ -1018,14 +976,14 @@ defineExpose({
 .backups-empty {
   text-align: center;
   padding: 20px;
-  color: #9ca3af;
+  color: var(--text-secondary, #9ca3af);
   font-size: 13px;
 }
 
 .loading-spinner-small {
   width: 16px;
   height: 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1047,7 +1005,7 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 8px;
   margin-bottom: 6px;
 }
@@ -1061,11 +1019,12 @@ defineExpose({
 .backup-name {
   font-weight: 500;
   font-size: 14px;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .backup-meta {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
 }
 
 .backup-actions-item {
@@ -1081,6 +1040,12 @@ defineExpose({
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
+}
+
+.btn:hover {
+  background: var(--border-color, #e0e0e0);
 }
 
 .btn-primary {
@@ -1099,12 +1064,12 @@ defineExpose({
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: var(--border-color, #e0e0e0);
 }
 
 .btn-warning {
@@ -1123,11 +1088,10 @@ defineExpose({
 
 hr {
   border: none;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color, #e0e0e0);
   margin: 16px 0;
 }
 
-/* 响应式布局 */
 @media (max-width: 768px) {
   .backup-endpoints-layout {
     flex-direction: column;

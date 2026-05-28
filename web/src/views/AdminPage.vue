@@ -496,8 +496,8 @@ watch(showSettings, (val, oldVal) => {
         <span class="header-email">{{ email }}</span>
       </div>
       <div class="header-right">
-        <button class="btn btn-sm btn-icon-btn" @click="themeStore.toggleTheme">
-          {{ isDark ? '🌙' : '☀️' }}
+        <button class="btn btn-sm btn-icon-btn" :class="{ dark: isDark }" @click="themeStore.toggleTheme">
+          {{ isDark ? '☀️' : '🌙' }}
         </button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="toggleLocale">
           {{ currentLocale === 'zh' ? 'English' : '中文' }}

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// ============================================
-// 渠道设置组件
-// ============================================
 import { ref, reactive, computed } from 'vue';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings } from '@/types';
 
@@ -20,14 +17,12 @@ const emit = defineEmits<{
   'update:channelSettings': [settings: ChannelSettings];
 }>();
 
-// 编辑状态（未保存的值）
 const editingValues = ref<ChannelSettings>({});
 const expandedChannels = ref<Set<string>>(new Set());
 const savingChannels = reactive<Record<string, boolean>>({});
 const channelMessages = reactive<Record<string, { text: string; type: 'success' | 'error' }>>({});
 const togglingChannel = ref<string | null>(null);
 
-// 设置 Tab 中显示的渠道定义（排除 webpush）
 const settingsDefinitions = computed(() =>
   props.channelDefinitions.filter((d) => d.id !== 'webpush')
 );
@@ -175,14 +170,12 @@ defineExpose({
     <h2>⚙️ 渠道设置</h2>
     <p class="hint" style="margin-bottom: 20px;">配置各推送渠道的连接参数，每个渠道可独立保存。</p>
 
-    <!-- 渠道卡片列表 -->
     <div class="channel-cards">
       <div
         v-for="def in settingsDefinitions"
         :key="def.id"
         class="channel-card"
       >
-        <!-- 卡片头部（可点击折叠） -->
         <div
           class="channel-card-header"
           @click="toggleChannelExpand(def.id)"
@@ -208,7 +201,6 @@ defineExpose({
           </span>
         </div>
 
-        <!-- 卡片内容（配置表单 + 独立保存按钮） -->
         <div v-if="expandedChannels.has(def.id)" class="channel-card-body">
           <div
             v-for="field in def.fields"
@@ -227,7 +219,6 @@ defineExpose({
             />
           </div>
 
-          <!-- 该渠道独立的保存按钮和提示 -->
           <div class="channel-save-area">
             <div
               v-if="channelMessages[def.id]"
@@ -258,7 +249,7 @@ defineExpose({
 
 <style scoped>
 .panel {
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -267,15 +258,15 @@ defineExpose({
 
 .panel h2 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
 .hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-top: 4px;
 }
 
@@ -286,15 +277,11 @@ defineExpose({
 }
 
 .channel-card {
-  background: white;
-  border: 1px solid #eee;
+  background: var(--bg-panel, white);
+  border: 1px solid var(--border-color, #eee);
   border-radius: 12px;
   overflow: hidden;
   transition: box-shadow 0.2s;
-}
-
-.channel-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .channel-card-header {
@@ -308,7 +295,7 @@ defineExpose({
 }
 
 .channel-card-header:hover {
-  background: #f8f8fc;
+  background: var(--bg-secondary, #f8f8fc);
 }
 
 .channel-card-info {
@@ -324,7 +311,7 @@ defineExpose({
 .channel-card-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .unsaved-hint {
@@ -356,7 +343,7 @@ defineExpose({
 
 .expand-arrow {
   font-size: 14px;
-  color: #999;
+  color: var(--text-secondary, #999);
   transition: transform 0.3s;
 }
 
@@ -366,7 +353,7 @@ defineExpose({
 
 .channel-card-body {
   padding: 0 20px 20px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-color, #f0f0f0);
   padding-top: 16px;
 }
 
@@ -378,19 +365,21 @@ defineExpose({
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
   margin-bottom: 6px;
 }
 
 .form-group input {
   width: 100%;
   padding: 10px 14px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
   transition: border-color 0.3s;
   font-family: inherit;
   box-sizing: border-box;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #1a1a2e);
 }
 
 .form-group input:focus {
@@ -456,12 +445,12 @@ defineExpose({
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: var(--border-color, #e0e0e0);
 }
 
 .btn-sm {

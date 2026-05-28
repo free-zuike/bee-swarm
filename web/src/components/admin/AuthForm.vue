@@ -1,8 +1,5 @@
 <script setup lang="ts">
-// ============================================
-// 认证表单组件 - 登录/注册
-// ============================================
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps<{
   isAuthing?: boolean;
@@ -52,8 +49,6 @@ function doRegister() {
 }
 
 const displayError = computed(() => props.authError || localError.value);
-
-import { computed } from 'vue';
 </script>
 
 <template>
@@ -62,7 +57,6 @@ import { computed } from 'vue';
       <h2>🐝 蜂群</h2>
       <p>多渠道推送管理系统</p>
 
-      <!-- Tab 切换 -->
       <div class="auth-tabs">
         <button
           class="auth-tab-btn"
@@ -80,7 +74,6 @@ import { computed } from 'vue';
         </button>
       </div>
 
-      <!-- 登录表单 -->
       <form v-if="authMode === 'login'" @submit.prevent="doLogin">
         <input
           v-model="authEmail"
@@ -101,7 +94,6 @@ import { computed } from 'vue';
         </button>
       </form>
 
-      <!-- 注册表单 -->
       <form v-else @submit.prevent="doRegister">
         <input
           v-model="authEmail"
@@ -143,7 +135,7 @@ import { computed } from 'vue';
 }
 
 .login-card {
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 16px;
   padding: 40px;
   width: 380px;
@@ -153,12 +145,12 @@ import { computed } from 'vue';
 
 .login-card h2 {
   margin-bottom: 4px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   font-size: 24px;
 }
 
 .login-card > p {
-  color: #999;
+  color: var(--text-secondary, #999);
   font-size: 13px;
   margin-bottom: 24px;
 }
@@ -171,12 +163,14 @@ import { computed } from 'vue';
 .login-card input {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 15px;
   margin-bottom: 12px;
   box-sizing: border-box;
   transition: border-color 0.3s;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #1a1a2e);
 }
 
 .login-card input:focus {
@@ -199,7 +193,7 @@ import { computed } from 'vue';
   display: flex;
   gap: 0;
   margin-bottom: 24px;
-  background: #f5f5f5;
+  background: var(--bg-secondary, #f5f5f5);
   border-radius: 8px;
   padding: 4px;
 }
@@ -213,16 +207,16 @@ import { computed } from 'vue';
   font-weight: 600;
   cursor: pointer;
   background: transparent;
-  color: #999;
+  color: var(--text-secondary, #999);
   transition: all 0.2s;
 }
 
 .auth-tab-btn:hover {
-  color: #666;
+  color: var(--text-primary, #666);
 }
 
 .auth-tab-btn.active {
-  background: white;
+  background: var(--bg-panel, white);
   color: #667eea;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }

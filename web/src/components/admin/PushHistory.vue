@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// ============================================
-// 推送历史组件
-// ============================================
 import type { ChannelConfig } from '@/types';
 
 interface HistoryRecord {
@@ -80,7 +77,7 @@ const props = defineProps<{
 }
 
 .panel {
-  background: white;
+  background: var(--bg-panel, white);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -89,10 +86,10 @@ const props = defineProps<{
 
 .panel h2 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
 .loading-placeholder {
@@ -102,13 +99,13 @@ const props = defineProps<{
   justify-content: center;
   padding: 40px;
   gap: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
 }
 
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid #e0e0e0;
+  border: 3px solid var(--border-color, #e0e0e0);
   border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -121,7 +118,7 @@ const props = defineProps<{
 .empty {
   text-align: center;
   padding: 32px;
-  color: #999;
+  color: var(--text-secondary, #999);
   font-size: 14px;
 }
 
@@ -134,10 +131,10 @@ const props = defineProps<{
 }
 
 .history-item {
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   border-radius: 10px;
   padding: 16px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-color, #eee);
 }
 
 .history-header {
@@ -150,17 +147,17 @@ const props = defineProps<{
 .history-title {
   font-weight: 600;
   font-size: 15px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .history-time {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
 }
 
 .history-body {
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary, #666);
   margin-bottom: 8px;
   line-height: 1.5;
 }
