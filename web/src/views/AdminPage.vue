@@ -670,6 +670,8 @@ watch(showSettings, (val, oldVal) => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+  min-width: 220px;
 }
 
 .header-right {
@@ -678,7 +680,7 @@ watch(showSettings, (val, oldVal) => {
   justify-content: flex-end;
   flex-shrink: 0;
   gap: 8px;
-  min-width: 460px;
+  min-width: 480px;
 }
 
 .header-right .btn {
