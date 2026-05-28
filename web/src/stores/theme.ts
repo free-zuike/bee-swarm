@@ -1,25 +1,27 @@
-import { ref } from 'vue';
+import { reactive } from 'vue';
 
-const isDark = ref(false);
+const state = reactive({
+  isDark: false
+});
 
 function initTheme() {
   const savedTheme = localStorage.getItem('bee_swarm_theme');
   if (savedTheme !== null) {
-    isDark.value = savedTheme === 'dark';
+    state.isDark = savedTheme === 'dark';
   } else {
-    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    state.isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
   applyTheme();
 }
 
 function toggleTheme() {
-  isDark.value = !isDark.value;
-  localStorage.setItem('bee_swarm_theme', isDark.value ? 'dark' : 'light');
+  state.isDark = !state.isDark;
+  localStorage.setItem('bee_swarm_theme', state.isDark ? 'dark' : 'light');
   applyTheme();
 }
 
 function applyTheme() {
-  if (isDark.value) {
+  if (state.isDark) {
     document.documentElement.classList.add('dark');
     document.documentElement.style.setProperty('--bg-primary', '#1e1e1e');
     document.documentElement.style.setProperty('--bg-secondary', '#2d2d2d');
@@ -42,7 +44,9 @@ initTheme();
 
 export function useThemeStore() {
   return {
-    isDark,
+    get isDark() { return state.isDark; },
     toggleTheme
   };
 }
+
+export { state as themeState };

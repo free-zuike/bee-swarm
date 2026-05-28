@@ -4,7 +4,7 @@
 // ============================================
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useThemeStore } from '@/stores/theme';
+import { themeState, useThemeStore } from '@/stores/theme';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult } from '@/types';
@@ -19,7 +19,7 @@ import BackupManager from '@/components/admin/BackupManager.vue';
 const router = useRouter();
 const themeStore = useThemeStore();
 
-const isDark = computed(() => themeStore.isDark);
+const isDark = computed(() => themeState.isDark);
 
 const savedLocale = localStorage.getItem('bee_swarm_locale') as 'zh' | 'en' | null;
 const currentLocale = ref<'zh' | 'en'>(savedLocale || 'zh');
@@ -676,9 +676,10 @@ watch(showSettings, (val, oldVal) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 420px;
+  gap: 8px;
+  width: 450px;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .header-right .btn {
@@ -686,17 +687,17 @@ watch(showSettings, (val, oldVal) => {
 }
 
 .header-right .btn-icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .header-right .btn-secondary {
-  min-width: 100px;
+  width: 120px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
