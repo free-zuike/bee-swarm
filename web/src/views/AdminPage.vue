@@ -2,10 +2,10 @@
 // ============================================
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
-import { setLocale, getLocale, t } from '@/i18n';
+import { setLocale, t, currentLocale } from '@/i18n';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult } from '@/types';
@@ -22,20 +22,14 @@ const themeStore = useThemeStore();
 
 const isDark = computed(() => themeState.isDark);
 
-const currentLocale = ref<'zh' | 'en'>(getLocale());
-
 function goToApiDocs() {
   router.push('/docs');
 }
 
 function toggleLocale() {
   const newLocale: 'zh' | 'en' = currentLocale.value === 'zh' ? 'en' : 'zh';
-  currentLocale.value = newLocale;
   setLocale(newLocale);
 }
-
-watch(currentLocale, () => {
-});
 
 // ==================== 页面状态 ====================
 const pageState = ref<'loading' | 'auth' | 'dashboard'>('loading');
@@ -507,7 +501,7 @@ watch(showSettings, (val, oldVal) => {
           {{ isDark ? '☀️' : '🌙' }}
         </button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="toggleLocale">
-          {{ currentLocale === 'zh' ? 'English' : '中文' }}
+          {{ currentLocale.value === 'zh' ? 'English' : '中文' }}
         </button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="goToApiDocs">{{ t('button.api_docs') }}</button>
         <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="showSettings = !showSettings">

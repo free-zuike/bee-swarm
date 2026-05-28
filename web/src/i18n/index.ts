@@ -1,10 +1,12 @@
+import { ref } from 'vue';
+
 export type Locale = 'zh' | 'en';
 
 export interface LocaleMessages {
   [key: string]: string;
 }
 
-let currentLocale: Locale = 'zh';
+const currentLocale = ref<Locale>('zh');
 
 const messages: Record<Locale, LocaleMessages> = {
   zh: {
@@ -160,29 +162,31 @@ const messages: Record<Locale, LocaleMessages> = {
 };
 
 export function getLocale(): Locale {
-  return currentLocale;
+  return currentLocale.value;
 }
 
 export function setLocale(locale: Locale): void {
-  currentLocale = locale;
+  currentLocale.value = locale;
   localStorage.setItem('bee_swarm_locale', locale);
 }
 
 export function initLocale(): void {
   const saved = localStorage.getItem('bee_swarm_locale') as Locale;
   if (saved && ['zh', 'en'].includes(saved)) {
-    currentLocale = saved;
+    currentLocale.value = saved;
   } else {
     const browserLang = navigator.language.split('-')[0];
-    currentLocale = browserLang === 'zh' ? 'zh' : 'en';
+    currentLocale.value = browserLang === 'zh' ? 'zh' : 'en';
   }
 }
 
 export function t(key: string, params: Record<string, string> = {}): string {
-  const message = messages[currentLocale][key] || key;
+  const message = messages[currentLocale.value][key] || key;
   let result = message;
   for (const [paramKey, paramValue] of Object.entries(params)) {
     result = result.replace(`{${paramKey}}`, paramValue);
   }
   return result;
 }
+
+export { currentLocale };
