@@ -882,6 +882,11 @@ defineExpose({
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color, #e0e0e0);
+  height: 30px;
+  line-height: 22px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .form-row {
