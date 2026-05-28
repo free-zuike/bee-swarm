@@ -8,10 +8,10 @@ export interface OpenAPISpec {
     version: string;
   };
   servers: Array<{ url: string }>;
-  paths: Record<string, any>;
+  paths: Record<string, unknown>;
   components: {
-    securitySchemes?: any;
-    schemas?: any;
+    securitySchemes?: Record<string, unknown>;
+    schemas?: Record<string, unknown>;
   };
   tags?: Array<{ name: string; description: string }>;
 }
@@ -24,47 +24,38 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
   return {
     openapi: '3.0.3',
     info: {
-      title: t('Bee Swarm API 文档', 'Bee Swarm API Documentation'),
-      description: t(
-        '多渠道推送通知系统的 API 文档',
-        'API documentation for the multi-channel push notification system'
-      ),
+      title: t('Bee Swarm API', 'Bee Swarm API'),
+      description: t('多渠道推送管理系统 API', 'Multi-channel Push Management System API'),
       version: '2.0.0',
     },
     servers: [{ url: window.location.origin }],
     tags: [
-      { name: 'auth', description: t('认证相关', 'Authentication') },
+      { name: 'auth', description: t('认证', 'Authentication') },
+      { name: 'token', description: t('Token', 'Token') },
       { name: 'channels', description: t('渠道管理', 'Channel Management') },
       { name: 'push', description: t('推送服务', 'Push Service') },
       { name: 'backup', description: t('备份管理', 'Backup Management') },
     ],
     components: {
       securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: t('使用登录获取的 Token', 'Use Token from login'),
-        },
-        apiKey: {
+        ApiKeyAuth: {
           type: 'apiKey',
           in: 'header',
-          name: 'X-API-Key',
-          description: t('使用 API Key 进行认证', 'Authenticate using API Key'),
+          name: 'X-Api-Key',
+          description: t('API Key 认证', 'API Key Authentication'),
         },
       },
       schemas: {
-        ErrorResponse: {
+        Error: {
           type: 'object',
           properties: {
-            error: { type: 'string' },
-          },
-        },
-        SuccessResponse: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
+            error: { type: 'string', description: t('错误信息', 'Error message') },
+            code: {
+              type: 'string',
+              description: t('错误代码', 'Error code'),
+              enum: ['AUTH_ERROR', 'CONFLICT', 'NOT_FOUND', 'VALIDATION_ERROR', 'INTERNAL_ERROR'],
+            },
+            hint: { type: 'string', description: t('错误提示', 'Error hint') },
           },
         },
         PushRequest: {
@@ -72,22 +63,13 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           required: ['title'],
           properties: {
             title: { type: 'string', description: t('推送标题', 'Push title') },
-            body: { type: 'string', description: t('推送内容', 'Push body') },
-            url: { type: 'string', description: t('点击跳转链接', 'Click URL') },
+            content: { type: 'string', description: t('推送内容', 'Push content') },
             channels: {
               type: 'array',
               items: { type: 'string' },
-              description: t('目标渠道', 'Target channels'),
+              description: t('目标渠道列表', 'Target channels'),
             },
-          },
-        },
-        ChannelDefinition: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            icon: { type: 'string' },
-            description: { type: 'string' },
+            url: { type: 'string', description: t('跳转链接', 'Redirect URL') },
           },
         },
         BackupEndpoint: {
@@ -97,15 +79,25 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
             name: { type: 'string' },
             type: { type: 'string', enum: ['s3', 'webdav'] },
             enabled: { type: 'boolean' },
+            config: { type: 'object' },
             schedule: {
               type: 'object',
               properties: {
                 enabled: { type: 'boolean' },
+                interval: { type: 'number' },
                 startTime: { type: 'string' },
                 timezone: { type: 'string' },
               },
             },
             retention: { type: 'number' },
+            lastBackup: {
+              type: 'object',
+              properties: {
+                time: { type: 'string' },
+                status: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
           },
         },
       },
@@ -115,7 +107,6 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         post: {
           tags: ['auth'],
           summary: t('用户注册', 'User Registration'),
-          description: t('注册新用户账号', 'Register a new user account'),
           requestBody: {
             required: true,
             content: {
@@ -125,7 +116,7 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
                   required: ['email', 'password'],
                   properties: {
                     email: { type: 'string', format: 'email' },
-                    password: { type: 'string', minLength: 8 },
+                    password: { type: 'string', minLength: 6 },
                   },
                 },
               },
@@ -136,12 +127,19 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
               description: t('注册成功', 'Registration successful'),
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/SuccessResponse' },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                    },
+                  },
                 },
               },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '409': { description: t('邮箱已被注册', 'Email already registered') },
+            '409': {
+              description: t('邮箱已被注册', 'Email already registered'),
+            },
           },
         },
       },
@@ -149,7 +147,6 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         post: {
           tags: ['auth'],
           summary: t('用户登录', 'User Login'),
-          description: t('使用邮箱和密码登录', 'Login with email and password'),
           requestBody: {
             required: true,
             content: {
@@ -168,29 +165,18 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           responses: {
             '200': {
               description: t('登录成功', 'Login successful'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      message: { type: 'string' },
-                      email: { type: 'string' },
-                    },
-                  },
-                },
-              },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
+            '401': {
+              description: t('认证失败', 'Authentication failed'),
+            },
           },
         },
       },
       '/api/token': {
         post: {
-          tags: ['auth'],
-          summary: t('获取访问 Token', 'Get Access Token'),
-          description: t('获取用于 API 访问的 Token', 'Get Token for API access'),
+          tags: ['token'],
+          summary: t('获取访问令牌', 'Get Access Token'),
+          description: t('使用邮箱密码获取访问 Token', 'Get access token using email and password'),
           requestBody: {
             required: true,
             content: {
@@ -208,33 +194,36 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           },
           responses: {
             '200': {
-              description: t('Token 获取成功', 'Token obtained successfully'),
+              description: t('获取成功', 'Success'),
               content: {
                 'application/json': {
                   schema: {
                     type: 'object',
                     properties: {
-                      token: { type: 'string' },
-                      refreshToken: { type: 'string' },
-                      expiresAt: { type: 'number' },
+                      token: {
+                        type: 'string',
+                        description: t('访问令牌（7天有效期）', 'Access token (7 days)'),
+                      },
+                      refreshToken: {
+                        type: 'string',
+                        description: t('刷新令牌（30天有效期）', 'Refresh token (30 days)'),
+                      },
+                      expiresAt: {
+                        type: 'number',
+                        description: t('过期时间戳', 'Expiration timestamp'),
+                      },
                     },
                   },
                 },
               },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
       },
       '/api/refresh': {
         post: {
-          tags: ['auth'],
-          summary: t('刷新 Token', 'Refresh Token'),
-          description: t(
-            '使用 Refresh Token 刷新访问 Token',
-            'Refresh access token using refresh token'
-          ),
+          tags: ['token'],
+          summary: t('刷新访问令牌', 'Refresh Access Token'),
           requestBody: {
             required: true,
             content: {
@@ -251,56 +240,76 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           },
           responses: {
             '200': {
-              description: t('Token 刷新成功', 'Token refreshed successfully'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      token: { type: 'string' },
-                      refreshToken: { type: 'string' },
-                      expiresAt: { type: 'number' },
-                    },
-                  },
-                },
-              },
+              description: t('刷新成功', 'Refresh successful'),
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('Token 无效或已过期', 'Token invalid or expired') },
+            '401': {
+              description: t('无效或过期的刷新令牌', 'Invalid or expired refresh token'),
+            },
           },
         },
       },
       '/api/apikey': {
         get: {
-          tags: ['auth'],
-          summary: t('获取或生成 API Key', 'Get or Generate API Key'),
+          tags: ['token'],
+          summary: t('获取 API Key（Token 方式）', 'Get API Key (Token method)'),
           description: t(
-            '获取现有 API Key 或生成新的',
-            'Get existing API Key or generate a new one'
+            '使用访问 Token 获取 API Key（推荐方式）',
+            'Get API Key using access Token (recommended)'
           ),
           parameters: [
             {
+              name: 'X-Token',
+              in: 'header',
+              required: false,
+              schema: { type: 'string' },
+            },
+            {
               name: 'refresh',
               in: 'query',
-              description: t('是否强制刷新', 'Whether to force refresh'),
-              schema: { type: 'string', enum: ['true', 'false'] },
+              required: false,
+              schema: { type: 'boolean' },
             },
           ],
           responses: {
             '200': {
-              description: t('API Key', 'API Key'),
+              description: t('获取成功', 'Success'),
               content: {
                 'application/json': {
                   schema: {
                     type: 'object',
                     properties: {
                       apikey: { type: 'string' },
+                      message: { type: 'string' },
                     },
                   },
                 },
               },
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
+          },
+        },
+        post: {
+          tags: ['token'],
+          summary: t('获取 API Key（用户名密码方式）', 'Get API Key (Username/Password method)'),
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['username', 'password'],
+                  properties: {
+                    username: { type: 'string', description: t('用户邮箱', 'Email') },
+                    password: { type: 'string', description: t('密码', 'Password') },
+                    refresh: { type: 'boolean', description: t('是否强制刷新', 'Force refresh') },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: t('获取成功', 'Success'),
+            },
           },
         },
       },
@@ -308,47 +317,24 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         get: {
           tags: ['channels'],
           summary: t('获取渠道配置', 'Get Channel Configurations'),
-          description: t('获取所有推送渠道的配置信息', 'Get all push channel configurations'),
-          security: [{ bearerAuth: [] }, { apiKey: [] }],
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             '200': {
-              description: t('渠道配置', 'Channel configurations'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      channels: { type: 'array', items: { type: 'object' } },
-                      settings: { type: 'object' },
-                      definitions: {
-                        type: 'array',
-                        items: { $ref: '#/components/schemas/ChannelDefinition' },
-                      },
-                    },
-                  },
-                },
-              },
+              description: t('获取成功', 'Success'),
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
-      },
-      '/api/admin/channels/{id}': {
         put: {
           tags: ['channels'],
           summary: t('更新渠道配置', 'Update Channel Configuration'),
-          description: t('更新指定推送渠道的配置', 'Update specified push channel configuration'),
-          security: [{ bearerAuth: [] }, { apiKey: [] }],
-          parameters: [
-            { name: 'id', in: 'path', required: true, description: t('渠道 ID', 'Channel ID') },
-          ],
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           requestBody: {
             required: true,
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
-                  required: ['fields'],
                   properties: {
                     fields: { type: 'object' },
                   },
@@ -359,21 +345,7 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           responses: {
             '200': {
               description: t('更新成功', 'Update successful'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      message: { type: 'string' },
-                      channels: { type: 'array' },
-                    },
-                  },
-                },
-              },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
       },
@@ -381,8 +353,7 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         post: {
           tags: ['push'],
           summary: t('发送推送', 'Send Push'),
-          description: t('向指定渠道发送推送通知', 'Send push notifications to specified channels'),
-          security: [{ bearerAuth: [] }, { apiKey: [] }],
+          security: [{ ApiKeyAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -393,22 +364,8 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           },
           responses: {
             '200': {
-              description: t('推送结果', 'Push results'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      message: { type: 'string' },
-                      results: { type: 'array', items: { type: 'object' } },
-                    },
-                  },
-                },
-              },
+              description: t('推送完成', 'Push completed'),
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
       },
@@ -416,23 +373,11 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         get: {
           tags: ['push'],
           summary: t('获取推送历史', 'Get Push History'),
-          description: t('获取历史推送记录', 'Get historical push records'),
-          security: [{ bearerAuth: [] }, { apiKey: [] }],
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             '200': {
-              description: t('推送历史', 'Push history'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      history: { type: 'array', items: { type: 'object' } },
-                    },
-                  },
-                },
-              },
+              description: t('获取成功', 'Success'),
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
       },
@@ -440,33 +385,17 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         get: {
           tags: ['backup'],
           summary: t('获取所有备份端', 'Get All Backup Endpoints'),
-          description: t('获取所有配置的备份端列表', 'Get all configured backup endpoints'),
-          security: [{ bearerAuth: [] }],
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             '200': {
-              description: t('备份端列表', 'Backup endpoints list'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      endpoints: {
-                        type: 'array',
-                        items: { $ref: '#/components/schemas/BackupEndpoint' },
-                      },
-                    },
-                  },
-                },
-              },
+              description: t('获取成功', 'Success'),
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
         post: {
           tags: ['backup'],
           summary: t('添加备份端', 'Add Backup Endpoint'),
-          description: t('添加新的备份端配置', 'Add new backup endpoint configuration'),
-          security: [{ bearerAuth: [] }],
+          security: [{ ApiKeyAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -478,20 +407,7 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           responses: {
             '200': {
               description: t('添加成功', 'Added successfully'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      endpoint: { $ref: '#/components/schemas/BackupEndpoint' },
-                    },
-                  },
-                },
-              },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
           },
         },
       },
@@ -499,18 +415,9 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         put: {
           tags: ['backup'],
           summary: t('更新备份端', 'Update Backup Endpoint'),
-          description: t('更新备份端配置', 'Update backup endpoint configuration'),
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            {
-              name: 'id',
-              in: 'path',
-              required: true,
-              description: t('备份端 ID', 'Backup endpoint ID'),
-            },
-          ],
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           requestBody: {
-            required: true,
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/BackupEndpoint' },
@@ -520,47 +427,24 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           responses: {
             '200': {
               description: t('更新成功', 'Updated successfully'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      endpoint: { $ref: '#/components/schemas/BackupEndpoint' },
-                    },
-                  },
-                },
-              },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
+            '404': {
+              description: t('备份端不存在', 'Endpoint not found'),
+            },
           },
         },
         delete: {
           tags: ['backup'],
           summary: t('删除备份端', 'Delete Backup Endpoint'),
-          description: t('删除备份端配置', 'Delete backup endpoint configuration'),
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            {
-              name: 'id',
-              in: 'path',
-              required: true,
-              description: t('备份端 ID', 'Backup endpoint ID'),
-            },
-          ],
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
             '200': {
               description: t('删除成功', 'Deleted successfully'),
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/SuccessResponse' },
-                },
-              },
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
+            '404': {
+              description: t('备份端不存在', 'Endpoint not found'),
+            },
           },
         },
       },
@@ -568,81 +452,40 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
         post: {
           tags: ['backup'],
           summary: t('测试备份端连接', 'Test Backup Endpoint Connection'),
-          description: t('测试备份端连接是否正常', 'Test if backup endpoint connection is working'),
-          security: [{ bearerAuth: [] }],
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: 'id',
               in: 'path',
               required: true,
+              schema: { type: 'string' },
               description: t('备份端 ID 或 "new"', 'Backup endpoint ID or "new"'),
             },
           ],
           responses: {
             '200': {
               description: t('测试结果', 'Test result'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      message: { type: 'string' },
-                    },
-                  },
-                },
-              },
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
           },
         },
       },
       '/api/admin/backup-endpoints/{id}/backups': {
         get: {
           tags: ['backup'],
-          summary: t('列出备份文件', 'List Backup Files'),
-          description: t('列出备份端的所有备份文件', 'List all backup files on the endpoint'),
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            {
-              name: 'id',
-              in: 'path',
-              required: true,
-              description: t('备份端 ID', 'Backup endpoint ID'),
-            },
-          ],
+          summary: t('列出备份', 'List Backups'),
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
             '200': {
-              description: t('备份文件列表', 'Backup file list'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      backups: { type: 'array', items: { type: 'object' } },
-                    },
-                  },
-                },
-              },
+              description: t('备份列表', 'Backup list'),
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
           },
         },
         delete: {
           tags: ['backup'],
-          summary: t('删除备份文件', 'Delete Backup File'),
-          description: t('删除指定的备份文件', 'Delete specified backup file'),
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            {
-              name: 'id',
-              in: 'path',
-              required: true,
-              description: t('备份端 ID', 'Backup endpoint ID'),
-            },
-          ],
+          summary: t('删除备份', 'Delete Backup'),
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           requestBody: {
             required: true,
             content: {
@@ -650,42 +493,37 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
                 schema: {
                   type: 'object',
                   required: ['key'],
-                  properties: {
-                    key: { type: 'string' },
-                  },
+                  properties: { key: { type: 'string' } },
                 },
               },
             },
           },
           responses: {
             '200': {
-              description: t('删除结果', 'Delete result'),
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/SuccessResponse' },
-                },
-              },
+              description: t('删除成功', 'Deleted successfully'),
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
+          },
+        },
+      },
+      '/api/admin/backup-endpoints/{id}/backup': {
+        post: {
+          tags: ['backup'],
+          summary: t('手动备份到指定端点', 'Manual Backup to Specified Endpoint'),
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: t('备份结果', 'Backup result'),
+            },
           },
         },
       },
       '/api/admin/backup-endpoints/{id}/restore': {
         post: {
           tags: ['backup'],
-          summary: t('恢复备份', 'Restore Backup'),
-          description: t('从备份文件恢复数据', 'Restore data from backup file'),
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            {
-              name: 'id',
-              in: 'path',
-              required: true,
-              description: t('备份端 ID', 'Backup endpoint ID'),
-            },
-          ],
+          summary: t('从备份恢复', 'Restore from Backup'),
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           requestBody: {
             required: true,
             content: {
@@ -694,7 +532,7 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
                   type: 'object',
                   required: ['key'],
                   properties: {
-                    key: { type: 'string' },
+                    key: { type: 'string', description: t('备份文件 key', 'Backup file key') },
                   },
                 },
               },
@@ -703,73 +541,46 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           responses: {
             '200': {
               description: t('恢复结果', 'Restore result'),
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/SuccessResponse' },
-                },
-              },
             },
-            '400': { description: t('参数错误', 'Bad request') },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
-          },
-        },
-      },
-      '/api/admin/backup-endpoints/{id}/backup': {
-        post: {
-          tags: ['backup'],
-          summary: t('手动备份单个备份端', 'Manual Backup for Single Endpoint'),
-          description: t('手动触发单个备份端的备份', 'Manually trigger backup for single endpoint'),
-          security: [{ bearerAuth: [] }],
-          parameters: [
-            {
-              name: 'id',
-              in: 'path',
-              required: true,
-              description: t('备份端 ID', 'Backup endpoint ID'),
-            },
-          ],
-          responses: {
-            '200': {
-              description: t('备份结果', 'Backup result'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean' },
-                      message: { type: 'string' },
-                    },
-                  },
-                },
-              },
-            },
-            '401': { description: t('认证失败', 'Authentication failed') },
-            '404': { description: t('备份端不存在', 'Endpoint not found') },
           },
         },
       },
       '/api/admin/backup-all': {
         post: {
           tags: ['backup'],
-          summary: t('备份所有备份端', 'Backup All Endpoints'),
-          description: t('手动触发所有备份端的备份', 'Manually trigger backup for all endpoints'),
-          security: [{ bearerAuth: [] }],
+          summary: t('触发所有启用的备份', 'Trigger All Enabled Backups'),
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             '200': {
               description: t('备份结果', 'Backup results'),
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      results: { type: 'array', items: { type: 'object' } },
-                    },
-                  },
-                },
-              },
             },
-            '401': { description: t('认证失败', 'Authentication failed') },
+          },
+        },
+      },
+      '/api/admin/test/bark': {
+        get: {
+          tags: ['channels'],
+          summary: t('测试 Bark 配置', 'Test Bark Configuration'),
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [
+            {
+              name: 'key',
+              in: 'query',
+              required: true,
+              schema: { type: 'string' },
+              description: t('Bark Key', 'Bark Key'),
+            },
+            {
+              name: 'server',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', default: 'https://api.day.app' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: t('测试结果', 'Test result'),
+            },
           },
         },
       },

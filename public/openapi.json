@@ -1,0 +1,964 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Bee Swarm API",
+    "description": "多渠道推送管理系统 API",
+    "version": "2.0.0",
+    "contact": {
+      "name": "Bee Swarm"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API 基础路径"
+    }
+  ],
+  "tags": [
+    {
+      "name": "认证",
+      "description": "用户注册和登录"
+    },
+    {
+      "name": "Token",
+      "description": "Token 和 API Key 管理"
+    },
+    {
+      "name": "管理",
+      "description": "需要认证的管理接口"
+    }
+  ],
+  "paths": {
+    "/register": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "用户注册",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "user@example.com",
+                    "description": "用户邮箱"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123",
+                    "description": "密码（至少6位）"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "注册成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "邮箱已被注册",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "用户登录",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "email": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/token": {
+      "post": {
+        "tags": ["Token"],
+        "summary": "获取访问令牌",
+        "description": "使用邮箱密码获取访问 Token 和 Refresh Token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "访问令牌（7天有效期）"
+                    },
+                    "refreshToken": {
+                      "type": "string",
+                      "description": "刷新令牌（30天有效期）"
+                    },
+                    "expiresAt": {
+                      "type": "number",
+                      "description": "过期时间戳"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refresh": {
+      "post": {
+        "tags": ["Token"],
+        "summary": "刷新访问令牌",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "刷新令牌"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "刷新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {"type": "string"},
+                    "refreshToken": {"type": "string"},
+                    "expiresAt": {"type": "number"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "无效或过期的刷新令牌",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/apikey": {
+      "get": {
+        "tags": ["Token"],
+        "summary": "获取 API Key（Token 方式）",
+        "description": "使用访问 Token 获取 API Key（推荐方式）",
+        "parameters": [
+          {
+            "name": "X-Token",
+            "in": "header",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "访问 Token（也可使用 query 参数 token）"
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "boolean"},
+            "description": "是否强制刷新，生成新的 API Key"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apikey": {"type": "string", "description": "API Key"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未提供或无效的 Token",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Token"],
+        "summary": "获取 API Key（用户名密码方式）",
+        "description": "使用用户名密码获取 API Key",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "用户邮箱"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "密码"
+                  },
+                  "refresh": {
+                    "type": "boolean",
+                    "description": "是否强制刷新"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apikey": {"type": "string"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/channels": {
+      "get": {
+        "tags": ["管理"],
+        "summary": "获取渠道配置",
+        "security": [{"ApiKeyAuth": []}],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channels": {
+                      "type": "array",
+                      "items": {"$ref": "#/components/schemas/Channel"}
+                    },
+                    "settings": {
+                      "type": "object",
+                      "description": "用户各渠道配置"
+                    },
+                    "definitions": {
+                      "type": "array",
+                      "description": "渠道定义"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["管理"],
+        "summary": "更新渠道配置",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "渠道 ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fields": {
+                    "type": "object",
+                    "description": "渠道配置字段"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功"
+          },
+          "400": {
+            "description": "参数错误"
+          }
+        }
+      }
+    },
+    "/admin/push": {
+      "post": {
+        "tags": ["管理"],
+        "summary": "发送推送",
+        "security": [{"ApiKeyAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "推送标题"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "推送内容"
+                  },
+                  "channels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "目标渠道列表，为空则推送到所有启用的渠道"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "跳转链接（可选）"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "推送完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "channel": {"type": "string"},
+                          "success": {"type": "boolean"},
+                          "message": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/history": {
+      "get": {
+        "tags": ["管理"],
+        "summary": "获取推送历史",
+        "security": [{"ApiKeyAuth": []}],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "string"},
+                          "title": {"type": "string"},
+                          "content": {"type": "string"},
+                          "channels": {"type": "array", "items": {"type": "string"}},
+                          "status": {"type": "string"},
+                          "createdAt": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/backup-endpoints": {
+      "get": {
+        "tags": ["管理"],
+        "summary": "获取所有备份端",
+        "security": [{"ApiKeyAuth": []}],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "endpoints": {
+                      "type": "array",
+                      "items": {"$ref": "#/components/schemas/BackupEndpoint"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["管理"],
+        "summary": "添加备份端",
+        "security": [{"ApiKeyAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/BackupEndpoint"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "添加成功"
+          }
+        }
+      }
+    },
+    "/admin/backup-endpoints/{id}": {
+      "put": {
+        "tags": ["管理"],
+        "summary": "更新备份端",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/BackupEndpoint"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功"
+          },
+          "404": {
+            "description": "备份端不存在"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["管理"],
+        "summary": "删除备份端",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功"
+          },
+          "404": {
+            "description": "备份端不存在"
+          }
+        }
+      }
+    },
+    "/admin/backup-endpoints/{id}/test": {
+      "post": {
+        "tags": ["管理"],
+        "summary": "测试备份端连接",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "备份端 ID，使用 'new' 测试新配置"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {"type": "string"},
+                  "config": {"type": "object"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "测试结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/backup-endpoints/{id}/backups": {
+      "get": {
+        "tags": ["管理"],
+        "summary": "列出备份",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "备份列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backups": {
+                      "type": "array",
+                      "items": {"type": "object"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["管理"],
+        "summary": "删除备份",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["key"],
+                "properties": {
+                  "key": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除成功"
+          }
+        }
+      }
+    },
+    "/admin/backup-endpoints/{id}/backup": {
+      "post": {
+        "tags": ["管理"],
+        "summary": "手动备份到指定端点",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "备份结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "key": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/backup-endpoints/{id}/restore": {
+      "post": {
+        "tags": ["管理"],
+        "summary": "从备份恢复",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["key"],
+                "properties": {
+                  "key": {"type": "string", "description": "备份文件 key"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "恢复结果"
+          }
+        }
+      }
+    },
+    "/admin/backup-all": {
+      "post": {
+        "tags": ["管理"],
+        "summary": "触发所有启用的备份",
+        "security": [{"ApiKeyAuth": []}],
+        "responses": {
+          "200": {
+            "description": "备份结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "endpointName": {"type": "string"},
+                          "success": {"type": "boolean"},
+                          "message": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/test/bark": {
+      "get": {
+        "tags": ["管理"],
+        "summary": "测试 Bark 配置",
+        "security": [{"ApiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "Bark Key"
+          },
+          {
+            "name": "server",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "default": "https://api.day.app"},
+            "description": "Bark 服务器地址"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "测试结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "note": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key",
+        "description": "API Key 认证"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "错误信息"
+          },
+          "code": {
+            "type": "string",
+            "description": "错误代码",
+            "enum": [
+              "AUTH_ERROR",
+              "CONFLICT",
+              "NOT_FOUND",
+              "VALIDATION_ERROR",
+              "INTERNAL_ERROR"
+            ]
+          },
+          "hint": {
+            "type": "string",
+            "description": "错误提示"
+          }
+        }
+      },
+      "Channel": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "icon": {"type": "string"},
+          "enabled": {"type": "boolean"},
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {"type": "string"},
+                "label": {"type": "string"},
+                "required": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      },
+      "BackupEndpoint": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "type": {
+            "type": "string",
+            "enum": ["s3", "webdav"],
+            "description": "备份端类型"
+          },
+          "enabled": {"type": "boolean"},
+          "config": {
+            "type": "object",
+            "description": "配置信息（S3 或 WebDAV）"
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "enabled": {"type": "boolean"},
+              "interval": {"type": "number"},
+              "startTime": {"type": "string"},
+              "timezone": {"type": "string"}
+            }
+          },
+          "retention": {
+            "type": "number",
+            "description": "保留份数"
+          },
+          "lastBackup": {
+            "type": "object",
+            "properties": {
+              "time": {"type": "string"},
+              "status": {"type": "string"},
+              "message": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
