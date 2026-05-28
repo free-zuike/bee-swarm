@@ -22,6 +22,9 @@ const themeStore = useThemeStore();
 
 const isDark = computed(() => themeState.isDark);
 
+// 本地响应式变量来确保语言变化能正确更新
+const localCurrentLocale = ref<'zh' | 'en'>(currentLocale.value);
+
 function goToApiDocs() {
   router.push('/docs');
 }
@@ -29,8 +32,9 @@ function goToApiDocs() {
 function toggleLocale() {
   const wasOpen = showFabMenu.value;
   // 先切换语言
-  const newLocale: 'zh' | 'en' = currentLocale.value === 'zh' ? 'en' : 'zh';
+  const newLocale: 'zh' | 'en' = localCurrentLocale.value === 'zh' ? 'en' : 'zh';
   setLocale(newLocale);
+  localCurrentLocale.value = newLocale;
   
   // 关闭菜单，然后重新打开以显示更新后的内容
   if (wasOpen) {
@@ -539,15 +543,15 @@ watch(showSettings, (val, oldVal) => {
         v-if="showFabMenu"
         class="fab-menu" 
         :class="{ dark: isDark }"
-        :key="`${currentLocale.value}-${isDark.value ? 'dark' : 'light'}`"
+        :key="`${localCurrentLocale.value}-${isDark.value ? 'dark' : 'light'}`"
       >
         <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
         <button class="fab-item" @click="toggleLocale()">
-          <span class="fab-icon">{{ currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
-          <span class="fab-label">{{ currentLocale.value === 'zh' ? 'English' : '中文' }}</span>
+          <span class="fab-icon">{{ localCurrentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
+          <span class="fab-label">{{ localCurrentLocale.value === 'zh' ? 'English' : '中文' }}</span>
         </button>
         <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
           <span class="fab-icon">📚</span>
