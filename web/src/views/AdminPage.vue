@@ -27,15 +27,17 @@ function goToApiDocs() {
 }
 
 function toggleLocale() {
+  const wasOpen = showFabMenu.value;
+  // 先切换语言
   const newLocale: 'zh' | 'en' = currentLocale.value === 'zh' ? 'en' : 'zh';
   setLocale(newLocale);
-  // 确保菜单关闭时强制更新
-  if (showFabMenu.value) {
-    const wasOpen = showFabMenu.value;
+  
+  // 关闭菜单，然后重新打开以显示更新后的内容
+  if (wasOpen) {
     showFabMenu.value = false;
     setTimeout(() => {
-      showFabMenu.value = wasOpen;
-    }, 50);
+      showFabMenu.value = true;
+    }, 100);
   }
 }
 
@@ -543,7 +545,7 @@ watch(showSettings, (val, oldVal) => {
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
-        <button class="fab-item" @click="toggleLocale(); showFabMenu = false">
+        <button class="fab-item" @click="toggleLocale()">
           <span class="fab-icon">{{ currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
           <span class="fab-label">{{ currentLocale.value === 'zh' ? 'English' : '中文' }}</span>
         </button>
