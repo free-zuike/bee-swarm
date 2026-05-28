@@ -452,7 +452,7 @@ defineExpose({
           </div>
 
           <div v-if="editingEndpoint.type === 's3'" class="form-section">
-            <h4>S3 配置</h4>
+            <h4>{{ t('label.s3_config') }}</h4>
             <div class="form-row">
               <div class="form-group">
                 <label>Endpoint *</label>
@@ -469,8 +469,8 @@ defineExpose({
                 <input v-model="editingEndpoint.config.accessKeyId" placeholder="AKIA..." />
               </div>
               <div class="form-group">
-                <label>Secret Access Key {{ isCreatingNew ? '*' : '(留空保留原值)' }}</label>
-                <input v-model="editingEndpoint.config.secretAccessKey" type="password" :placeholder="isCreatingNew ? '请输入密钥' : '已配置（留空保留）'" />
+                <label>{{ t('label.secret_access_key') }} {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label>
+                <input v-model="editingEndpoint.config.secretAccessKey" type="password" :placeholder="isCreatingNew ? t('placeholder.access_key') : t('placeholder.configured')" />
               </div>
             </div>
             <div class="form-row">
@@ -479,22 +479,22 @@ defineExpose({
                 <input v-model="editingEndpoint.config.bucket" placeholder="my-backup-bucket" />
               </div>
               <div class="form-group">
-                <label>根目录（可选）</label>
-                <input v-model="editingEndpoint.config.path" placeholder="默认: beeswarm" />
+                <label>{{ t('label.root_path') }}</label>
+                <input v-model="editingEndpoint.config.path" :placeholder="t('placeholder.default_path')" />
               </div>
             </div>
             <div class="form-row">
               <div class="form-group checkbox-group">
                 <label class="checkbox-label">
                   <input type="checkbox" v-model="editingEndpoint.config.pathStyle" />
-                  <span>使用 Path-Style URL（部分 S3 服务商需要）</span>
+                  <span>{{ t('label.path_style_url') }}</span>
                 </label>
               </div>
             </div>
           </div>
 
           <div v-else class="form-section">
-            <h4>WebDAV 配置</h4>
+            <h4>{{ t('label.webdav_config') }}</h4>
             <div class="form-row">
               <div class="form-group">
                 <label>URL *</label>
@@ -503,81 +503,81 @@ defineExpose({
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>用户名 *</label>
+                <label>{{ t('label.username') }} *</label>
                 <input v-model="editingEndpoint.config.username" placeholder="username" />
               </div>
               <div class="form-group">
-                <label>密码 {{ isCreatingNew ? '*' : '(留空保留原值)' }}</label>
-                <input v-model="editingEndpoint.config.password" type="password" :placeholder="isCreatingNew ? '请输入密码' : '已配置（留空保留）'" />
+                <label>{{ t('label.password') }} {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label>
+                <input v-model="editingEndpoint.config.password" type="password" :placeholder="isCreatingNew ? t('placeholder.password') : t('placeholder.configured')" />
               </div>
             </div>
           </div>
 
           <div class="form-section">
-            <h4>调度设置</h4>
+            <h4>{{ t('label.schedule_settings') }}</h4>
             <div class="form-row">
               <div class="form-group">
-                <label>备份间隔（小时）</label>
+                <label>{{ t('label.backup_interval') }}</label>
                 <select v-model="editingEndpoint.schedule.interval">
-                  <option :value="1">每小时</option>
-                  <option :value="6">每6小时</option>
-                  <option :value="12">每12小时</option>
-                  <option :value="24">每天</option>
-                  <option :value="168">每周</option>
+                  <option :value="1">{{ t('interval.hourly') }}</option>
+                  <option :value="6">{{ t('interval.every_6_hours') }}</option>
+                  <option :value="12">{{ t('interval.every_12_hours') }}</option>
+                  <option :value="24">{{ t('interval.daily') }}</option>
+                  <option :value="168">{{ t('interval.weekly') }}</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>开始时间</label>
+                <label>{{ t('label.start_time') }}</label>
                 <input v-model="editingEndpoint.schedule.startTime" type="time" />
               </div>
               <div class="form-group">
-                <label>时区</label>
+                <label>{{ t('label.timezone') }}</label>
                 <select v-model="editingEndpoint.schedule.timezone">
-                  <optgroup label="亚洲">
-                    <option value="Asia/Shanghai">中国 (UTC+8)</option>
-                    <option value="Asia/Hong_Kong">香港 (UTC+8)</option>
-                    <option value="Asia/Taipei">台北 (UTC+8)</option>
-                    <option value="Asia/Tokyo">东京 (UTC+9)</option>
-                    <option value="Asia/Seoul">首尔 (UTC+9)</option>
-                    <option value="Asia/Singapore">新加坡 (UTC+8)</option>
-                    <option value="Asia/Kolkata">印度 (UTC+5:30)</option>
-                    <option value="Asia/Dubai">迪拜 (UTC+4)</option>
-                    <option value="Asia/Bangkok">曼谷 (UTC+7)</option>
+                  <optgroup :label="t('timezone.asia')">
+                    <option value="Asia/Shanghai">{{ t('timezone.china') }}</option>
+                    <option value="Asia/Hong_Kong">{{ t('timezone.hongkong') }}</option>
+                    <option value="Asia/Taipei">{{ t('timezone.taipei') }}</option>
+                    <option value="Asia/Tokyo">{{ t('timezone.tokyo') }}</option>
+                    <option value="Asia/Seoul">{{ t('timezone.seoul') }}</option>
+                    <option value="Asia/Singapore">{{ t('timezone.singapore') }}</option>
+                    <option value="Asia/Kolkata">{{ t('timezone.india') }}</option>
+                    <option value="Asia/Dubai">{{ t('timezone.dubai') }}</option>
+                    <option value="Asia/Bangkok">{{ t('timezone.bangkok') }}</option>
                   </optgroup>
-                  <optgroup label="美洲">
-                    <option value="America/New_York">纽约 (UTC-5/-4)</option>
-                    <option value="America/Chicago">芝加哥 (UTC-6/-5)</option>
-                    <option value="America/Denver">丹佛 (UTC-7/-6)</option>
-                    <option value="America/Los_Angeles">洛杉矶 (UTC-8/-7)</option>
-                    <option value="America/Sao_Paulo">圣保罗 (UTC-3)</option>
-                    <option value="America/Vancouver">温哥华 (UTC-8/-7)</option>
+                  <optgroup :label="t('timezone.america')">
+                    <option value="America/New_York">{{ t('timezone.newyork') }}</option>
+                    <option value="America/Chicago">{{ t('timezone.chicago') }}</option>
+                    <option value="America/Denver">{{ t('timezone.denver') }}</option>
+                    <option value="America/Los_Angeles">{{ t('timezone.losangeles') }}</option>
+                    <option value="America/Sao_Paulo">{{ t('timezone.saopaulo') }}</option>
+                    <option value="America/Vancouver">{{ t('timezone.vancouver') }}</option>
                   </optgroup>
-                  <optgroup label="欧洲">
-                    <option value="Europe/London">伦敦 (UTC+0/+1)</option>
-                    <option value="Europe/Paris">巴黎 (UTC+1/+2)</option>
-                    <option value="Europe/Berlin">柏林 (UTC+1/+2)</option>
-                    <option value="Europe/Moscow">莫斯科 (UTC+3)</option>
+                  <optgroup :label="t('timezone.europe')">
+                    <option value="Europe/London">{{ t('timezone.london') }}</option>
+                    <option value="Europe/Paris">{{ t('timezone.paris') }}</option>
+                    <option value="Europe/Berlin">{{ t('timezone.berlin') }}</option>
+                    <option value="Europe/Moscow">{{ t('timezone.moscow') }}</option>
                   </optgroup>
-                  <optgroup label="大洋洲">
-                    <option value="Australia/Sydney">悉尼 (UTC+10/+11)</option>
-                    <option value="Pacific/Auckland">奥克兰 (UTC+12/+13)</option>
+                  <optgroup :label="t('timezone.oceania')">
+                    <option value="Australia/Sydney">{{ t('timezone.sydney') }}</option>
+                    <option value="Pacific/Auckland">{{ t('timezone.auckland') }}</option>
                   </optgroup>
-                  <optgroup label="其他">
+                  <optgroup :label="t('timezone.other')">
                     <option value="UTC">UTC</option>
                   </optgroup>
                 </select>
-                <span class="input-hint">备份将在此时区的开始时间触发</span>
+                <span class="input-hint">{{ t('hint.timezone_backup') }}</span>
               </div>
             </div>
           </div>
 
           <div class="form-section">
-            <h4>保留策略</h4>
+            <h4>{{ t('label.retention_policy') }}</h4>
             <div class="form-row">
               <div class="form-group">
-                <label>保留份数</label>
+                <label>{{ t('label.retention_count') }}</label>
                 <input v-model.number="editingEndpoint.retention" type="number" min="1" max="365" />
-                <span class="input-hint">最多保留 {{ editingEndpoint.retention }} 份备份，旧备份将自动删除</span>
+                <span class="input-hint">{{ t('hint.retention_count', { count: editingEndpoint.retention }) }}</span>
               </div>
             </div>
           </div>
@@ -588,31 +588,31 @@ defineExpose({
 
           <div class="endpoint-actions">
             <button v-if="isCreatingNew" class="btn" @click="cancelCreateEndpoint">
-              取消
+              {{ t('button.cancel') }}
             </button>
             <button v-if="!isCreatingNew" class="btn btn-warning" @click="deleteEndpoint" :disabled="isDeletingEndpoint">
-              {{ isDeletingEndpoint ? '删除中...' : '删除' }}
+              {{ isDeletingEndpoint ? t('label.deleting') : t('button.delete') }}
             </button>
             <button v-if="!isCreatingNew" class="btn" @click="doBackupSingle" :disabled="isBackingUpSingle">
-              {{ isBackingUpSingle ? '备份中...' : '立即备份' }}
+              {{ isBackingUpSingle ? t('label.backing_up') : t('button.backup_now') }}
             </button>
             <button class="btn" @click="testEndpoint" :disabled="isTestingEndpoint">
-              {{ isTestingEndpoint ? '测试中...' : '测试连接' }}
+              {{ isTestingEndpoint ? t('label.testing') : t('button.test_connection') }}
             </button>
             <button class="btn btn-primary" @click="saveEndpoint" :disabled="isSavingEndpoint">
-              {{ isSavingEndpoint ? '保存中...' : (isCreatingNew ? '创建' : '保存') }}
+              {{ isSavingEndpoint ? t('label.saving') : (isCreatingNew ? t('button.create') : t('button.save')) }}
             </button>
           </div>
 
           <div v-if="!isCreatingNew && selectedEndpoint" class="endpoint-backups-section">
             <hr />
-            <h4>备份列表</h4>
+            <h4>{{ t('label.backup_list') }}</h4>
             <div v-if="isLoadingEndpointBackups" class="backups-loading">
               <div class="loading-spinner-small"></div>
-              <span>加载备份列表...</span>
+              <span>{{ t('label.loading_backups') }}</span>
             </div>
             <div v-else-if="endpointBackups.length === 0" class="backups-empty">
-              暂无备份
+              {{ t('label.no_backups') }}
             </div>
             <div v-else class="backup-list">
               <div v-for="b in endpointBackups" :key="b.key" class="backup-item">
@@ -621,8 +621,8 @@ defineExpose({
                   <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
                 </div>
                 <div class="backup-actions-item">
-                  <button class="btn btn-sm" @click="restoreFromEndpoint(b.key)">恢复</button>
-                  <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">删除</button>
+                  <button class="btn btn-sm" @click="restoreFromEndpoint(b.key)">{{ t('button.restore') }}</button>
+                  <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">{{ t('button.delete') }}</button>
                 </div>
               </div>
             </div>
