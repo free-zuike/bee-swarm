@@ -165,13 +165,20 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 .stat-card .label {
   font-size: 12px;
   color: var(--text-secondary, #999);
-  margin-bottom: 4px;
+  height: 16px;
+  line-height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .stat-card .value {
   font-size: 24px;
   font-weight: 700;
   color: var(--text-primary, #1a1a2e);
+  height: 32px;
+  line-height: 32px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .panel {
