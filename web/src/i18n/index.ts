@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 export type Locale = 'zh' | 'en';
 
@@ -371,7 +371,9 @@ export function initLocale(): void {
 }
 
 export function t(key: string, params: Record<string, string> = {}): string {
-  const message = messages[currentLocale.value][key] || key;
+  // 通过访问 currentLocale.value 确保响应式依赖被追踪
+  const locale = currentLocale.value;
+  const message = messages[locale][key] || key;
   let result = message;
   for (const [paramKey, paramValue] of Object.entries(params)) {
     result = result.replace(`{${paramKey}}`, paramValue);

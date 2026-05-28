@@ -56,6 +56,17 @@ const showSettings = ref(false);
 // ==================== 移动端悬浮菜单 ====================
 const showFabMenu = ref(false);
 
+// 确保菜单文本响应语言变化
+const localeText = computed(() => ({
+  toggleTheme: t('button.toggle_theme'),
+  apiDocs: t('button.api_docs'),
+  settings: t('button.settings'),
+  hideSettings: t('button.hide_settings'),
+  logout: t('button.logout'),
+  toggleLocale: currentLocale.value === 'zh' ? 'English' : '中文',
+  toggleLocaleIcon: currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳'
+}));
+
 // ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
 const channelDefinitions = ref<ChannelDefinition[]>([]);
@@ -512,28 +523,29 @@ watch(showSettings, (val, oldVal) => {
       <!-- 悬浮菜单 -->
       <div 
         v-if="showFabMenu"
+        :key="currentLocale.value"
         class="fab-menu" 
         :class="{ dark: isDark }"
       >
         <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
-          <span class="fab-label">{{ t('button.toggle_theme') }}</span>
+          <span class="fab-label">{{ localeText.toggleTheme }}</span>
         </button>
         <button class="fab-item" @click="toggleLocale(); showFabMenu = false">
-          <span class="fab-icon">{{ currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
-          <span class="fab-label">{{ currentLocale.value === 'zh' ? 'English' : '中文' }}</span>
+          <span class="fab-icon">{{ localeText.toggleLocaleIcon }}</span>
+          <span class="fab-label">{{ localeText.toggleLocale }}</span>
         </button>
         <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
           <span class="fab-icon">📚</span>
-          <span class="fab-label">{{ t('button.api_docs') }}</span>
+          <span class="fab-label">{{ localeText.apiDocs }}</span>
         </button>
         <button class="fab-item" @click="showSettings = !showSettings; showFabMenu = false">
           <span class="fab-icon">⚙️</span>
-          <span class="fab-label">{{ showSettings ? t('button.hide_settings') : t('button.settings') }}</span>
+          <span class="fab-label">{{ showSettings ? localeText.hideSettings : localeText.settings }}</span>
         </button>
         <button class="fab-item fab-logout" @click="logout(); showFabMenu = false">
           <span class="fab-icon">🚪</span>
-          <span class="fab-label">{{ t('button.logout') }}</span>
+          <span class="fab-label">{{ localeText.logout }}</span>
         </button>
       </div>
     </header>
