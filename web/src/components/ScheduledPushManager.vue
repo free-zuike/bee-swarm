@@ -16,7 +16,6 @@
       <div v-else-if="scheduledPushes.length === 0" class="empty-state">
         <div class="empty-icon"></div>
         <p>{{ t('scheduled.empty') }}</p>
-        <button class="btn btn-primary" @click="showCreateModal = true">{{ t('scheduled.createFirst') }}</button>
       </div>
 
       <div v-else class="scheduled-list">

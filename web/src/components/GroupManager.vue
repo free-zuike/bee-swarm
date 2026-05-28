@@ -14,9 +14,8 @@
       </div>
 
       <div v-else-if="groups.length === 0" class="empty-state">
-        <div class="empty-icon">📁</div>
+        <div class="empty-icon"></div>
         <p>{{ t('groups.empty') }}</p>
-        <button class="btn btn-primary" @click="openCreateModal">{{ t('groups.createFirst') }}</button>
       </div>
 
       <div v-else class="group-list">
