@@ -676,8 +676,8 @@ watch(showSettings, (val, oldVal) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-width: 380px;
+  gap: 12px;
+  min-width: 420px;
   justify-content: flex-end;
 }
 
@@ -686,17 +686,21 @@ watch(showSettings, (val, oldVal) => {
 }
 
 .header-right .btn-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  font-size: 20px;
 }
 
 .header-right .btn-secondary {
-  min-width: 80px;
+  min-width: 100px;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header h1 {
