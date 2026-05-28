@@ -1,0 +1,6 @@
+node_modules
+dist
+web/dist
+.wrangler
+coverage
+*.min.js

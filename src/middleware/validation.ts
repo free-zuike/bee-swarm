@@ -108,6 +108,12 @@ export const schemas = {
     password: z.string().min(1, '请输入密码'),
   }),
 
+  apikey: z.object({
+    username: z.string().min(1, '请输入用户名'),
+    password: z.string().min(1, '请输入密码'),
+    refresh: z.boolean().optional().default(false),
+  }),
+
   push: z.object({
     title: z.string().min(1, '请输入标题'),
     body: z.string().optional(),

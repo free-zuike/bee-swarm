@@ -7,6 +7,7 @@ import type { Env, PushRequest, PushChannel } from '../types';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
+import { filterSensitiveConfig } from '../utils/config';
 import {
   dispatchPush,
   getChannelConfigs,
@@ -72,82 +73,108 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   return c.json({ success: true, message: '登录成功', email });
 });
 
-/** 获取或生成 API Key */
+/** 使用 Token 获取 API Key（推荐方式） */
 api.get('/apikey', async (c) => {
   const token = c.req.header('X-Token') || c.req.query('token');
-  let username: string | null = null;
 
-  if (token) {
-    const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${token}`);
-    if (indexedUser) {
-      const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          if (user.token === token && user.expiresAt > Date.now()) {
-            username = indexedUser;
-          }
-        } catch (err) {
-          console.error(`[APIKey] Failed to parse user data: ${(err as Error).message}`);
-        }
-      }
-    }
+  if (!token) {
+    return c.json(
+      {
+        error: '请使用 POST /api/apikey 或提供 Token',
+        code: 'AUTH_ERROR',
+        hint: 'GET 请求需要通过 X-Token header 或 token 查询参数认证',
+      },
+      401
+    );
   }
 
-  if (!username) {
-    const queryUsername = c.req.query('username');
-    const queryPassword = c.req.query('password');
-
-    if (!queryUsername || !queryPassword) {
-      return c.json({ error: '请提供认证信息', code: 'AUTH_ERROR' }, 401);
-    }
-
-    const userData = await c.env.SUBSCRIPTIONS.get(`user:${queryUsername}`);
-    if (!userData) {
-      return c.json({ error: '用户不存在', code: 'AUTH_ERROR' }, 401);
-    }
-
-    const user = JSON.parse(userData);
-    const valid = await verifyPassword(queryPassword, user.password);
-    if (!valid) {
-      return c.json({ error: '密码错误', code: 'AUTH_ERROR' }, 401);
-    }
-
-    username = queryUsername;
+  const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${token}`);
+  if (!indexedUser) {
+    return c.json({ error: '无效的 Token', code: 'AUTH_ERROR' }, 401);
   }
 
-  if (!username) {
-    return c.json({ error: '认证失败', code: 'AUTH_ERROR' }, 401);
+  const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
+  if (!userData) {
+    return c.json({ error: '用户不存在', code: 'AUTH_ERROR' }, 401);
   }
 
-  // 获取或生成 API Key
-  const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
-  const user = JSON.parse(userData!);
-  const { apikey } = user;
+  let user;
+  try {
+    user = JSON.parse(userData);
+  } catch (err) {
+    console.error(`[APIKey] Failed to parse user data: ${(err as Error).message}`);
+    return c.json({ error: '服务器错误', code: 'INTERNAL_ERROR' }, 500);
+  }
+
+  if (user.token !== token || user.expiresAt <= Date.now()) {
+    return c.json({ error: 'Token 已过期', code: 'AUTH_ERROR' }, 401);
+  }
 
   const forceRefresh = c.req.query('refresh') === 'true';
 
-  if (apikey && !forceRefresh) {
-    return c.json({ apikey });
+  if (user.apikey && !forceRefresh) {
+    return c.json({ apikey: user.apikey });
   }
 
-  // 生成新的 API Key
   const newApikey = crypto.randomUUID().replace(/-/g, '');
 
-  // 如果有旧 apikey，删除旧索引
+  if (user.apikey) {
+    await c.env.SUBSCRIPTIONS.delete(`apikey_index:${user.apikey}`);
+  }
+
+  user.apikey = newApikey;
+  await c.env.SUBSCRIPTIONS.put(`user:${indexedUser}`, JSON.stringify(user));
+  await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, indexedUser, {
+    expirationTtl: 365 * 24 * 60 * 60,
+  });
+
+  return c.json({ apikey: newApikey, message: 'API Key 已生成' });
+});
+
+/** 使用用户名密码获取 API Key（POST 方式，更安全） */
+api.post('/apikey', validateBody(schemas.apikey), async (c) => {
+  const body = (c as any).validatedBody as {
+    username: string;
+    password: string;
+    refresh?: boolean;
+  };
+  const { username, password, refresh } = body;
+
+  const userData = await c.env.SUBSCRIPTIONS.get(`user:${username}`);
+  if (!userData) {
+    return c.json({ error: '用户不存在', code: 'AUTH_ERROR' }, 401);
+  }
+
+  let user;
+  try {
+    user = JSON.parse(userData);
+  } catch (err) {
+    console.error(`[APIKey] Failed to parse user data: ${(err as Error).message}`);
+    return c.json({ error: '服务器错误', code: 'INTERNAL_ERROR' }, 500);
+  }
+
+  const valid = await verifyPassword(password, user.password);
+  if (!valid) {
+    return c.json({ error: '密码错误', code: 'AUTH_ERROR' }, 401);
+  }
+
+  if (user.apikey && !refresh) {
+    return c.json({ apikey: user.apikey });
+  }
+
+  const newApikey = crypto.randomUUID().replace(/-/g, '');
+
   if (user.apikey) {
     await c.env.SUBSCRIPTIONS.delete(`apikey_index:${user.apikey}`);
   }
 
   user.apikey = newApikey;
   await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify(user));
-
-  // 创建 apikey 索引
   await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, username, {
     expirationTtl: 365 * 24 * 60 * 60,
   });
 
-  return c.json({ apikey: newApikey });
+  return c.json({ apikey: newApikey, message: 'API Key 已生成' });
 });
 
 api.post('/token', validateBody(schemas.token), async (c) => {
@@ -325,19 +352,10 @@ adminApi.get('/backup-endpoints', async (c) => {
   await migrateOldS3Config(c.env, username);
   const endpoints = await getBackupEndpoints(c.env, username);
 
-  // 返回时隐藏密钥
-  const safeEndpoints = endpoints.map((e) => {
-    const safe = { ...e, config: { ...e.config } };
-    if (safe.config) {
-      if ('secretAccessKey' in safe.config) {
-        delete (safe.config as any).secretAccessKey;
-      }
-      if ('password' in safe.config) {
-        delete (safe.config as any).password;
-      }
-    }
-    return safe;
-  });
+  const safeEndpoints = endpoints.map((e) => ({
+    ...e,
+    config: filterSensitiveConfig(e.config as unknown as Record<string, unknown>),
+  }));
 
   return c.json({ endpoints: safeEndpoints });
 });
@@ -365,16 +383,10 @@ adminApi.post('/backup-endpoints', async (c) => {
   endpoints.push(newEndpoint);
   await saveBackupEndpoints(c.env, username, endpoints);
 
-  // 返回时不包含密钥
-  const returnedEndpoint = { ...newEndpoint, config: { ...newEndpoint.config } };
-  if (returnedEndpoint.config) {
-    if ('secretAccessKey' in returnedEndpoint.config) {
-      delete (returnedEndpoint.config as any).secretAccessKey;
-    }
-    if ('password' in returnedEndpoint.config) {
-      delete (returnedEndpoint.config as any).password;
-    }
-  }
+  const returnedEndpoint = {
+    ...newEndpoint,
+    config: filterSensitiveConfig(newEndpoint.config as unknown as Record<string, unknown>),
+  };
   return c.json({ success: true, endpoint: returnedEndpoint });
 });
 
@@ -420,16 +432,10 @@ adminApi.put('/backup-endpoints/:id', async (c) => {
   endpoints[index] = { ...endpoints[index], ...body };
   await saveBackupEndpoints(c.env, username, endpoints);
 
-  // 返回时不包含密钥
-  const returnedEndpoint = { ...endpoints[index], config: { ...endpoints[index].config } };
-  if (returnedEndpoint.config) {
-    if ('secretAccessKey' in returnedEndpoint.config) {
-      delete (returnedEndpoint.config as any).secretAccessKey;
-    }
-    if ('password' in returnedEndpoint.config) {
-      delete (returnedEndpoint.config as any).password;
-    }
-  }
+  const returnedEndpoint = {
+    ...endpoints[index],
+    config: filterSensitiveConfig(endpoints[index].config as unknown as Record<string, unknown>),
+  };
   return c.json({ success: true, endpoint: returnedEndpoint });
 });
 
