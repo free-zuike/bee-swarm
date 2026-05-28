@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
+import { t } from '@/i18n';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings } from '@/types';
 
 const props = defineProps<{
@@ -167,8 +168,8 @@ defineExpose({
 
 <template>
   <div class="panel">
-    <h2>⚙️ 渠道设置</h2>
-    <p class="hint" style="margin-bottom: 20px;">配置各推送渠道的连接参数，每个渠道可独立保存。</p>
+    <h2>⚙️ {{ t('label.channel_settings') }}</h2>
+    <p class="hint" style="margin-bottom: 20px;">{{ t('hint.channel_settings') }}</p>
 
     <div class="channel-cards">
       <div
@@ -183,9 +184,9 @@ defineExpose({
           <div class="channel-card-info">
             <span class="channel-card-icon">{{ def.icon }}</span>
             <span class="channel-card-name">{{ def.name }}</span>
-            <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">(未保存)</span>
+            <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">({{ t('label.unsaved') }})</span>
             <span v-if="!canToggleChannel(def)" class="status-tag status-unconfigured">
-              未配置
+              {{ t('label.unconfigured') }}
             </span>
             <span
               v-else
@@ -193,7 +194,7 @@ defineExpose({
               :class="isChannelEnabled(def.id) ? 'status-enabled' : 'status-disabled'"
               @click.stop="toggleChannelEnabled(def.id)"
             >
-              {{ isChannelEnabled(def.id) ? '已启用' : '已禁用' }}
+              {{ isChannelEnabled(def.id) ? t('label.enabled') : t('label.disabled') }}
             </span>
           </div>
           <span class="expand-arrow" :class="{ expanded: expandedChannels.has(def.id) }">
@@ -214,7 +215,7 @@ defineExpose({
             <input
               :type="field.type === 'password' ? 'password' : 'text'"
               :value="getSettingValue(def.id, field.key)"
-              :placeholder="field.placeholder || `请输入${field.label}`"
+              :placeholder="field.placeholder || `${t('label.enter')}${field.label}`"
               @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
             />
           </div>
@@ -231,14 +232,14 @@ defineExpose({
               class="btn btn-secondary btn-sm"
               @click="doTestChannel(def.id)"
             >
-              测试
+              {{ t('button.test') }}
             </button>
             <button
               class="btn btn-primary btn-sm"
               :disabled="savingChannels[def.id]"
               @click="doSaveChannel(def.id)"
             >
-              {{ savingChannels[def.id] ? '保存中...' : '💾 保存' }}
+              {{ savingChannels[def.id] ? t('label.saving') : '💾 ' + t('button.save') }}
             </button>
           </div>
         </div>

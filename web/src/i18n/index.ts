@@ -99,7 +99,15 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.refresh_channels': '刷新渠道',
     'error.no_channel_selected': '未选择推送渠道',
     'error.no_channel_selected_full': '未选择任何推送渠道，请先选择后再推送',
-    'label.push_history': '推送历史'
+    'label.push_history': '推送历史',
+    'label.channel_settings': '渠道设置',
+    'hint.channel_settings': '配置各推送渠道的连接参数，每个渠道可独立保存。',
+    'label.unsaved': '未保存',
+    'label.unconfigured': '未配置',
+    'label.enabled': '已启用',
+    'label.disabled': '已禁用',
+    'label.enter': '请输入',
+    'label.saving': '保存中...'
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -191,7 +199,15 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.refresh_channels': 'Refresh Channels',
     'error.no_channel_selected': 'No channel selected',
     'error.no_channel_selected_full': 'No push channels selected, please select first',
-    'label.push_history': 'Push History'
+    'label.push_history': 'Push History',
+    'label.channel_settings': 'Channel Settings',
+    'hint.channel_settings': 'Configure connection parameters for each push channel. Each channel can be saved independently.',
+    'label.unsaved': 'Unsaved',
+    'label.unconfigured': 'Unconfigured',
+    'label.enabled': 'Enabled',
+    'label.disabled': 'Disabled',
+    'label.enter': 'Enter',
+    'label.saving': 'Saving...'
   }
 };
 
