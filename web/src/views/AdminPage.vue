@@ -674,32 +674,43 @@ watch(showSettings, (val, oldVal) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 450px;
   justify-content: flex-end;
   flex-shrink: 0;
+  gap: 8px;
+  min-width: 460px;
 }
 
 .header-right .btn {
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .header-right .btn-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   font-size: 18px;
+  flex-shrink: 0;
 }
 
 .header-right .btn-secondary {
-  width: 120px;
+  width: 110px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 6px 12px;
+}
+
+.header-right .logout {
+  flex-shrink: 0;
 }
 
 .header h1 {
