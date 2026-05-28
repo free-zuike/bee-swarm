@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono';
 import type { Env } from '../types';
+import { ErrorCode } from '../utils/errors';
 
 interface RateLimitConfig {
   windowMs?: number;
@@ -15,6 +16,7 @@ const DEFAULT_CONFIG: RateLimitConfig = {
   headers: true,
 };
 
+// 内存存储（仅限开发和测试使用）
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export function rateLimit(config: RateLimitConfig = {}) {
@@ -60,7 +62,11 @@ export function rateLimit(config: RateLimitConfig = {}) {
       if (headers) {
         c.res.headers.set('Retry-After', String(retryAfter));
       }
-      return c.json({ error: message }, 429);
+      return c.json({ 
+        error: message, 
+        code: ErrorCode.RATE_LIMITED,
+        timestamp: new Date().toISOString()
+      }, 429);
     }
     
     await next();

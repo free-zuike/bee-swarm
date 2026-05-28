@@ -7,9 +7,13 @@ import type { Env } from './types';
 import api from './routes/api';
 import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
 import { rateLimit } from './middleware/rateLimit';
+import { securityHeaders } from './middleware/securityHeaders';
 import { createErrorResponse, logError } from './utils/errors';
 
 const app = new Hono<{ Bindings: Env }>();
+
+// 安全 HTTP 头
+app.use('*', securityHeaders());
 
 // 限流配置
 app.use('*', rateLimit({
