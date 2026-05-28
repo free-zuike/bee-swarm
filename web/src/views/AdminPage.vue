@@ -53,6 +53,9 @@ const activeTab = ref<'push' | 'history'>('push');
 // ==================== 设置面板 ====================
 const showSettings = ref(false);
 
+// ==================== 移动端悬浮菜单 ====================
+const showFabMenu = ref(false);
+
 // ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
 const channelDefinitions = ref<ChannelDefinition[]>([]);
@@ -508,6 +511,39 @@ watch(showSettings, (val, oldVal) => {
           {{ showSettings ? t('button.hide_settings') : t('button.settings') }}
         </button>
         <span class="logout" @click="logout">{{ t('button.logout') }}</span>
+      </div>
+      
+      <!-- 移动端悬浮按钮 -->
+      <button 
+        class="fab-toggle" 
+        :class="{ dark: isDark, active: showFabMenu }"
+        @click="showFabMenu = !showFabMenu"
+      >
+        ⚙️
+      </button>
+      
+      <!-- 移动端悬浮菜单 -->
+      <div v-if="showFabMenu" class="fab-menu" :class="{ dark: isDark }">
+        <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
+          <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
+          <span class="fab-label">{{ t('button.toggle_theme') }}</span>
+        </button>
+        <button class="fab-item" @click="toggleLocale(); showFabMenu = false">
+          <span class="fab-icon">{{ currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
+          <span class="fab-label">{{ currentLocale.value === 'zh' ? 'English' : '中文' }}</span>
+        </button>
+        <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
+          <span class="fab-icon">📚</span>
+          <span class="fab-label">{{ t('button.api_docs') }}</span>
+        </button>
+        <button class="fab-item" @click="showSettings = !showSettings; showFabMenu = false">
+          <span class="fab-icon">⚙️</span>
+          <span class="fab-label">{{ showSettings ? t('button.hide_settings') : t('button.settings') }}</span>
+        </button>
+        <button class="fab-item fab-logout" @click="logout(); showFabMenu = false">
+          <span class="fab-icon">🚪</span>
+          <span class="fab-label">{{ t('button.logout') }}</span>
+        </button>
       </div>
     </header>
 
@@ -1161,6 +1197,101 @@ watch(showSettings, (val, oldVal) => {
 
   .stat-card .value {
     font-size: 18px;
+  }
+}
+
+/* ==================== 移动端悬浮菜单 ==================== */
+.fab-toggle {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  color: white;
+  font-size: 20px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.fab-toggle:hover {
+  transform: scale(1.1);
+}
+
+.fab-toggle.active {
+  transform: rotate(90deg);
+}
+
+.fab-menu {
+  display: none;
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  z-index: 999;
+  min-width: 180px;
+}
+
+.fab-menu.dark {
+  background: var(--bg-panel, #2d2d2d);
+}
+
+.fab-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.fab-item:hover {
+  background: var(--bg-secondary, #f0f0f0);
+}
+
+.fab-menu.dark .fab-item:hover {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.fab-item.fab-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.fab-icon {
+  font-size: 18px;
+}
+
+.fab-label {
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  flex: 1;
+}
+
+.fab-menu.dark .fab-label {
+  color: var(--text-primary, #e0e0e0);
+}
+
+@media (max-width: 768px) {
+  .fab-toggle,
+  .fab-menu {
+    display: block;
+  }
+  
+  .header-right {
+    display: none;
   }
 }
 </style>
