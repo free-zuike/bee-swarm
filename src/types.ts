@@ -25,6 +25,7 @@ export type {
 export interface Env {
   SUBSCRIPTIONS: KVNamespace;
   ASSETS: Fetcher;
+  ALLOWED_ORIGINS?: string;
 }
 
 declare module 'hono' {

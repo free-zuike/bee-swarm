@@ -6,6 +6,7 @@ import { cors } from 'hono/cors';
 import type { Env, PushRequest, PushChannel } from '../types';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
+import { validateBody, schemas } from '../middleware/validation';
 import {
   dispatchPush,
   getChannelConfigs,
@@ -24,28 +25,17 @@ export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>(
 
 api.use('/*', cors());
 
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 // ============================================
 // 公开接口
 // ============================================
 
-api.post('/register', async (c) => {
-  const body = await c.req.json<{ email: string; password: string }>();
+api.post('/register', validateBody(schemas.register), async (c) => {
+  const body = (c as any).validatedBody as { email: string; password: string };
   const { email, password } = body;
-
-  if (!email || !isValidEmail(email)) {
-    return c.json({ error: '请输入有效的邮箱地址' }, 400);
-  }
-  if (!password || password.length < 8) {
-    return c.json({ error: '密码长度至少 8 位' }, 400);
-  }
 
   const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
   if (existing) {
-    return c.json({ error: '该邮箱已被注册' }, 409);
+    return c.json({ error: '该邮箱已被注册', code: 'CONFLICT' }, 409);
   }
 
   const hashed = await hashPassword(password);
@@ -54,24 +44,20 @@ api.post('/register', async (c) => {
   return c.json({ success: true, message: '注册成功' });
 });
 
-api.post('/login', async (c) => {
-  const body = await c.req.json<{ email: string; password: string }>();
+api.post('/login', validateBody(schemas.login), async (c) => {
+  const body = (c as any).validatedBody as { email: string; password: string };
   const { email, password } = body;
-
-  if (!email || !password) {
-    return c.json({ error: '请输入邮箱和密码' }, 400);
-  }
 
   const userData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
   if (!userData) {
-    return c.json({ error: '邮箱或密码错误' }, 401);
+    return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
 
   const { password: hashed } = JSON.parse(userData);
   const valid = await verifyPassword(password, hashed);
 
   if (!valid) {
-    return c.json({ error: '邮箱或密码错误' }, 401);
+    return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
 
   return c.json({ success: true, message: '登录成功', email });
@@ -79,7 +65,6 @@ api.post('/login', async (c) => {
 
 /** 获取或生成 API Key */
 api.get('/apikey', async (c) => {
-  // 优先使用 Token 认证
   const token = c.req.header('X-Token') || c.req.query('token');
   let username: string | null = null;
 
@@ -96,34 +81,19 @@ api.get('/apikey', async (c) => {
         } catch {}
       }
     }
-    // 回退到遍历查找（兼容旧 token 无索引的情况）
-    if (!username) {
-      const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-      for (const key of list.keys) {
-        const data = await c.env.SUBSCRIPTIONS.get(key.name);
-        if (data) {
-          const user = JSON.parse(data);
-          if (user.token === token && user.expiresAt > Date.now()) {
-            username = key.name.replace('user:', '');
-            break;
-          }
-        }
-      }
-    }
   }
 
-  // 回退到用户名密码认证
   if (!username) {
     const queryUsername = c.req.query('username');
     const queryPassword = c.req.query('password');
 
     if (!queryUsername || !queryPassword) {
-      return c.json({ error: '请提供认证信息' }, 401);
+      return c.json({ error: '请提供认证信息', code: 'AUTH_ERROR' }, 401);
     }
 
     const userData = await c.env.SUBSCRIPTIONS.get(`user:${queryUsername}`);
     if (!userData) {
-      return c.json({ error: '用户不存在' }, 401);
+      return c.json({ error: '用户不存在', code: 'AUTH_ERROR' }, 401);
     }
 
     const user = JSON.parse(userData);
@@ -167,32 +137,26 @@ api.get('/apikey', async (c) => {
   return c.json({ apikey: newApikey });
 });
 
-/** 获取访问 Token */
-api.post('/token', async (c) => {
-  const { email, password } = await c.req.json();
-
-  if (!email || !password) {
-    return c.json({ error: '请提供邮箱和密码' }, 400);
-  }
+api.post('/token', validateBody(schemas.token), async (c) => {
+  const body = (c as any).validatedBody as { email: string; password: string };
+  const { email, password } = body;
 
   const userData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
   if (!userData) {
-    return c.json({ error: '用户不存在' }, 401);
+    return c.json({ error: '用户不存在', code: 'AUTH_ERROR' }, 401);
   }
 
   const user = JSON.parse(userData);
   const valid = await verifyPassword(password, user.password);
   if (!valid) {
-    return c.json({ error: '密码错误' }, 401);
+    return c.json({ error: '密码错误', code: 'AUTH_ERROR' }, 401);
   }
 
-  // 生成 token
   const token = crypto.randomUUID().replace(/-/g, '');
   const refreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
-  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 天后过期
-  const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30天
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
 
-  // 如果有旧 token，删除旧索引
   if (user.token) {
     await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
   }
@@ -203,21 +167,15 @@ api.post('/token', async (c) => {
   user.refreshExpiresAt = refreshExpiresAt;
   await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify(user));
 
-  // 创建 token 索引
   await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, email, { expirationTtl: 7 * 24 * 60 * 60 });
 
   return c.json({ token, refreshToken, expiresAt });
 });
 
-/** 刷新 Token */
-api.post('/refresh', async (c) => {
-  const { refreshToken } = await c.req.json();
+api.post('/refresh', validateBody(schemas.refresh), async (c) => {
+  const body = (c as any).validatedBody as { refreshToken: string };
+  const { refreshToken } = body;
 
-  if (!refreshToken) {
-    return c.json({ error: '请提供 refresh token' }, 400);
-  }
-
-  // 使用 token_index 快速查找
   const indexedUser = await c.env.SUBSCRIPTIONS.get(`token_index:${refreshToken}`);
   if (indexedUser) {
     const userData = await c.env.SUBSCRIPTIONS.get(`user:${indexedUser}`);
@@ -225,18 +183,15 @@ api.post('/refresh', async (c) => {
       try {
         const user = JSON.parse(userData);
         if (user.refreshToken === refreshToken) {
-          // 检查 refreshToken 是否过期（refreshToken 有效期 30 天）
           if (!user.refreshExpiresAt || user.refreshExpiresAt < Date.now()) {
-            return c.json({ error: 'Refresh token 已过期，请重新登录' }, 401);
+            return c.json({ error: 'Refresh token 已过期，请重新登录', code: 'AUTH_ERROR' }, 401);
           }
 
-          // 生成新 token
           const token = crypto.randomUUID().replace(/-/g, '');
           const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
           const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-          const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30天
+          const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
 
-          // 删除旧索引，创建新索引
           await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
           await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, indexedUser, { expirationTtl: 7 * 24 * 60 * 60 });
           await c.env.SUBSCRIPTIONS.delete(`token_index:${user.refreshToken}`);
@@ -254,42 +209,7 @@ api.post('/refresh', async (c) => {
     }
   }
 
-  // 回退到遍历查找（兼容旧 token 无索引的情况）
-  const list = await c.env.SUBSCRIPTIONS.list({ prefix: 'user:' });
-  for (const key of list.keys) {
-    const data = await c.env.SUBSCRIPTIONS.get(key.name);
-    if (data) {
-      const user = JSON.parse(data);
-      if (user.refreshToken === refreshToken) {
-        // 检查 refreshToken 是否过期（refreshToken 有效期 30 天）
-        if (!user.refreshExpiresAt || user.refreshExpiresAt < Date.now()) {
-          return c.json({ error: 'Refresh token 已过期，请重新登录' }, 401);
-        }
-
-        // 生成新 token
-        const token = crypto.randomUUID().replace(/-/g, '');
-        const newRefreshToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
-        const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-        const refreshExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30天
-
-        // 删除旧索引，创建新索引
-        await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
-        await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, key.name.replace('user:', ''), { expirationTtl: 7 * 24 * 60 * 60 });
-        await c.env.SUBSCRIPTIONS.delete(`token_index:${user.refreshToken}`);
-        await c.env.SUBSCRIPTIONS.put(`token_index:${newRefreshToken}`, key.name.replace('user:', ''), { expirationTtl: 7 * 24 * 60 * 60 });
-
-        user.token = token;
-        user.refreshToken = newRefreshToken;
-        user.expiresAt = expiresAt;
-        user.refreshExpiresAt = refreshExpiresAt;
-        await c.env.SUBSCRIPTIONS.put(key.name, JSON.stringify(user));
-
-        return c.json({ token, refreshToken: newRefreshToken, expiresAt });
-      }
-    }
-  }
-
-  return c.json({ error: '无效的 refresh token' }, 401);
+  return c.json({ error: '无效的 refresh token', code: 'AUTH_ERROR' }, 401);
 });
 
 // ============================================

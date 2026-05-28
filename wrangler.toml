@@ -38,10 +38,10 @@ binding = "SUBSCRIPTIONS"
 id = "${KV_NAMESPACE_ID}"
 
 # ------------------------------------------
-# Workers 日志
+# Workers 日志和监控
 # ------------------------------------------
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 
 [observability.logs]
@@ -49,9 +49,13 @@ enabled = true
 head_sampling_rate = 1
 persist = true
 invocation_logs = true
+level = "info"
 
 [observability.traces]
-enabled = false
+enabled = true
 persist = true
 head_sampling_rate = 1
+
+[observability.metrics]
+enabled = true
 
