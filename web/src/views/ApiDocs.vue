@@ -4,20 +4,42 @@ import { useRouter } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
 import { getOpenAPISpec } from '@/api-docs/openapi';
 
+interface SwaggerUIConfig {
+  domNode: HTMLElement;
+  spec: unknown;
+  deepLinking: boolean;
+  displayOperationId: boolean;
+  defaultModelsExpandDepth: number;
+  defaultModelExpandDepth: number;
+  persistAuthorization: boolean;
+  tryItOutEnabled: boolean;
+  syntaxHighlight: { activate: boolean; theme: string };
+}
+
+interface SwaggerUIBundle {
+  (config: SwaggerUIConfig): void;
+}
+
+interface SwaggerWindow extends Window {
+  SwaggerUIBundle?: SwaggerUIBundle;
+}
+
 const themeStore = useThemeStore();
 const router = useRouter();
 
 const containerRef = ref<HTMLElement | null>(null);
 const currentLocale = ref<'zh' | 'en'>('zh');
 const isDark = computed(() => themeStore.isDark);
+const swaggerInitialized = ref(false);
 
 async function initSwaggerUI() {
   if (!containerRef.value) return;
 
   try {
-    containerRef.value.innerHTML = '';
-    
-    const SwaggerUIBundle = (window as any).SwaggerUIBundle;
+    containerRef.value.textContent = '';
+
+    const swaggerWindow = window as unknown as SwaggerWindow;
+    const SwaggerUIBundle = swaggerWindow.SwaggerUIBundle;
     if (SwaggerUIBundle) {
       SwaggerUIBundle({
         domNode: containerRef.value,
@@ -30,14 +52,17 @@ async function initSwaggerUI() {
         tryItOutEnabled: false,
         syntaxHighlight: {
           activate: true,
-          theme: isDark.value ? 'monokai' : 'agate'
-        }
+          theme: isDark.value ? 'monokai' : 'agate',
+        },
       });
+      swaggerInitialized.value = true;
+    } else {
+      console.warn('SwaggerUIBundle not loaded');
     }
   } catch (error) {
     console.error('Failed to initialize Swagger UI:', error);
   }
-  
+
   applyTheme();
 }
 

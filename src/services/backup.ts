@@ -326,39 +326,25 @@ export async function uploadBackupToEndpoint(
       const root = config.path ? config.path.replace(/\/+$/, '') : 'beeswarm';
       const path = `${root}/backups/${username}/${filename}`;
 
-      // 确保目录存在（忽略 405 目录已存在错误）
-      const mkcolResponse = await webdavRequest('MKCOL', `/${root}/`, config);
-      if (!mkcolResponse.ok && mkcolResponse.status !== 405) {
+      // 递归创建目录（遇到已存在目录立即跳过，避免冗余请求）
+      const dirPaths = [
+        `/${root}/`,
+        `/${root}/backups/`,
+        `/${root}/backups/${username}/`,
+      ];
+
+      for (const dirPath of dirPaths) {
+        const resp = await webdavRequest('MKCOL', dirPath, config);
+        if (resp.ok || resp.status === 405 || resp.status === 409) {
+          // 201 创建成功，405 已存在（Method Not Allowed on collection），409 冲突（已存在）
+          continue;
+        }
         return {
           success: false,
-          message: 'WebDAV 创建目录失败 (' + mkcolResponse.status + ')',
+          message: 'WebDAV 创建目录失败 (' + resp.status + ')',
           endpointId: endpoint.id,
         };
       }
-
-      await new Promise((resolve) => setTimeout(resolve, 500)); // 避免限流
-
-      const mkcolResponse2 = await webdavRequest('MKCOL', `/${root}/backups/`, config);
-      if (!mkcolResponse2.ok && mkcolResponse2.status !== 405) {
-        return {
-          success: false,
-          message: 'WebDAV 创建目录失败 (' + mkcolResponse2.status + ')',
-          endpointId: endpoint.id,
-        };
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 500)); // 避免限流
-
-      const mkcolResponse3 = await webdavRequest('MKCOL', `/${root}/backups/${username}/`, config);
-      if (!mkcolResponse3.ok && mkcolResponse3.status !== 405) {
-        return {
-          success: false,
-          message: 'WebDAV 创建目录失败 (' + mkcolResponse3.status + ')',
-          endpointId: endpoint.id,
-        };
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 500)); // 避免限流
 
       const response = await webdavRequest(
         'PUT',
@@ -833,7 +819,7 @@ export async function testBackupEndpoint(
   }
 }
 
-// 执行所有启用的备份
+// 执行所有启用的备份（并发上传，顺序更新状态）
 export async function executeAllBackups(env: Env, username: string): Promise<BackupResult[]> {
   const endpoints = await getBackupEndpoints(env, username);
   const enabledEndpoints = endpoints.filter((e) => e.enabled);
@@ -842,23 +828,26 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
     return [{ success: false, message: '没有启用的备份端' }];
   }
 
-  const results: BackupResult[] = [];
-  for (const endpoint of enabledEndpoints) {
-    const result = await uploadBackupToEndpoint(env, username, endpoint);
-    result.endpointName = endpoint.name;
+  // 并发上传（读取备份数据只发生一次，各端点独立上传）
+  const uploadResults = await Promise.all(
+    enabledEndpoints.map(async (endpoint) => {
+      const result = await uploadBackupToEndpoint(env, username, endpoint);
+      result.endpointName = endpoint.name;
+      return { endpoint, result };
+    })
+  );
 
-    // 更新最后备份状态
+  // 顺序更新状态（避免 KV 写入竞争）
+  for (const { endpoint, result } of uploadResults) {
     endpoint.lastBackup = {
       time: new Date().toISOString(),
       status: result.success ? 'success' : 'failed',
       message: result.message,
     };
     await saveBackupEndpoint(env, username, endpoint);
-
-    results.push(result);
   }
 
-  return results;
+  return uploadResults.map((r) => r.result);
 }
 
 // 兼容性：获取旧版 S3 配置并迁移
