@@ -107,7 +107,21 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.enabled': '已启用',
     'label.disabled': '已禁用',
     'label.enter': '请输入',
-    'label.saving': '保存中...'
+    'label.saving': '保存中...',
+    'label.backing_up': '备份中...',
+    'button.backup_all': '立即备份全部',
+    'hint.backup': '配置多个备份端，数据将同时备份到所有启用的地点',
+    'label.backup_endpoints': '备份地点',
+    'button.add_endpoint': '添加备份地点',
+    'label.no_backup_endpoints': '暂无备份地点',
+    'button.add_first_endpoint': '添加第一个备份地点',
+    'label.new_backup_endpoint': '新备份地点',
+    'label.configuring': '配置中...',
+    'label.select_or_add_endpoint': '请从左侧选择一个备份地点，或添加新的备份地点',
+    'label.basic_info': '基本信息',
+    'label.enable_auto_backup': '启用自动备份',
+    'label.s3_compatible': 'S3 兼容存储',
+    'placeholder.backup_name': '如：阿里云OSS、坚果云'
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -207,7 +221,21 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.enabled': 'Enabled',
     'label.disabled': 'Disabled',
     'label.enter': 'Enter',
-    'label.saving': 'Saving...'
+    'label.saving': 'Saving...',
+    'label.backing_up': 'Backing up...',
+    'button.backup_all': 'Backup All Now',
+    'hint.backup': 'Configure multiple backup endpoints. Data will be backed up to all enabled locations.',
+    'label.backup_endpoints': 'Backup Endpoints',
+    'button.add_endpoint': 'Add Endpoint',
+    'label.no_backup_endpoints': 'No backup endpoints',
+    'button.add_first_endpoint': 'Add first endpoint',
+    'label.new_backup_endpoint': 'New Endpoint',
+    'label.configuring': 'Configuring...',
+    'label.select_or_add_endpoint': 'Select an endpoint from the left, or add a new one',
+    'label.basic_info': 'Basic Info',
+    'label.enable_auto_backup': 'Enable Auto Backup',
+    'label.s3_compatible': 'S3 Compatible',
+    'placeholder.backup_name': 'e.g., Aliyun OSS, Nutstore'
   }
 };
 

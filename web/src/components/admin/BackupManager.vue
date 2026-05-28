@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
+import { t } from '@/i18n';
 import type { BackupEndpoint } from '@/api';
 
 const props = defineProps<{
@@ -358,30 +359,30 @@ defineExpose({
 <template>
   <div class="backup-panel">
     <div class="backup-header">
-      <h3>💾 数据备份</h3>
+      <h3>💾 {{ t('label.backup') }}</h3>
       <button class="btn btn-sm btn-primary" @click="doBackupAll" :disabled="isBackingUpAll">
-        {{ isBackingUpAll ? '备份中...' : '立即备份全部' }}
+        {{ isBackingUpAll ? t('label.backing_up') : t('button.backup_all') }}
       </button>
     </div>
-    <p class="hint">配置多个备份端，数据将同时备份到所有启用的地点</p>
+    <p class="hint">{{ t('hint.backup') }}</p>
 
     <div class="backup-endpoints-layout">
       <div class="endpoints-sidebar">
         <div class="sidebar-header">
-          <span class="sidebar-title">备份地点</span>
-          <button class="btn-add-endpoint" @click="startCreateEndpoint" title="添加备份地点">
+          <span class="sidebar-title">{{ t('label.backup_endpoints') }}</span>
+          <button class="btn-add-endpoint" @click="startCreateEndpoint" :title="t('button.add_endpoint')">
             <span>+</span>
           </button>
         </div>
 
         <div v-if="isLoadingEndpoints" class="endpoints-loading">
           <div class="loading-spinner-small"></div>
-          <span>加载中...</span>
+          <span>{{ t('label.loading') }}</span>
         </div>
 
         <div v-else-if="backupEndpoints.length === 0 && !isCreatingNew" class="endpoints-empty">
-          <p>暂无备份地点</p>
-          <button class="btn btn-secondary btn-sm" @click="startCreateEndpoint">添加第一个备份地点</button>
+          <p>{{ t('label.no_backup_endpoints') }}</p>
+          <button class="btn btn-secondary btn-sm" @click="startCreateEndpoint">{{ t('button.add_first_endpoint') }}</button>
         </div>
 
         <div v-else class="endpoints-list">
@@ -410,9 +411,9 @@ defineExpose({
           <div v-if="isCreatingNew" class="endpoint-item active creating">
             <div class="endpoint-icon">➕</div>
             <div class="endpoint-info">
-              <div class="endpoint-name">新备份地点</div>
+              <div class="endpoint-name">{{ t('label.new_backup_endpoint') }}</div>
               <div class="endpoint-meta">
-                <span class="endpoint-type">配置中...</span>
+                <span class="endpoint-type">{{ t('label.configuring') }}</span>
               </div>
             </div>
           </div>
@@ -421,21 +422,21 @@ defineExpose({
 
       <div class="endpoints-content">
         <div v-if="!selectedEndpointId && !isCreatingNew" class="endpoint-empty-state">
-          <p>请从左侧选择一个备份地点，或添加新的备份地点</p>
+          <p>{{ t('label.select_or_add_endpoint') }}</p>
         </div>
 
         <div v-else class="endpoint-form">
           <div class="form-section">
-            <h4>基本信息</h4>
+            <h4>{{ t('label.basic_info') }}</h4>
             <div class="form-row">
               <div class="form-group">
-                <label>名称 *</label>
-                <input v-model="editingEndpoint.name" placeholder="如：阿里云OSS、坚果云" />
+                <label>{{ t('label.name') }} *</label>
+                <input v-model="editingEndpoint.name" :placeholder="t('placeholder.backup_name')" />
               </div>
               <div class="form-group">
-                <label>类型 *</label>
+                <label>{{ t('label.type') }} *</label>
                 <select v-model="editingEndpoint.type">
-                  <option value="s3">S3 兼容存储</option>
+                  <option value="s3">{{ t('label.s3_compatible') }}</option>
                   <option value="webdav">WebDAV</option>
                 </select>
               </div>
@@ -444,7 +445,7 @@ defineExpose({
               <div class="form-group checkbox-group">
                 <label class="checkbox-label">
                   <input type="checkbox" v-model="editingEndpoint.enabled" />
-                  <span>启用自动备份</span>
+                  <span>{{ t('label.enable_auto_backup') }}</span>
                 </label>
               </div>
             </div>
