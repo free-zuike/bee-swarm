@@ -477,7 +477,7 @@ watch(showSettings, (val, oldVal) => {
   <!-- 加载中 -->
   <div v-if="pageState === 'loading'" class="loading-overlay" :class="{ dark: isDark }">
     <div class="loading-spinner"></div>
-    <p>加载中...</p>
+    <p>{{ t('label.loading') }}</p>
   </div>
 
   <!-- 登录/注册 -->
@@ -712,6 +712,9 @@ watch(showSettings, (val, oldVal) => {
 
 .header-right .logout {
   flex-shrink: 0;
+  width: 60px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .header h1 {

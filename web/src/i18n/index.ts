@@ -11,6 +11,10 @@ const currentLocale = ref<Locale>('zh');
 const messages: Record<Locale, LocaleMessages> = {
   zh: {
     'app.title': '🐝 蜂群',
+    'label.app_description': '多渠道推送管理系统',
+    'label.logging_in': '登录中...',
+    'label.registering': '注册中...',
+    'label.password_placeholder': '密码（至少 4 位）',
     'button.api_docs': '📚 API 文档',
     'button.settings': '⚙️ 设置',
     'button.hide_settings': '收起设置',
@@ -82,10 +86,15 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.last_push': '上次推送',
     'label.no_history': '暂无推送历史',
     'button.clear_history': '清空历史',
-    'confirm.clear_history': '确定要清空所有推送历史吗？'
+    'confirm.clear_history': '确定要清空所有推送历史吗？',
+    'label.loading': '加载中...'
   },
   en: {
     'app.title': '🐝 Bee Swarm',
+    'label.app_description': 'Multi-channel Push Management System',
+    'label.logging_in': 'Logging in...',
+    'label.registering': 'Registering...',
+    'label.password_placeholder': 'Password (at least 4 characters)',
     'button.api_docs': '📚 API Docs',
     'button.settings': '⚙️ Settings',
     'button.hide_settings': 'Hide Settings',
@@ -157,7 +166,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.last_push': 'Last Push',
     'label.no_history': 'No push history',
     'button.clear_history': 'Clear History',
-    'confirm.clear_history': 'Are you sure you want to clear all push history?'
+    'confirm.clear_history': 'Are you sure you want to clear all push history?',
+    'label.loading': 'Loading...'
   }
 };
 

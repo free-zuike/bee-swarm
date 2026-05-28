@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { t } from '@/i18n';
 
 const props = defineProps<{
   isAuthing?: boolean;
@@ -25,7 +26,7 @@ function switchMode(mode: 'login' | 'register') {
 function doLogin() {
   localError.value = '';
   if (!authEmail.value.trim() || !authPassword.value) {
-    localError.value = '请输入邮箱和密码';
+    localError.value = t('error.required', { field: t('label.email') + t('label.password') });
     return;
   }
   emit('login', authEmail.value.trim(), authPassword.value);
@@ -34,15 +35,15 @@ function doLogin() {
 function doRegister() {
   localError.value = '';
   if (!authEmail.value.trim() || !authPassword.value) {
-    localError.value = '请输入邮箱和密码';
+    localError.value = t('error.required', { field: t('label.email') + t('label.password') });
     return;
   }
   if (authPassword.value.length < 4) {
-    localError.value = '密码长度至少 4 位';
+    localError.value = t('error.password_length');
     return;
   }
   if (authPassword.value !== authConfirmPassword.value) {
-    localError.value = '两次输入的密码不一致';
+    localError.value = t('error.password_match');
     return;
   }
   emit('register', authEmail.value.trim(), authPassword.value);
@@ -54,8 +55,8 @@ const displayError = computed(() => props.authError || localError.value);
 <template>
   <div class="login-overlay">
     <div class="login-card">
-      <h2>🐝 蜂群</h2>
-      <p>多渠道推送管理系统</p>
+      <h2>{{ t('app.title') }}</h2>
+      <p>{{ t('label.app_description') }}</p>
 
       <div class="auth-tabs">
         <button
@@ -63,14 +64,14 @@ const displayError = computed(() => props.authError || localError.value);
           :class="{ active: authMode === 'login' }"
           @click="switchMode('login')"
         >
-          登录
+          {{ t('button.login') }}
         </button>
         <button
           class="auth-tab-btn"
           :class="{ active: authMode === 'register' }"
           @click="switchMode('register')"
         >
-          注册
+          {{ t('button.register') }}
         </button>
       </div>
 
@@ -78,19 +79,19 @@ const displayError = computed(() => props.authError || localError.value);
         <input
           v-model="authEmail"
           type="text"
-          placeholder="邮箱"
+          :placeholder="t('label.email')"
           autocomplete="email"
         />
         <input
           v-model="authPassword"
           type="password"
-          placeholder="密码"
+          :placeholder="t('label.password')"
           autocomplete="current-password"
           @keydown.enter="doLogin"
         />
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isAuthing">
-          {{ isAuthing ? '登录中...' : '登 录' }}
+          {{ isAuthing ? t('label.logging_in') : t('button.login') }}
         </button>
       </form>
 
@@ -98,25 +99,25 @@ const displayError = computed(() => props.authError || localError.value);
         <input
           v-model="authEmail"
           type="text"
-          placeholder="邮箱"
+          :placeholder="t('label.email')"
           autocomplete="email"
         />
         <input
           v-model="authPassword"
           type="password"
-          placeholder="密码（至少 4 位）"
+          :placeholder="t('label.password_placeholder')"
           autocomplete="new-password"
         />
         <input
           v-model="authConfirmPassword"
           type="password"
-          placeholder="确认密码"
+          :placeholder="t('label.confirm_password')"
           autocomplete="new-password"
           @keydown.enter="doRegister"
         />
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isAuthing">
-          {{ isAuthing ? '注册中...' : '注 册' }}
+          {{ isAuthing ? t('label.registering') : t('button.register') }}
         </button>
       </form>
     </div>
