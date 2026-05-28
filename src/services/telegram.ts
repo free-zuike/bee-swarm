@@ -33,8 +33,8 @@ export async function sendTelegram(
       text += `\n\n${escapeHtml(payload.body)}`;
     }
 
-    if (payload.url) {
-      text += `\n\n<a href="${payload.url}">查看详情</a>`;
+    if (payload.url && isValidUrl(payload.url)) {
+      text += `\n\n<a href="${escapeHtml(payload.url)}">查看详情</a>`;
     }
 
     const res = await fetch(`https://api.telegram.org/bot${env.bot_token}/sendMessage`, {
@@ -78,4 +78,17 @@ export async function sendTelegram(
  */
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * URL 安全验证 - 只允许 http/https 协议
+ * 防止 XSS 和 SSRF 攻击
+ */
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }

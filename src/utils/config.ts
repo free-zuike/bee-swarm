@@ -6,6 +6,15 @@ export const SENSITIVE_FIELDS = [
   'token',
   'apiKey',
   'privateKey',
+  'bot_token',
+  'chat_id',
+  'api_key',
+  'webhook_url',
+  'from',
+  'to',
+  'username',
+  'avatar_url',
+  'access_token',
 ] as const;
 
 export type SensitiveField = (typeof SENSITIVE_FIELDS)[number];

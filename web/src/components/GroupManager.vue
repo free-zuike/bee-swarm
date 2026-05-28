@@ -117,7 +117,7 @@ const groups = ref<ChannelGroup[]>([]);
 
 const form = reactive({
   name: '',
-  channels: [] as string[],
+  channels: [] as PushChannel[],
 });
 
 const availableChannels = computed(() => props.channels || [
@@ -173,7 +173,7 @@ async function saveGroup() {
   try {
     const result = await createChannelGroup(props.accessToken, {
       name: form.name,
-      channels: form.channels as any[],
+      channels: form.channels,
     });
     groups.value.push(result.group);
     closeModal();

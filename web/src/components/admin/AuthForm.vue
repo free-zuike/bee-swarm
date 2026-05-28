@@ -38,7 +38,7 @@ function doRegister() {
     localError.value = t('error.required', { field: t('label.email') + t('label.password') });
     return;
   }
-  if (authPassword.value.length < 4) {
+  if (authPassword.value.length < 8) {
     localError.value = t('error.password_length');
     return;
   }

@@ -9,6 +9,7 @@ import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
 import { rateLimit } from './middleware/rateLimit';
 import { securityHeaders } from './middleware/securityHeaders';
 import { createErrorResponse, logError } from './utils/errors';
+import { convertTimezone } from './utils/timezone';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -88,19 +89,6 @@ app.route('/api', api);
 app.notFound(async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
-
-function convertTimezone(tz: string): string {
-  if (/^-?\d+$/.test(tz)) {
-    const offset = parseInt(tz, 10);
-    if (offset === 8) return 'Asia/Shanghai';
-    if (offset === 0) return 'UTC';
-    if (offset === 9) return 'Asia/Tokyo';
-    if (offset === -5) return 'America/New_York';
-    if (offset === -8) return 'America/Los_Angeles';
-    return 'UTC';
-  }
-  return tz;
-}
 
 function getLocalTime(now: Date, tz: string): { hour: number; minute: number } {
   const localHourStr = now.toLocaleString('en-US', {

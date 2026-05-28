@@ -8,7 +8,7 @@ import { themeState, useThemeStore } from '@/stores/theme';
 import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
-import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult } from '@/types';
+import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushHistoryRecord } from '@/types';
 
 // 导入子组件
 import AuthForm from '@/components/admin/AuthForm.vue';
@@ -25,6 +25,12 @@ const router = useRouter();
 const themeStore = useThemeStore();
 
 const isDark = computed(() => themeState.isDark);
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return fallback;
+}
 
 // 本地响应式变量来确保语言变化能正确更新
 const localCurrentLocale = ref<'zh' | 'en'>(currentLocale.value);
@@ -101,7 +107,7 @@ const pushResults = ref<PushResult[]>([]);
 const lastPushTime = ref('-');
 
 // ==================== 历史记录 ====================
-const pushHistory = ref<any[]>([]);
+const pushHistory = ref<PushHistoryRecord[]>([]);
 const isLoadingHistory = ref(false);
 
 // ==================== API Key ====================
@@ -133,7 +139,7 @@ async function loadHistory() {
     if (pushHistory.value.length > 0) {
       lastPushTime.value = new Date(pushHistory.value[0].time).toLocaleString('zh-CN');
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('加载历史记录失败:', err);
   }
   isLoadingHistory.value = false;
@@ -233,8 +239,8 @@ async function doLogin(authEmail: string, authPassword: string) {
     await loadChannels();
     await loadHistory();
     pageState.value = 'dashboard';
-  } catch (err: any) {
-    authError.value = err.message || '登录失败';
+  } catch (err: unknown) {
+    authError.value = getErrorMessage(err, '登录失败');
   }
 
   isAuthing.value = false;
@@ -248,8 +254,8 @@ async function doRegister(authEmail: string, authPassword: string) {
     await register(authEmail, authPassword);
     // 注册成功，自动登录
     await doLogin(authEmail, authPassword);
-  } catch (err: any) {
-    authError.value = err.message || '注册失败';
+  } catch (err: unknown) {
+    authError.value = getErrorMessage(err, '注册失败');
     isAuthing.value = false;
   }
 }
@@ -301,8 +307,8 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
     channelSettingsRef.value?.handleSaveSuccess(channelId, result.message || '保存成功');
-  } catch (err: any) {
-    channelSettingsRef.value?.handleSaveError(channelId, err.message || '保存失败');
+  } catch (err: unknown) {
+    channelSettingsRef.value?.handleSaveError(channelId, getErrorMessage(err, '保存失败'));
   }
 }
 
@@ -320,8 +326,8 @@ async function handleTestChannel(channelId: string, fields: Record<string, strin
       channelResult?.success || false,
       channelResult?.message || result.message || '测试完成'
     );
-  } catch (err: any) {
-    channelSettingsRef.value?.handleTestResult(channelId, false, err.message || '测试失败');
+  } catch (err: unknown) {
+    channelSettingsRef.value?.handleTestResult(channelId, false, getErrorMessage(err, '测试失败'));
   }
 }
 
@@ -362,8 +368,8 @@ async function handlePush(title: string, body: string, url: string, pushChannels
 
     // 刷新历史记录
     await loadHistory();
-  } catch (err: any) {
-    pushResults.value = [{ channel: 'webpush', success: false, message: err.message }];
+  } catch (err: unknown) {
+    pushResults.value = [{ channel: 'webpush', success: false, message: getErrorMessage(err, '推送失败') }];
   }
 
   isPushing.value = false;
@@ -374,9 +380,9 @@ async function handleLoadEndpoints() {
   try {
     const data = await getBackupEndpoints(accessToken.value);
     backupManagerRef.value?.setEndpoints(data.endpoints || []);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('加载备份端列表失败:', err);
-    backupManagerRef.value?.handleError(err.message || '加载备份端列表失败', 'save');
+    backupManagerRef.value?.handleError(getErrorMessage(err, '加载备份端列表失败', 'save'));
   }
 }
 
@@ -393,8 +399,8 @@ async function handleAddEndpoint(endpoint: Omit<BackupEndpoint, 'id'>) {
       backupManagerRef.value?.setBackups(data.backups || []);
       backupManagerRef.value?.handleTestResult(true, '备份端创建成功');
     }
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '创建失败', 'save');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '创建失败', 'save'));
   }
 }
 
@@ -404,8 +410,8 @@ async function handleUpdateEndpoint(id: string, endpoint: Omit<BackupEndpoint, '
     if (result.success) {
       backupManagerRef.value?.handleUpdateResult(result.endpoint, '备份端更新成功');
     }
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '更新失败', 'save');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '更新失败', 'save'));
   }
 }
 
@@ -413,8 +419,8 @@ async function handleDeleteEndpoint(id: string) {
   try {
     await deleteBackupEndpoint(accessToken.value, id);
     backupManagerRef.value?.handleDeleteResult('备份端已删除');
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '删除失败', 'delete');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '删除失败', 'delete'));
   }
 }
 
@@ -422,8 +428,8 @@ async function handleTestEndpoint(id: string | null, endpoint: Partial<BackupEnd
   try {
     const result = await testBackupEndpoint(accessToken.value, id || 'new', endpoint);
     backupManagerRef.value?.handleTestResult(result.success, result.message);
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '测试失败', 'test');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '测试失败', 'test'));
   }
 }
 
@@ -431,7 +437,7 @@ async function handleListBackups(id: string) {
   try {
     const data = await listBackupsFromEndpoint(accessToken.value, id);
     backupManagerRef.value?.setBackups(data.backups || []);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('加载备份列表失败:', err);
     backupManagerRef.value?.setBackups([]);
   }
@@ -446,8 +452,8 @@ async function handleRestoreBackup(id: string, key: string) {
       await loadHistory();
       await handleLoadEndpoints(); // 重新加载备份端列表
     }
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '恢复失败', 'save');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '恢复失败', 'save'));
   }
 }
 
@@ -458,8 +464,8 @@ async function handleDeleteBackup(id: string, key: string) {
     const data = await listBackupsFromEndpoint(accessToken.value, id);
     backupManagerRef.value?.setBackups(data.backups || []);
     backupManagerRef.value?.handleTestResult(true, '备份已删除');
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '删除失败', 'delete');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '删除失败', 'delete'));
   }
 }
 
@@ -479,8 +485,8 @@ async function handleBackupAll() {
     
     // 刷新备份列表和备份端状态
     await handleLoadEndpoints();
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '备份失败', 'backup');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '备份失败', 'backup'));
   }
 }
 
@@ -495,8 +501,8 @@ async function handleBackupSingle(id: string) {
     await handleLoadEndpoints();
     const data = await listBackupsFromEndpoint(accessToken.value, id);
     backupManagerRef.value?.setBackups(data.backups || []);
-  } catch (err: any) {
-    backupManagerRef.value?.handleError(err.message || '备份失败', 'backup');
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, '备份失败', 'backup'));
   }
 }
 

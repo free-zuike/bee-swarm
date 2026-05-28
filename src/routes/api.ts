@@ -20,22 +20,7 @@ import {
 } from '../services/dispatcher';
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
-import {
-  uploadBackupToEndpoint,
-  listBackupsFromEndpoint,
-  restoreBackupFromEndpoint,
-  deleteBackupFromEndpoint,
-  getBackupEndpoints,
-  saveBackupEndpoints,
-  saveBackupEndpoint,
-  deleteBackupEndpoint,
-  testBackupEndpoint,
-  executeAllBackups,
-  migrateOldS3Config,
-  type BackupEndpoint,
-  type S3Config,
-  type WebDAVConfig,
-} from '../services/backup';
+import { backupRoutes } from './admin/backup';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -300,7 +285,11 @@ adminApi.put('/channels/:id', async (c) => {
     return c.json({ error: '无效的配置数据', code: 'VALIDATION_ERROR' }, 400);
   }
 
-  await saveUserChannelSetting(username, channelId, body.fields, c.env);
+  try {
+    await saveUserChannelSetting(username, channelId, body.fields, c.env);
+  } catch (err) {
+    return c.json({ error: (err as Error).message, code: 'VALIDATION_ERROR' }, 400);
+  }
 
   // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
   // 注意：只传 enabled 时不触发此逻辑
@@ -326,13 +315,9 @@ adminApi.put('/channels/:id', async (c) => {
   });
 });
 
-adminApi.post('/push', async (c) => {
+adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const username = c.get('username');
-  const body: PushRequest = await c.req.json();
-
-  if (!body.title) {
-    return c.json({ error: '请输入标题', code: 'VALIDATION_ERROR' }, 400);
-  }
+  const body = (c as ValidatedContext).validatedBody as PushRequest;
 
   const results = await dispatchPush(body, body.channels, username, c.env);
 
@@ -349,251 +334,16 @@ adminApi.post('/push', async (c) => {
 /** 获取推送记录 */
 adminApi.get('/history', async (c) => {
   const username = c.get('username');
-  const history = await getPushHistory(username, c.env);
-  return c.json({ history });
+  const page = parseInt(c.req.query('page') || '1', 10);
+  const pageSize = parseInt(c.req.query('pageSize') || '20', 10);
+  const result = await getPushHistory(username, c.env, { page, pageSize });
+  return c.json({ history: result.records, total: result.total, hasMore: result.hasMore });
 });
 
 // ============================================
-// 多备份端接口
+// 多备份端接口（已抽离到 routes/admin/backup.ts）
 // ============================================
-
-/** 获取所有备份端 */
-adminApi.get('/backup-endpoints', async (c) => {
-  const username = c.get('username');
-  await migrateOldS3Config(c.env, username);
-  const endpoints = await getBackupEndpoints(c.env, username);
-
-  const safeEndpoints = endpoints.map((e) => ({
-    ...e,
-    config: filterSensitiveConfig(e.config as unknown as Record<string, unknown>),
-  }));
-
-  return c.json({ endpoints: safeEndpoints });
-});
-
-/** 添加备份端 */
-adminApi.post('/backup-endpoints', async (c) => {
-  const username = c.get('username');
-  const body = await c.req.json<BackupEndpoint>();
-
-  if (!body.name || !body.type) {
-    return c.json({ error: '请提供名称和类型', code: 'VALIDATION_ERROR' }, 400);
-  }
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const newEndpoint: BackupEndpoint = {
-    ...body,
-    id: crypto.randomUUID(),
-    enabled: body.enabled ?? true,
-    schedule: body.schedule || { enabled: false, interval: 24, startTime: '02:00' },
-    retention: body.retention || 30,
-  };
-
-  endpoints.push(newEndpoint);
-  await saveBackupEndpoints(c.env, username, endpoints);
-
-  const returnedEndpoint = {
-    ...newEndpoint,
-    config: filterSensitiveConfig(newEndpoint.config as unknown as Record<string, unknown>),
-  };
-  return c.json({ success: true, endpoint: returnedEndpoint });
-});
-
-/** 更新备份端 */
-adminApi.put('/backup-endpoints/:id', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-  const body = await c.req.json<Partial<BackupEndpoint>>();
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const index = endpoints.findIndex((e) => e.id === id);
-  if (index === -1) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  // 保留原有的密钥（如果新配置中没有提供）
-  // 使用 'in' 操作符检查属性是否存在，而不是检查值是否falsy
-  const existingConfig = endpoints[index].config;
-  if (body.config && existingConfig) {
-    const existingS3 = existingConfig as Partial<S3Config>;
-    const existingWebDAV = existingConfig as Partial<WebDAVConfig>;
-    const newConfig = body.config as Partial<S3Config & WebDAVConfig>;
-
-    const hasOriginalSecret = !!existingS3.secretAccessKey;
-    const hasNewSecret = !!newConfig.secretAccessKey;
-
-    if (hasOriginalSecret && !hasNewSecret) {
-      newConfig.secretAccessKey = existingS3.secretAccessKey;
-    }
-
-    const hasOriginalPassword = !!existingWebDAV.password;
-    const hasNewPassword = !!newConfig.password;
-
-    if (hasOriginalPassword && !hasNewPassword) {
-      newConfig.password = existingWebDAV.password;
-    }
-  }
-
-  // 合并更新
-  endpoints[index] = { ...endpoints[index], ...body };
-  await saveBackupEndpoints(c.env, username, endpoints);
-
-  const returnedEndpoint = {
-    ...endpoints[index],
-    config: filterSensitiveConfig(endpoints[index].config as unknown as Record<string, unknown>),
-  };
-  return c.json({ success: true, endpoint: returnedEndpoint });
-});
-
-/** 删除备份端 */
-adminApi.delete('/backup-endpoints/:id', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-
-  const success = await deleteBackupEndpoint(c.env, username, id);
-  if (!success) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-  return c.json({ success: true, message: '备份端已删除' });
-});
-
-/** 测试备份端连接 */
-adminApi.post('/backup-endpoints/:id/test', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-  const body = await c.req.json().catch(() => ({}));
-
-  let endpoint;
-
-  if (id === 'new') {
-    // 测试新配置的连接（必须传入 type 和 config）
-    if (!body.type || !body.config) {
-      return c.json({ error: '测试新配置需要传入 type 和 config', code: 'VALIDATION_ERROR' }, 400);
-    }
-    endpoint = {
-      id: 'new',
-      name: '新备份端',
-      type: body.type,
-      enabled: false,
-      config: body.config,
-      schedule: { enabled: false, interval: 24, startTime: '02:00' },
-      retention: 30,
-    };
-  } else {
-    // 测试已保存的配置 - 从 KV 读取完整配置，忽略请求体
-    const endpoints = await getBackupEndpoints(c.env, username);
-    endpoint = endpoints.find((e) => e.id === id);
-    if (!endpoint) {
-      return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-    }
-
-    // 检查是否有密钥
-    const s3Config = endpoint.config as Partial<S3Config>;
-    const webdavConfig = endpoint.config as Partial<WebDAVConfig>;
-    const hasSecret = !!s3Config.secretAccessKey || !!webdavConfig.password;
-
-    if (!hasSecret) {
-      return c.json({
-        success: false,
-        message: '密钥未配置，请先编辑并保存密钥后重试',
-      });
-    }
-  }
-
-  const result = await testBackupEndpoint(endpoint);
-  return c.json(result);
-});
-
-/** 列出指定备份端的备份 */
-adminApi.get('/backup-endpoints/:id/backups', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find((e) => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  try {
-    const list = await listBackupsFromEndpoint(c.env, username, endpoint);
-    return c.json({ backups: list });
-  } catch (err) {
-    return c.json({ error: (err as Error).message, code: 'INTERNAL_ERROR' }, 500);
-  }
-});
-
-/** 从指定备份端恢复 */
-adminApi.post('/backup-endpoints/:id/restore', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-  const { key } = await c.req.json<{ key: string }>();
-
-  if (!key) {
-    return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
-  }
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find((e) => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  const result = await restoreBackupFromEndpoint(c.env, username, endpoint, key);
-  return c.json(result);
-});
-
-/** 删除指定备份端的备份 */
-adminApi.delete('/backup-endpoints/:id/backups', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-  const { key } = await c.req.json<{ key: string }>();
-
-  if (!key) {
-    return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
-  }
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find((e) => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  const result = await deleteBackupFromEndpoint(c.env, username, endpoint, key);
-  return c.json(result);
-});
-
-/** 手动触发所有启用的备份 */
-adminApi.post('/backup-all', async (c) => {
-  const username = c.get('username');
-  const results = await executeAllBackups(c.env, username);
-  return c.json({ results });
-});
-
-/** 手动触发单个备份端备份 */
-adminApi.post('/backup-endpoints/:id/backup', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find((e) => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  const result = await uploadBackupToEndpoint(c.env, username, endpoint);
-  result.endpointName = endpoint.name;
-
-  // 更新最后备份状态
-  endpoint.lastBackup = {
-    time: new Date().toISOString(),
-    status: result.success ? 'success' : 'failed',
-    message: result.message,
-  };
-  await saveBackupEndpoint(c.env, username, endpoint);
-
-  return c.json(result);
-});
+adminApi.route('/', backupRoutes);
 
 // ============================================
 // 测试接口（需要认证）

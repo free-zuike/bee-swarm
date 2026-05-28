@@ -3,6 +3,8 @@
 // ============================================
 import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
+import { SENSITIVE_FIELDS, filterSensitiveConfig } from '../utils/config';
+import { convertTimezone } from '../utils/timezone';
 
 // 备份端类型
 export type EndpointType = 's3' | 'webdav';
@@ -132,7 +134,7 @@ export async function deleteBackupEndpoint(
   return true;
 }
 
-// 导出所有数据
+// 导出所有数据（过滤敏感信息）
 export async function exportAllData(env: Env, username: string): Promise<BackupData> {
   const data: Record<string, string> = {};
   let cursor: string | undefined;
@@ -142,11 +144,63 @@ export async function exportAllData(env: Env, username: string): Promise<BackupD
     listComplete = list.list_complete ?? false;
     for (const key of list.keys) {
       const value = await env.SUBSCRIPTIONS.get(key.name);
-      if (value !== null) data[key.name] = value;
+      if (value !== null) {
+        // 过滤敏感信息
+        const sanitizedValue = sanitizeBackupValue(key.name, value);
+        data[key.name] = sanitizedValue;
+      }
     }
     cursor = (list as { cursor?: string }).cursor;
   } while (cursor && !listComplete);
   return { timestamp: new Date().toISOString(), version: '1.0', username, data };
+}
+
+/**
+ * 过滤备份数据中的敏感信息
+ * - 渠道配置（ch:*）：移除 token、key、webhook URL 等
+ * - 备份端配置（backup_endpoints）：移除 S3/WebDAV 凭证
+ * - 用户账户（user:${username} 无前缀）：移除密码哈希
+ * - 推送历史/指标/模板/分组：保持不变
+ */
+function sanitizeBackupValue(key: string, value: string): string {
+  try {
+    const parsed = JSON.parse(value);
+
+    if (key.includes(':ch:')) {
+      // 渠道配置 - 过滤敏感字段
+      return JSON.stringify(filterSensitiveConfig(parsed));
+    }
+
+    if (key.endsWith(':backup_endpoints')) {
+      // 备份端配置 - 过滤 S3/WebDAV 凭证
+      if (Array.isArray(parsed)) {
+        return JSON.stringify(
+          parsed.map((endpoint: BackupEndpoint) => {
+            const sanitized = { ...endpoint };
+            if (sanitized.config) {
+              sanitized.config = filterSensitiveConfig(sanitized.config);
+            }
+            return sanitized;
+          })
+        );
+      }
+      return JSON.stringify(filterSensitiveConfig(parsed));
+    }
+
+    // 用户账户信息 - 移除密码
+    if (/^user:[^:]+$/.test(key)) {
+      if (parsed && typeof parsed === 'object' && 'password' in parsed) {
+        const { password: _, ...rest } = parsed;
+        return JSON.stringify(rest);
+      }
+    }
+
+    // 其他数据（推送历史、指标、模板、分组等）保持不变
+    return value;
+  } catch {
+    // 非 JSON 数据直接返回
+    return value;
+  }
 }
 
 // 创建 S3 客户端
@@ -230,17 +284,7 @@ export async function uploadBackupToEndpoint(
     const backupData = await exportAllData(env, username);
 
     // 使用端点配置的时区生成文件名（兼容旧数据的数字时区）
-    let tz = endpoint.schedule?.timezone || 'Asia/Shanghai';
-    // 兼容旧数据：如果是纯数字，转换为 IANA 时区
-    if (/^-?\d+$/.test(tz)) {
-      const offset = parseInt(tz, 10);
-      if (offset === 8) tz = 'Asia/Shanghai';
-      else if (offset === 0) tz = 'UTC';
-      else if (offset === 9) tz = 'Asia/Tokyo';
-      else if (offset === -5) tz = 'America/New_York';
-      else if (offset === -8) tz = 'America/Los_Angeles';
-      else tz = 'UTC';
-    }
+    const tz = convertTimezone(endpoint.schedule?.timezone || 'Asia/Shanghai');
     const dateStr = new Date()
       .toLocaleString('sv-SE', {
         timeZone: tz,

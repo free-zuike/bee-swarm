@@ -221,12 +221,22 @@ export async function loadUserChannelSettings(
   const prefix = `user:${username}:ch:`;
   const list = await env.SUBSCRIPTIONS.list({ prefix });
   const settings: ChannelSettings = {};
-  for (const key of list.keys) {
+
+  if (list.keys.length === 0) return settings;
+
+  // 并行读取所有值，减少 KV 请求次数
+  const readPromises = list.keys.map(async (key) => {
     const value = await env.SUBSCRIPTIONS.get(key.name);
+    return { key: key.name, value };
+  });
+
+  const results = await Promise.all(readPromises);
+  for (const { key, value } of results) {
     if (value !== null) {
-      settings[`channel:${key.name.slice(prefix.length)}`] = value;
+      settings[`channel:${key.slice(prefix.length)}`] = value;
     }
   }
+
   return settings;
 }
 
@@ -277,12 +287,54 @@ export async function saveUserChannelSetting(
   env: Env
 ): Promise<void> {
   const prefix = `user:${username}:ch:${channelId}:`;
+
+  // Webhook URL 字段 - 需要 SSRF 防护
+  const urlFields = ['webhook_url', 'server', 'avatar_url'];
   for (const [fieldKey, value] of Object.entries(fields)) {
+    if (urlFields.includes(fieldKey) && value) {
+      const validationResult = validateWebhookUrl(value);
+      if (!validationResult.valid) {
+        throw new Error(validationResult.message);
+      }
+    }
     if (value) {
       await env.SUBSCRIPTIONS.put(`${prefix}${fieldKey}`, value);
     } else {
       await env.SUBSCRIPTIONS.delete(`${prefix}${fieldKey}`);
     }
+  }
+}
+
+/**
+ * Webhook URL 安全验证
+ * 防止 SSRF 攻击：只允许 http/https 协议，禁止内网地址
+ */
+function validateWebhookUrl(url: string): { valid: boolean; message: string } {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { valid: false, message: 'Webhook URL 只支持 http/https 协议' };
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('169.254.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('172.') ||
+      hostname === '[::1]' ||
+      hostname.startsWith('fc00:') ||
+      hostname.startsWith('fe80:')
+    ) {
+      return { valid: false, message: 'Webhook URL 不允许使用内网地址' };
+    }
+
+    return { valid: true, message: '' };
+  } catch {
+    return { valid: false, message: 'Webhook URL 格式错误' };
   }
 }
 
@@ -392,7 +444,8 @@ export async function dispatchPushWithOptions(
       channels: enabledChannels.map((c) => c.id),
       results: results,
       status: results.every((r) => r.success) ? 'success' : 'partial',
-    })
+    }),
+    { expirationTtl: 7 * 24 * 60 * 60 } // 7 天自动过期
   );
 
   // 记录推送统计数据
@@ -406,18 +459,7 @@ export async function dispatchPushWithOptions(
     // 统计记录失败不影响主流程
   }
 
-  try {
-    const prefix = `user:${username}:push:`;
-    const list = await env.SUBSCRIPTIONS.list({ prefix });
-    if (list.keys.length > 100) {
-      const keysToDelete = list.keys.sort((a, b) => b.name.localeCompare(a.name)).slice(100);
-      for (const key of keysToDelete) {
-        await env.SUBSCRIPTIONS.delete(key.name);
-      }
-    }
-  } catch {
-    // 清理失败不影响主流程
-  }
+  // KV 记录通过 expirationTtl 自动清理（7天），无需手动删除
 
   return results;
 }
@@ -494,16 +536,31 @@ async function sendToChannel(
 export async function getPushHistory(
   username: string,
   env: Env,
-  limit = 50
-): Promise<PushHistoryRecord[]> {
+  options: { page?: number; pageSize?: number } = {}
+): Promise<{ records: PushHistoryRecord[]; total: number; hasMore: boolean }> {
   const prefix = `user:${username}:push:`;
-  const list = await env.SUBSCRIPTIONS.list({ prefix, limit: limit });
-  const records: PushHistoryRecord[] = [];
-  for (const key of list.keys.sort((a, b) => b.name.localeCompare(a.name))) {
+  const pageSize = options.pageSize || 20;
+  const page = options.page || 1;
+  const limit = pageSize + 1; // 多取一条判断是否有更多
+
+  const list = await env.SUBSCRIPTIONS.list({ prefix, limit });
+
+  if (list.keys.length === 0) return { records: [], total: 0, hasMore: false };
+
+  // 并行读取推送历史
+  const sortedKeys = [...list.keys].sort((a, b) => b.name.localeCompare(a.name));
+  const pageKeys = sortedKeys.slice((page - 1) * pageSize, page * pageSize + 1);
+  const readPromises = pageKeys.map(async (key) => {
     const data = await env.SUBSCRIPTIONS.get(key.name);
-    if (data) records.push(JSON.parse(data) as PushHistoryRecord);
-  }
-  return records;
+    return data ? (JSON.parse(data) as PushHistoryRecord) : null;
+  });
+
+  const results = await Promise.all(readPromises);
+  const records = results.filter((r): r is PushHistoryRecord => r !== null);
+  const hasMore = records.length > pageSize;
+  if (hasMore) records.pop(); // 去掉多余的那条
+
+  return { records, total: sortedKeys.length, hasMore };
 }
 
 export async function deletePushHistory(username: string, env: Env): Promise<void> {

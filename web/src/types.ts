@@ -27,3 +27,18 @@ export interface PushSubscription {
     auth: string;
   };
 }
+
+/** 推送历史记录（前端类型） */
+export interface PushHistoryRecord {
+  id: string;
+  title: string;
+  body?: string;
+  channels: string[];
+  url?: string;
+  imageUrl?: string;
+  markdown?: boolean;
+  status: string;
+  results: Array<{ channel: string; success: boolean; message: string }>;
+  time?: string;
+  createdAt?: string;
+}

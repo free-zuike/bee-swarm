@@ -118,6 +118,7 @@ import {
   updateTemplate,
   deleteTemplate,
   type PushTemplate,
+  type PushChannel,
 } from '@/api';
 
 const emit = defineEmits<{
@@ -145,7 +146,7 @@ const form = reactive({
   content: '',
   url: '',
   useMarkdown: false,
-  channels: [] as string[],
+  channels: [] as PushChannel[],
 });
 
 function openCreateModal() {
@@ -209,7 +210,7 @@ async function saveTemplate() {
       content: form.content,
       url: form.url || undefined,
       useMarkdown: form.useMarkdown,
-      channels: form.channels.length > 0 ? form.channels as any : undefined,
+      channels: form.channels.length > 0 ? form.channels : undefined,
     };
 
     if (editingTemplate.value) {
