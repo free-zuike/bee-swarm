@@ -123,6 +123,22 @@ async function loadApiKey(refresh = false) {
   }
 }
 
+// ==================== API Key 复制 ====================
+async function copyApiKey() {
+  if (!apiKey.value) return;
+  try {
+    await navigator.clipboard.writeText(apiKey.value);
+    pushMessage.value = { text: t('msg.copied_to_clipboard'), type: 'success' };
+    setTimeout(() => {
+      if (pushMessage.value?.text === t('msg.copied_to_clipboard')) {
+        pushMessage.value = null;
+      }
+    }, 2000);
+  } catch (err) {
+    pushMessage.value = { text: t('msg.copy_failed'), type: 'error' };
+  }
+}
+
 // ==================== 历史记录加载 ====================
 async function loadHistory() {
   isLoadingHistory.value = true;
@@ -633,6 +649,7 @@ watch(showSettings, (val, oldVal) => {
             <p class="hint">{{ t('hint.api_key') }}</p>
             <div v-if="apiKey" class="api-key-display">
               <code :class="{ dark: isDark }">{{ apiKey }}</code>
+              <button class="btn btn-sm btn-icon" :class="{ dark: isDark }" @click="copyApiKey" :title="t('button.copy_api_key')">📋</button>
               <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">{{ t('button.refresh') }}</button>
             </div>
             <div v-else>
