@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import type { BackupEndpoint } from '@/api';
+
+const { toast: backupToast, showToast: showBackupToast } = useGlobalToast();
 
 const props = defineProps<{
   accessToken: string;
@@ -31,7 +34,6 @@ const isDeletingEndpoint = ref(false);
 const isBackingUpAll = ref(false);
 const isBackingUpSingle = ref(false);
 const isBatchDeleting = ref(false);
-const endpointMessage = ref<{ text: string; type: 'success' | 'error' } | null>(null);
 
 type BackupItem = { key: string; size: number; lastModified: string; endpointId: string; endpointName: string };
 const endpointBackups = ref<BackupItem[]>([]);
@@ -126,7 +128,6 @@ function setEndpoints(endpoints: BackupEndpoint[]) {
 function selectEndpoint(id: string) {
   selectedEndpointId.value = id;
   isCreatingNew.value = false;
-  endpointMessage.value = null;
   loadEndpointBackups();
   const endpoint = backupEndpoints.value.find(e => e.id === id);
   if (endpoint) {
@@ -150,7 +151,6 @@ function copyEndpointToEditing(endpoint: BackupEndpoint) {
 function startCreateEndpoint() {
   isCreatingNew.value = true;
   selectedEndpointId.value = null;
-  endpointMessage.value = null;
   endpointBackups.value = [];
   editingEndpoint.name = '';
   editingEndpoint.type = 's3';
@@ -167,7 +167,6 @@ function startCreateEndpoint() {
 
 function cancelCreateEndpoint() {
   isCreatingNew.value = false;
-  endpointMessage.value = null;
   if (backupEndpoints.value.length > 0) {
     selectedEndpointId.value = backupEndpoints.value[0].id;
     copyEndpointToEditing(backupEndpoints.value[0]);
@@ -176,12 +175,11 @@ function cancelCreateEndpoint() {
 
 async function saveEndpoint() {
   if (!editingEndpoint.name?.trim()) {
-    endpointMessage.value = { text: t('msg.backup_endpoint_name_required'), type: 'error' };
+    showBackupToast(t('msg.backup_endpoint_name_required'), 'error');
     return;
   }
 
   isSavingEndpoint.value = true;
-  endpointMessage.value = null;
 
   const endpointData: Omit<BackupEndpoint, 'id'> = {
     name: editingEndpoint.name.trim(),
@@ -219,7 +217,6 @@ async function testEndpoint() {
   if (!selectedEndpointId.value && !isCreatingNew.value) return;
 
   isTestingEndpoint.value = true;
-  endpointMessage.value = null;
 
   const configCleaned = { ...editingEndpoint.config };
   if (configCleaned.endpoint) {
@@ -317,7 +314,6 @@ function doBackupAll() {
 function doBackupSingle() {
   if (!selectedEndpointId.value) return;
   isBackingUpSingle.value = true;
-  endpointMessage.value = null;
   emit('backup-single', selectedEndpointId.value);
 }
 
@@ -379,7 +375,7 @@ function handleAddResult(endpoint: BackupEndpoint, message: string) {
   backupEndpoints.value.push(endpoint);
   selectedEndpointId.value = endpoint.id;
   isCreatingNew.value = false;
-  endpointMessage.value = { text: message || t('msg.create_endpoint_success'), type: 'success' };
+  showBackupToast(message || t('msg.create_endpoint_success'), 'success');
   copyEndpointToEditing(endpoint);
   isSavingEndpoint.value = false;
 }
@@ -389,7 +385,7 @@ function handleUpdateResult(endpoint: BackupEndpoint, message: string) {
   if (index !== -1) {
     backupEndpoints.value[index] = endpoint;
   }
-  endpointMessage.value = { text: message || t('msg.update_endpoint_success'), type: 'success' };
+  showBackupToast(message || t('msg.update_endpoint_success'), 'success');
   copyEndpointToEditing(endpoint);
   isSavingEndpoint.value = false;
 }
@@ -401,7 +397,7 @@ function handleDeleteResult(message: string) {
     const endpoint = backupEndpoints.value.find(e => e.id === selectedEndpointId.value);
     if (endpoint) copyEndpointToEditing(endpoint);
   }
-  endpointMessage.value = { text: message || t('msg.delete_endpoint_success'), type: 'success' };
+  showBackupToast(message || t('msg.delete_endpoint_success'), 'success');
   isDeletingEndpoint.value = false;
 }
 
@@ -469,17 +465,17 @@ function handleTestResult(success: boolean, result: any) {
       displayText = t(msgKey);
     }
   }
-  endpointMessage.value = { text: displayText, type: success ? 'success' : 'error' };
+  showBackupToast(displayText, success ? 'success' : 'error');
   isTestingEndpoint.value = false;
 }
 
 function handleBackupAllResult(message: string, type: 'success' | 'error') {
-  endpointMessage.value = { text: message, type };
+  showBackupToast(message, type);
   isBackingUpAll.value = false;
 }
 
 function handleBackupSingleResult(message: string, type: 'success' | 'error') {
-  endpointMessage.value = { text: message, type };
+  showBackupToast(message, type);
   isBackingUpSingle.value = false;
 }
 
@@ -488,7 +484,7 @@ function handleError(message: string, operation: 'save' | 'delete' | 'test' | 'b
   if (displayText.startsWith('msg.')) {
     displayText = t(displayText);
   }
-  endpointMessage.value = { text: displayText, type: 'error' };
+  showBackupToast(displayText, 'error');
   switch (operation) {
     case 'save':
       isSavingEndpoint.value = false;
@@ -532,6 +528,12 @@ defineExpose({
 
 <template>
   <div class="backup-panel">
+    <!-- 轻提示 Toast -->
+    <transition name="toast">
+      <div v-if="backupToast" class="toast" :class="backupToast.type">
+        {{ backupToast.text }}
+      </div>
+    </transition>
     <div class="backup-header">
       <h3>💾 {{ t('label.backup') }}</h3>
       <button class="btn btn-sm btn-primary" @click="doBackupAll" :disabled="isBackingUpAll">
@@ -776,10 +778,6 @@ defineExpose({
                 <span class="input-hint">{{ t('hint.retention_count', { count: editingEndpoint.retention }) }}</span>
               </div>
             </div>
-          </div>
-
-          <div v-if="endpointMessage" class="endpoint-message" :class="endpointMessage.type">
-            {{ endpointMessage.text }}
           </div>
 
           <div class="endpoint-actions">
@@ -1230,23 +1228,50 @@ defineExpose({
   margin-top: 4px;
 }
 
-.endpoint-message {
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  margin-bottom: 16px;
+/* ==================== 轻提示 Toast ==================== */
+
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.endpoint-message.success {
+.toast.success {
   background: #d1fae5;
   color: #065f46;
   border: 1px solid #a7f3d0;
 }
 
-.endpoint-message.error {
+.toast.error {
   background: #fee2e2;
   color: #991b1b;
   border: 1px solid #fecaca;
+}
+
+.toast-enter-active {
+  transition: all 0.3s ease;
+}
+
+.toast-leave-active {
+  transition: all 0.2s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
 }
 
 .endpoint-actions {

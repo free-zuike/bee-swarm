@@ -6,6 +6,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
 import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, downloadBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushHistoryRecord } from '@/types';
@@ -106,16 +107,7 @@ const isLoadingHistory = ref(false);
 
 // ==================== API Key ====================
 const apiKey = ref('');
-const toast = ref<{ text: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
-
-function showToast(text: string, type: 'success' | 'error' = 'success') {
-  if (toastTimer) clearTimeout(toastTimer);
-  toast.value = { text, type };
-  toastTimer = setTimeout(() => {
-    toast.value = null;
-  }, 2000);
-}
+const { toast, showToast } = useGlobalToast();
 
 // ==================== 子组件引用 ====================
 const channelSettingsRef = ref<InstanceType<typeof ChannelSettingsPanel> | null>(null);
