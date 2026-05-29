@@ -137,7 +137,7 @@ export async function deleteBackupEndpoint(
   return true;
 }
 
-// 导出所有数据（过滤敏感信息）
+// 导出所有数据（完整备份，不过滤敏感信息）
 export async function exportAllData(env: Env, username: string): Promise<BackupData> {
   const data: Record<string, string> = {};
   let cursor: string | undefined;
@@ -148,9 +148,7 @@ export async function exportAllData(env: Env, username: string): Promise<BackupD
     for (const key of list.keys) {
       const value = await env.SUBSCRIPTIONS.get(key.name);
       if (value !== null) {
-        // 过滤敏感信息
-        const sanitizedValue = sanitizeBackupValue(key.name, value);
-        data[key.name] = sanitizedValue;
+        data[key.name] = value;
       }
     }
     cursor = (list as { cursor?: string }).cursor;
