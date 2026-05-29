@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings } from '@/types';
+
+const { showToast } = useGlobalToast();
 
 const props = defineProps<{
   channels: ChannelConfig[];
@@ -21,7 +24,6 @@ const emit = defineEmits<{
 const editingValues = ref<ChannelSettings>({});
 const expandedChannels = ref<Set<string>>(new Set());
 const savingChannels = reactive<Record<string, boolean>>({});
-const channelMessages = reactive<Record<string, { text: string; type: 'success' | 'error' }>>({});
 const togglingChannel = ref<string | null>(null);
 
 const settingsDefinitions = computed(() =>
@@ -89,23 +91,29 @@ function toggleChannelExpand(channelId: string) {
 
 async function doSaveChannel(channelId: string) {
   if (savingChannels[channelId]) return;
-  savingChannels[channelId] = true;
-  delete channelMessages[channelId];
 
-  try {
-    const def = props.channelDefinitions.find((d) => d.id === channelId);
-    if (!def) throw new Error('渠道不存在');
+  const def = props.channelDefinitions.find((d) => d.id === channelId);
+  if (!def) return;
 
-    const fields: Record<string, string> = {};
-    for (const field of def.fields) {
-      fields[field.key] = getSettingValue(channelId, field.key);
-    }
+  const requiredFields = def.fields.filter((f) => f.required);
+  const missingFields = requiredFields.filter((f) => {
+    const value = getSettingValue(channelId, f.key);
+    return !value || value.trim() === '';
+  });
 
-    emit('save', channelId, fields);
-  } catch (err: any) {
-    channelMessages[channelId] = { text: err.message || '保存失败', type: 'error' };
-    savingChannels[channelId] = false;
+  if (missingFields.length > 0) {
+    showToast(t('msg.required_fields_missing'), 'error');
+    return;
   }
+
+  savingChannels[channelId] = true;
+
+  const fields: Record<string, string> = {};
+  for (const field of def.fields) {
+    fields[field.key] = getSettingValue(channelId, field.key);
+  }
+
+  emit('save', channelId, fields);
 }
 
 async function doTestChannel(channelId: string) {
@@ -118,9 +126,9 @@ async function doTestChannel(channelId: string) {
     fields[field.key] = editingValues.value[editKey] ?? props.channelSettings[editKey] ?? '';
   }
 
-  const isConfigured = def.fields.filter(f => f.required).every(f => !!fields[f.key]);
+  const isConfigured = def.fields.filter((f) => f.required).every((f) => !!fields[f.key]);
   if (!isConfigured) {
-    channelMessages[channelId] = { text: '请先配置必填项', type: 'error' };
+    showToast(t('msg.required_fields_missing'), 'error');
     return;
   }
 
@@ -135,17 +143,17 @@ function handleSaveSuccess(channelId: string, message: string) {
       delete editingValues.value[key];
     }
   }
-  channelMessages[channelId] = { text: message || '保存成功', type: 'success' };
+  showToast(message || t('msg.save_success'), 'success');
   savingChannels[channelId] = false;
 }
 
 function handleSaveError(channelId: string, message: string) {
-  channelMessages[channelId] = { text: message || '保存失败', type: 'error' };
+  showToast(message || t('msg.save_failed'), 'error');
   savingChannels[channelId] = false;
 }
 
 function handleTestResult(channelId: string, success: boolean, message: string) {
-  channelMessages[channelId] = { text: message, type: success ? 'success' : 'error' };
+  showToast(message, success ? 'success' : 'error');
 }
 
 async function toggleChannelEnabled(channelId: string) {
@@ -221,13 +229,6 @@ defineExpose({
           </div>
 
           <div class="channel-save-area">
-            <div
-              v-if="channelMessages[def.id]"
-              class="channel-save-message"
-              :class="channelMessages[def.id].type"
-            >
-              {{ channelMessages[def.id].text }}
-            </div>
             <button
               class="btn btn-secondary btn-sm"
               @click="doTestChannel(def.id)"
@@ -404,25 +405,6 @@ defineExpose({
   justify-content: flex-end;
   gap: 12px;
   margin-top: 8px;
-}
-
-.channel-save-message {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.channel-save-message.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.channel-save-message.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
 }
 
 .btn {
