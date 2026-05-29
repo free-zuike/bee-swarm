@@ -1,6 +1,5 @@
 export const SENSITIVE_FIELDS = [
   'secretAccessKey',
-  'accessKeyId',
   'password',
   'secret',
   'token',
