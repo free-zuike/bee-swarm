@@ -701,9 +701,28 @@ defineExpose({
                   <option :value="168">{{ t('interval.weekly') }}</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div v-if="editingEndpoint.schedule.interval === 168" class="form-group">
+                <label>{{ t('label.start_day') }}</label>
+                <select v-model="editingEndpoint.schedule.startDay">
+                  <option :value="1">{{ t('day.monday') }}</option>
+                  <option :value="2">{{ t('day.tuesday') }}</option>
+                  <option :value="3">{{ t('day.wednesday') }}</option>
+                  <option :value="4">{{ t('day.thursday') }}</option>
+                  <option :value="5">{{ t('day.friday') }}</option>
+                  <option :value="6">{{ t('day.saturday') }}</option>
+                  <option :value="0">{{ t('day.sunday') }}</option>
+                </select>
+                <span class="input-hint">{{ t('hint.start_day_desc') }}</span>
+              </div>
+              <div v-if="editingEndpoint.schedule.interval !== 1" class="form-group">
                 <label>{{ t('label.start_time') }}</label>
                 <input v-model="editingEndpoint.schedule.startTime" type="time" />
+                <span v-if="editingEndpoint.schedule.interval === 168" class="input-hint">{{ t('hint.weekly_time') }}</span>
+                <span v-else-if="editingEndpoint.schedule.interval >= 24" class="input-hint">{{ t('hint.daily_time') }}</span>
+                <span v-else class="input-hint">{{ t('hint.interval_time') }}</span>
+              </div>
+              <div v-else class="form-group">
+                <span class="input-hint">{{ t('hint.hourly_time') }}</span>
               </div>
               <div class="form-group">
                 <label>{{ t('label.timezone') }}</label>

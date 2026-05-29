@@ -40,6 +40,7 @@ export interface BackupEndpoint {
     interval: number; // 小时
     startTime: string; // HH:mm
     timezone?: string; // 时区偏移，如 "+8"、"-5"
+    startDay?: number; // 每周备份的日期（0=周日, 1-6=周一到周六）
   };
   retention: number; // 保留份数
   lastBackup?: {
