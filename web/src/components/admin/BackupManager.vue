@@ -1056,10 +1056,12 @@ defineExpose({
   font-size: 11px;
   color: #667eea;
   background: #f0f0ff;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 4px;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 38px;
+  text-align: center;
 }
 
 .endpoint-schedule {
