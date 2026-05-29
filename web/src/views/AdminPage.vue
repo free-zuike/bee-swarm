@@ -128,14 +128,8 @@ async function copyApiKey() {
   if (!apiKey.value) return;
   try {
     await navigator.clipboard.writeText(apiKey.value);
-    pushMessage.value = { text: t('msg.copied_to_clipboard'), type: 'success' };
-    setTimeout(() => {
-      if (pushMessage.value?.text === t('msg.copied_to_clipboard')) {
-        pushMessage.value = null;
-      }
-    }, 2000);
   } catch (err) {
-    pushMessage.value = { text: t('msg.copy_failed'), type: 'error' };
+    console.error('复制 API Key 失败:', err);
   }
 }
 

@@ -506,25 +506,6 @@ function handleError(message: string, operation: 'save' | 'delete' | 'test' | 'b
   }
 }
 
-async function copySecretAccessKey() {
-  if (!editingEndpoint.config.secretAccessKey) return;
-  try {
-    await navigator.clipboard.writeText(editingEndpoint.config.secretAccessKey);
-    endpointMessage.value = { text: t('msg.copied_to_clipboard'), type: 'success' };
-    setTimeout(() => {
-      if (endpointMessage.value?.text === t('msg.copied_to_clipboard')) {
-        endpointMessage.value = null;
-      }
-    }, 2000);
-  } catch (err) {
-    endpointMessage.value = { text: t('msg.copy_failed'), type: 'error' };
-  }
-}
-
-onMounted(() => {
-  loadBackupEndpoints();
-});
-
 function onShow() {
   loadBackupEndpoints();
 }
@@ -662,10 +643,7 @@ defineExpose({
               </div>
               <div class="form-group">
                 <label>{{ t('label.secret_access_key') }} {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label>
-                <div class="input-with-copy">
-                  <input v-model="editingEndpoint.config.secretAccessKey" type="password" :placeholder="isCreatingNew ? t('placeholder.access_key') : t('placeholder.configured')" />
-                  <button type="button" class="copy-btn" :title="t('button.copy_secret')" @click="copySecretAccessKey">📋</button>
-                </div>
+                <input v-model="editingEndpoint.config.secretAccessKey" type="password" :placeholder="isCreatingNew ? t('placeholder.access_key') : t('placeholder.configured')" />
               </div>
             </div>
             <div class="form-row">
@@ -1173,7 +1151,6 @@ defineExpose({
   display: flex;
   gap: 16px;
   margin-bottom: 12px;
-  min-height: 70px;
 }
 
 .form-row .form-group {
@@ -1229,35 +1206,7 @@ defineExpose({
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.input-with-copy {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
 
-.input-with-copy input {
-  padding-right: 40px !important;
-}
-
-.copy-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  opacity: 0.6;
-}
-
-.copy-btn:hover {
-  opacity: 1;
-  background: rgba(102, 126, 234, 0.1);
-}
 
 .checkbox-label {
   display: flex;
