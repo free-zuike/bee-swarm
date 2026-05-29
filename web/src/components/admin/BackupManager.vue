@@ -39,7 +39,8 @@ const isLoadingEndpointBackups = ref(false);
 const selectedBackups = ref<Set<string>>(new Set());
 
 const backupPage = ref(1);
-const backupPageSize = 50;
+const backupPageSize = ref(50);
+const pageSizeOptions = [10, 20, 50, 100, 200];
 
 const paginatedBackups = computed(() => {
   const start = (backupPage.value - 1) * backupPageSize;
@@ -805,15 +806,23 @@ defineExpose({
                   <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">{{ t('button.delete') }}</button>
                 </div>
               </div>
-              <div v-if="totalBackupPages > 1" class="backup-pagination">
-                <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(1)">&laquo;</button>
-                <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(backupPage - 1)">&lsaquo;</button>
-                <template v-for="p in backupPageNumbers" :key="p">
-                  <span v-if="p === -1" class="page-ellipsis">...</span>
-                  <button v-else class="page-btn" :class="{ active: p === backupPage }" @click="goToBackupPage(p)">{{ p }}</button>
-                </template>
-                <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(backupPage + 1)">&rsaquo;</button>
-                <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(totalBackupPages)">&raquo;</button>
+              <div v-if="totalBackupPages > 1 || endpointBackups.length > backupPageSize" class="backup-pagination">
+                <div class="page-size-selector">
+                  <span>{{ t('label.per_page') }}</span>
+                  <select v-model.number="backupPageSize" @change="backupPage = 1; selectedBackups.clear()">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                  </select>
+                </div>
+                <div class="page-nav">
+                  <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(1)">&laquo;</button>
+                  <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(backupPage - 1)">&lsaquo;</button>
+                  <template v-for="p in backupPageNumbers" :key="p">
+                    <span v-if="p === -1" class="page-ellipsis">...</span>
+                    <button v-else class="page-btn" :class="{ active: p === backupPage }" @click="goToBackupPage(p)">{{ p }}</button>
+                  </template>
+                  <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(backupPage + 1)">&rsaquo;</button>
+                  <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(totalBackupPages)">&raquo;</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1309,12 +1318,35 @@ defineExpose({
 
 .backup-pagination {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 4px;
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.page-size-selector select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #374151);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .page-btn {
