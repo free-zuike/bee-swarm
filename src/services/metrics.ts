@@ -36,6 +36,25 @@ export class MetricsCollector {
     };
   }
 
+  async loadSessionMetrics(): Promise<void> {
+    try {
+      const stored = await this.env.SUBSCRIPTIONS.get(`metrics:session:${this.userId}`);
+      if (stored) {
+        const data = JSON.parse(stored);
+        this.sessionMetrics = {
+          total: data.total || 0,
+          success: data.success || 0,
+          failed: data.failed || 0,
+          byChannel: data.byChannel || {},
+          avgLatency: data.avgLatency || 0,
+          lastPushAt: data.lastPushAt,
+        };
+      }
+    } catch {
+      // Ignore load errors
+    }
+  }
+
   async recordPush(channel: string, success: boolean, latencyMs: number): Promise<void> {
     this.sessionMetrics.total++;
     this.sessionMetrics.avgLatency =
@@ -60,6 +79,19 @@ export class MetricsCollector {
     this.sessionMetrics.lastPushAt = new Date().toISOString();
 
     await this.persistMetrics();
+    await this.persistSessionMetrics();
+  }
+
+  private async persistSessionMetrics(): Promise<void> {
+    try {
+      await this.env.SUBSCRIPTIONS.put(
+        `metrics:session:${this.userId}`,
+        JSON.stringify(this.sessionMetrics),
+        { expirationTtl: 7 * 24 * 3600 }
+      );
+    } catch {
+      // Ignore persist errors
+    }
   }
 
   private async persistMetrics(): Promise<void> {

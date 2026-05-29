@@ -268,6 +268,7 @@ export class PushService {
     trend: { rate: number; direction: 'up' | 'down' | 'stable' };
     recent: Array<{ date: string; pushes: number; success: number; failed: number }>;
   }> {
+    await this.metrics.loadSessionMetrics();
     const sessionMetrics = this.metrics.getSessionMetrics();
     const successRate = await this.metrics.getSuccessRate();
     const dailyMetrics = await this.metrics.getDailyMetrics(7);
