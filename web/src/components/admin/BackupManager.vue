@@ -317,8 +317,44 @@ function handleTestResult(success: boolean, result: any) {
       displayText = t('msg.unsupported_backup_type');
     } else if (msgKey === 'msg.connection_error') {
       displayText = t('msg.connection_error', { message: result.errorMessage || '' });
+    } else if (msgKey === 'msg.backup_success') {
+      displayText = t('msg.backup_success', { endpointName: result.endpointName || '' });
+    } else if (msgKey === 'msg.backup_failed') {
+      displayText = t('msg.backup_failed', { endpointName: result.endpointName || '', message: result.errorMessage || '' });
+    } else if (msgKey === 'msg.restore_success') {
+      displayText = t('msg.restore_success', { count: result.count || 0 });
+    } else if (msgKey === 'msg.restore_failed') {
+      displayText = t('msg.restore_failed', { message: result.errorMessage || '' });
+    } else if (msgKey === 'msg.restore_failed_rollback') {
+      displayText = t('msg.restore_failed_rollback', { message: result.errorMessage || '' });
+    } else if (msgKey === 'msg.restore_invalid_format') {
+      displayText = t('msg.restore_invalid_format');
+    } else if (msgKey === 'msg.restore_download_failed') {
+      displayText = t('msg.restore_download_failed', { status: result.statusCode });
+    } else if (msgKey === 'msg.delete_backup_success') {
+      displayText = t('msg.delete_backup_success');
+    } else if (msgKey === 'msg.delete_backup_failed') {
+      displayText = t('msg.delete_backup_failed', { status: result.statusCode });
+    } else if (msgKey === 'msg.delete_endpoint_success') {
+      displayText = t('msg.delete_endpoint_success');
+    } else if (msgKey === 'msg.create_endpoint_success') {
+      displayText = t('msg.create_endpoint_success');
+    } else if (msgKey === 'msg.update_endpoint_success') {
+      displayText = t('msg.update_endpoint_success');
+    } else if (msgKey === 'msg.operation_failed') {
+      displayText = t('msg.operation_failed');
+    } else if (msgKey === 'msg.backup_no_endpoints') {
+      displayText = t('msg.backup_no_endpoints');
+    } else if (msgKey === 'msg.delete_failed') {
+      displayText = t('msg.delete_failed', { message: result.errorMessage || '' });
+    } else if (msgKey === 'msg.list_backups_failed') {
+      displayText = t('msg.list_backups_failed');
+    } else if (msgKey === 'msg.list_backups_webdav_failed') {
+      displayText = t('msg.list_backups_webdav_failed');
+    } else if (msgKey === 'msg.list_backups_error') {
+      displayText = t('msg.list_backups_error');
     } else {
-      displayText = result.message;
+      displayText = t(msgKey);
     }
   }
   endpointMessage.value = { text: displayText, type: success ? 'success' : 'error' };

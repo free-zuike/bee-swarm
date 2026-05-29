@@ -440,26 +440,25 @@ async function handleListBackups(id: string) {
 async function handleRestoreBackup(id: string, key: string) {
   try {
     const result = await restoreBackupFromEndpoint(accessToken.value, id, key);
-    backupManagerRef.value?.handleTestResult(result.success, result.message);
+    backupManagerRef.value?.handleTestResult(result.success, result);
     if (result.success) {
       await loadChannels();
       await loadHistory();
-      await handleLoadEndpoints(); // 重新加载备份端列表
+      await handleLoadEndpoints();
     }
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '恢复失败', 'save'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.restore_failed', 'save'));
   }
 }
 
 async function handleDeleteBackup(id: string, key: string) {
   try {
     await deleteBackupFromEndpoint(accessToken.value, id, key);
-    // 刷新备份列表
     const data = await listBackupsFromEndpoint(accessToken.value, id);
     backupManagerRef.value?.setBackups(data.backups || []);
-    backupManagerRef.value?.handleTestResult(true, '备份已删除');
+    backupManagerRef.value?.handleTestResult(true, { message: 'msg.delete_backup_success' });
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '删除失败', 'delete'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.delete_failed', 'delete'));
   }
 }
 
@@ -468,35 +467,46 @@ async function handleBackupAll() {
     const result = await backupAll(accessToken.value);
     const successCount = result.results.filter(r => r.success).length;
     const totalCount = result.results.length;
-    
+
     if (successCount === totalCount) {
-      backupManagerRef.value?.handleBackupAllResult(`备份完成: 全部 ${totalCount} 个端点成功`, 'success');
+      backupManagerRef.value?.handleBackupAllResult(
+        t('msg.backup_completed', { count: totalCount }),
+        'success'
+      );
     } else {
       const failed = result.results.filter(r => !r.success);
-      const details = failed.map(r => `${r.endpointName || '未知'}: ${r.message}`).join('; ');
-      backupManagerRef.value?.handleBackupAllResult(`备份完成: ${successCount}/${totalCount} 成功 — ${details}`, 'error');
+      const details = failed.map(r => `${r.endpointName || t('common.unknown')}: ${r.message}`).join('; ');
+      backupManagerRef.value?.handleBackupAllResult(
+        t('msg.backup_partial', { success: successCount, total: totalCount }) + ' — ' + details,
+        'error'
+      );
     }
-    
-    // 刷新备份列表和备份端状态
+
     await handleLoadEndpoints();
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '备份失败', 'backup'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.operation_failed', 'backup'));
   }
 }
 
 async function handleBackupSingle(id: string) {
   try {
     const result = await backupSingleEndpoint(accessToken.value, id);
-    backupManagerRef.value?.handleBackupSingleResult(
-      result.success ? `${result.endpointName || '备份端'} 备份成功` : `${result.endpointName || '备份端'} 备份失败: ${result.message}`,
-      result.success ? 'success' : 'error'
-    );
-    // 刷新备份列表和备份端状态
+    if (result.success) {
+      backupManagerRef.value?.handleBackupSingleResult(
+        t('msg.backup_success', { endpointName: result.endpointName || t('common.unknown') }),
+        'success'
+      );
+    } else {
+      backupManagerRef.value?.handleBackupSingleResult(
+        t('msg.backup_failed', { endpointName: result.endpointName || t('common.unknown'), message: result.message }),
+        'error'
+      );
+    }
     await handleLoadEndpoints();
     const data = await listBackupsFromEndpoint(accessToken.value, id);
     backupManagerRef.value?.setBackups(data.backups || []);
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '备份失败', 'backup'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.operation_failed', 'backup'));
   }
 }
 
