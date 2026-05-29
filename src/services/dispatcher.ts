@@ -455,7 +455,7 @@ export async function dispatchPushWithOptions(
     const metrics = new MetricsCollector(env, username);
     await metrics.loadSessionMetrics();
     for (const result of results) {
-      const latency = (result as any).latency || 0;
+      const latency = result.latencyMs || 0;
       await metrics.recordPush(result.channel, result.success, latency);
     }
   } catch {
