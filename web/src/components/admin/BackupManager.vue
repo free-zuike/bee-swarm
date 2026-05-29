@@ -43,11 +43,11 @@ const backupPageSize = ref(50);
 const pageSizeOptions = [10, 20, 50, 100, 200];
 
 const paginatedBackups = computed(() => {
-  const start = (backupPage.value - 1) * backupPageSize;
-  return endpointBackups.value.slice(start, start + backupPageSize);
+  const start = (backupPage.value - 1) * backupPageSize.value;
+  return endpointBackups.value.slice(start, start + backupPageSize.value);
 });
 
-const totalBackupPages = computed(() => Math.ceil(endpointBackups.value.length / backupPageSize));
+const totalBackupPages = computed(() => Math.ceil(endpointBackups.value.length / backupPageSize.value));
 
 const backupPageNumbers = computed(() => {
   const total = totalBackupPages.value;
