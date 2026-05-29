@@ -806,7 +806,7 @@ defineExpose({
                   <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">{{ t('button.delete') }}</button>
                 </div>
               </div>
-              <div v-if="totalBackupPages > 1 || endpointBackups.length > backupPageSize" class="backup-pagination">
+              <div v-if="endpointBackups.length > 0" class="backup-pagination">
                 <div class="page-size-selector">
                   <span>{{ t('label.per_page') }}</span>
                   <select v-model.number="backupPageSize" @change="backupPage = 1; selectedBackups.clear()">
