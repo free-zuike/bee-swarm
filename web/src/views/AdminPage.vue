@@ -106,6 +106,16 @@ const isLoadingHistory = ref(false);
 
 // ==================== API Key ====================
 const apiKey = ref('');
+const toast = ref<{ text: string; type: 'success' | 'error' } | null>(null);
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+function showToast(text: string, type: 'success' | 'error' = 'success') {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.value = { text, type };
+  toastTimer = setTimeout(() => {
+    toast.value = null;
+  }, 2000);
+}
 
 // ==================== 子组件引用 ====================
 const channelSettingsRef = ref<InstanceType<typeof ChannelSettingsPanel> | null>(null);
@@ -128,8 +138,9 @@ async function copyApiKey() {
   if (!apiKey.value) return;
   try {
     await navigator.clipboard.writeText(apiKey.value);
+    showToast(t('msg.copied_to_clipboard'), 'success');
   } catch (err) {
-    console.error('复制 API Key 失败:', err);
+    showToast(t('msg.copy_failed'), 'error');
   }
 }
 
@@ -588,6 +599,12 @@ watch(showSettings, (val, oldVal) => {
 
   <!-- 主界面 -->
   <div v-else class="page" :class="{ dark: isDark }">
+    <!-- 轻提示 Toast -->
+    <transition name="toast">
+      <div v-if="toast" class="toast" :class="toast.type">
+        {{ toast.text }}
+      </div>
+    </transition>
     <header class="header" :class="{ dark: isDark }">
       <div class="header-left">
         <h1>{{ t('app.title') }}</h1>
@@ -815,6 +832,52 @@ watch(showSettings, (val, oldVal) => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ==================== 轻提示 Toast ==================== */
+
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast.success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.toast.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.toast-enter-active {
+  transition: all 0.3s ease;
+}
+
+.toast-leave-active {
+  transition: all 0.2s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
 }
 
 /* ==================== 主页面 ==================== */
