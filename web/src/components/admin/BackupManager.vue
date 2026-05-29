@@ -38,6 +38,46 @@ const endpointBackups = ref<BackupItem[]>([]);
 const isLoadingEndpointBackups = ref(false);
 const selectedBackups = ref<Set<string>>(new Set());
 
+const backupPage = ref(1);
+const backupPageSize = 50;
+
+const paginatedBackups = computed(() => {
+  const start = (backupPage.value - 1) * backupPageSize;
+  return endpointBackups.value.slice(start, start + backupPageSize);
+});
+
+const totalBackupPages = computed(() => Math.ceil(endpointBackups.value.length / backupPageSize));
+
+const backupPageNumbers = computed(() => {
+  const total = totalBackupPages.value;
+  const current = backupPage.value;
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  
+  const pages: number[] = [];
+  if (current <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i);
+    pages.push(-1);
+    pages.push(total);
+  } else if (current >= total - 3) {
+    pages.push(1);
+    pages.push(-1);
+    for (let i = total - 4; i <= total; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    pages.push(-1);
+    for (let i = current - 1; i <= current + 1; i++) pages.push(i);
+    pages.push(-1);
+    pages.push(total);
+  }
+  return pages;
+});
+
+function goToBackupPage(page: number) {
+  if (page < 1 || page > totalBackupPages.value) return;
+  backupPage.value = page;
+  selectedBackups.value.clear();
+}
+
 const editingEndpoint = reactive<Partial<BackupEndpoint>>({
   name: '',
   type: 's3',
@@ -210,6 +250,7 @@ function setBackups(backups: Array<{ key: string; size: number; lastModified: st
   }));
   isLoadingEndpointBackups.value = false;
   selectedBackups.value.clear();
+  backupPage.value = 1;
 }
 
 function restoreFromEndpoint(key: string) {
@@ -245,8 +286,8 @@ function selectAll() {
   }
 }
 
-const isAllSelected = computed(() => {
-  return endpointBackups.value.length > 0 && selectedBackups.value.size === endpointBackups.value.length;
+const isAllPageSelected = computed(() => {
+  return paginatedBackups.value.length > 0 && paginatedBackups.value.every(b => selectedBackups.value.has(b.key));
 });
 
 const hasSelection = computed(() => selectedBackups.value.size > 0);
@@ -745,11 +786,12 @@ defineExpose({
             <div v-else class="backup-list">
               <div class="backup-list-toolbar">
                 <label class="checkbox-label toolbar-checkbox">
-                  <input type="checkbox" :checked="isAllSelected" @change="selectAll" />
-                  <span>{{ t('button.select_all') }}</span>
+                  <input type="checkbox" :checked="isAllPageSelected" @change="selectAll" />
+                  <span>{{ t('button.select_all_page') }}</span>
                 </label>
+                <span class="backup-count">{{ t('label.backup_count', { current: endpointBackups.length }) }}</span>
               </div>
-              <div v-for="b in endpointBackups" :key="b.key" class="backup-item">
+              <div v-for="b in paginatedBackups" :key="b.key" class="backup-item">
                 <div class="backup-checkbox">
                   <input type="checkbox" :checked="selectedBackups.has(b.key)" @change="toggleSelect(b.key)" />
                 </div>
@@ -762,6 +804,16 @@ defineExpose({
                   <button class="btn btn-sm" @click="restoreFromEndpoint(b.key)">{{ t('button.restore') }}</button>
                   <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">{{ t('button.delete') }}</button>
                 </div>
+              </div>
+              <div v-if="totalBackupPages > 1" class="backup-pagination">
+                <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(1)">&laquo;</button>
+                <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(backupPage - 1)">&lsaquo;</button>
+                <template v-for="p in backupPageNumbers" :key="p">
+                  <span v-if="p === -1" class="page-ellipsis">...</span>
+                  <button v-else class="page-btn" :class="{ active: p === backupPage }" @click="goToBackupPage(p)">{{ p }}</button>
+                </template>
+                <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(backupPage + 1)">&rsaquo;</button>
+                <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(totalBackupPages)">&raquo;</button>
               </div>
             </div>
           </div>
@@ -1147,10 +1199,16 @@ defineExpose({
 .backup-list-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
   padding: 4px 8px;
   background: var(--bg-secondary, #f8f9fa);
   border-radius: 6px;
+}
+
+.backup-count {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
 }
 
 .toolbar-checkbox {
@@ -1246,6 +1304,56 @@ defineExpose({
 .backup-actions-item {
   display: flex;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+.backup-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #374151);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+  background: var(--bg-secondary, #f8f9fa);
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.page-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-ellipsis {
+  padding: 0 4px;
+  color: var(--text-secondary, #9ca3af);
+  font-size: 13px;
 }
 
 .btn {
