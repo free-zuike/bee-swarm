@@ -154,7 +154,21 @@ export default {
 
             // 计算应该执行备份的小时（从 startHour 开始，每隔 interval 小时）
             let shouldRun = false;
-            if (interval >= 24) {
+            if (interval >= 168) {
+              // 每周周期：检查 startDay 和 startHour
+              const localDay = now.toLocaleString('en-US', {
+                timeZone: tz,
+                weekday: 'short',
+              });
+              const dayMap: Record<string, number> = {
+                Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+              };
+              const currentDay = dayMap[localDay] ?? 0;
+              const expectedDay = endpoint.schedule.startDay ?? 0;
+              if (currentDay === expectedDay && localHour === startHour && localMinute === startMinute) {
+                shouldRun = true;
+              }
+            } else if (interval >= 24) {
               // 每天或更长周期：只在 startHour 触发
               if (localHour === startHour && localMinute === startMinute) {
                 shouldRun = true;

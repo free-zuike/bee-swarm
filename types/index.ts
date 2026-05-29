@@ -107,6 +107,7 @@ export interface BackupEndpoint {
     interval: number;
     startTime: string;
     timezone?: string;
+    startDay?: number;
   };
   retention: number;
   lastBackup?: {
