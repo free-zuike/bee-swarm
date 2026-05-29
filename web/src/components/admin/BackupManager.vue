@@ -176,7 +176,7 @@ function cancelCreateEndpoint() {
 
 async function saveEndpoint() {
   if (!editingEndpoint.name?.trim()) {
-    endpointMessage.value = { text: '请输入备份端名称', type: 'error' };
+    endpointMessage.value = { text: t('msg.backup_endpoint_name_required'), type: 'error' };
     return;
   }
 
@@ -210,7 +210,7 @@ async function saveEndpoint() {
 
 function deleteEndpoint() {
   if (!selectedEndpointId.value) return;
-  if (!confirm('确定要删除此备份端吗？相关的备份数据不会被删除。')) return;
+  if (!confirm(t('msg.confirm_delete_endpoint'))) return;
   isDeletingEndpoint.value = true;
   emit('delete-endpoint', selectedEndpointId.value);
 }
@@ -256,13 +256,13 @@ function setBackups(backups: Array<{ key: string; size: number; lastModified: st
 
 function restoreFromEndpoint(key: string) {
   if (!selectedEndpointId.value) return;
-  if (!confirm('确定要从此备份恢复吗？这将覆盖当前所有数据！')) return;
+  if (!confirm(t('msg.confirm_restore_backup'))) return;
   emit('restore-backup', selectedEndpointId.value, key);
 }
 
 function deleteEndpointBackup(key: string) {
   if (!selectedEndpointId.value) return;
-  if (!confirm('确定要删除此备份吗？')) return;
+  if (!confirm(t('msg.confirm_delete_backup'))) return;
   emit('delete-backup', selectedEndpointId.value, key);
 }
 
@@ -295,7 +295,7 @@ const hasSelection = computed(() => selectedBackups.value.size > 0);
 
 function batchDeleteSelected() {
   if (selectedBackups.value.size === 0) return;
-  if (!confirm(`确定要删除选中的 ${selectedBackups.value.size} 个备份吗？`)) return;
+  if (!confirm(t('msg.confirm_batch_delete', { count: String(selectedBackups.value.size) }))) return;
   isBatchDeleting.value = true;
   const items = endpointBackups.value
     .filter(b => selectedBackups.value.has(b.key))
@@ -322,9 +322,9 @@ function doBackupSingle() {
 }
 
 function getEndpointStatusText(endpoint: BackupEndpoint): string {
-  if (!endpoint.enabled) return '已禁用';
-  if (!endpoint.lastBackup) return '未备份';
-  return endpoint.lastBackup.status === 'success' ? '正常' : '失败';
+  if (!endpoint.enabled) return t('msg.endpoint_disabled');
+  if (!endpoint.lastBackup) return t('msg.not_backed_up');
+  return endpoint.lastBackup.status === 'success' ? t('msg.endpoint_normal') : t('status.failed');
 }
 
 function getEndpointStatusClass(endpoint: BackupEndpoint): string {
@@ -334,7 +334,7 @@ function getEndpointStatusClass(endpoint: BackupEndpoint): string {
 }
 
 function formatLastBackupTime(endpoint: BackupEndpoint): string {
-  if (!endpoint.lastBackup?.time) return '从未';
+  if (!endpoint.lastBackup?.time) return t('msg.never');
   const date = new Date(endpoint.lastBackup.time);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -342,10 +342,10 @@ function formatLastBackupTime(endpoint: BackupEndpoint): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24) return `${hours}小时前`;
-  if (days < 7) return `${days}天前`;
+  if (minutes < 1) return t('msg.just_now');
+  if (minutes < 60) return t('msg.minutes_ago', { minutes: String(minutes) });
+  if (hours < 24) return t('msg.hours_ago', { hours: String(hours) });
+  if (days < 7) return t('msg.days_ago', { days: String(days) });
   return date.toLocaleDateString('zh-CN');
 }
 
@@ -379,7 +379,7 @@ function handleAddResult(endpoint: BackupEndpoint, message: string) {
   backupEndpoints.value.push(endpoint);
   selectedEndpointId.value = endpoint.id;
   isCreatingNew.value = false;
-  endpointMessage.value = { text: message || '备份端创建成功', type: 'success' };
+  endpointMessage.value = { text: message || t('msg.create_endpoint_success'), type: 'success' };
   copyEndpointToEditing(endpoint);
   isSavingEndpoint.value = false;
 }
@@ -389,7 +389,7 @@ function handleUpdateResult(endpoint: BackupEndpoint, message: string) {
   if (index !== -1) {
     backupEndpoints.value[index] = endpoint;
   }
-  endpointMessage.value = { text: message || '备份端更新成功', type: 'success' };
+  endpointMessage.value = { text: message || t('msg.update_endpoint_success'), type: 'success' };
   copyEndpointToEditing(endpoint);
   isSavingEndpoint.value = false;
 }
@@ -401,7 +401,7 @@ function handleDeleteResult(message: string) {
     const endpoint = backupEndpoints.value.find(e => e.id === selectedEndpointId.value);
     if (endpoint) copyEndpointToEditing(endpoint);
   }
-  endpointMessage.value = { text: message || '备份端已删除', type: 'success' };
+  endpointMessage.value = { text: message || t('msg.delete_endpoint_success'), type: 'success' };
   isDeletingEndpoint.value = false;
 }
 

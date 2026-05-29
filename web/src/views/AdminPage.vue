@@ -375,8 +375,8 @@ async function handleLoadEndpoints() {
     const data = await getBackupEndpoints(accessToken.value);
     backupManagerRef.value?.setEndpoints(data.endpoints || []);
   } catch (err: unknown) {
-    console.error('加载备份端列表失败:', err);
-    backupManagerRef.value?.handleError(getErrorMessage(err, '加载备份端列表失败', 'save'));
+    console.error(t('msg.list_backups_failed') + ':', err);
+    backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.list_backups_failed')), 'save');
   }
 }
 
@@ -391,10 +391,10 @@ async function handleAddEndpoint(endpoint: Omit<BackupEndpoint, 'id'>) {
       // 加载备份列表
       const data = await listBackupsFromEndpoint(accessToken.value, result.endpoint.id);
       backupManagerRef.value?.setBackups(data.backups || []);
-      backupManagerRef.value?.handleTestResult(true, '备份端创建成功');
+      backupManagerRef.value?.handleTestResult(true, t('msg.create_endpoint_success'));
     }
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '创建失败', 'save'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.operation_failed')), 'save');
   }
 }
 
@@ -402,19 +402,19 @@ async function handleUpdateEndpoint(id: string, endpoint: Omit<BackupEndpoint, '
   try {
     const result = await updateBackupEndpoint(accessToken.value, id, endpoint);
     if (result.success) {
-      backupManagerRef.value?.handleUpdateResult(result.endpoint, '备份端更新成功');
+      backupManagerRef.value?.handleUpdateResult(result.endpoint, t('msg.update_endpoint_success'));
     }
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '更新失败', 'save'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.operation_failed')), 'save');
   }
 }
 
 async function handleDeleteEndpoint(id: string) {
   try {
     await deleteBackupEndpoint(accessToken.value, id);
-    backupManagerRef.value?.handleDeleteResult('备份端已删除');
+    backupManagerRef.value?.handleDeleteResult(t('msg.delete_endpoint_success'));
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, '删除失败', 'delete'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.delete_failed', { message: '' })), 'delete');
   }
 }
 
@@ -423,7 +423,7 @@ async function handleTestEndpoint(id: string | null, endpoint: Partial<BackupEnd
     const result = await testBackupEndpoint(accessToken.value, id || 'new', endpoint);
     backupManagerRef.value?.handleTestResult(result.success, result);
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.test_failed', 'test'));
+    backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.test_failed')), 'test');
   }
 }
 
