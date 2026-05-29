@@ -571,9 +571,11 @@ defineExpose({
               {{ endpoint.type === 's3' ? '🪣' : '📁' }}
             </div>
             <div class="endpoint-info">
-              <div class="endpoint-name">{{ endpoint.name }}</div>
-              <div class="endpoint-meta">
+              <div class="endpoint-header">
+                <span class="endpoint-name">{{ endpoint.name }}</span>
                 <span class="endpoint-type">{{ endpoint.type.toUpperCase() }}</span>
+              </div>
+              <div class="endpoint-meta">
                 <span v-if="endpoint.schedule?.enabled" class="endpoint-schedule">{{ formatScheduleInterval(endpoint.schedule.interval) }}</span>
                 <span class="endpoint-time">{{ formatLastBackupTime(endpoint) }}</span>
               </div>
@@ -1024,6 +1026,13 @@ defineExpose({
   min-width: 0;
 }
 
+.endpoint-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
 .endpoint-name {
   font-size: 14px;
   font-weight: 500;
@@ -1031,13 +1040,14 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .endpoint-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
   flex-wrap: nowrap;
   overflow: hidden;
 }
