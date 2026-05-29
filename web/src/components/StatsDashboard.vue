@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { getPushStats, getPushMetrics } from '@/api';
 
@@ -108,6 +108,7 @@ const stats = ref({
   recent: [] as Array<{ date: string; pushes: number; success: number; failed: number }>,
 });
 const metrics = ref<{ total: number; success: number; failed: number; byChannel: Record<string, { success: number; failed: number }>; avgLatency: number } | null>(null);
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const successRate = computed(() => {
   const total = stats.value.session.total;
@@ -144,8 +145,18 @@ async function loadData() {
   }
 }
 
-onMounted(loadData);
+onMounted(() => {
+  loadData();
+  refreshTimer = setInterval(loadData, 30000);
+});
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer);
+});
+
 watch(() => props.accessToken, loadData);
+
+defineExpose({ loadData });
 </script>
 
 <style scoped>
