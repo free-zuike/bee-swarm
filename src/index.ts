@@ -129,6 +129,7 @@ export default {
 
   async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const now = new Date();
+    const currentEpochMinute = Math.floor(now.getTime() / 60000);
 
     try {
       let cursor: string | undefined;
@@ -155,22 +156,33 @@ export default {
             let shouldRun = false;
             if (interval >= 24) {
               // 每天或更长周期：只在 startHour 触发
-              if (localHour === startHour && Math.abs(localMinute - startMinute) <= 5) {
+              if (localHour === startHour && localMinute === startMinute) {
                 shouldRun = true;
               }
             } else {
               // 小于 24 小时：从 startHour 开始每隔 interval 小时触发
               for (let h = startHour; h < 24; h += interval) {
-                if (h === localHour && Math.abs(localMinute - startMinute) <= 5) {
+                if (h === localHour && localMinute === startMinute) {
                   shouldRun = true;
                   break;
                 }
               }
             }
 
-            if (shouldRun) {
-              await uploadBackupToEndpoint(env, username, endpoint);
+            if (!shouldRun) continue;
+
+            // 防重复：检查是否在同一分钟内已执行过
+            const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
+            const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
+            if (lastRunStr && parseInt(lastRunStr, 10) === currentEpochMinute) {
+              continue;
             }
+
+            await uploadBackupToEndpoint(env, username, endpoint);
+            // 记录本次执行时间
+            await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
+              expirationTtl: 24 * 60 * 60,
+            });
           }
         }
         cursor = (list as { cursor?: string }).cursor;
