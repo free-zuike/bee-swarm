@@ -291,6 +291,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.never': '从未',
     'msg.endpoint_disabled': '已禁用',
     'msg.endpoint_normal': '正常',
+    'msg.copied_to_clipboard': '已复制到剪贴板',
+    'msg.copy_failed': '复制失败，请手动复制',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -576,6 +578,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.never': 'Never',
     'msg.endpoint_disabled': 'Disabled',
     'msg.endpoint_normal': 'Normal',
+    'msg.copied_to_clipboard': 'Copied to clipboard',
+    'msg.copy_failed': 'Copy failed, please copy manually',
   },
 };
 
