@@ -297,6 +297,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.required_fields_missing': '请填写所有必填字段',
     'msg.save_success': '保存成功',
     'msg.save_failed': '保存失败',
+    'msg.backup_success': '{endpointName} 备份成功',
+    'msg.backup_failed': '{endpointName} 备份失败: {message}',
+    'msg.backup_all_success': '备份完成: 成功 {success} 个，失败 {failed} 个',
+    'msg.backup_all_failed': '备份失败: {message}',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -588,6 +592,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.required_fields_missing': 'Please fill in all required fields',
     'msg.save_success': 'Saved successfully',
     'msg.save_failed': 'Save failed',
+    'msg.backup_success': '{endpointName} backup successful',
+    'msg.backup_failed': '{endpointName} backup failed: {message}',
+    'msg.backup_all_success': 'Backup complete: {success} succeeded, {failed} failed',
+    'msg.backup_all_failed': 'Backup failed: {message}',
   },
 };
 
