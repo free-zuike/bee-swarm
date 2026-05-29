@@ -470,6 +470,39 @@ async function handleDownloadBackup(id: string, key: string) {
   }
 }
 
+async function handleBatchDeleteBackups(items: Array<{ endpointId: string; key: string }>) {
+  try {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const item of items) {
+      try {
+        await deleteBackupFromEndpoint(accessToken.value, item.endpointId, item.key);
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    backupManagerRef.value?.handleBatchDeleteComplete();
+
+    if (failCount === 0) {
+      backupManagerRef.value?.handleTestResult(true, {
+        message: 'msg.batch_delete_success',
+        count: successCount,
+      });
+    } else {
+      backupManagerRef.value?.handleTestResult(successCount > 0, {
+        message: 'msg.batch_delete_partial',
+        success: successCount,
+        failed: failCount,
+      });
+    }
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.batch_delete_failed', 'delete'));
+  }
+}
+
 async function handleBackupAll() {
   try {
     const result = await backupAll(accessToken.value);
@@ -622,6 +655,7 @@ watch(showSettings, (val, oldVal) => {
             @restore-backup="handleRestoreBackup"
             @delete-backup="handleDeleteBackup"
             @download-backup="handleDownloadBackup"
+            @batch-delete-backups="handleBatchDeleteBackups"
             @backup-all="handleBackupAll"
             @backup-single="handleBackupSingle"
           />

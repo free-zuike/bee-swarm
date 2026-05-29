@@ -17,6 +17,7 @@ const emit = defineEmits<{
   'restore-backup': [id: string, key: string];
   'delete-backup': [id: string, key: string];
   'download-backup': [id: string, key: string];
+  'batch-delete-backups': [items: Array<{ endpointId: string; key: string }>];
   'backup-all': [];
   'backup-single': [id: string];
 }>();
@@ -29,10 +30,13 @@ const isTestingEndpoint = ref(false);
 const isDeletingEndpoint = ref(false);
 const isBackingUpAll = ref(false);
 const isBackingUpSingle = ref(false);
+const isBatchDeleting = ref(false);
 const endpointMessage = ref<{ text: string; type: 'success' | 'error' } | null>(null);
 
-const endpointBackups = ref<Array<{ key: string; size: number; lastModified: string }>>([]);
+type BackupItem = { key: string; size: number; lastModified: string; endpointId: string; endpointName: string };
+const endpointBackups = ref<BackupItem[]>([]);
 const isLoadingEndpointBackups = ref(false);
+const selectedBackups = ref<Set<string>>(new Set());
 
 const editingEndpoint = reactive<Partial<BackupEndpoint>>({
   name: '',
@@ -199,8 +203,13 @@ function loadEndpointBackups() {
 }
 
 function setBackups(backups: Array<{ key: string; size: number; lastModified: string }>) {
-  endpointBackups.value = backups || [];
+  endpointBackups.value = (backups || []).map(b => ({
+    ...b,
+    endpointId: selectedEndpointId.value || '',
+    endpointName: selectedEndpoint.value?.name || '',
+  }));
   isLoadingEndpointBackups.value = false;
+  selectedBackups.value.clear();
 }
 
 function restoreFromEndpoint(key: string) {
@@ -218,6 +227,44 @@ function deleteEndpointBackup(key: string) {
 function downloadBackup(key: string) {
   if (!selectedEndpointId.value) return;
   emit('download-backup', selectedEndpointId.value, key);
+}
+
+function toggleSelect(key: string) {
+  if (selectedBackups.value.has(key)) {
+    selectedBackups.value.delete(key);
+  } else {
+    selectedBackups.value.add(key);
+  }
+}
+
+function selectAll() {
+  if (selectedBackups.value.size === endpointBackups.value.length) {
+    selectedBackups.value.clear();
+  } else {
+    selectedBackups.value = new Set(endpointBackups.value.map(b => b.key));
+  }
+}
+
+const isAllSelected = computed(() => {
+  return endpointBackups.value.length > 0 && selectedBackups.value.size === endpointBackups.value.length;
+});
+
+const hasSelection = computed(() => selectedBackups.value.size > 0);
+
+function batchDeleteSelected() {
+  if (selectedBackups.value.size === 0) return;
+  if (!confirm(`确定要删除选中的 ${selectedBackups.value.size} 个备份吗？`)) return;
+  isBatchDeleting.value = true;
+  const items = endpointBackups.value
+    .filter(b => selectedBackups.value.has(b.key))
+    .map(b => ({ endpointId: b.endpointId, key: b.key }));
+  emit('batch-delete-backups', items);
+}
+
+function handleBatchDeleteComplete() {
+  selectedBackups.value.clear();
+  isBatchDeleting.value = false;
+  loadEndpointBackups();
 }
 
 function doBackupAll() {
@@ -339,6 +386,12 @@ function handleTestResult(success: boolean, result: any) {
       displayText = t('msg.restore_download_failed', { status: result.statusCode });
     } else if (msgKey === 'msg.delete_backup_success') {
       displayText = t('msg.delete_backup_success');
+    } else if (msgKey === 'msg.batch_delete_success') {
+      displayText = t('msg.batch_delete_success', { count: result.count || 0 });
+    } else if (msgKey === 'msg.batch_delete_partial') {
+      displayText = t('msg.batch_delete_partial', { success: result.success || 0, failed: result.failed || 0 });
+    } else if (msgKey === 'msg.batch_delete_failed') {
+      displayText = t('msg.batch_delete_failed', { message: result.errorMessage || '' });
     } else if (msgKey === 'msg.delete_backup_failed') {
       displayText = t('msg.delete_backup_failed', { status: result.statusCode });
     } else if (msgKey === 'msg.delete_endpoint_success') {
@@ -420,6 +473,7 @@ defineExpose({
   handleError,
   onShow,
   selectEndpoint,
+  handleBatchDeleteComplete,
 });
 </script>
 
@@ -673,7 +727,14 @@ defineExpose({
 
           <div v-if="!isCreatingNew && selectedEndpoint" class="endpoint-backups-section">
             <hr />
-            <h4>{{ t('label.backup_list') }}</h4>
+            <div class="backup-list-header">
+              <h4>{{ t('label.backup_list') }}</h4>
+              <div v-if="hasSelection" class="batch-actions">
+                <button class="btn btn-sm btn-warning" @click="batchDeleteSelected" :disabled="isBatchDeleting">
+                  {{ isBatchDeleting ? t('label.deleting') : `${t('button.delete_selected')} (${selectedBackups.size})` }}
+                </button>
+              </div>
+            </div>
             <div v-if="isLoadingEndpointBackups" class="backups-loading">
               <div class="loading-spinner-small"></div>
               <span>{{ t('label.loading_backups') }}</span>
@@ -682,7 +743,16 @@ defineExpose({
               {{ t('label.no_backups') }}
             </div>
             <div v-else class="backup-list">
+              <div class="backup-list-toolbar">
+                <label class="checkbox-label toolbar-checkbox">
+                  <input type="checkbox" :checked="isAllSelected" @change="selectAll" />
+                  <span>{{ t('button.select_all') }}</span>
+                </label>
+              </div>
               <div v-for="b in endpointBackups" :key="b.key" class="backup-item">
+                <div class="backup-checkbox">
+                  <input type="checkbox" :checked="selectedBackups.has(b.key)" @change="toggleSelect(b.key)" />
+                </div>
                 <div class="backup-info">
                   <span class="backup-name">{{ formatBackupName(b.key) }}</span>
                   <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
@@ -1056,6 +1126,60 @@ defineExpose({
   margin-top: 20px;
 }
 
+.backup-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.backup-list-header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  margin: 0;
+}
+
+.batch-actions .btn {
+  padding: 6px 12px;
+}
+
+.backup-list-toolbar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 6px;
+}
+
+.toolbar-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #374151);
+  height: auto !important;
+  line-height: 1.4 !important;
+  overflow: visible !important;
+  white-space: normal !important;
+}
+
+.toolbar-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.backup-checkbox {
+  flex-shrink: 0;
+}
+
+.backup-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
 .endpoint-backups-section h4 {
   font-size: 14px;
   font-weight: 600;
@@ -1099,6 +1223,7 @@ defineExpose({
   background: var(--bg-panel, white);
   border-radius: 8px;
   margin-bottom: 6px;
+  gap: 10px;
 }
 
 .backup-info {
