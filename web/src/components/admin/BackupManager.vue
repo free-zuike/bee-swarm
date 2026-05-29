@@ -1036,8 +1036,10 @@ defineExpose({
 .endpoint-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 2px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .endpoint-type {
@@ -1046,6 +1048,8 @@ defineExpose({
   background: #f0f0ff;
   padding: 1px 6px;
   border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .endpoint-schedule {
@@ -1054,11 +1058,18 @@ defineExpose({
   background: #d1fae5;
   padding: 1px 6px;
   border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .endpoint-time {
   font-size: 11px;
   color: var(--text-secondary, #9ca3af);
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .endpoint-status {
