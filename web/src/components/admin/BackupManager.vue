@@ -1049,7 +1049,7 @@ defineExpose({
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
-  overflow: hidden;
+  width: 100%;
 }
 
 .endpoint-type {
@@ -1072,6 +1072,8 @@ defineExpose({
   border-radius: 4px;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 42px;
+  text-align: center;
 }
 
 .endpoint-time {
@@ -1079,9 +1081,8 @@ defineExpose({
   color: var(--text-secondary, #9ca3af);
   white-space: nowrap;
   flex-shrink: 0;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 80px;
+  text-align: right;
 }
 
 .endpoint-status {
