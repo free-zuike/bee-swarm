@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
 import api from './routes/api';
-import { getBackupEndpoints, uploadBackupToEndpoint } from './services/backup';
+import { getBackupEndpoints, uploadBackupToEndpoint, saveBackupEndpoint } from './services/backup';
 import { rateLimit } from './middleware/rateLimit';
 import { securityHeaders } from './middleware/securityHeaders';
 import { createErrorResponse, logError } from './utils/errors';
@@ -178,7 +178,16 @@ export default {
               continue;
             }
 
-            await uploadBackupToEndpoint(env, username, endpoint);
+            const result = await uploadBackupToEndpoint(env, username, endpoint);
+
+            // 更新 lastBackup 状态
+            endpoint.lastBackup = {
+              time: new Date().toISOString(),
+              status: result.success ? 'success' : 'failed',
+              message: result.message,
+            };
+            await saveBackupEndpoint(env, username, endpoint);
+
             // 记录本次执行时间
             await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
               expirationTtl: 24 * 60 * 60,
