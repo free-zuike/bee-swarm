@@ -1167,6 +1167,16 @@ defineExpose({
   flex: none;
   display: flex;
   align-items: center;
+  height: auto !important;
+}
+
+.form-row .form-group.checkbox-group label {
+  height: auto !important;
+  margin-bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  overflow: visible !important;
+  white-space: normal !important;
 }
 
 .endpoint-form .form-group label {
