@@ -349,6 +349,17 @@ function formatLastBackupTime(endpoint: BackupEndpoint): string {
   return date.toLocaleDateString('zh-CN');
 }
 
+function formatScheduleInterval(interval: number): string {
+  switch (interval) {
+    case 1: return t('interval.hourly');
+    case 6: return t('interval.every_6_hours');
+    case 12: return t('interval.every_12_hours');
+    case 24: return t('interval.daily');
+    case 168: return t('interval.weekly');
+    default: return `${interval}h`;
+  }
+}
+
 function formatBackupName(key: string): string {
   const match = key.match(/backups\/(.+)\.json/);
   return match ? match[1].replace(/-/g, ' ') : key;
@@ -563,6 +574,7 @@ defineExpose({
               <div class="endpoint-name">{{ endpoint.name }}</div>
               <div class="endpoint-meta">
                 <span class="endpoint-type">{{ endpoint.type.toUpperCase() }}</span>
+                <span v-if="endpoint.schedule?.enabled" class="endpoint-schedule">{{ formatScheduleInterval(endpoint.schedule.interval) }}</span>
                 <span class="endpoint-time">{{ formatLastBackupTime(endpoint) }}</span>
               </div>
             </div>
@@ -1013,6 +1025,14 @@ defineExpose({
   font-size: 11px;
   color: #667eea;
   background: #f0f0ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.endpoint-schedule {
+  font-size: 11px;
+  color: #10b981;
+  background: #d1fae5;
   padding: 1px 6px;
   border-radius: 4px;
 }
