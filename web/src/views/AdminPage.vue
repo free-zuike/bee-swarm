@@ -621,6 +621,7 @@ watch(showSettings, (val, oldVal) => {
             @list-backups="handleListBackups"
             @restore-backup="handleRestoreBackup"
             @delete-backup="handleDeleteBackup"
+            @download-backup="handleDownloadBackup"
             @backup-all="handleBackupAll"
             @backup-single="handleBackupSingle"
           />
