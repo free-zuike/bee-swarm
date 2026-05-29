@@ -510,6 +510,10 @@ function onShow() {
   loadBackupEndpoints();
 }
 
+onMounted(() => {
+  loadBackupEndpoints();
+});
+
 defineExpose({
   setEndpoints,
   setBackups,
