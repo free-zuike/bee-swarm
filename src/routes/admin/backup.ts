@@ -9,6 +9,7 @@ import {
   listBackupsFromEndpoint,
   restoreBackupFromEndpoint,
   deleteBackupFromEndpoint,
+  downloadBackupFromEndpoint,
   getBackupEndpoints,
   saveBackupEndpoints,
   saveBackupEndpoint,
@@ -219,6 +220,32 @@ backupRoutes.delete('/backup-endpoints/:id/backups', async (c) => {
 
   const result = await deleteBackupFromEndpoint(c.env, username, endpoint, key);
   return c.json(result);
+});
+
+/** 下载指定备份 */
+backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const key = decodeURIComponent(c.req.param('key'));
+
+  const endpoints = await getBackupEndpoints(c.env, username);
+  const endpoint = endpoints.find((e) => e.id === id);
+  if (!endpoint) {
+    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  const response = await downloadBackupFromEndpoint(c.env, username, endpoint, key);
+
+  if (!response.ok) {
+    return c.json({ error: '下载备份失败 (' + response.status + ')', code: 'DOWNLOAD_FAILED' }, 500);
+  }
+
+  const data = await response.arrayBuffer();
+  const filename = key.split('/').pop() || 'backup.json';
+  return c.body(data, 200, {
+    'Content-Type': 'application/json',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+  });
 });
 
 /** 手动触发所有启用的备份 */

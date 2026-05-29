@@ -16,6 +16,7 @@ const emit = defineEmits<{
   'list-backups': [id: string];
   'restore-backup': [id: string, key: string];
   'delete-backup': [id: string, key: string];
+  'download-backup': [id: string, key: string];
   'backup-all': [];
   'backup-single': [id: string];
 }>();
@@ -212,6 +213,11 @@ function deleteEndpointBackup(key: string) {
   if (!selectedEndpointId.value) return;
   if (!confirm('确定要删除此备份吗？')) return;
   emit('delete-backup', selectedEndpointId.value, key);
+}
+
+function downloadBackup(key: string) {
+  if (!selectedEndpointId.value) return;
+  emit('download-backup', selectedEndpointId.value, key);
 }
 
 function doBackupAll() {
@@ -682,6 +688,7 @@ defineExpose({
                   <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
                 </div>
                 <div class="backup-actions-item">
+                  <button class="btn btn-sm btn-info" @click="downloadBackup(b.key)" :title="t('button.download')">{{ t('button.download') }}</button>
                   <button class="btn btn-sm" @click="restoreFromEndpoint(b.key)">{{ t('button.restore') }}</button>
                   <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">{{ t('button.delete') }}</button>
                 </div>
@@ -1165,6 +1172,15 @@ defineExpose({
   background-color: #d97706;
 }
 
+.btn-info {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #2563eb;
+}
+
 .btn-sm {
   padding: 8px 18px;
   font-size: 13px;
@@ -1224,9 +1240,14 @@ hr {
 
   .backup-actions-item .btn {
     flex: none;
-    min-width: 70px;
+    min-width: 60px;
     padding: 6px 12px;
     font-size: 12px;
+  }
+
+  .backup-actions-item .btn-info {
+    min-width: 50px;
+    padding: 6px 10px;
   }
 }
 

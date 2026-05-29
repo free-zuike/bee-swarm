@@ -265,6 +265,37 @@ export async function deleteBackupFromEndpoint(
   });
 }
 
+// 下载指定备份文件
+export async function downloadBackupFromEndpoint(
+  token: string,
+  id: string,
+  key: string
+): Promise<void> {
+  const url = `${BASE}/admin/backup-endpoints/${id}/backups/${encodeURIComponent(key)}/download`;
+  const res = await fetch(url, {
+    headers: { 'X-Token': token },
+  });
+
+  if (!res.ok) {
+    throw await handleResponseError(res);
+  }
+
+  const blob = await res.blob();
+  const filename = res.headers.get('Content-Disposition')
+    ?.match(/filename="([^"]+)"/)?.[1]
+    || key.split('/').pop()
+    || 'backup.json';
+
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(downloadUrl);
+}
+
 // 手动触发所有启用的备份
 export async function backupAll(token: string): Promise<{
   results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string }>;

@@ -755,6 +755,32 @@ async function cleanupTempRestoreData(env: Env, tempPrefix: string): Promise<voi
   }
 }
 
+// 下载备份文件
+export async function downloadBackupFromEndpoint(
+  env: Env,
+  username: string,
+  endpoint: BackupEndpoint,
+  backupKey: string
+): Promise<Response> {
+  let response: Response;
+
+  if (endpoint.type === 's3') {
+    const config = endpoint.config as S3Config;
+    response = await s3Request('GET', '/' + backupKey, config);
+  } else if (endpoint.type === 'webdav') {
+    const config = endpoint.config as WebDAVConfig;
+    const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
+    response = await webdavRequest('GET', normalizedKey, config);
+  } else {
+    return new Response(JSON.stringify({ error: 'msg.unsupported_backup_type' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return response;
+}
+
 // 删除备份
 export async function deleteBackupFromEndpoint(
   env: Env,

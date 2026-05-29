@@ -6,7 +6,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
 import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
-import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
+import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, downloadBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushHistoryRecord } from '@/types';
 
@@ -459,6 +459,14 @@ async function handleDeleteBackup(id: string, key: string) {
     backupManagerRef.value?.handleTestResult(true, { message: 'msg.delete_backup_success' });
   } catch (err: unknown) {
     backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.delete_failed', 'delete'));
+  }
+}
+
+async function handleDownloadBackup(id: string, key: string) {
+  try {
+    await downloadBackupFromEndpoint(accessToken.value, id, key);
+  } catch (err: unknown) {
+    backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.download_failed', 'delete'));
   }
 }
 
