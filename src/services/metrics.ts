@@ -56,25 +56,34 @@ export class MetricsCollector {
   }
 
   async recordPush(channel: string, success: boolean, latencyMs: number): Promise<void> {
+    await this.loadSessionMetrics();
+
+    const prevTotal = this.sessionMetrics.total;
+    const prevAvgLatency = this.sessionMetrics.avgLatency;
+    const prevSuccess = this.sessionMetrics.success;
+    const prevFailed = this.sessionMetrics.failed;
+    const prevByChannel = this.sessionMetrics.byChannel;
+
     this.sessionMetrics.total++;
     this.sessionMetrics.avgLatency =
-      (this.sessionMetrics.avgLatency * (this.sessionMetrics.total - 1) + latencyMs) /
-      this.sessionMetrics.total;
+      (prevAvgLatency * prevTotal + latencyMs) / this.sessionMetrics.total;
 
     if (success) {
-      this.sessionMetrics.success++;
+      this.sessionMetrics.success = prevSuccess + 1;
     } else {
-      this.sessionMetrics.failed++;
+      this.sessionMetrics.failed = prevFailed + 1;
     }
 
-    if (!this.sessionMetrics.byChannel[channel]) {
-      this.sessionMetrics.byChannel[channel] = { success: 0, failed: 0 };
+    const updatedByChannel = { ...prevByChannel };
+    if (!updatedByChannel[channel]) {
+      updatedByChannel[channel] = { success: 0, failed: 0 };
     }
     if (success) {
-      this.sessionMetrics.byChannel[channel].success++;
+      updatedByChannel[channel].success++;
     } else {
-      this.sessionMetrics.byChannel[channel].failed++;
+      updatedByChannel[channel].failed++;
     }
+    this.sessionMetrics.byChannel = updatedByChannel;
 
     this.sessionMetrics.lastPushAt = new Date().toISOString();
 
@@ -84,11 +93,10 @@ export class MetricsCollector {
 
   private async persistSessionMetrics(): Promise<void> {
     try {
-      await this.env.SUBSCRIPTIONS.put(
-        `metrics:session:${this.userId}`,
-        JSON.stringify(this.sessionMetrics),
-        { expirationTtl: 7 * 24 * 3600 }
-      );
+      const key = `metrics:session:${this.userId}`;
+      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(this.sessionMetrics), {
+        expirationTtl: 7 * 24 * 3600,
+      });
     } catch {
       // Ignore persist errors
     }

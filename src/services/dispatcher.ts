@@ -453,8 +453,10 @@ export async function dispatchPushWithOptions(
   try {
     const { MetricsCollector } = await import('./metrics');
     const metrics = new MetricsCollector(env, username);
+    await metrics.loadSessionMetrics();
     for (const result of results) {
-      await metrics.recordPush(result.channel, result.success, 0);
+      const latency = (result as any).latency || 0;
+      await metrics.recordPush(result.channel, result.success, latency);
     }
   } catch {
     // 统计记录失败不影响主流程
@@ -474,6 +476,7 @@ async function sendToChannelWithRetry(
   const channelEnv = buildChannelEnv(channel, settings);
   const maxRetries = options.retries ?? PUSH_CONFIG.maxRetries;
   const timeout = options.timeout ?? PUSH_CONFIG.timeout;
+  const startTime = Date.now();
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -486,20 +489,21 @@ async function sendToChannelWithRetry(
           )
         ),
       ]);
-      return result;
+      return { ...result, latencyMs: Date.now() - startTime };
     } catch (err) {
       if (attempt === maxRetries) {
         return {
           channel,
           success: false,
           message: `推送失败: ${(err as Error).message}`,
+          latencyMs: Date.now() - startTime,
         };
       }
       await new Promise((resolve) => setTimeout(resolve, PUSH_CONFIG.retryBaseDelayMs * Math.pow(2, attempt)));
     }
   }
 
-  return { channel, success: false, message: 'Unknown error' };
+  return { channel, success: false, message: 'Unknown error', latencyMs: Date.now() - startTime };
 }
 
 async function sendToChannel(
