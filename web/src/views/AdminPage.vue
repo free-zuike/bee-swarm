@@ -2,7 +2,7 @@
 // ============================================
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
 import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
@@ -579,9 +579,9 @@ async function handleBackupSingle(id: string) {
 // ==================== 模板相关 ====================
 function handleUseTemplate(template: PushTemplate) {
   activeTab.value = 'push';
-  setTimeout(() => {
+  nextTick(() => {
     pushFormRef.value?.fillFromTemplate(template);
-  }, 100);
+  });
 }
 </script>
 
@@ -763,6 +763,7 @@ function handleUseTemplate(template: PushTemplate) {
         <!-- ==================== 推送 Tab ==================== -->
         <PushForm
           v-if="activeTab === 'push'"
+          ref="pushFormRef"
           :channels="channels"
           v-model:selected-channels="selectedChannels"
           :is-pushing="isPushing"
