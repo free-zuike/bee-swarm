@@ -660,19 +660,19 @@ adminApi.post('/scheduled', async (c) => {
   return c.json({ success: true, scheduled: push });
 });
 
-/** 取消定时推送 */
+/** 删除定时推送 */
 adminApi.delete('/scheduled/:id', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
 
   const pushService = new PushService(c.env, username);
-  const cancelled = await pushService.cancelScheduledPush(id);
+  const deleted = await pushService.deleteScheduledPush(id);
 
-  if (!cancelled) {
-    return c.json({ error: '定时推送不存在或已执行', code: 'NOT_FOUND' }, 404);
+  if (!deleted) {
+    return c.json({ error: '定时推送不存在', code: 'NOT_FOUND' }, 404);
   }
 
-  return c.json({ success: true, message: '定时推送已取消' });
+  return c.json({ success: true, message: '定时推送已删除' });
 });
 
 // ============================================

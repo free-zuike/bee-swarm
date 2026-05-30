@@ -245,6 +245,21 @@ export class PushService {
     }
   }
 
+  async deleteScheduledPush(id: string): Promise<boolean> {
+    const key = `scheduled:${this.userId}`;
+    try {
+      const stored = await this.env.SUBSCRIPTIONS.get(key);
+      if (!stored) return false;
+      const pushes: ScheduledPush[] = JSON.parse(stored);
+      const filtered = pushes.filter((p) => p.id !== id);
+      if (filtered.length === pushes.length) return false;
+      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(filtered));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async processScheduledPushes(): Promise<number> {
     const now = new Date();
     const pushes = await this.getScheduledPushes('pending');
