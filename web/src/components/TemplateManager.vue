@@ -39,11 +39,11 @@
             <button class="btn btn-small btn-primary" @click="useTemplate(tpl)">
               {{ t('templates.use') }}
             </button>
-            <button class="btn-icon" @click="editTemplate(tpl)" :title="t('common.edit')">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <button class="btn btn-small btn-outline" @click="editTemplate(tpl)" :title="t('common.edit')">
+              {{ t('common.edit') }}
             </button>
-            <button class="btn-icon btn-danger" @click="confirmDelete(tpl)" :title="t('common.delete')">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            <button class="btn btn-small btn-danger" @click="confirmDelete(tpl)" :title="t('common.delete')">
+              {{ t('common.delete') }}
             </button>
           </div>
         </div>
@@ -434,7 +434,7 @@ onMounted(loadTemplates);
 
 .template-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   flex-shrink: 0;
   margin-left: 16px;
@@ -447,11 +447,8 @@ onMounted(loadTemplates);
   font-weight: 600;
 }
 
-.template-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-shrink: 0;
+.template-item:hover .template-actions {
+  opacity: 1;
 }
 
 .modal-overlay {
@@ -639,6 +636,17 @@ onMounted(loadTemplates);
 .btn-small {
   padding: 6px 14px;
   font-size: 13px;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.btn-outline:hover {
+  border-color: #667eea;
+  color: #667eea;
 }
 
 .btn-icon {

@@ -4,7 +4,7 @@
 // ============================================
 import { ref, computed } from 'vue';
 import { t } from '@/i18n';
-import type { ChannelConfig, PushChannel, PushResult } from '@/types';
+import type { ChannelConfig, PushChannel, PushResult, PushTemplate } from '@/types';
 
 const props = defineProps<{
   channels: ChannelConfig[];
@@ -23,6 +23,20 @@ const emit = defineEmits<{
 const pushTitle = ref('');
 const pushBody = ref('');
 const pushUrl = ref('');
+
+function fillFromTemplate(template: PushTemplate) {
+  pushTitle.value = template.title;
+  pushBody.value = template.content || '';
+  pushUrl.value = template.url || '';
+  
+  if (template.channels && template.channels.length > 0) {
+    const newSelection = new Set<PushChannel>(template.channels);
+    emit('update:selectedChannels', newSelection);
+    sessionStorage.setItem('push_selected_channels', JSON.stringify(Array.from(newSelection)));
+  }
+}
+
+defineExpose({ fillFromTemplate });
 
 const enabledChannelCount = computed(() => props.channels.filter((c) => c.enabled).length);
 

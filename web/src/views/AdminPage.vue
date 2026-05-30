@@ -112,6 +112,7 @@ const { toast, showToast } = useGlobalToast();
 // ==================== 子组件引用 ====================
 const channelSettingsRef = ref<InstanceType<typeof ChannelSettingsPanel> | null>(null);
 const backupManagerRef = ref<InstanceType<typeof BackupManager> | null>(null);
+const pushFormRef = ref<InstanceType<typeof PushForm> | null>(null);
 
 // ==================== API Key 加载 ====================
 async function loadApiKey(refresh = false) {
@@ -575,13 +576,13 @@ async function handleBackupSingle(id: string) {
   }
 }
 
-// ==================== 备份设置变化时自动加载 ====================
-watch(showSettings, (val, oldVal) => {
-  // 只在打开设置面板时加载，关闭时不加载
-  if (val && oldVal === false) {
-    backupManagerRef.value?.onShow();
-  }
-});
+// ==================== 模板相关 ====================
+function handleUseTemplate(template: PushTemplate) {
+  activeTab.value = 'push';
+  setTimeout(() => {
+    pushFormRef.value?.fillFromTemplate(template);
+  }, 100);
+}
 </script>
 
 <template>
@@ -784,6 +785,7 @@ watch(showSettings, (val, oldVal) => {
           v-if="activeTab === 'templates'"
           :access-token="accessToken"
           :channels="channels"
+          @use-template="handleUseTemplate"
         />
 
         <!-- ==================== 渠道分组 Tab ==================== -->
