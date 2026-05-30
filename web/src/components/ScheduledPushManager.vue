@@ -542,14 +542,11 @@ async function createScheduledPushHandler() {
   creating.value = true;
   try {
     await createScheduledPush(props.accessToken, {
-      name: newPush.value.name,
+      title: newPush.value.name,
       content: newPush.value.content,
-      scheduledTime,
+      scheduledAt: scheduledTime,
       channels: newPush.value.channels,
       templateId: newPush.value.templateId || undefined,
-      metadata: {
-        maxRetries: newPush.value.maxRetries
-      }
     });
 
     showCreateModal.value = false;
@@ -603,11 +600,11 @@ async function testPush(push: ScheduledPush) {
 
   try {
     await createScheduledPush(props.accessToken, {
-      name: `[测试] ${push.name}`,
+      title: `[测试] ${push.name}`,
       content: push.content,
-      scheduledTime: new Date().toISOString(),
+      scheduledAt: new Date().toISOString(),
       channels: push.channels,
-      templateId: push.templateId
+      templateId: push.templateId,
     });
     alert('测试推送已创建并立即执行');
     await loadScheduledPushes();
