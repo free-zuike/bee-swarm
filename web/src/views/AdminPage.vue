@@ -220,7 +220,7 @@ watch(activeTab, (newTab, oldTab) => {
   if (newTab === 'push' && channels.value.length === 0) {
     loadChannels();
   }
-  if (newTab === 'history' && pushHistory.value.length === 0) {
+  if (newTab === 'history') {
     loadHistory();
   }
 });
