@@ -10,6 +10,7 @@ export const SENSITIVE_FIELDS = [
   'api_key',
   'webhook_url',
   'access_token',
+  'accessKeyId',
 ] as const;
 
 export type SensitiveField = (typeof SENSITIVE_FIELDS)[number];
