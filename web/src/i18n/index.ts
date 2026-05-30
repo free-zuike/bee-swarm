@@ -301,6 +301,9 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.backup_failed': '{endpointName} 备份失败: {message}',
     'msg.backup_all_success': '备份完成: 成功 {success} 个，失败 {failed} 个',
     'msg.backup_all_failed': '备份失败: {message}',
+    'msg.push_success': '推送成功 ({count} 个渠道)',
+    'msg.push_partial': '部分推送成功 ({success}/{total})',
+    'msg.push_failed': '推送失败',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -596,6 +599,9 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.backup_failed': '{endpointName} backup failed: {message}',
     'msg.backup_all_success': 'Backup complete: {success} succeeded, {failed} failed',
     'msg.backup_all_failed': 'Backup failed: {message}',
+    'msg.push_success': 'Push successful ({count} channel(s))',
+    'msg.push_partial': 'Partially successful ({success}/{total})',
+    'msg.push_failed': 'Push failed',
   },
 };
 

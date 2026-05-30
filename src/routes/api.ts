@@ -661,6 +661,7 @@ adminApi.get('/stats', async (c) => {
 adminApi.get('/metrics', async (c) => {
   const username = c.get('username');
   const metrics = new MetricsCollector(c.env, username);
+  await metrics.loadSessionMetrics();
   return c.json(metrics.getSessionMetrics());
 });
 

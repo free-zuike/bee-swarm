@@ -373,10 +373,21 @@ async function handlePush(title: string, body: string, url: string, pushChannels
     pushResults.value = result.results;
     lastPushTime.value = new Date().toLocaleTimeString('zh-CN');
 
-    // 刷新历史记录
+    const successCount = result.results.filter((r: PushResult) => r.success).length;
+    const totalCount = result.results.length;
+
+    if (successCount === totalCount) {
+      showToast(t('msg.push_success', { count: successCount }), 'success');
+    } else if (successCount > 0) {
+      showToast(t('msg.push_partial', { success: successCount, total: totalCount }), 'error');
+    } else {
+      showToast(t('msg.push_failed'), 'error');
+    }
+
     await loadHistory();
   } catch (err: unknown) {
     pushResults.value = [{ channel: 'webpush', success: false, message: getErrorMessage(err, '推送失败') }];
+    showToast(getErrorMessage(err, '推送失败'), 'error');
   }
 
   isPushing.value = false;
