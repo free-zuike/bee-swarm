@@ -19,32 +19,36 @@
       </div>
 
       <div v-else class="template-list">
-        <div v-for="tpl in templates" :key="tpl.id" class="template-item">
-          <div class="template-info">
-            <div class="template-header">
-              <div class="template-name">{{ tpl.name }}</div>
-              <div class="template-tags">
-                <span v-if="tpl.useMarkdown" class="meta-tag">Markdown</span>
-                <span v-for="ch in tpl.channels" :key="ch" class="meta-tag channel">{{ getChannelName(ch) }}</span>
+        <div v-for="tpl in templates" :key="tpl.id" class="template-card">
+          <div class="template-main">
+            <div class="template-top">
+              <div class="template-name-row">
+                <h3 class="template-name">{{ tpl.name }}</h3>
+                <div class="template-tags">
+                  <span v-if="tpl.useMarkdown" class="tag tag-markdown">Markdown</span>
+                  <span v-for="ch in tpl.channels" :key="ch" class="tag tag-channel">{{ getChannelName(ch) }}</span>
+                </div>
               </div>
             </div>
-            <div class="template-row">
-              <span class="template-title">{{ tpl.title }}</span>
-            </div>
-            <div class="template-row">
-              <span class="template-content">{{ tpl.content || t('templates.noContent') }}</span>
+            <div class="template-body">
+              <div class="field-row">
+                <span class="field-label">标题</span>
+                <span class="field-value">{{ tpl.title }}</span>
+              </div>
+              <div class="field-row">
+                <span class="field-label">内容</span>
+                <span class="field-value field-content">{{ tpl.content || t('templates.noContent') }}</span>
+              </div>
+              <div v-if="tpl.url" class="field-row">
+                <span class="field-label">URL</span>
+                <span class="field-value field-url">{{ tpl.url }}</span>
+              </div>
             </div>
           </div>
           <div class="template-actions">
-            <button class="btn btn-small btn-primary" @click="useTemplate(tpl)">
-              {{ t('templates.use') }}
-            </button>
-            <button class="btn btn-small btn-outline" @click="editTemplate(tpl)" :title="t('common.edit')">
-              {{ t('common.edit') }}
-            </button>
-            <button class="btn btn-small btn-danger" @click="confirmDelete(tpl)" :title="t('common.delete')">
-              {{ t('common.delete') }}
-            </button>
+            <button class="action-btn action-use" @click="useTemplate(tpl)">使用</button>
+            <button class="action-btn action-edit" @click="editTemplate(tpl)">编辑</button>
+            <button class="action-btn action-delete" @click="confirmDelete(tpl)">删除</button>
           </div>
         </div>
       </div>
@@ -348,107 +352,158 @@ onMounted(loadTemplates);
 .template-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.template-item {
+.template-card {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 20px 24px;
-  background: var(--bg-panel, white);
-  border-radius: 12px;
-  border: 1px solid var(--border-color, #e8e8e8);
-  transition: all 0.2s;
+  align-items: stretch;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.25s ease;
+  overflow: hidden;
 }
 
-.template-item:hover {
-  border-color: #667eea;
-  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.1);
+.template-card:hover {
+  border-color: #e0e0e0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
-.template-info {
+.template-main {
   flex: 1;
   min-width: 0;
+  padding: 24px;
 }
 
-.template-header {
+.template-top {
+  margin-bottom: 16px;
+}
+
+.template-name-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .template-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
 }
 
 .template-tags {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.template-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.template-title {
-  font-size: 14px;
-  color: var(--text-primary, #333);
-  font-weight: 500;
-}
-
-.template-content {
-  font-size: 13px;
-  color: var(--text-secondary, #888);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.template-meta {
-  display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.meta-tag {
-  font-size: 11px;
-  padding: 2px 10px;
-  border-radius: 12px;
-  background: var(--bg-secondary, #f0f0f0);
-  color: var(--text-secondary, #666);
+.tag {
+  font-size: 12px;
+  padding: 3px 12px;
+  border-radius: 20px;
   font-weight: 500;
 }
 
-.meta-tag.channel {
+.tag-markdown {
+  background: #f5f5f5;
+  color: #888;
+}
+
+.tag-channel {
   background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
   color: #667eea;
-  border: 1px solid #667eea30;
+}
+
+.template-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.field-label {
+  color: #999;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.field-value {
+  color: #333;
+}
+
+.field-content {
+  color: #666;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.field-url {
+  color: #667eea;
+  word-break: break-all;
 }
 
 .template-actions {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-shrink: 0;
-  margin-left: 16px;
-  padding-top: 2px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding: 20px;
+  border-left: 1px solid #f5f5f5;
+  background: #fafafa;
 }
 
-.meta-tag.channel {
-  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-  color: #667eea;
-  font-weight: 600;
+.action-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: center;
+  min-width: 60px;
 }
 
-.template-item:hover .template-actions {
-  opacity: 1;
+.action-use {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.action-use:hover {
+  opacity: 0.9;
+}
+
+.action-edit {
+  background: white;
+  color: #333;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+}
+
+.action-edit:hover {
+  background: #f5f5f5;
+}
+
+.action-delete {
+  background: #ff4757;
+  color: white;
+  border-radius: 0 0 8px 8px;
+}
+
+.action-delete:hover {
+  background: #ff3742;
 }
 
 .modal-overlay {
