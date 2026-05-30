@@ -427,7 +427,7 @@ async function handlePush(title: string, body: string, url: string, pushChannels
 
     await loadHistory();
   } catch (err: unknown) {
-    pushResults.value = [{ channel: 'webpush', success: false, message: getErrorMessage(err, '推送失败') }];
+    pushResults.value = [{ channel: 'wework', success: false, message: getErrorMessage(err, '推送失败') }];
     showToast(getErrorMessage(err, '推送失败'), 'error');
   }
 

@@ -218,7 +218,6 @@ const allChannels = computed(() => {
     webhook: 'Webhook',
     bark: 'Bark',
     pushplus: 'PushPlus',
-    webpush: 'Web Push',
   };
   const channelIconMap: Record<string, string> = {
     wework: '💼',
@@ -251,7 +250,6 @@ const availableChannels = computed(() => {
     webhook: 'Webhook',
     bark: 'Bark',
     pushplus: 'PushPlus',
-    webpush: 'Web Push',
   };
   return (props.channels || []).map((c) => ({
     id: c.id,
@@ -311,7 +309,6 @@ function getChannelName(ch: string): string {
     webhook: 'Webhook',
     bark: 'Bark',
     pushplus: 'PushPlus',
-    webpush: 'Web Push',
   };
   return channelNameMap[ch] || ch;
 }

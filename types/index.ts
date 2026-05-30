@@ -34,8 +34,7 @@ export type PushChannel =
   | 'ntfy'
   | 'email'
   | 'slack'
-  | 'discord'
-  | 'webpush';
+  | 'discord';
 
 /**
  * 推送请求

@@ -507,7 +507,6 @@ function getChannelName(ch: string): string {
     email: '邮件',
     slack: 'Slack',
     discord: 'Discord',
-    webpush: 'Web Push',
   };
   return channelMap[ch] || ch;
 }

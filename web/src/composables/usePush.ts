@@ -62,7 +62,7 @@ export function usePush(options: UsePushOptions = {}) {
       return resultsRef.value;
     } catch (err) {
       const errorMsg = getErrorMessage(err, '推送失败');
-      resultsRef.value = [{ channel: 'webpush' as PushChannel, success: false, message: errorMsg }];
+      resultsRef.value = [{ channel: 'wework' as PushChannel, success: false, message: errorMsg }];
       showToast(errorMsg, 'error');
       options.onError?.(errorMsg);
       return resultsRef.value;

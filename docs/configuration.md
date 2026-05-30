@@ -25,29 +25,11 @@ cp .dev.vars.example .dev.vars
 # 管理员密码（旧版兼容，建议使用用户注册）
 ADMIN_PASSWORD=your_secure_password_here
 
-# Web Push VAPID 密钥对（如不需要 Web Push 可忽略）
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-
 # 允许的 CORS 来源（可选，逗号分隔）
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 # 日志级别（可选）
 LOG_LEVEL=info
-```
-
-### 生成 VAPID 密钥
-
-如果需要使用 Web Push 功能，需要生成 VAPID 密钥对：
-
-```bash
-# 使用项目提供的脚本
-npm run generate-keys
-
-# 或使用 openssl 手动生成
-openssl ecparam -name prime256v1 -genkey -noout -out vapid_private.pem
-openssl ec -in vapid_private.pem -pubout -out vapid_public.pem
-# 然后将内容转换为 base64 格式填入配置
 ```
 
 ---
@@ -203,12 +185,6 @@ Webhook URL: https://discord.com/api/webhooks/1234567890/abcdefghijklmnopqrstuvw
 Username: Bee Swarm Alerts
 Avatar URL: https://example.com/avatar.png
 ```
-
-### 10. Web Push (webpush)
-
-**配置项**:
-- 需要通过前端页面订阅
-- 浏览器会生成订阅信息
 
 ---
 
@@ -436,8 +412,6 @@ npx wrangler login
 
 # 设置 Secrets
 npx wrangler secret put ADMIN_PASSWORD
-npx wrangler secret put VAPID_PUBLIC_KEY
-npx wrangler secret put VAPID_PRIVATE_KEY
 ```
 
 或通过 wrangler.toml 中的 [vars] 配置（不推荐用于生产环境的敏感信息）：
@@ -480,10 +454,6 @@ npx wrangler kv:namespace create "SUBSCRIPTIONS"
 ```bash
 # 设置管理员密码
 npx wrangler secret put ADMIN_PASSWORD
-
-# （可选）设置 VAPID 密钥
-npx wrangler secret put VAPID_PUBLIC_KEY
-npx wrangler secret put VAPID_PRIVATE_KEY
 ```
 
 ### 5. 部署

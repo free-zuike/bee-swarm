@@ -17,7 +17,7 @@
 蜂群是一个基于 Cloudflare Workers 构建的多渠道推送通知系统。它采用现代化的技术栈，提供高性能、易扩展的推送服务。
 
 ### 核心特性
-- 支持 10+ 种推送渠道（企业微信、钉钉、飞书、Telegram 等）
+- 支持 9 种推送渠道（企业微信、钉钉、飞书、Telegram、Bark、ntfy、Email、Slack、Discord）
 - 用户注册、登录、认证系统
 - 推送模板管理
 - 渠道分组
@@ -497,8 +497,6 @@ scheduled_exec:{email}:{id}     # 定时任务执行标记
 
 **Secrets** (通过 wrangler secret 配置):
 - `ADMIN_PASSWORD` - 旧版管理员密码（兼容）
-- `VAPID_PUBLIC_KEY` - Web Push VAPID 公钥
-- `VAPID_PRIVATE_KEY` - Web Push VAPID 私钥
 
 **Vars** (通过 wrangler.toml 配置):
 - `ALLOWED_ORIGINS` - 允许的 CORS 来源

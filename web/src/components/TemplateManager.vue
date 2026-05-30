@@ -245,7 +245,6 @@ function getChannelName(ch: string): string {
     webhook: 'Webhook',
     bark: 'Bark',
     pushplus: 'PushPlus',
-    webpush: 'Web Push',
   };
   return channelNameMap[ch] || ch;
 }
@@ -262,7 +261,6 @@ const allChannels = computed(() => {
     webhook: 'Webhook',
     bark: 'Bark',
     pushplus: 'PushPlus',
-    webpush: 'Web Push',
   };
   return props.channels.filter((c) => c.enabled).map((c) => ({
     id: c.id,

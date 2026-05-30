@@ -27,7 +27,7 @@ const savingChannels = reactive<Record<string, boolean>>({});
 const togglingChannel = ref<string | null>(null);
 
 const settingsDefinitions = computed(() =>
-  props.channelDefinitions.filter((d) => d.id !== 'webpush')
+  props.channelDefinitions
 );
 
 function isChannelConfigured(def: ChannelDefinition): boolean {
