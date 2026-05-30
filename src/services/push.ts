@@ -29,6 +29,11 @@ export interface ScheduledPush {
   channels: PushChannel[];
   url?: string;
   scheduledAt: string;
+  scheduleType?: 'once' | 'recurring';
+  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval';
+  selectedWeekDays?: number[];
+  selectedMonthDays?: number[];
+  intervalHours?: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   createdBy: string;
 }

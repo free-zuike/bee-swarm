@@ -418,6 +418,11 @@ export async function createScheduledPush(
     url?: string;
     scheduledAt: string;
     templateId?: string;
+    scheduleType?: 'once' | 'recurring';
+    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval';
+    selectedWeekDays?: number[];
+    selectedMonthDays?: number[];
+    intervalHours?: number;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
   return tokenRequest(`${BASE}/admin/scheduled`, token, {

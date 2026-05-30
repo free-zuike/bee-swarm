@@ -622,6 +622,11 @@ adminApi.post('/scheduled', async (c) => {
     url?: string;
     scheduledAt: string;
     templateId?: string;
+    scheduleType?: 'once' | 'recurring';
+    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval';
+    selectedWeekDays?: number[];
+    selectedMonthDays?: number[];
+    intervalHours?: number;
   };
 
   if (!body.title || !body.scheduledAt || !body.channels?.length) {
@@ -645,6 +650,11 @@ adminApi.post('/scheduled', async (c) => {
     url: body.url,
     scheduledAt: body.scheduledAt,
     templateId: body.templateId,
+    scheduleType: body.scheduleType || 'once',
+    recurringType: body.recurringType,
+    selectedWeekDays: body.selectedWeekDays,
+    selectedMonthDays: body.selectedMonthDays,
+    intervalHours: body.intervalHours,
   });
 
   return c.json({ success: true, scheduled: push });

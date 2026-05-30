@@ -152,39 +152,105 @@ export default {
 
             for (const push of pendingPushes) {
               const scheduledTime = new Date(push.scheduledAt);
-              if (scheduledTime <= nowDate) {
-                // 防重复执行：使用当前时间戳的分钟级作为执行标识
-                const execKey = `scheduled_exec:${username}:${push.id}`;
-                const lastExecMinute = Math.floor(scheduledTime.getTime() / 60000);
-                const alreadyExecuted = await env.SUBSCRIPTIONS.get(execKey);
-                if (alreadyExecuted && parseInt(alreadyExecuted, 10) === lastExecMinute) {
-                  continue;
-                }
-
-                // 更新状态为执行中
-                await pushService.updateScheduledPushStatus(push.id, 'processing');
-
-                // 执行推送
-                const results = await dispatchPushWithOptions(
-                  {
-                    title: push.title,
-                    body: push.content,
-                    url: push.url,
-                  },
-                  push.channels as any[],
-                  username,
-                  env
-                );
-
-                // 更新最终状态
-                const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
-                await pushService.updateScheduledPushStatus(push.id, finalStatus);
-
-                // 记录执行时间防重复
-                await env.SUBSCRIPTIONS.put(execKey, String(lastExecMinute), {
-                  expirationTtl: 24 * 60 * 60,
-                });
+              if (scheduledTime > nowDate) {
+                continue;
               }
+
+              // 防重复执行：使用当前时间戳的分钟级作为执行标识
+              const execKey = `scheduled_exec:${username}:${push.id}`;
+              const currentMinute = Math.floor(nowDate.getTime() / 60000);
+              const alreadyExecuted = await env.SUBSCRIPTIONS.get(execKey);
+              if (alreadyExecuted && parseInt(alreadyExecuted, 10) === currentMinute) {
+                continue;
+              }
+
+              // 检查是否应该执行（针对重复执行模式）
+              const scheduleType = push.scheduleType || 'once';
+              let shouldExecute = true;
+
+              if (scheduleType === 'recurring') {
+                const recurringType = push.recurringType || 'daily';
+                const nowHour = nowDate.getHours();
+                const nowMinute = nowDate.getMinutes();
+                const nowDay = nowDate.getDay();
+                const nowDateOfMonth = nowDate.getDate();
+
+                // 获取推送的执行时间（小时和分钟）
+                const pushHour = scheduledTime.getHours();
+                const pushMinute = scheduledTime.getMinutes();
+
+                switch (recurringType) {
+                  case 'hourly':
+                    // 每小时执行：检查分钟是否匹配
+                    shouldExecute = nowMinute === pushMinute;
+                    break;
+
+                  case 'interval':
+                    // 自定义间隔：检查是否到了间隔时间
+                    const intervalHours = push.intervalHours || 2;
+                    const hoursSinceStart = Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60));
+                    shouldExecute = hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && nowMinute === pushMinute;
+                    break;
+
+                  case 'daily':
+                    // 每天执行：检查时间是否匹配
+                    shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
+                    break;
+
+                  case 'weekly':
+                    // 每周执行：检查星期和时间是否匹配
+                    const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
+                    shouldExecute = selectedWeekDays.includes(nowDay) && nowHour === pushHour && nowMinute === pushMinute;
+                    break;
+
+                  case 'monthly':
+                    // 每月执行：检查日期和时间是否匹配
+                    const selectedMonthDays = push.selectedMonthDays || [1, 15];
+                    shouldExecute = selectedMonthDays.includes(nowDateOfMonth) && nowHour === pushHour && nowMinute === pushMinute;
+                    break;
+
+                  default:
+                    shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
+                    break;
+                }
+              } else {
+                // 单次执行：只检查时间是否到了
+                shouldExecute = true;
+              }
+
+              if (!shouldExecute) {
+                continue;
+              }
+
+              // 更新状态为执行中
+              await pushService.updateScheduledPushStatus(push.id, 'processing');
+
+              // 执行推送
+              const results = await dispatchPushWithOptions(
+                {
+                  title: push.title,
+                  body: push.content,
+                  url: push.url,
+                },
+                push.channels as any[],
+                username,
+                env
+              );
+
+              // 更新最终状态
+              const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
+
+              // 重复执行模式：更新状态为 pending 以便下次执行
+              if (scheduleType === 'recurring') {
+                await pushService.updateScheduledPushStatus(push.id, 'pending');
+              } else {
+                await pushService.updateScheduledPushStatus(push.id, finalStatus);
+              }
+
+              // 记录执行时间防重复
+              await env.SUBSCRIPTIONS.put(execKey, String(currentMinute), {
+                expirationTtl: 24 * 60 * 60,
+              });
             }
           } catch (err) {
             console.error(`[Cron ScheduledPush] Error for ${username}:`, (err as Error).message);

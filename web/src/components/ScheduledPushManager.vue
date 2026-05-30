@@ -577,6 +577,11 @@ async function createScheduledPushHandler() {
       scheduledAt: scheduledTime.toISOString(),
       channels: newPush.value.channels,
       templateId: newPush.value.templateId || undefined,
+      scheduleType: scheduleType.value,
+      recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
+      selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
+      selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
+      intervalHours: recurringType.value === 'interval' ? intervalHours.value : undefined,
     });
 
     showCreateModal.value = false;
@@ -630,7 +635,7 @@ async function testPush(push: ScheduledPush) {
 
   try {
     await createScheduledPush(props.accessToken, {
-      title: `[测试] ${push.name}`,
+      title: `[测试] ${push.title}`,
       content: push.content,
       scheduledAt: new Date().toISOString(),
       channels: push.channels,
