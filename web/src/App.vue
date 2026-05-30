@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { useLoadingStore } from '@/stores/loading';
-
-const loadingStore = useLoadingStore();
+import GlobalLoading from '@/components/GlobalLoading.vue';
 </script>
 
 <template>
   <div>
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="loadingStore.globalLoading" class="global-loading-overlay"></div>
-      </Transition>
-    </Teleport>
+    <GlobalLoading />
     <router-view />
   </div>
 </template>
@@ -57,28 +51,24 @@ body::-webkit-scrollbar-thumb:hover {
   background: #999;
 }
 
-/* 全局加载遮罩层 */
-.global-loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  pointer-events: all;
+/* CSS 变量定义 */
+:root {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #f5f5f5;
+  --bg-panel: white;
+  --text-primary: #1a1a2e;
+  --text-secondary: #666;
+  --border-color: #f0f0f0;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.dark {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #2d2d2d;
+  --bg-panel: #2d2d2d;
+  --text-primary: #e0e0e0;
+  --text-secondary: #999;
+  --border-color: #3c3c3c;
 }
 </style>
