@@ -7,6 +7,7 @@ import type { Env, PushRequest, PushChannel, ChannelResult } from '../types';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
+import { createAuditLogger, type AuditAction } from '../utils/audit';
 import {
   dispatchPush,
   dispatchPushWithOptions,
@@ -46,6 +47,14 @@ api.post('/register', validateBody(schemas.register), async (c) => {
     await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
   }
 
+  // 记录注册日志
+  try {
+    const auditLogger = createAuditLogger(c.env, email);
+    await auditLogger.log('register', {});
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   // 统一返回成功，防止邮箱枚举攻击
   return c.json({ success: true, message: '注册成功' });
 });
@@ -64,6 +73,14 @@ api.post('/login', validateBody(schemas.login), async (c) => {
 
   if (!valid) {
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
+  }
+
+  // 记录登录日志
+  try {
+    const auditLogger = createAuditLogger(c.env, email);
+    await auditLogger.log('login', {});
+  } catch {
+    // 审计日志失败不影响主流程
   }
 
   return c.json({ success: true, message: '登录成功', email });
@@ -291,6 +308,14 @@ adminApi.put('/channels/:id', async (c) => {
     return c.json({ error: (err as Error).message, code: 'VALIDATION_ERROR' }, 400);
   }
 
+  // 记录渠道更新日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('channel_updated', { channelId });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
   // 注意：只传 enabled 时不触发此逻辑
   const def = CHANNEL_DEFINITIONS.find((d) => d.id === channelId);
@@ -324,6 +349,25 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const successCount = results.filter((r) => r.success).length;
   const failedCount = results.filter((r) => !r.success).length;
 
+  // 记录推送日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    if (failedCount > 0) {
+      await auditLogger.log('push_failed', {
+        channels: body.channels,
+        successCount,
+        failedCount,
+      });
+    } else {
+      await auditLogger.log('push_sent', {
+        channels: body.channels,
+        successCount,
+      });
+    }
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   return c.json({
     success: failedCount === 0,
     message: `推送完成: ${successCount} 成功, ${failedCount} 失败`,
@@ -347,6 +391,41 @@ adminApi.get('/history', async (c) => {
     keyword,
   });
   return c.json({ history: result.records, total: result.total, hasMore: result.hasMore });
+});
+
+// ============================================
+// 审计日志接口
+// ============================================
+
+/** 获取审计日志列表 */
+adminApi.get('/audit', async (c) => {
+  const username = c.get('username');
+  const auditLogger = createAuditLogger(c.env, username);
+
+  const limit = parseInt(c.req.query('limit') || '50', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const action = c.req.query('action') as AuditAction | undefined;
+  const startDate = c.req.query('startDate');
+  const endDate = c.req.query('endDate');
+
+  const logs = await auditLogger.getLogs({
+    limit,
+    offset,
+    action,
+    startDate,
+    endDate,
+  });
+
+  return c.json({ logs });
+});
+
+/** 清除审计日志 */
+adminApi.delete('/audit', async (c) => {
+  const username = c.get('username');
+  const auditLogger = createAuditLogger(c.env, username);
+  await auditLogger.clearLogs();
+
+  return c.json({ success: true, message: '审计日志已清除' });
 });
 
 // ============================================
@@ -581,6 +660,14 @@ adminApi.post('/templates', async (c) => {
     useMarkdown: body.useMarkdown,
   });
 
+  // 记录模板创建日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('template_created', { templateId: template.id, name: template.name });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   return c.json({ success: true, template });
 });
 
@@ -605,6 +692,14 @@ adminApi.put('/templates/:id', async (c) => {
     return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
   }
 
+  // 记录模板更新日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('template_updated', { templateId: id });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   return c.json({ success: true, template });
 });
 
@@ -618,6 +713,14 @@ adminApi.delete('/templates/:id', async (c) => {
 
   if (!deleted) {
     return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  // 记录模板删除日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('template_deleted', { templateId: id });
+  } catch {
+    // 审计日志失败不影响主流程
   }
 
   return c.json({ success: true, message: '模板已删除' });
@@ -859,6 +962,17 @@ adminApi.post('/scheduled', async (c) => {
     cronExpression: body.cronExpression,
   });
 
+  // 记录定时推送创建日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('scheduled_push_created', {
+      scheduledPushId: push.id,
+      scheduledAt: push.scheduledAt,
+    });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   return c.json({ success: true, scheduled: push });
 });
 
@@ -888,6 +1002,18 @@ adminApi.post('/scheduled/batch-cancel', async (c) => {
 
   const pushService = new PushService(c.env, username);
   const result = await pushService.batchCancelScheduledPushes(body.ids);
+
+  // 记录批量取消日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('scheduled_push_cancelled', {
+      cancelled: result.cancelled,
+      count: body.ids.length,
+    });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   return c.json({ success: true, message: `已取消 ${result.cancelled} 个任务`, ...result });
 });
 
@@ -1023,6 +1149,19 @@ adminApi.post('/webhook/push', async (c) => {
   );
 
   const success = results.every((r: ChannelResult) => r.success);
+
+  // 记录 Webhook 推送日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('push_sent', {
+      source: 'webhook',
+      channels: body.channels,
+      success,
+    });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
   return c.json({
     success,
     results,
@@ -1050,5 +1189,13 @@ adminApi.get('/webhook/url', async (c) => {
     },
   });
 });
+
+// ============================================
+// 备份相关审计日志
+// ============================================
+
+// 在备份路由中添加审计日志会更复杂，这里我们先完成当前的集成
+// 以后可以在 backupRoutes 中进一步集成
+
 api.route('/admin', adminApi);
 export default api;

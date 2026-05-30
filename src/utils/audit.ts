@@ -94,17 +94,17 @@ export class AuditLogger {
 
     // 过滤日志
     let filteredLogs = logList;
-    
+
     if (action) {
-      filteredLogs = filteredLogs.filter(log => log.action === action);
+      filteredLogs = filteredLogs.filter((log) => log.action === action);
     }
 
     if (startDate) {
-      filteredLogs = filteredLogs.filter(log => log.timestamp >= startDate);
+      filteredLogs = filteredLogs.filter((log) => log.timestamp >= startDate);
     }
 
     if (endDate) {
-      filteredLogs = filteredLogs.filter(log => log.timestamp <= endDate);
+      filteredLogs = filteredLogs.filter((log) => log.timestamp <= endDate);
     }
 
     // 排序并分页
@@ -119,8 +119,8 @@ export class AuditLogger {
   async clearLogs(): Promise<void> {
     const prefix = `audit:${this.userId}:`;
     const keys = await this.listAllKeys(prefix);
-    
-    const deletePromises = keys.map(key => this.env.SUBSCRIPTIONS.delete(key));
+
+    const deletePromises = keys.map((key) => this.env.SUBSCRIPTIONS.delete(key));
     await Promise.all(deletePromises);
 
     // 清空日志列表
@@ -138,20 +138,20 @@ export class AuditLogger {
 
   private async updateLogList(entry: AuditLogEntry): Promise<void> {
     let logs = await this.getLogList();
-    
+
     // 添加新日志
     logs.unshift(entry);
-    
+
     // 限制日志数量
     if (logs.length > AuditLogger.MAX_LOGS) {
       logs = logs.slice(0, AuditLogger.MAX_LOGS);
     }
-    
+
     // 清理过期日志
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - AuditLogger.RETENTION_DAYS);
-    logs = logs.filter(log => new Date(log.timestamp) > cutoffDate);
-    
+    logs = logs.filter((log) => new Date(log.timestamp) > cutoffDate);
+
     // 保存
     await this.env.SUBSCRIPTIONS.put(`audit:${this.userId}:list`, JSON.stringify(logs), {
       expirationTtl: this.RENTENTION_SECONDS() * 2,
