@@ -736,7 +736,6 @@ async function doTest() {
     actionTarget.value = null;
   }
 }
-}
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
