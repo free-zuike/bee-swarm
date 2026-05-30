@@ -15,80 +15,9 @@
           <h3>Webhook URL</h3>
           <div class="url-display">
             <code class="url-text">{{ webhookUrl }}</code>
-            <button class="btn btn-sm btn-icon" @click="copyWebhookUrl" title="复制 URL">📋</button>
+            <button class="btn btn-sm btn-icon" @click="copyWebhookUrl" title="复制 URL"></button>
           </div>
           <p class="hint">使用 API Key 作为 Bearer Token 发送 POST 请求到此 URL 来触发推送</p>
-        </div>
-
-        <div class="test-section">
-          <h3>测试 Webhook 推送</h3>
-
-          <div class="form-group">
-            <label class="form-label">推送标题</label>
-            <input
-              v-model="testPayload.title"
-              type="text"
-              placeholder="例如: 测试推送"
-              class="form-input"
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">推送内容</label>
-            <textarea
-              v-model="testPayload.content"
-              placeholder="输入推送内容..."
-              rows="3"
-              class="form-input"
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">推送渠道</label>
-            <div class="channel-selector">
-              <label v-for="ch in availableChannels" :key="ch" class="channel-checkbox">
-                <input type="checkbox" :value="ch" v-model="testPayload.channels" />
-                <span class="channel-icon">{{ getChannelIcon(ch) }}</span>
-                <span class="channel-name">{{ getChannelName(ch) }}</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">跳转链接（可选）</label>
-            <input
-              v-model="testPayload.url"
-              type="url"
-              placeholder="https://example.com"
-              class="form-input"
-            />
-          </div>
-
-          <div class="form-actions">
-            <button
-              class="btn btn-primary"
-              @click="sendTestPush"
-              :disabled="sending || !canSend"
-            >
-              {{ sending ? '推送中...' : '发送推送' }}
-            </button>
-          </div>
-
-          <div v-if="pushResult" class="push-result" :class="{ success: pushResult.success }">
-            <p class="result-message">{{ pushResult.message }}</p>
-            <div v-if="pushResult.results.length > 0" class="result-details">
-              <div
-                v-for="(r, i) in pushResult.results"
-                :key="i"
-                class="result-item"
-                :class="{ success: r.success }"
-              >
-                <span class="result-icon">{{ r.success ? '✅' : '❌' }}</span>
-                <span class="result-channel">{{ r.channel }}</span>
-                <span class="result-text">{{ r.message }}</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div class="example-section">
@@ -110,6 +39,58 @@
             <button class="btn btn-sm btn-icon" @click="copyExampleCode" title="复制代码">📋</button>
           </div>
         </div>
+
+        <div class="info-section">
+          <h3>请求格式</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Method</span>
+              <code>POST</code>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Content-Type</span>
+              <code>application/json</code>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Authorization</span>
+              <code>Bearer YOUR_API_KEY</code>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 16px;">请求体</h3>
+          <div class="schema-table">
+            <div class="schema-row header">
+              <span>字段</span>
+              <span>类型</span>
+              <span>必填</span>
+              <span>说明</span>
+            </div>
+            <div class="schema-row">
+              <code>title</code>
+              <span>string</span>
+              <span>是</span>
+              <span>推送标题</span>
+            </div>
+            <div class="schema-row">
+              <code>content</code>
+              <span>string</span>
+              <span>否</span>
+              <span>推送内容</span>
+            </div>
+            <div class="schema-row">
+              <code>channels</code>
+              <span>string[]</span>
+              <span>否</span>
+              <span>指定推送渠道，不传则推送到所有已启用的渠道</span>
+            </div>
+            <div class="schema-row">
+              <code>url</code>
+              <span>string</span>
+              <span>否</span>
+              <span>跳转链接</span>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
   </div>
@@ -118,60 +99,31 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useGlobalToast } from '@/composables/useToast';
-import { useTranslation } from '@/i18n';
-import { getWebhookUrl, webhookPush, getChannelsWithToken } from '@/api';
-import type { PushChannel } from '@/types';
+import { getWebhookUrl } from '@/api';
 
 const props = defineProps<{
   accessToken: string;
 }>();
 
 const { showToast } = useGlobalToast();
-const { t } = useTranslation();
 
 const loading = ref(true);
-const sending = ref(false);
 const webhookUrl = ref('');
-const availableChannels = ref<PushChannel[]>([]);
-
-const testPayload = ref({
-  title: '',
-  content: '',
-  channels: [] as PushChannel[],
-  url: '',
-});
-
-const pushResult = ref<{
-  success: boolean;
-  message: string;
-  results: Array<{ channel: string; success: boolean; message: string }>;
-} | null>(null);
-
 const activeExample = ref<'curl' | 'javascript' | 'python'>('curl');
-
-const canSend = computed(() => {
-  return (testPayload.value.title || testPayload.value.content) && testPayload.value.channels.length > 0;
-});
 
 const exampleCode = computed(() => {
   const url = webhookUrl.value;
-  const body = JSON.stringify({
-    title: testPayload.value.title || '推送标题',
-    content: testPayload.value.content || '推送内容',
-    channels: testPayload.value.channels.length > 0 ? testPayload.value.channels : ['wework'],
-    url: testPayload.value.url || undefined,
-  }, null, 2);
 
   switch (activeExample.value) {
     case 'curl':
       return `curl -X POST '${url}' \\
   -H 'Authorization: Bearer YOUR_API_KEY' \\
   -H 'Content-Type: application/json' \\
-  -d '${JSON.stringify({
-    title: '推送标题',
-    content: '推送内容',
-    channels: ['wework', 'dingtalk'],
-  })}'`;
+  -d '{
+    "title": "部署完成",
+    "content": "v1.2.3 已成功部署到生产环境",
+    "channels": ["wework", "dingtalk"]
+  }'`;
     case 'javascript':
       return `fetch('${url}', {
   method: 'POST',
@@ -180,8 +132,8 @@ const exampleCode = computed(() => {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    title: '推送标题',
-    content: '推送内容',
+    title: '部署完成',
+    content: 'v1.2.3 已成功部署到生产环境',
     channels: ['wework', 'dingtalk'],
   })
 }).then(res => res.json())
@@ -196,8 +148,8 @@ response = requests.post(
         'Content-Type': 'application/json',
     },
     json={
-        'title': '推送标题',
-        'content': '推送内容',
+        'title': '部署完成',
+        'content': 'v1.2.3 已成功部署到生产环境',
         'channels': ['wework', 'dingtalk'],
     }
 )
@@ -207,37 +159,6 @@ print(response.json())`;
   }
 });
 
-const channelIcons: Record<string, string> = {
-  wework: '💼',
-  dingtalk: '🅰️',
-  feishu: '🪶',
-  telegram: '✈️',
-  bark: '📱',
-  ntfy: '📢',
-  email: '📧',
-  slack: '💬',
-  discord: '🎮',
-};
-
-function getChannelIcon(channel: string): string {
-  return channelIcons[channel] || '📡';
-}
-
-function getChannelName(channel: string): string {
-  const names: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    bark: 'Bark',
-    ntfy: 'ntfy',
-    email: '邮件',
-    slack: 'Slack',
-    discord: 'Discord',
-  };
-  return names[channel] || channel;
-}
-
 async function loadWebhookUrl() {
   try {
     const data = await getWebhookUrl(props.accessToken);
@@ -245,54 +166,6 @@ async function loadWebhookUrl() {
   } catch (err) {
     console.error('获取 Webhook URL 失败:', err);
     showToast('获取 Webhook URL 失败', 'error');
-  }
-}
-
-async function loadChannels() {
-  try {
-    const data = await getChannelsWithToken(props.accessToken);
-    availableChannels.value = data.channels
-      .filter((ch: any) => ch.enabled)
-      .map((ch: any) => ch.id as PushChannel);
-  } catch (err) {
-    console.error('加载渠道列表失败:', err);
-  }
-}
-
-async function sendTestPush() {
-  if (!canSend.value || sending.value) return;
-
-  sending.value = true;
-  pushResult.value = null;
-
-  try {
-    const result = await webhookPush(props.accessToken, {
-      title: testPayload.value.title || undefined,
-      content: testPayload.value.content || undefined,
-      channels: testPayload.value.channels,
-      url: testPayload.value.url || undefined,
-    });
-
-    pushResult.value = {
-      success: result.success,
-      message: result.message,
-      results: result.results,
-    };
-
-    if (result.success) {
-      showToast('推送成功', 'success');
-    } else {
-      showToast('部分推送失败', 'error');
-    }
-  } catch (err: any) {
-    pushResult.value = {
-      success: false,
-      message: err.message || '推送失败',
-      results: [],
-    };
-    showToast('推送失败', 'error');
-  } finally {
-    sending.value = false;
   }
 }
 
@@ -317,10 +190,7 @@ async function copyExampleCode() {
 
 onMounted(async () => {
   loading.value = true;
-  await Promise.all([
-    loadWebhookUrl(),
-    loadChannels(),
-  ]);
+  await loadWebhookUrl();
   loading.value = false;
 });
 </script>
@@ -373,8 +243,8 @@ onMounted(async () => {
 }
 
 .webhook-url-section,
-.test-section,
-.example-section {
+.example-section,
+.info-section {
   margin-bottom: 24px;
 }
 
@@ -406,200 +276,6 @@ h3 {
   font-size: 12px;
   color: var(--text-secondary, #999);
   margin: 0;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, #333);
-  margin-bottom: 8px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  font-size: 14px;
-  background: var(--bg-secondary, #f9f9f9);
-  color: var(--text-primary, #333);
-  transition: border-color 0.2s, background 0.2s;
-  box-sizing: border-box;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #667eea;
-  background: var(--bg-panel, white);
-}
-
-textarea.form-input {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.channel-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.channel-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--bg-secondary, #f5f5f5);
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  user-select: none;
-}
-
-.channel-checkbox:hover {
-  background: var(--bg-panel, #eef0ff);
-  border-color: #667eea;
-}
-
-.channel-checkbox input {
-  display: none;
-}
-
-.channel-checkbox input:checked + .channel-icon + .channel-name {
-  color: #667eea;
-  font-weight: 600;
-}
-
-.channel-checkbox:has(input:checked) {
-  background: #eef0ff;
-  border-color: #667eea;
-}
-
-.channel-icon {
-  font-size: 16px;
-}
-
-.channel-name {
-  font-size: 13px;
-  color: var(--text-primary, #333);
-}
-
-.form-actions {
-  margin-top: 20px;
-}
-
-.btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  height: 44px;
-  box-sizing: border-box;
-}
-
-.btn-sm {
-  padding: 8px 18px;
-  font-size: 13px;
-  height: 36px;
-}
-
-.btn-icon {
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.btn-icon:hover {
-  background: var(--bg-secondary, #f0f0f0);
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.push-result {
-  margin-top: 16px;
-  padding: 16px;
-  border-radius: 8px;
-  background: var(--bg-secondary, #f5f5f5);
-}
-
-.push-result.success {
-  background: #d1fae5;
-  border: 1px solid #a7f3d0;
-}
-
-.push-result:not(.success) {
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-}
-
-.result-message {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.push-result.success .result-message {
-  color: #065f46;
-}
-
-.push-result:not(.success) .result-message {
-  color: #991b1b;
-}
-
-.result-details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.result-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.result-item.success .result-text {
-  color: #065f46;
-}
-
-.result-item:not(.success) .result-text {
-  color: #991b1b;
-}
-
-.result-icon {
-  font-size: 14px;
-}
-
-.result-channel {
-  font-weight: 500;
-  color: var(--text-primary, #333);
-  min-width: 80px;
 }
 
 .example-tabs {
@@ -654,6 +330,89 @@ textarea.form-input {
   line-height: 1.5;
 }
 
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.info-item code {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.schema-table {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.schema-row {
+  display: grid;
+  grid-template-columns: 120px 100px 60px 1fr;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  align-items: center;
+}
+
+.schema-row.header {
+  background: var(--bg-panel, white);
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.schema-row:not(.header) {
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.schema-row:not(.header):last-child {
+  border-bottom: none;
+}
+
+.schema-row code {
+  font-size: 12px;
+  color: #667eea;
+  background: var(--bg-panel, white);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.btn-sm {
+  padding: 8px 18px;
+  font-size: 13px;
+  height: 36px;
+}
+
+.btn-icon {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.btn-icon:hover {
+  background: var(--bg-secondary, #f0f0f0);
+}
+
 .example-code .btn-icon {
   color: #cdd6f4;
   flex-shrink: 0;
@@ -668,34 +427,8 @@ textarea.form-input {
     padding: 16px;
   }
 
-  .panel-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
   .panel-header h2 {
     font-size: 16px;
-  }
-
-  .header-actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .header-actions .btn {
-    flex: 1;
-    min-width: 80px;
-  }
-
-  .channel-selector {
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .channel-checkbox {
-    padding: 6px 10px;
-    font-size: 12px;
   }
 
   .example-code {
@@ -707,51 +440,14 @@ textarea.form-input {
     word-break: break-all;
   }
 
-  .webhook-item {
-    padding: 12px;
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 
-  .webhook-header {
-    flex-direction: column;
+  .schema-row {
+    grid-template-columns: 100px 80px 50px 1fr;
+    font-size: 12px;
     gap: 8px;
-  }
-
-  .webhook-info {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .webhook-actions {
-    flex-direction: column;
-    gap: 4px;
-    width: 100%;
-  }
-
-  .webhook-actions .btn {
-    width: 100%;
-  }
-
-  .modal {
-    width: 95%;
-    max-width: 100%;
-    margin: 16px;
-  }
-
-  .modal-header {
-    padding: 12px 16px;
-  }
-
-  .modal-body {
-    padding: 16px;
-  }
-
-  .form-actions {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .form-actions .btn {
-    width: 100%;
   }
 }
 
@@ -764,28 +460,6 @@ textarea.form-input {
     font-size: 14px;
   }
 
-  .btn-sm {
-    padding: 5px 10px;
-    font-size: 11px;
-  }
-
-  .webhook-name {
-    font-size: 13px;
-  }
-
-  .webhook-url {
-    font-size: 11px;
-  }
-
-  .webhook-desc {
-    font-size: 11px;
-  }
-
-  .channel-checkbox {
-    font-size: 11px;
-    padding: 5px 8px;
-  }
-
   .example-code {
     padding: 10px;
   }
@@ -794,12 +468,17 @@ textarea.form-input {
     font-size: 10px;
   }
 
-  .modal-header h3 {
-    font-size: 14px;
+  .schema-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
-  .webhook-empty p {
-    font-size: 12px;
+  .schema-row.header {
+    display: none;
+  }
+
+  .schema-row:not(.header) {
+    padding: 12px;
   }
 }
 </style>
