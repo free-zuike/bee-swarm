@@ -180,6 +180,19 @@ export class PushService {
     return true;
   }
 
+  async updateChannelGroup(
+    id: string,
+    updates: { name?: string; channels?: PushChannel[] }
+  ): Promise<ChannelGroup | null> {
+    const groups = await this.getChannelGroups();
+    const idx = groups.findIndex((g) => g.id === id);
+    if (idx === -1) return null;
+    const updated = { ...groups[idx], ...updates };
+    groups[idx] = updated;
+    await this.env.SUBSCRIPTIONS.put(`channel_groups:${this.userId}`, JSON.stringify(groups));
+    return updated;
+  }
+
   async getScheduledPushes(
     status?: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<ScheduledPush[]> {

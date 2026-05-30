@@ -382,6 +382,19 @@ export async function deleteChannelGroup(
   return tokenRequest(`${BASE}/admin/groups/${id}`, token, { method: 'DELETE' });
 }
 
+// 更新分组
+export async function updateChannelGroup(
+  token: string,
+  id: string,
+  group: { name?: string; channels?: string[] }
+): Promise<{ success: boolean; group: ChannelGroup }> {
+  return tokenRequest(`${BASE}/admin/groups/${id}`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(group),
+  });
+}
+
 // -------------------------------------------
 // 定时推送接口
 // -------------------------------------------

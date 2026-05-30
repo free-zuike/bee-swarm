@@ -588,7 +588,6 @@ function handleUseGroup(channels: PushChannel[]) {
   activeTab.value = 'push';
   nextTick(() => {
     selectedChannels.value = new Set(channels);
-    sessionStorage.setItem('push_selected_channels', JSON.stringify(Array.from(channels)));
   });
 }
 </script>

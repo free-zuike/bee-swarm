@@ -573,6 +573,26 @@ adminApi.delete('/groups/:id', async (c) => {
   return c.json({ success: true, message: '分组已删除' });
 });
 
+/** 更新分组 */
+adminApi.put('/groups/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as { name?: string; channels?: PushChannel[] };
+
+  if (!body.name && !body.channels?.length) {
+    return c.json({ error: '分组名称或渠道不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const group = await pushService.updateChannelGroup(id, body);
+
+  if (!group) {
+    return c.json({ error: '分组不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, group });
+});
+
 // ============================================
 // 定时推送管理
 // ============================================

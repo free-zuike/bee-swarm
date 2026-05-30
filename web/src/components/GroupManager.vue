@@ -38,6 +38,7 @@
           </div>
           <div class="group-actions">
             <button class="action-btn action-use" @click="useGroup(group)">使用</button>
+            <button class="action-btn action-edit" @click="editGroup(group)">编辑</button>
             <button class="action-btn action-delete" @click="confirmDelete(group)">删除</button>
           </div>
         </div>
@@ -47,7 +48,7 @@
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
         <div class="modal-header">
-          <h3>{{ t('groups.create') }}</h3>
+          <h3>{{ editingGroup ? t('groups.edit') : t('groups.create') }}</h3>
           <button class="btn-close" @click="closeModal">&times;</button>
         </div>
         <form @submit.prevent="saveGroup" class="modal-body">
@@ -102,6 +103,7 @@ import {
   getChannelGroups,
   createChannelGroup,
   deleteChannelGroup,
+  updateChannelGroup,
   type ChannelGroup,
   type PushChannel,
 } from '@/api';
@@ -120,6 +122,7 @@ const saving = ref(false);
 const deleting = ref(false);
 const showModal = ref(false);
 const showDeleteConfirm = ref(false);
+const editingGroup = ref<ChannelGroup | null>(null);
 const deletingGroup = ref<ChannelGroup | null>(null);
 const groups = ref<ChannelGroup[]>([]);
 
@@ -166,10 +169,18 @@ function openCreateModal() {
 
 function closeModal() {
   showModal.value = false;
+  editingGroup.value = null;
 }
 
 function useGroup(group: ChannelGroup) {
   emit('use-group', group.channels);
+}
+
+function editGroup(group: ChannelGroup) {
+  editingGroup.value = group;
+  form.name = group.name;
+  form.channels = [...group.channels];
+  showModal.value = true;
 }
 
 function confirmDelete(group: ChannelGroup) {
@@ -196,11 +207,22 @@ async function saveGroup() {
   if (!props.accessToken || !form.name || form.channels.length === 0) return;
   saving.value = true;
   try {
-    const result = await createChannelGroup(props.accessToken, {
-      name: form.name,
-      channels: form.channels,
-    });
-    groups.value.push(result.group);
+    if (editingGroup.value) {
+      const result = await updateChannelGroup(props.accessToken, editingGroup.value.id, {
+        name: form.name,
+        channels: form.channels,
+      });
+      const idx = groups.value.findIndex((g) => g.id === editingGroup.value!.id);
+      if (idx !== -1) {
+        groups.value[idx] = result.group;
+      }
+    } else {
+      const result = await createChannelGroup(props.accessToken, {
+        name: form.name,
+        channels: form.channels,
+      });
+      groups.value.push(result.group);
+    }
     closeModal();
   } catch (err) {
     alert((err as Error).message);
