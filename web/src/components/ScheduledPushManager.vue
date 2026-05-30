@@ -536,15 +536,32 @@ async function createScheduledPushHandler() {
     alert('请至少选择一个渠道');
     return;
   }
+  if (!newPush.value.name.trim()) {
+    alert('请输入任务名称');
+    return;
+  }
+  if (!newPush.value.content.trim()) {
+    alert('请输入消息内容');
+    return;
+  }
 
-  const scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`).toISOString();
+  const scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`);
+  if (isNaN(scheduledTime.getTime())) {
+    alert('请选择有效的执行时间');
+    return;
+  }
+
+  if (scheduledTime <= new Date()) {
+    alert('执行时间必须是将来的时间，请选择明天的日期或更晚的时间');
+    return;
+  }
 
   creating.value = true;
   try {
     await createScheduledPush(props.accessToken, {
       title: newPush.value.name,
       content: newPush.value.content,
-      scheduledAt: scheduledTime,
+      scheduledAt: scheduledTime.toISOString(),
       channels: newPush.value.channels,
       templateId: newPush.value.templateId || undefined,
     });
