@@ -13,6 +13,28 @@ import type {
 } from '../types';
 import { PUSH_CONFIG } from '../utils/constants';
 
+// Import from unified channels module
+import {
+  sendWework,
+  sendDingtalk,
+  sendFeishu,
+  sendTelegram,
+  sendBark,
+  sendNtfy,
+  sendEmail,
+  sendSlack,
+  sendDiscord,
+  WeworkChannel,
+  DingtalkChannel,
+  FeishuChannel,
+  TelegramChannel,
+  BarkChannel,
+  NtfyChannel,
+  EmailChannel,
+  SlackChannel,
+  DiscordChannel,
+} from './channels';
+
 interface PushHistoryRecord {
   id: string;
   title: string;
@@ -31,16 +53,6 @@ interface PushOptions {
   timeout?: number;
   retries?: number;
 }
-
-import { sendWework } from './wework';
-import { sendDingtalk } from './dingtalk';
-import { sendFeishu } from './feishu';
-import { sendTelegram } from './telegram';
-import { sendBark } from './bark';
-import { sendNtfy } from './ntfy';
-import { sendEmail } from './email';
-import { sendSlack } from './channels/slack';
-import { sendDiscord } from './channels/discord';
 
 export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
   {
@@ -471,47 +483,30 @@ async function sendToChannelWithRetry(
   channel: PushChannel,
   payload: PushPayload,
   settings: ChannelSettings,
-  options: PushOptions
+  _options: PushOptions
 ): Promise<ChannelResult> {
   const channelEnv = buildChannelEnv(channel, settings);
-  const maxRetries = options.retries ?? PUSH_CONFIG.maxRetries;
-  const timeout = options.timeout ?? PUSH_CONFIG.timeout;
   const startTime = Date.now();
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await Promise.race([
-        sendToChannel(channel, payload, channelEnv),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Channel ${channel} timeout after ${timeout}ms`)),
-            timeout
-          )
-        ),
-      ]);
-      return { ...result, latencyMs: Date.now() - startTime };
-    } catch (err) {
-      if (attempt === maxRetries) {
-        return {
-          channel,
-          success: false,
-          message: `推送失败: ${(err as Error).message}`,
-          latencyMs: Date.now() - startTime,
-        };
-      }
-      await new Promise((resolve) =>
-        setTimeout(resolve, PUSH_CONFIG.retryBaseDelayMs * Math.pow(2, attempt))
-      );
-    }
+  try {
+    // 统一使用 channels 模块中的 sendXx 函数，这些函数内部已经处理了重试
+    const result = await sendToChannel(channel, payload, channelEnv, _options);
+    return { ...result, latencyMs: Date.now() - startTime };
+  } catch (err) {
+    return {
+      channel,
+      success: false,
+      message: `推送失败: ${(err as Error).message}`,
+      latencyMs: Date.now() - startTime,
+    };
   }
-
-  return { channel, success: false, message: 'Unknown error', latencyMs: Date.now() - startTime };
 }
 
 async function sendToChannel(
   channel: PushChannel,
   payload: PushPayload,
-  channelEnv: Record<string, string>
+  channelEnv: Record<string, string>,
+  _options: PushOptions
 ): Promise<ChannelResult> {
   switch (channel) {
     case 'wework':
@@ -740,44 +735,48 @@ export async function healthCheckChannel(
     }
   }
 
-  switch (channelId) {
-    case 'slack': {
-      if (!channelEnv.webhook_url)
-        return { channel: channelId, healthy: false, message: 'Webhook URL not configured' };
-      try {
-        const res = await fetch(channelEnv.webhook_url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: '🔔 Health Check' }),
-        });
-        return {
-          channel: channelId,
-          healthy: res.ok,
-          message: res.ok ? 'Connection OK' : `HTTP ${res.status}`,
-        };
-      } catch (err) {
-        return { channel: channelId, healthy: false, message: (err as Error).message };
+  try {
+    switch (channelId) {
+      case 'wework': {
+        const channel = new WeworkChannel(channelId, channelEnv);
+        return await channel.healthCheck();
       }
-    }
-    case 'discord': {
-      if (!channelEnv.webhook_url)
-        return { channel: channelId, healthy: false, message: 'Webhook URL not configured' };
-      try {
-        const res = await fetch(channelEnv.webhook_url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: '🔔 Health Check' }),
-        });
-        return {
-          channel: channelId,
-          healthy: res.ok,
-          message: res.ok ? 'Connection OK' : `HTTP ${res.status}`,
-        };
-      } catch (err) {
-        return { channel: channelId, healthy: false, message: (err as Error).message };
+      case 'dingtalk': {
+        const channel = new DingtalkChannel(channelId, channelEnv);
+        return await channel.healthCheck();
       }
+      case 'feishu': {
+        const channel = new FeishuChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      case 'telegram': {
+        const channel = new TelegramChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      case 'bark': {
+        const channel = new BarkChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      case 'ntfy': {
+        const channel = new NtfyChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      case 'email': {
+        const channel = new EmailChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      case 'slack': {
+        const channel = new SlackChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      case 'discord': {
+        const channel = new DiscordChannel(channelId, channelEnv);
+        return await channel.healthCheck();
+      }
+      default:
+        return { channel: channelId, healthy: true, message: 'No health check available' };
     }
-    default:
-      return { channel: channelId, healthy: true, message: 'No health check available' };
+  } catch (err) {
+    return { channel: channelId, healthy: false, message: (err as Error).message };
   }
 }
