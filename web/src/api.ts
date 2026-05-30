@@ -548,3 +548,20 @@ export async function testChannelHealth(
     method: 'POST',
   });
 }
+
+// -------------------------------------------
+// 模板预览
+// -------------------------------------------
+
+// 预览模板变量替换结果
+export async function previewTemplate(
+  token: string,
+  templateId: string,
+  options: { variables?: Record<string, string>; autoVars?: boolean }
+): Promise<{ title: string; content: string; url?: string }> {
+  return tokenRequest(`${BASE}/admin/templates/${templateId}/preview`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+}

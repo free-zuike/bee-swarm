@@ -533,6 +533,74 @@ adminApi.delete('/templates/:id', async (c) => {
   return c.json({ success: true, message: '模板已删除' });
 });
 
+/** 预览模板变量替换结果 */
+adminApi.post('/templates/:id/preview', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as {
+    variables?: Record<string, string>;
+    autoVars?: boolean;
+  };
+
+  const pushService = new PushService(c.env, username);
+  const templates = await pushService.getTemplates();
+  const template = templates.find((t) => t.id === id);
+
+  if (!template) {
+    return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  const { replaceTemplateVariables } = await import('../services/push');
+
+  // 合并用户变量和默认变量
+  const vars: Record<string, string> = { ...body.variables };
+  
+  // 使用模板中定义的默认值
+  if (template.variables) {
+    for (const v of template.variables) {
+      if (vars[v.key] === undefined && v.defaultValue) {
+        vars[v.key] = v.defaultValue;
+      }
+    }
+  }
+
+  const result = {
+    title: replaceTemplateVariables(template.title, vars, body.autoVars !== false),
+    content: replaceTemplateVariables(template.content, vars, body.autoVars !== false),
+    url: template.url ? replaceTemplateVariables(template.url, vars, body.autoVars !== false) : undefined,
+  };
+
+  return c.json(result);
+});
+
+/** 提取模板中的变量列表 */
+adminApi.get('/templates/:id/variables', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const templates = await pushService.getTemplates();
+  const template = templates.find((t) => t.id === id);
+
+  if (!template) {
+    return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  const { extractVariables } = await import('../services/push');
+
+  // 从标题和内容中提取变量
+  const titleVars = extractVariables(template.title);
+  const contentVars = extractVariables(template.content);
+  const urlVars = template.url ? extractVariables(template.url) : [];
+  const allVars = [...new Set([...titleVars, ...contentVars, ...urlVars])];
+
+  // 过滤掉自动变量
+  const autoVars = new Set(['date', 'time', 'datetime', 'timestamp', 'year', 'month', 'day']);
+  const customVars = allVars.filter((v) => !autoVars.has(v));
+
+  return c.json({ variables: customVars, templateVariables: template.variables || [] });
+});
+
 // ============================================
 // 渠道分组管理
 // ============================================

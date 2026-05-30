@@ -12,6 +12,49 @@ export interface PushTemplate {
   useMarkdown?: boolean;
   createdAt: string;
   updatedAt: string;
+  variables?: TemplateVariable[];
+}
+
+export interface TemplateVariable {
+  key: string;
+  defaultValue: string;
+  description?: string;
+}
+
+/** 替换模板中的变量 */
+export function replaceTemplateVariables(
+  text: string,
+  variables: Record<string, string>,
+  autoVars: boolean = true
+): string {
+  if (!text) return text;
+  
+  // 自动变量
+  if (autoVars) {
+    const now = new Date();
+    variables = {
+      ...variables,
+      date: now.toLocaleDateString('zh-CN'),
+      time: now.toLocaleTimeString('zh-CN'),
+      datetime: now.toLocaleString('zh-CN'),
+      timestamp: String(now.getTime()),
+      year: String(now.getFullYear()),
+      month: String(now.getMonth() + 1).padStart(2, '0'),
+      day: String(now.getDate()).padStart(2, '0'),
+    };
+  }
+  
+  // 替换 {{key}} 格式的变量
+  return text.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
+    return variables[key] !== undefined ? variables[key] : _match;
+  });
+}
+
+/** 提取文本中的变量名 */
+export function extractVariables(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/\{\{(\w+)\}\}/g) || [];
+  return [...new Set(matches.map((m) => m.slice(2, -2)))];
 }
 
 export interface ChannelGroup {

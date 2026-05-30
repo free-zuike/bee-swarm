@@ -55,7 +55,7 @@
     </div>
 
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal">
+      <div class="modal modal-large">
         <div class="modal-header">
           <h3>{{ editingTemplate ? t('templates.edit') : t('templates.create') }}</h3>
           <button class="btn-close" @click="closeModal">&times;</button>
@@ -68,6 +68,7 @@
           <div class="form-group">
             <label>{{ t('label.title') }} *</label>
             <input v-model="form.title" type="text" :placeholder="t('templates.titlePlaceholder')" required />
+            <p class="variable-hint">支持变量: <code v-text="'{{date}}'"></code> <code v-text="'{{time}}'"></code> <code v-text="'{{name}}'"></code> 等</p>
           </div>
           <div class="form-group">
             <label>{{ t('label.content') || '内容' }}</label>
@@ -92,6 +93,32 @@
               <span>{{ t('templates.useMarkdown') }}</span>
             </label>
           </div>
+
+          <!-- 变量管理 -->
+          <div class="form-group">
+            <label>变量管理</label>
+            <div class="variables-section">
+              <div v-if="detectedVariables.length > 0" class="variables-list">
+                <div class="variables-header">
+                  <span>已检测到的变量</span>
+                  <button type="button" class="btn btn-sm btn-secondary" @click="showPreview = true">预览</button>
+                </div>
+                <div v-for="v in detectedVariables" :key="v" class="variable-item">
+                  <span class="variable-key" v-text="wrapVar(v)"></span>
+                  <input
+                    v-model="variableValues[v]"
+                    type="text"
+                    :placeholder="v + ' 的值'"
+                    class="variable-input"
+                  />
+                </div>
+              </div>
+              <div v-else class="variables-empty">
+                <p>在标题或内容中使用 <code v-text="wrapVar('variable')"></code> 格式定义变量</p>
+              </div>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn btn-primary" :disabled="saving">
@@ -99,6 +126,52 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div v-if="showPreview" class="modal-overlay" @click.self="showPreview = false">
+      <div class="modal modal-large">
+        <div class="modal-header">
+          <h3>模板预览</h3>
+          <button class="btn-close" @click="showPreview = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="previewLoading" class="preview-loading">
+            <div class="spinner"></div>
+            <p>生成预览中...</p>
+          </div>
+          <template v-else>
+            <div class="preview-section">
+              <h4>预览结果</h4>
+              <div class="preview-item">
+                <label>标题:</label>
+                <p class="preview-value">{{ previewResult.title || '（空）' }}</p>
+              </div>
+              <div class="preview-item">
+                <label>内容:</label>
+                <p class="preview-value preview-content">{{ previewResult.content || '（空）' }}</p>
+              </div>
+              <div v-if="previewResult.url" class="preview-item">
+                <label>URL:</label>
+                <p class="preview-value preview-url">{{ previewResult.url }}</p>
+              </div>
+            </div>
+            <div class="preview-auto-vars">
+              <h4>自动变量</h4>
+              <div class="auto-vars-grid">
+                <div v-for="(val, key) in autoVarsDisplay" :key="key" class="auto-var">
+                  <code v-text="wrapVar(key)"></code>
+                  <span>=</span>
+                  <span class="auto-var-value">{{ val }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showPreview = false">关闭</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -123,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
@@ -152,9 +225,13 @@ const saving = ref(false);
 const deleting = ref(false);
 const showModal = ref(false);
 const showDeleteConfirm = ref(false);
+const showPreview = ref(false);
 const editingTemplate = ref<PushTemplate | null>(null);
 const deletingTemplate = ref<PushTemplate | null>(null);
 const templates = ref<PushTemplate[]>([]);
+const previewLoading = ref(false);
+const previewResult = ref({ title: '', content: '', url: '' });
+const variableValues = reactive<Record<string, string>>({});
 
 function getChannelName(ch: string): string {
   const channelNameMap: Record<string, string> = {
@@ -203,6 +280,40 @@ const form = reactive({
   channels: [] as PushChannel[],
 });
 
+function wrapVar(name: string): string {
+  return `{{${name}}}`;
+}
+
+const detectedVariables = computed(() => {
+  const varRegex = /\{\{(\w+)\}\}/g;
+  const vars = new Set<string>();
+  const autoVars = new Set(['date', 'time', 'datetime', 'timestamp', 'year', 'month', 'day']);
+  
+  [form.title, form.content, form.url].forEach(text => {
+    if (!text) return;
+    let match;
+    while ((match = varRegex.exec(text)) !== null) {
+      if (!autoVars.has(match[1])) {
+        vars.add(match[1]);
+      }
+    }
+  });
+  
+  return Array.from(vars).sort();
+});
+
+const autoVarsDisplay = computed(() => {
+  const now = new Date();
+  return {
+    date: now.toLocaleDateString('zh-CN'),
+    time: now.toLocaleTimeString('zh-CN'),
+    datetime: now.toLocaleString('zh-CN'),
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0'),
+    day: String(now.getDate()).padStart(2, '0'),
+  };
+});
+
 function openCreateModal() {
   editingTemplate.value = null;
   form.name = '';
@@ -211,6 +322,7 @@ function openCreateModal() {
   form.url = '';
   form.useMarkdown = false;
   form.channels = [];
+  Object.keys(variableValues).forEach(key => delete variableValues[key]);
   showModal.value = true;
 }
 
@@ -222,12 +334,20 @@ function editTemplate(tpl: PushTemplate) {
   form.url = tpl.url || '';
   form.useMarkdown = tpl.useMarkdown || false;
   form.channels = tpl.channels ? [...tpl.channels] : [];
+  
+  if (tpl.variables) {
+    for (const v of tpl.variables) {
+      variableValues[v.key] = v.defaultValue || '';
+    }
+  }
+  
   showModal.value = true;
 }
 
 function closeModal() {
   showModal.value = false;
   editingTemplate.value = null;
+  Object.keys(variableValues).forEach(key => delete variableValues[key]);
 }
 
 function useTemplate(tpl: PushTemplate) {
@@ -254,10 +374,41 @@ async function doDelete() {
   }
 }
 
+async function loadAndPreview() {
+  if (!editingTemplate.value?.id) return;
+  
+  previewLoading.value = true;
+  previewResult.value = { title: '', content: '', url: '' };
+  
+  try {
+    const { previewTemplate } = await import('@/api');
+    const result = await previewTemplate(props.accessToken, editingTemplate.value.id, {
+      variables: { ...variableValues },
+    });
+    previewResult.value = result;
+  } catch (err: any) {
+    showToast(err.message || '预览失败', 'error');
+  } finally {
+    previewLoading.value = false;
+  }
+}
+
+watch(showPreview, (val) => {
+  if (val) {
+    loadAndPreview();
+  }
+});
+
 async function saveTemplate() {
   if (!props.accessToken || !form.name || !form.title) return;
   saving.value = true;
   try {
+    const variables = detectedVariables.value.map(key => ({
+      key,
+      defaultValue: variableValues[key] || '',
+      description: `${key} 变量`,
+    }));
+    
     const templateData = {
       name: form.name,
       title: form.title,
@@ -265,6 +416,7 @@ async function saveTemplate() {
       url: form.url || undefined,
       useMarkdown: form.useMarkdown,
       channels: form.channels.length > 0 ? form.channels : undefined,
+      variables,
     };
 
     if (editingTemplate.value) {
@@ -531,6 +683,10 @@ onMounted(loadTemplates);
   overflow-y: auto;
 }
 
+.modal-large {
+  max-width: 720px;
+}
+
 .modal-small {
   max-width: 420px;
 }
@@ -657,6 +813,12 @@ onMounted(loadTemplates);
   transition: all 0.2s;
 }
 
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  height: 30px;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -689,11 +851,6 @@ onMounted(loadTemplates);
 
 .btn-danger:hover:not(:disabled) {
   background: #ff7875;
-}
-
-.btn-small {
-  padding: 6px 14px;
-  font-size: 13px;
 }
 
 .btn-outline {
@@ -734,5 +891,200 @@ onMounted(loadTemplates);
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.variable-hint {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  margin: 4px 0 0;
+}
+
+.variable-hint code {
+  background: var(--bg-secondary, #f0f0f0);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.variables-section {
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.variables-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.variables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.variable-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.variable-key {
+  font-family: monospace;
+  font-size: 12px;
+  background: var(--bg-panel, white);
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #667eea;
+  min-width: 80px;
+  text-align: center;
+}
+
+.variable-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+}
+
+.variable-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.variables-empty {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-secondary, #666);
+  font-size: 13px;
+}
+
+.variables-empty code {
+  background: var(--bg-panel, white);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #667eea;
+}
+
+.preview-section {
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.preview-section h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.preview-item {
+  margin-bottom: 12px;
+}
+
+.preview-item label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
+}
+
+.preview-value {
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.preview-content {
+  white-space: pre-wrap;
+  background: var(--bg-panel, white);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preview-url {
+  color: #667eea;
+  word-break: break-all;
+}
+
+.preview-auto-vars {
+  background: #f0f4ff;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #d0d9ff;
+}
+
+.preview-auto-vars h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.auto-vars-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.auto-var {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: var(--bg-panel, white);
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.auto-var code {
+  font-family: monospace;
+  color: #667eea;
+  min-width: 90px;
+}
+
+.auto-var-value {
+  color: var(--text-secondary, #666);
+  font-family: monospace;
+}
+
+.preview-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary, #666);
+}
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .modal-large {
+    width: 95%;
+    max-width: 100%;
+  }
+
+  .auto-vars-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .variables-header {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 </style>
