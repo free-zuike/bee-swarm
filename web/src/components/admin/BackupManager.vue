@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { BackupEndpoint } from '@/api';
@@ -80,6 +80,17 @@ function goToBackupPage(page: number) {
   backupPage.value = page;
   selectedBackups.value.clear();
 }
+
+function onPageSizeChange() {
+  backupPage.value = 1;
+  selectedBackups.value.clear();
+}
+
+watch(backupPageSize, (newSize) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('backup_pageSize', String(newSize));
+  }
+});
 
 const editingEndpoint = reactive<Partial<BackupEndpoint>>({
   name: '',
@@ -840,7 +851,7 @@ defineExpose({
               <div v-if="endpointBackups.length > 0" class="backup-pagination">
                 <div class="page-size-selector">
                   <span>{{ t('label.per_page') }}</span>
-                  <select v-model.number="backupPageSize" @change="backupPage = 1; selectedBackups.clear(); typeof localStorage !== 'undefined' && localStorage.setItem('backup_pageSize', String(backupPageSize))">
+                  <select v-model.number="backupPageSize" @change="onPageSizeChange">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                   </select>
                 </div>
