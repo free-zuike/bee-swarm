@@ -3,7 +3,7 @@
     <div class="panel">
       <div class="panel-header">
         <h2> {{ t('scheduled.title') }}</h2>
-        <button class="btn btn-primary" @click="showCreateModal = true" :disabled="creating">
+        <button class="btn btn-primary" @click="openCreateModal" :disabled="creating">
           + {{ t('scheduled.create') }}
         </button>
       </div>
@@ -85,11 +85,11 @@
       </div>
     </div>
 
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
         <div class="modal-header">
           <h3>{{ t('scheduled.create') }}</h3>
-          <button class="btn-close" @click="showCreateModal = false">&times;</button>
+          <button class="btn-close" @click="closeModal">&times;</button>
         </div>
 
         <form @submit.prevent="createScheduledPushHandler" class="modal-body">
@@ -115,23 +115,105 @@
 
           <div class="form-group">
             <label>执行时间</label>
-            <div class="datetime-inputs">
-              <input
-                v-model="newPush.date"
-                type="date"
-                :min="today"
-                required
-              />
-              <input
-                v-model="newPush.time"
-                type="time"
-                required
-              />
+            <div class="schedule-type-selector">
+              <button
+                type="button"
+                class="schedule-type-btn"
+                :class="{ active: scheduleType === 'once' }"
+                @click="scheduleType = 'once'"
+              >
+                单次执行
+              </button>
+              <button
+                type="button"
+                class="schedule-type-btn"
+                :class="{ active: scheduleType === 'recurring' }"
+                @click="scheduleType = 'recurring'"
+              >
+                重复执行
+              </button>
             </div>
-            <div class="quick-schedule">
-              <button type="button" class="btn-quick" @click="setQuickSchedule('1h')">1小时后</button>
-              <button type="button" class="btn-quick" @click="setQuickSchedule('tomorrow')">明天9:00</button>
-              <button type="button" class="btn-quick" @click="setQuickSchedule('nextweek')">下周一</button>
+
+            <div v-if="scheduleType === 'once'" class="datetime-section">
+              <div class="datetime-inputs">
+                <input
+                  v-model="newPush.date"
+                  type="date"
+                  :min="today"
+                  required
+                />
+                <input
+                  v-model="newPush.time"
+                  type="time"
+                  required
+                />
+              </div>
+              <div class="quick-schedule">
+                <button type="button" class="btn-quick" @click="setQuickSchedule('1h')">1小时后</button>
+                <button type="button" class="btn-quick" @click="setQuickSchedule('tomorrow')">明天9:00</button>
+                <button type="button" class="btn-quick" @click="setQuickSchedule('nextweek')">下周一</button>
+              </div>
+            </div>
+
+            <div v-else class="recurring-section">
+              <div class="recurring-options">
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'hourly' }"
+                  @click="recurringType = 'hourly'"
+                >
+                  每小时
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'daily' }"
+                  @click="recurringType = 'daily'"
+                >
+                  每天
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'weekly' }"
+                  @click="recurringType = 'weekly'"
+                >
+                  每周
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'monthly' }"
+                  @click="recurringType = 'monthly'"
+                >
+                  每月
+                </button>
+              </div>
+              <div class="recurring-time">
+                <label class="recurring-time-label">执行时间</label>
+                <input
+                  v-model="newPush.time"
+                  type="time"
+                  class="recurring-time-input"
+                  required
+                />
+              </div>
+              <div v-if="recurringType === 'weekly'" class="weekday-selector">
+                <label class="weekday-label">选择星期</label>
+                <div class="weekday-options">
+                  <button
+                    type="button"
+                    v-for="day in weekDays"
+                    :key="day.value"
+                    class="weekday-btn"
+                    :class="{ active: selectedWeekDays.includes(day.value) }"
+                    @click="toggleWeekDay(day.value)"
+                  >
+                    {{ day.label }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -148,7 +230,7 @@
 
           <div class="form-group">
             <label>使用模板 (可选)</label>
-            <select v-model="newPush.templateId">
+            <select v-model="newPush.templateId" @change="onTemplateChange">
               <option value="">不使用模板</option>
               <option v-for="t in templates" :key="t.id" :value="t.id">
                 {{ t.name }} ({{ t.channel }})
@@ -220,6 +302,20 @@ const filterStatus = ref<string>('all');
 
 const today = new Date().toISOString().split('T')[0];
 
+const scheduleType = ref<'once' | 'recurring'>('once');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly'>('daily');
+const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
+
+const weekDays = [
+  { value: 1, label: '一' },
+  { value: 2, label: '二' },
+  { value: 3, label: '三' },
+  { value: 4, label: '四' },
+  { value: 5, label: '五' },
+  { value: 6, label: '六' },
+  { value: 0, label: '日' }
+];
+
 const statusFilters = [
   { value: 'all', label: '全部' },
   { value: 'pending', label: '待执行' },
@@ -286,6 +382,40 @@ function formatDateTime(dateStr: string): string {
   });
 }
 
+function toggleWeekDay(day: number) {
+  const idx = selectedWeekDays.value.indexOf(day);
+  if (idx === -1) {
+    selectedWeekDays.value.push(day);
+  } else {
+    selectedWeekDays.value.splice(idx, 1);
+  }
+}
+
+function resetForm() {
+  newPush.value = {
+    name: '',
+    content: '',
+    date: today,
+    time: '09:00',
+    channels: [],
+    templateId: '',
+    maxRetries: 3
+  };
+  scheduleType.value = 'once';
+  recurringType.value = 'daily';
+  selectedWeekDays.value = [1, 2, 3, 4, 5];
+}
+
+async function openCreateModal() {
+  resetForm();
+  showCreateModal.value = true;
+}
+
+function closeModal() {
+  showCreateModal.value = false;
+  resetForm();
+}
+
 function setQuickSchedule(type: string) {
   const now = new Date();
   switch (type) {
@@ -304,6 +434,14 @@ function setQuickSchedule(type: string) {
   }
   newPush.value.date = now.toISOString().split('T')[0];
   newPush.value.time = now.toTimeString().slice(0, 5);
+}
+
+function onTemplateChange() {
+  const template = templates.value.find(t => t.id === newPush.value.templateId);
+  if (template) {
+    newPush.value.name = template.name;
+    newPush.value.content = template.content;
+  }
 }
 
 async function loadScheduledPushes() {
@@ -818,6 +956,121 @@ watch(() => props.accessToken, () => {
 
 .btn-quick:hover {
   border-color: #667eea;
+}
+
+.schedule-type-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.schedule-type-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #666);
+}
+
+.schedule-type-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  color: #667eea;
+}
+
+.datetime-section {
+  margin-top: 12px;
+}
+
+.recurring-section {
+  margin-top: 12px;
+}
+
+.recurring-options {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.recurring-btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #666);
+}
+
+.recurring-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  color: #667eea;
+}
+
+.recurring-time {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recurring-time-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
+}
+
+.recurring-time-input {
+  flex: 1;
+  max-width: 120px;
+}
+
+.weekday-selector {
+  margin-top: 12px;
+}
+
+.weekday-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 8px;
+}
+
+.weekday-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.weekday-btn {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #666);
+}
+
+.weekday-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .channels-grid {
