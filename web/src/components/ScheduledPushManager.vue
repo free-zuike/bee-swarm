@@ -32,53 +32,39 @@
         </div>
 
         <div class="push-cards">
-          <div v-for="push in filteredPushes" :key="push.id" class="push-card" :class="`status-${push.status}`">
-            <div class="card-header">
-              <span class="status-badge" :class="push.status">{{ getStatusLabel(push.status) }}</span>
-              <div class="card-actions">
-                <button v-if="push.status === 'pending'" class="btn-icon" @click="cancelPush(push.id)" title="取消">❌</button>
-                <button class="btn-icon" @click="deletePush(push.id)" title="删除">🗑️</button>
-              </div>
-            </div>
-
-            <div class="card-body">
-              <h4 class="push-title">{{ push.name }}</h4>
-              <p class="push-content">{{ push.content }}</p>
-
-              <div class="push-meta">
-                <div class="meta-item">
-                  <span class="meta-label">执行时间:</span>
-                  <span class="meta-value">{{ formatDateTime(push.scheduledTime) }}</span>
+          <div v-for="push in filteredPushes" :key="push.id" class="push-card">
+            <div class="push-main">
+              <div class="push-top">
+                <div class="push-name-row">
+                  <h3 class="push-name">{{ push.title }}</h3>
+                  <span class="status-badge" :class="push.status">{{ getStatusLabel(push.status) }}</span>
                 </div>
-                <div class="meta-item">
-                  <span class="meta-label">渠道:</span>
-                  <span class="meta-value channels">
-                    <span v-for="ch in push.channels" :key="ch" class="channel-tag">{{ ch }}</span>
+              </div>
+              <div class="push-body">
+                <div class="field-row">
+                  <span class="field-label">执行时间</span>
+                  <span class="field-value">{{ formatDateTime(push.scheduledAt) }}</span>
+                </div>
+                <div class="field-row">
+                  <span class="field-label">渠道</span>
+                  <span class="field-value channels">
+                    <span v-for="ch in push.channels" :key="ch" class="tag tag-channel">{{ getChannelName(ch) }}</span>
                   </span>
                 </div>
-                <div class="meta-item" v-if="push.templateId">
-                  <span class="meta-label">模板:</span>
-                  <span class="meta-value">{{ push.templateId }}</span>
+                <div class="field-row" v-if="push.content">
+                  <span class="field-label">内容</span>
+                  <span class="field-value">{{ push.content }}</span>
                 </div>
-              </div>
-
-              <div v-if="push.metadata" class="push-metadata">
-                <div class="meta-item" v-if="push.metadata.retries !== undefined">
-                  <span class="meta-label">重试次数:</span>
-                  <span class="meta-value">{{ push.metadata.retries }}/{{ push.metadata.maxRetries || 3 }}</span>
-                </div>
-                <div v-if="push.metadata.lastError" class="error-info">
-                  <span class="meta-label">最后错误:</span>
-                  <span class="meta-value error">{{ push.metadata.lastError }}</span>
+                <div class="field-row" v-if="push.templateId">
+                  <span class="field-label">模板</span>
+                  <span class="field-value">{{ getTemplateName(push.templateId) }}</span>
                 </div>
               </div>
             </div>
-
-            <div class="card-footer">
-              <span class="created-at">创建于 {{ formatDateTime(push.createdAt) }}</span>
-              <button v-if="push.status === 'pending'" class="btn btn-small btn-secondary" @click="testPush(push)">
-                测试执行
-              </button>
+            <div class="push-actions">
+              <button v-if="push.status === 'pending'" class="action-btn action-test" @click="testPush(push)">测试</button>
+              <button v-if="push.status === 'pending'" class="action-btn action-cancel" @click="cancelPush(push.id)">取消</button>
+              <button class="action-btn action-delete" @click="deletePush(push.id)">删除</button>
             </div>
           </div>
         </div>
@@ -305,19 +291,13 @@ import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteSch
 
 interface ScheduledPush {
   id: string;
-  name: string;
+  title: string;
   content: string;
-  scheduledTime: string;
+  scheduledAt: string;
   channels: string[];
   templateId?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  createdAt: string;
-  metadata?: {
-    retries?: number;
-    maxRetries?: number;
-    lastError?: string;
-    lastRunAt?: string;
-  };
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  createdBy?: string;
 }
 
 interface Template {
@@ -362,10 +342,9 @@ const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const statusFilters = [
   { value: 'all', label: '全部' },
   { value: 'pending', label: '待执行' },
-  { value: 'running', label: '执行中' },
+  { value: 'processing', label: '执行中' },
   { value: 'completed', label: '已完成' },
-  { value: 'failed', label: '失败' },
-  { value: 'cancelled', label: '已取消' }
+  { value: 'failed', label: '失败' }
 ];
 
 const availableChannels = [
@@ -414,7 +393,9 @@ function getStatusLabel(status: string): string {
 }
 
 function formatDateTime(dateStr: string): string {
+  if (!dateStr) return '-';
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -422,6 +403,27 @@ function formatDateTime(dateStr: string): string {
     hour: '2-digit',
     minute: '2-digit'
   });
+}
+
+function getChannelName(ch: string): string {
+  const channelMap: Record<string, string> = {
+    wework: '企业微信',
+    dingtalk: '钉钉',
+    feishu: '飞书',
+    telegram: 'Telegram',
+    bark: 'Bark',
+    ntfy: 'Ntfy',
+    email: '邮件',
+    slack: 'Slack',
+    discord: 'Discord',
+    webpush: 'Web Push',
+  };
+  return channelMap[ch] || ch;
+}
+
+function getTemplateName(templateId: string): string {
+  const template = templates.value.find(t => t.id === templateId);
+  return template ? template.name : templateId;
 }
 
 function toggleWeekDay(day: number) {
@@ -736,48 +738,88 @@ watch(() => props.accessToken, () => {
 }
 
 .push-cards {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .push-card {
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 10px;
-  padding: 16px;
-  border: 1px solid var(--border-color, #f0f0f0);
-  border-left: 4px solid var(--border-color, #e0e0e0);
-  transition: all 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.25s ease;
+  overflow: hidden;
 }
 
 .push-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: #e0e0e0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
-.push-card.status-pending {
-  border-left-color: #667eea;
+.push-main {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
 }
 
-.push-card.status-running {
-  border-left-color: #faad14;
+.push-top {
+  margin-bottom: 16px;
 }
 
-.push-card.status-completed {
-  border-left-color: #52c41a;
-}
-
-.push-card.status-failed {
-  border-left-color: #ff4d4f;
-}
-
-.push-card.status-cancelled {
-  border-left-color: #999;
-}
-
-.card-header {
+.push-name-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.push-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.push-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.field-label {
+  color: #999;
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.field-value {
+  color: #333;
+}
+
+.field-value.channels {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.push-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding: 20px;
+  border-left: 1px solid #f5f5f5;
+  background: #fafafa;
 }
 
 .status-badge {
@@ -792,7 +834,7 @@ watch(() => props.accessToken, () => {
   color: #667eea;
 }
 
-.status-badge.running {
+.status-badge.processing {
   background: #faad1420;
   color: #faad14;
 }
@@ -807,109 +849,44 @@ watch(() => props.accessToken, () => {
   color: #ff4d4f;
 }
 
-.status-badge.cancelled {
-  background: #e8e8e8;
-  color: #999;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-icon {
-  background: none;
+.action-btn {
+  padding: 8px 16px;
+  font-size: 13px;
   border: none;
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  border-radius: 6px;
-  transition: background 0.2s;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: center;
+  min-width: 60px;
 }
 
-.btn-icon:hover {
-  background: #e8e8e8;
+.action-test {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
 }
 
-.card-body {
-  margin-bottom: 12px;
+.action-test:hover {
+  opacity: 0.9;
 }
 
-.push-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-  color: var(--text-primary, #1a1a2e);
+.action-cancel {
+  background: #faad14;
+  color: white;
 }
 
-.push-content {
-  margin: 0 0 12px;
-  color: var(--text-secondary, #666);
-  font-size: 13px;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.action-cancel:hover {
+  background: #d99a0b;
 }
 
-.push-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.action-delete {
+  background: #ff4757;
+  color: white;
+  border-radius: 0 0 8px 8px;
 }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.meta-label {
-  color: #999;
-  min-width: 70px;
-}
-
-.meta-value {
-  color: var(--text-primary, #333);
-}
-
-.meta-value.channels {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.channel-tag {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #e8e8e8;
-  color: #666;
-}
-
-.push-metadata {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--border-color, #f0f0f0);
-}
-
-.error-info .meta-value.error {
-  color: #ff4d4f;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color, #f0f0f0);
-}
-
-.created-at {
-  font-size: 12px;
-  color: #999;
+.action-delete:hover {
+  background: #ff3742;
 }
 
 .modal-overlay {
