@@ -547,12 +547,15 @@ export async function getPushHistory(
   const pageSize = options.pageSize || 20;
   const page = options.page || 1;
 
-  // 先获取 total（遍历计数，避免分页时 total 不准确）
+  // 先获取 total 并收集所有键
   let total = 0;
   let cursor: string | undefined;
   let listComplete = false;
+  const allKeys: string[] = [];
   do {
     const list = await env.SUBSCRIPTIONS.list({ prefix, limit: 100, cursor });
+    const keys = list.keys.map((k) => k.name);
+    allKeys.push(...keys);
     total += list.keys.length;
     cursor = (list as { cursor?: string }).cursor;
     listComplete = list.list_complete ?? false;
@@ -560,24 +563,20 @@ export async function getPushHistory(
 
   if (total === 0) return { records: [], total: 0, hasMore: false };
 
-  // 获取当前页数据
-  const limit = pageSize + 1;
+  // 按时间戳降序排序（键名包含时间戳，降序即最新的在前）
+  const sortedKeys = allKeys.sort((a, b) => b.localeCompare(a));
+  const limit = pageSize;
   const skip = (page - 1) * pageSize;
-  const list = await env.SUBSCRIPTIONS.list({ prefix, limit, cursor: undefined });
-
-  if (list.keys.length === 0) return { records: [], total, hasMore: false };
-
-  const sortedKeys = [...list.keys].sort((a, b) => b.name.localeCompare(a.name));
   const pageKeys = sortedKeys.slice(skip, skip + limit);
+
   const readPromises = pageKeys.map(async (key) => {
-    const data = await env.SUBSCRIPTIONS.get(key.name);
+    const data = await env.SUBSCRIPTIONS.get(key);
     return data ? (JSON.parse(data) as PushHistoryRecord) : null;
   });
 
   const results = await Promise.all(readPromises);
   const records = results.filter((r): r is PushHistoryRecord => r !== null);
-  const hasMore = records.length > pageSize;
-  if (hasMore) records.pop();
+  const hasMore = skip + limit < total;
 
   return { records, total, hasMore };
 }
