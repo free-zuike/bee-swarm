@@ -377,8 +377,7 @@ const availableChannels = [
   { id: 'ntfy', name: 'Ntfy', icon: '🔔' },
   { id: 'email', name: '邮件', icon: '' },
   { id: 'slack', name: 'Slack', icon: '💼' },
-  { id: 'discord', name: 'Discord', icon: '🎮' },
-  { id: 'webpush', name: 'Web Push', icon: '🌐' }
+  { id: 'discord', name: 'Discord', icon: '🎮' }
 ];
 
 const newPush = ref({
