@@ -27,6 +27,10 @@ import {
   sendServerchan,
   sendPushplus,
   sendWebhook,
+  sendGotify,
+  sendLineNotify,
+  sendTeams,
+  sendPushover,
   WeworkChannel,
   DingtalkChannel,
   FeishuChannel,
@@ -39,6 +43,10 @@ import {
   ServerchanChannel,
   PushplusChannel,
   WebhookChannel,
+  GotifyChannel,
+  LineNotifyChannel,
+  TeamsChannel,
+  PushoverChannel,
 } from './channels';
 
 interface PushHistoryRecord {
@@ -312,6 +320,97 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
         type: 'text',
         placeholder:
           'JSON 格式，支持变量 {{title}}, {{body}}, {{url}}, {{imageUrl}}, {{timestamp}}',
+        required: false,
+      },
+    ],
+  },
+  {
+    id: 'gotify',
+    name: 'Gotify',
+    icon: '🔔',
+    fields: [
+      {
+        key: 'server',
+        label: '服务器地址',
+        type: 'url',
+        placeholder: 'https://gotify.example.com',
+        required: true,
+      },
+      {
+        key: 'token',
+        label: 'Application Token',
+        type: 'password',
+        placeholder: '你的 Gotify Token',
+        required: true,
+      },
+      {
+        key: 'priority',
+        label: '优先级',
+        type: 'text',
+        placeholder: '5（默认 0-10）',
+        required: false,
+      },
+    ],
+  },
+  {
+    id: 'line',
+    name: 'LINE Notify',
+    icon: '💬',
+    fields: [
+      {
+        key: 'token',
+        label: 'Access Token',
+        type: 'password',
+        placeholder: '你的 LINE Notify Token',
+        required: true,
+      },
+    ],
+  },
+  {
+    id: 'teams',
+    name: 'Microsoft Teams',
+    icon: '🤝',
+    fields: [
+      {
+        key: 'webhook_url',
+        label: 'Incoming Webhook URL',
+        type: 'url',
+        placeholder: '你的 Microsoft Teams Webhook URL',
+        required: true,
+      },
+    ],
+  },
+  {
+    id: 'pushover',
+    name: 'Pushover',
+    icon: '🔔',
+    fields: [
+      {
+        key: 'user',
+        label: 'User Key',
+        type: 'password',
+        placeholder: '你的 Pushover User Key',
+        required: true,
+      },
+      {
+        key: 'token',
+        label: 'API Token',
+        type: 'password',
+        placeholder: '你的 Pushover API Token',
+        required: true,
+      },
+      {
+        key: 'priority',
+        label: '优先级',
+        type: 'text',
+        placeholder: '0（默认 -2 到 2）',
+        required: false,
+      },
+      {
+        key: 'sound',
+        label: '通知声音',
+        type: 'text',
+        placeholder: 'pushover（可选）',
         required: false,
       },
     ],
@@ -627,6 +726,14 @@ async function sendToChannel(
       return sendPushplus(payload, channelEnv);
     case 'webhook':
       return sendWebhook(channelEnv, payload);
+    case 'gotify':
+      return sendGotify(payload, channelEnv);
+    case 'line':
+      return sendLineNotify(payload, channelEnv);
+    case 'teams':
+      return sendTeams(payload, channelEnv);
+    case 'pushover':
+      return sendPushover(payload, channelEnv);
     default:
       return { channel, success: false, message: `未知渠道: ${channel}` };
   }
@@ -896,6 +1003,26 @@ export async function healthCheckChannel(
       }
       case 'webhook': {
         const channel = new WebhookChannel(channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'gotify': {
+        const channel = new GotifyChannel(channelId, channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'line': {
+        const channel = new LineNotifyChannel(channelId, channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'teams': {
+        const channel = new TeamsChannel(channelId, channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'pushover': {
+        const channel = new PushoverChannel(channelId, channelEnv);
         const result = await channel.healthCheck();
         return { channel: channelId, ...result };
       }

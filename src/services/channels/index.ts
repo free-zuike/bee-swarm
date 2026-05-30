@@ -13,3 +13,7 @@ export { EmailChannel, sendEmail } from './email';
 export { ServerchanChannel, sendServerchan } from './serverchan';
 export { PushplusChannel, sendPushplus } from './pushplus';
 export { WebhookChannel, sendWebhook } from './webhook';
+export { GotifyChannel, sendGotify } from './gotify';
+export { LineNotifyChannel, sendLineNotify } from './line';
+export { TeamsChannel, sendTeams } from './teams';
+export { PushoverChannel, sendPushover } from './pushover';

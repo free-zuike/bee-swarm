@@ -37,7 +37,11 @@ export type PushChannel =
   | 'discord'
   | 'serverchan'
   | 'pushplus'
-  | 'webhook';
+  | 'webhook'
+  | 'gotify'
+  | 'line'
+  | 'teams'
+  | 'pushover';
 
 /**
  * 推送请求
