@@ -68,7 +68,7 @@
           <h3>{{ t('dashboard.channelStats') }}</h3>
           <div class="channel-stats-grid">
             <div v-for="(data, channel) in metrics.byChannel" :key="channel" class="channel-stat-card">
-              <div class="channel-name">{{ channel }}</div>
+              <div class="channel-name">{{ getChannelName(channel) }}</div>
               <div class="channel-values">
                 <span class="success-val">✓ {{ data.success }}</span>
                 <span class="failed-val"> {{ data.failed }}</span>
@@ -109,6 +109,23 @@ const stats = ref({
 });
 const metrics = ref<{ total: number; success: number; failed: number; byChannel: Record<string, { success: number; failed: number }>; avgLatency: number } | null>(null);
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+const channelNameMap: Record<string, string> = {
+  wework: '企业微信',
+  dingtalk: '钉钉',
+  feishu: '飞书',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  slack: 'Slack',
+  mail: '邮件',
+  webhook: 'Webhook',
+  bark: 'Bark',
+  pushplus: 'PushPlus',
+};
+
+function getChannelName(channelId: string): string {
+  return channelNameMap[channelId] || channelId;
+}
 
 const successRate = computed(() => {
   const total = stats.value.session.total;
