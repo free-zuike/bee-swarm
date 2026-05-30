@@ -256,7 +256,7 @@ export class PushService {
     return processed;
   }
 
-  private async updateScheduledPushStatus(
+  async updateScheduledPushStatus(
     id: string,
     status: ScheduledPush['status']
   ): Promise<void> {
