@@ -21,6 +21,21 @@ export class ServerchanChannel extends BaseChannel {
     }
   }
 
+  private getErrorMessage(code: number, data?: { error?: string }): string {
+    const errorMessages: Record<number, string> = {
+      400: '请求参数错误',
+      401: 'SendKey 无效',
+      403: '接口调用被拒绝',
+      404: 'SendKey 不存在',
+      429: '推送频率超限，请稍后重试',
+      500: 'Server酱 服务器错误',
+      550: '该通道消息发送功能被禁用',
+      552: '群发消息超过限制',
+      553: '该消息被判定为无效',
+    };
+    return errorMessages[code] || data?.error || `未知错误 (code: ${code})`;
+  }
+
   async send(payload: ChannelPayload): Promise<ChannelResult> {
     const key = this.config.key;
     if (!key) {
@@ -58,7 +73,7 @@ export class ServerchanChannel extends BaseChannel {
       return {
         channel: 'serverchan',
         success: false,
-        message: `Server酱 推送失败: ${data.message || '未知错误'}`,
+        message: `Server酱 推送失败: ${this.getErrorMessage(data.code, data.data)}`,
       };
     } catch (err) {
       return {

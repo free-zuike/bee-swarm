@@ -8,6 +8,7 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
 import { createAuditLogger, type AuditAction } from '../utils/audit';
+import { rateLimit } from '../middleware/rateLimit';
 import {
   dispatchPush,
   dispatchPushWithOptions,
@@ -37,17 +38,24 @@ api.use('/*', cors());
 // 公开接口
 // ============================================
 
-api.post('/register', validateBody(schemas.register), async (c) => {
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: '注册操作过于频繁，请稍后再试',
+});
+
+api.post('/register', registerLimiter, validateBody(schemas.register), async (c) => {
   const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
   const { email, password } = body;
 
   const existing = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
-  if (!existing) {
-    const hashed = await hashPassword(password);
-    await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
+  if (existing) {
+    return c.json({ success: false, message: '操作失败，请稍后重试' }, 400);
   }
 
-  // 记录注册日志
+  const hashed = await hashPassword(password);
+  await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify({ password: hashed }));
+
   try {
     const auditLogger = createAuditLogger(c.env, email);
     await auditLogger.log('register', {});
@@ -55,7 +63,6 @@ api.post('/register', validateBody(schemas.register), async (c) => {
     // 审计日志失败不影响主流程
   }
 
-  // 统一返回成功，防止邮箱枚举攻击
   return c.json({ success: true, message: '注册成功' });
 });
 
@@ -181,11 +188,19 @@ api.post('/apikey', validateBody(schemas.apikey), async (c) => {
     await c.env.SUBSCRIPTIONS.delete(`apikey_index:${user.apikey}`);
   }
 
+  const oldApikey = user.apikey;
   user.apikey = newApikey;
   await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify(user));
-  await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, username, {
-    expirationTtl: 365 * 24 * 60 * 60,
-  });
+
+  try {
+    await c.env.SUBSCRIPTIONS.put(`apikey_index:${newApikey}`, username, {
+      expirationTtl: 365 * 24 * 60 * 60,
+    });
+  } catch {
+    user.apikey = oldApikey;
+    await c.env.SUBSCRIPTIONS.put(`user:${username}`, JSON.stringify(user));
+    return c.json({ error: 'API Key 生成失败，请重试', code: 'INTERNAL_ERROR' }, 500);
+  }
 
   return c.json({ apikey: newApikey, message: 'API Key 已生成' });
 });
@@ -215,13 +230,24 @@ api.post('/token', validateBody(schemas.token), async (c) => {
     await c.env.SUBSCRIPTIONS.delete(`token_index:${user.token}`);
   }
 
+  const oldToken = user.token;
+  const oldRefreshToken = user.refreshToken;
   user.token = token;
   user.refreshToken = refreshToken;
   user.expiresAt = expiresAt;
   user.refreshExpiresAt = refreshExpiresAt;
   await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify(user));
 
-  await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, email, { expirationTtl: 7 * 24 * 60 * 60 });
+  try {
+    await c.env.SUBSCRIPTIONS.put(`token_index:${token}`, email, {
+      expirationTtl: 7 * 24 * 60 * 60,
+    });
+  } catch {
+    user.token = oldToken;
+    user.refreshToken = oldRefreshToken;
+    await c.env.SUBSCRIPTIONS.put(`user:${email}`, JSON.stringify(user));
+    return c.json({ error: '登录失败，请重试', code: 'INTERNAL_ERROR' }, 500);
+  }
 
   return c.json({ token, refreshToken, expiresAt });
 });

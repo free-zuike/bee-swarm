@@ -18,6 +18,19 @@ export class BarkChannel extends BaseChannel {
     }
   }
 
+  private getErrorMessage(code: number, defaultMsg?: string): string {
+    const errorMessages: Record<number, string> = {
+      400: '请求参数错误',
+      401: 'Bark Key 无效或已过期',
+      403: '服务器拒绝请求',
+      404: '设备未注册',
+      409: '推送内容包含违规信息',
+      429: '推送频率超限，请稍后重试',
+      500: 'Bark 服务器内部错误',
+    };
+    return errorMessages[code] || defaultMsg || `未知错误 (code: ${code})`;
+  }
+
   async send(payload: ChannelPayload): Promise<ChannelResult> {
     const key = this.config.key;
     if (!key) {
@@ -45,7 +58,11 @@ export class BarkChannel extends BaseChannel {
         return { channel: 'bark', success: true, message: 'Bark 推送成功' };
       }
 
-      return { channel: 'bark', success: false, message: `Bark 推送失败: ${data.message}` };
+      return {
+        channel: 'bark',
+        success: false,
+        message: `Bark 推送失败: ${this.getErrorMessage(data.code, data.message)}`,
+      };
     } catch (err) {
       return {
         channel: 'bark',

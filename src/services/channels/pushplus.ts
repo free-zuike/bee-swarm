@@ -25,6 +25,21 @@ export class PushplusChannel extends BaseChannel {
     }
   }
 
+  private getErrorMessage(code: number, msg?: string): string {
+    const errorMessages: Record<number, string> = {
+      400: '请求参数错误',
+      401: 'Token 无效',
+      403: '接口调用被拒绝',
+      404: 'Token 不存在',
+      429: '请求过于频繁，请稍后重试',
+      500: 'PushPlus 服务器错误',
+      600: '通道不支持该模板',
+      601: '模板不存在',
+      700: '积分不足',
+    };
+    return errorMessages[code] || msg || `未知错误 (code: ${code})`;
+  }
+
   async send(payload: ChannelPayload): Promise<ChannelResult> {
     const token = this.config.token;
     if (!token) {
@@ -63,7 +78,7 @@ export class PushplusChannel extends BaseChannel {
       return {
         channel: 'pushplus',
         success: false,
-        message: `PushPlus 推送失败: ${data.msg || '未知错误'}`,
+        message: `PushPlus 推送失败: ${this.getErrorMessage(data.code, data.msg)}`,
       };
     } catch (err) {
       return {

@@ -599,12 +599,15 @@ export async function getPushHistory(
   const prefix = `user:${username}:push:`;
   const pageSize = options.pageSize || 20;
   const page = options.page || 1;
+  const limit = pageSize + 1;
+  const skip = (page - 1) * pageSize;
 
-  // 先获取 total 并收集所有键
+  const hasFilters = options.channel || options.status || options.keyword;
   let total = 0;
   let cursor: string | undefined;
   let listComplete = false;
   const allKeys: string[] = [];
+
   do {
     const list = await env.SUBSCRIPTIONS.list({ prefix, limit: 100, cursor });
     const keys = list.keys.map((k) => k.name);
@@ -612,16 +615,17 @@ export async function getPushHistory(
     total += list.keys.length;
     cursor = (list as { cursor?: string }).cursor;
     listComplete = list.list_complete ?? false;
-  } while (cursor && !listComplete);
 
-  if (total === 0) return { records: [], total: 0, hasMore: false };
+    if (total > skip + limit * 2 && !hasFilters) {
+      listComplete = true;
+    }
+  } while (cursor && !listComplete && (hasFilters || total <= skip + limit * 2));
 
-  // 按时间戳降序排序（键名包含时间戳，降序即最新的在前）
+  if (allKeys.length === 0) return { records: [], total: 0, hasMore: false };
+
   const sortedKeys = allKeys.sort((a, b) => b.localeCompare(a));
 
-  // 如果需要过滤，先读取所有记录进行过滤
-  let filteredKeys = sortedKeys;
-  if (options.channel || options.status || options.keyword) {
+  if (hasFilters) {
     const allRecords = await Promise.all(
       sortedKeys.map(async (key) => {
         const data = await env.SUBSCRIPTIONS.get(key);
@@ -629,18 +633,14 @@ export async function getPushHistory(
       })
     );
 
-    filteredKeys = [];
+    const filtered: Array<{ key: string; record: PushHistoryRecord }> = [];
     for (let i = 0; i < sortedKeys.length; i++) {
       const record = allRecords[i];
       if (!record) continue;
 
-      // 渠道过滤
       if (options.channel && !record.channels.includes(options.channel)) continue;
-
-      // 状态过滤
       if (options.status && record.status !== options.status) continue;
 
-      // 关键词搜索（标题和内容）
       if (options.keyword) {
         const kw = options.keyword.toLowerCase();
         const matchTitle = record.title?.toLowerCase().includes(kw);
@@ -648,23 +648,28 @@ export async function getPushHistory(
         if (!matchTitle && !matchBody) continue;
       }
 
-      filteredKeys.push(sortedKeys[i]);
+      filtered.push({ key: sortedKeys[i], record });
     }
-    total = filteredKeys.length;
+
+    total = filtered.length;
+    const pageItems = filtered.slice(skip, skip + pageSize);
+    const records = pageItems.map((item) => item.record);
+    const hasMore = skip + pageSize < total;
+
+    return { records, total, hasMore };
   }
 
-  const limit = pageSize;
-  const skip = (page - 1) * pageSize;
-  const pageKeys = filteredKeys.slice(skip, skip + limit);
+  const pageKeys = sortedKeys.slice(skip, skip + pageSize);
+  const records: PushHistoryRecord[] = [];
 
-  const readPromises = pageKeys.map(async (key) => {
+  for (const key of pageKeys) {
     const data = await env.SUBSCRIPTIONS.get(key);
-    return data ? (JSON.parse(data) as PushHistoryRecord) : null;
-  });
+    if (data) {
+      records.push(JSON.parse(data) as PushHistoryRecord);
+    }
+  }
 
-  const results = await Promise.all(readPromises);
-  const records = results.filter((r): r is PushHistoryRecord => r !== null);
-  const hasMore = skip + limit < total;
+  const hasMore = sortedKeys.length > skip + pageSize;
 
   return { records, total, hasMore };
 }

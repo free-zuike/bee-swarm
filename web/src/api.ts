@@ -37,6 +37,18 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function subscribeTokenRefresh(callback: (token: string) => void) {
+  refreshSubscribers.push(callback);
+}
+
+function onTokenRefreshed(newToken: string) {
+  refreshSubscribers.forEach((callback) => callback(newToken));
+  refreshSubscribers = [];
+}
+
 /** 带 Token 的请求 */
 async function tokenRequest<T>(url: string, token: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -44,18 +56,79 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
     'X-Token': token,
   };
   const res = await fetch(url, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem('bee_swarm_token');
-      localStorage.removeItem('bee_swarm_refresh_token');
-      localStorage.removeItem('bee_swarm_expires_at');
-      if (window.location.pathname !== '/') {
-        window.location.href = '/';
+
+  if (res.status === 401) {
+    const storedRefreshToken = localStorage.getItem('bee_swarm_refresh_token');
+
+    if (storedRefreshToken && !isRefreshing) {
+      isRefreshing = true;
+
+      try {
+        const newTokens = await refreshToken(storedRefreshToken);
+        localStorage.setItem('bee_swarm_token', newTokens.token);
+        localStorage.setItem('bee_swarm_refresh_token', newTokens.refreshToken);
+        localStorage.setItem('bee_swarm_expires_at', String(newTokens.expiresAt));
+
+        onTokenRefreshed(newTokens.token);
+        isRefreshing = false;
+
+        const newHeaders = { ...headers, 'X-Token': newTokens.token };
+        const retryRes = await fetch(url, { ...options, headers: newHeaders });
+
+        if (!retryRes.ok) {
+          if (retryRes.status === 401) {
+            clearAuthAndRedirect();
+          }
+          throw await handleResponseError(retryRes);
+        }
+
+        return retryRes.json() as Promise<T>;
+      } catch {
+        isRefreshing = false;
+        clearAuthAndRedirect();
+        throw new Error('认证已过期，请重新登录');
       }
+    } else if (refreshSubscribers.length > 0) {
+      return new Promise((resolve, reject) => {
+        subscribeTokenRefresh(async (newToken) => {
+          try {
+            const newHeaders = { ...headers, 'X-Token': newToken };
+            const retryRes = await fetch(url, { ...options, headers: newHeaders });
+
+            if (!retryRes.ok) {
+              if (retryRes.status === 401) {
+                clearAuthAndRedirect();
+              }
+              throw await handleResponseError(retryRes);
+            }
+
+            resolve(retryRes.json() as Promise<T>);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+    } else {
+      clearAuthAndRedirect();
     }
+
     throw await handleResponseError(res);
   }
+
+  if (!res.ok) {
+    throw await handleResponseError(res);
+  }
+
   return res.json() as Promise<T>;
+}
+
+function clearAuthAndRedirect() {
+  localStorage.removeItem('bee_swarm_token');
+  localStorage.removeItem('bee_swarm_refresh_token');
+  localStorage.removeItem('bee_swarm_expires_at');
+  if (window.location.pathname !== '/') {
+    window.location.href = '/';
+  }
 }
 
 // -------------------------------------------
