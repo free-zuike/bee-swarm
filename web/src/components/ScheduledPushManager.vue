@@ -62,9 +62,9 @@
               </div>
             </div>
             <div class="push-actions">
-              <button v-if="push.status === 'pending'" class="action-btn action-test" @click="testPush(push)">测试</button>
-              <button v-if="push.status === 'pending'" class="action-btn action-cancel" @click="cancelPush(push.id)">取消</button>
-              <button class="action-btn action-delete" @click="deletePush(push.id)">删除</button>
+              <button v-if="push.status === 'pending'" class="action-btn action-test" @click="confirmTestPush(push)">测试</button>
+              <button v-if="push.status === 'pending'" class="action-btn action-cancel" @click="confirmCancelPush(push)">取消</button>
+              <button class="action-btn action-delete" @click="confirmDeletePush(push)">删除</button>
             </div>
           </div>
         </div>
@@ -281,6 +281,60 @@
         </form>
       </div>
     </div>
+
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false; actionTarget = null">
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>确认删除</h3>
+          <button class="btn-close" @click="showDeleteConfirm = false; actionTarget = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要删除定时推送「{{ actionTarget?.title }}」吗？</p>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showDeleteConfirm = false; actionTarget = null">{{ t('common.cancel') }}</button>
+            <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
+              {{ deleting ? '删除中...' : t('common.delete') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showCancelConfirm" class="modal-overlay" @click.self="showCancelConfirm = false; actionTarget = null">
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>确认取消</h3>
+          <button class="btn-close" @click="showCancelConfirm = false; actionTarget = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要取消定时推送「{{ actionTarget?.title }}」吗？</p>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showCancelConfirm = false; actionTarget = null">{{ t('common.cancel') }}</button>
+            <button class="btn btn-danger" @click="doCancel" :disabled="deleting">
+              {{ deleting ? '取消中...' : '确认取消' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showTestConfirm" class="modal-overlay" @click.self="showTestConfirm = false; actionTarget = null">
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>确认测试</h3>
+          <button class="btn-close" @click="showTestConfirm = false; actionTarget = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要立即执行推送「{{ actionTarget?.title }}」进行测试吗？</p>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showTestConfirm = false; actionTarget = null">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" @click="doTest" :disabled="testRunning">
+              {{ testRunning ? '执行中...' : '确认执行' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -314,10 +368,16 @@ const props = defineProps<{
 
 const loading = ref(false);
 const creating = ref(false);
-const scheduledPushes = ref<ScheduledPush[]>([]);
-const templates = ref<Template[]>([]);
-const showCreateModal = ref(false);
-const filterStatus = ref<string>('all');
+  const deleting = ref(false);
+  const testRunning = ref(false);
+  const scheduledPushes = ref<ScheduledPush[]>([]);
+  const templates = ref<Template[]>([]);
+  const showCreateModal = ref(false);
+  const showDeleteConfirm = ref(false);
+  const showTestConfirm = ref(false);
+  const showCancelConfirm = ref(false);
+  const actionTarget = ref<ScheduledPush | null>(null);
+  const filterStatus = ref<string>('all');
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -603,50 +663,75 @@ async function createScheduledPushHandler() {
   }
 }
 
-async function cancelPush(id: string) {
-  if (!props.accessToken) return;
-  if (!confirm('确定要取消这个定时推送吗？')) return;
-
-  try {
-    await cancelScheduledPush(props.accessToken, id);
-    await loadScheduledPushes();
-  } catch (error) {
-    console.error('取消定时推送失败:', error);
-    alert('取消失败，请重试');
-  }
+function confirmDeletePush(push: ScheduledPush) {
+  actionTarget.value = push;
+  showDeleteConfirm.value = true;
 }
 
-async function deletePush(id: string) {
-  if (!props.accessToken) return;
-  if (!confirm('确定要删除这个定时推送吗？')) return;
-
+async function doDelete() {
+  if (!props.accessToken || !actionTarget.value) return;
+  deleting.value = true;
   try {
-    await deleteScheduledPush(props.accessToken, id);
+    await deleteScheduledPush(props.accessToken, actionTarget.value.id);
     await loadScheduledPushes();
   } catch (error) {
     console.error('删除定时推送失败:', error);
     alert('删除失败，请重试');
+  } finally {
+    deleting.value = false;
+    showDeleteConfirm.value = false;
+    actionTarget.value = null;
   }
 }
 
-async function testPush(push: ScheduledPush) {
-  if (!props.accessToken) return;
-  if (!confirm('确定要立即执行这个推送进行测试吗？')) return;
+function confirmCancelPush(push: ScheduledPush) {
+  actionTarget.value = push;
+  showCancelConfirm.value = true;
+}
 
+async function doCancel() {
+  if (!props.accessToken || !actionTarget.value) return;
+  deleting.value = true;
+  try {
+    await cancelScheduledPush(props.accessToken, actionTarget.value.id);
+    await loadScheduledPushes();
+  } catch (error) {
+    console.error('取消定时推送失败:', error);
+    alert('取消失败，请重试');
+  } finally {
+    deleting.value = false;
+    showCancelConfirm.value = false;
+    actionTarget.value = null;
+  }
+}
+
+function confirmTestPush(push: ScheduledPush) {
+  actionTarget.value = push;
+  showTestConfirm.value = true;
+}
+
+async function doTest() {
+  if (!props.accessToken || !actionTarget.value) return;
+  testRunning.value = true;
   try {
     await createScheduledPush(props.accessToken, {
-      title: `[测试] ${push.title}`,
-      content: push.content,
+      title: `[测试] ${actionTarget.value.title}`,
+      content: actionTarget.value.content,
       scheduledAt: new Date().toISOString(),
-      channels: push.channels,
-      templateId: push.templateId,
+      channels: actionTarget.value.channels,
+      templateId: actionTarget.value.templateId,
     });
     alert('测试推送已创建并立即执行');
     await loadScheduledPushes();
   } catch (error) {
     console.error('测试推送失败:', error);
     alert('测试推送失败，请重试');
+  } finally {
+    testRunning.value = false;
+    showTestConfirm.value = false;
+    actionTarget.value = null;
   }
+}
 }
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
