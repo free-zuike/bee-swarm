@@ -299,19 +299,20 @@ export class PushService {
 
       const pushes: ScheduledPush[] = JSON.parse(stored);
       const idSet = new Set(ids);
+      const foundIds = new Set<string>();
       let cancelled = 0;
-      let notFound = 0;
 
       for (const push of pushes) {
         if (idSet.has(push.id)) {
+          foundIds.add(push.id);
           if (push.status === 'pending') {
             push.status = 'failed';
             cancelled++;
-          } else {
-            notFound++;
           }
         }
       }
+
+      const notFound = ids.length - foundIds.size;
 
       if (cancelled > 0) {
         await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
@@ -331,19 +332,20 @@ export class PushService {
 
       const pushes: ScheduledPush[] = JSON.parse(stored);
       const idSet = new Set(ids);
+      const foundIds = new Set<string>();
       let enabled = 0;
-      let notFound = 0;
 
       for (const push of pushes) {
         if (idSet.has(push.id)) {
+          foundIds.add(push.id);
           if (push.status === 'failed') {
             push.status = 'pending';
             enabled++;
-          } else {
-            notFound++;
           }
         }
       }
+
+      const notFound = ids.length - foundIds.size;
 
       if (enabled > 0) {
         await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
