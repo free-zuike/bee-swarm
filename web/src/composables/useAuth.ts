@@ -3,7 +3,6 @@
  * 统一管理用户认证相关的状态和操作
  */
 import { ref, computed } from 'vue';
-import { withLoading } from '@/stores/loading';
 import { showToast } from './useToast';
 import { useTranslation } from '@/i18n';
 

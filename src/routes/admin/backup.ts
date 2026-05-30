@@ -237,7 +237,10 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
   const response = await downloadBackupFromEndpoint(c.env, username, endpoint, key);
 
   if (!response.ok) {
-    return c.json({ error: '下载备份失败 (' + response.status + ')', code: 'DOWNLOAD_FAILED' }, 500);
+    return c.json(
+      { error: '下载备份失败 (' + response.status + ')', code: 'DOWNLOAD_FAILED' },
+      500
+    );
   }
 
   const data = await response.arrayBuffer();

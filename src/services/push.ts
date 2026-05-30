@@ -28,7 +28,7 @@ export function replaceTemplateVariables(
   autoVars: boolean = true
 ): string {
   if (!text) return text;
-  
+
   // 自动变量
   if (autoVars) {
     const now = new Date();
@@ -43,7 +43,7 @@ export function replaceTemplateVariables(
       day: String(now.getDate()).padStart(2, '0'),
     };
   }
-  
+
   // 替换 {{key}} 格式的变量
   return text.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
     return variables[key] !== undefined ? variables[key] : _match;
@@ -289,17 +289,19 @@ export class PushService {
     }
   }
 
-  async batchCancelScheduledPushes(ids: string[]): Promise<{ cancelled: number; notFound: number }> {
+  async batchCancelScheduledPushes(
+    ids: string[]
+  ): Promise<{ cancelled: number; notFound: number }> {
     const key = `scheduled:${this.userId}`;
     try {
       const stored = await this.env.SUBSCRIPTIONS.get(key);
       if (!stored) return { cancelled: 0, notFound: ids.length };
-      
+
       const pushes: ScheduledPush[] = JSON.parse(stored);
       const idSet = new Set(ids);
       let cancelled = 0;
       let notFound = 0;
-      
+
       for (const push of pushes) {
         if (idSet.has(push.id)) {
           if (push.status === 'pending') {
@@ -310,11 +312,11 @@ export class PushService {
           }
         }
       }
-      
+
       if (cancelled > 0) {
         await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
       }
-      
+
       return { cancelled, notFound };
     } catch {
       return { cancelled: 0, notFound: ids.length };
@@ -326,12 +328,12 @@ export class PushService {
     try {
       const stored = await this.env.SUBSCRIPTIONS.get(key);
       if (!stored) return { enabled: 0, notFound: ids.length };
-      
+
       const pushes: ScheduledPush[] = JSON.parse(stored);
       const idSet = new Set(ids);
       let enabled = 0;
       let notFound = 0;
-      
+
       for (const push of pushes) {
         if (idSet.has(push.id)) {
           if (push.status === 'failed') {
@@ -342,11 +344,11 @@ export class PushService {
           }
         }
       }
-      
+
       if (enabled > 0) {
         await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
       }
-      
+
       return { enabled, notFound };
     } catch {
       return { enabled: 0, notFound: ids.length };
@@ -384,10 +386,7 @@ export class PushService {
     return processed;
   }
 
-  async updateScheduledPushStatus(
-    id: string,
-    status: ScheduledPush['status']
-  ): Promise<void> {
+  async updateScheduledPushStatus(id: string, status: ScheduledPush['status']): Promise<void> {
     const key = `scheduled:${this.userId}`;
     const stored = await this.env.SUBSCRIPTIONS.get(key);
     if (!stored) return;

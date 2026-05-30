@@ -3,7 +3,14 @@
  * 统一管理推送渠道的状态和操作
  */
 import { ref, computed } from 'vue';
-import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushHistoryRecord } from '@/types';
+import type {
+  ChannelConfig,
+  ChannelDefinition,
+  ChannelSettings,
+  PushChannel,
+  PushResult,
+  PushHistoryRecord,
+} from '@/types';
 import { showToast } from './useToast';
 import { withLoading } from '@/stores/loading';
 
@@ -58,10 +65,7 @@ export function useChannels() {
     }
   }
 
-  async function toggleChannelEnabled(
-    accessToken: string,
-    channelId: string
-  ): Promise<boolean> {
+  async function toggleChannelEnabled(accessToken: string, channelId: string): Promise<boolean> {
     const key = `channel:${channelId}:enabled`;
     const current = channelSettingsRef.value[key];
     const newValue = current === 'false' ? 'true' : 'false';

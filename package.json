@@ -13,8 +13,7 @@
     "lint": "eslint --fix src/ types/ web/src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "generate-keys": "node scripts/generate-vapid-keys.mjs"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",

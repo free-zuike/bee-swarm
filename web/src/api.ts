@@ -1,7 +1,17 @@
 // ============================================
 // API 服务封装
 // ============================================
-import type { PushChannel, ChannelSettings, BackupEndpoint, PushTemplate, ChannelGroup, ScheduledPush, PushStats, PushMetrics, ChannelHealth } from '@/types';
+import type {
+  PushChannel,
+  ChannelSettings,
+  BackupEndpoint,
+  PushTemplate,
+  ChannelGroup,
+  ScheduledPush,
+  PushStats,
+  PushMetrics,
+  ChannelHealth,
+} from '@/types';
 
 const BASE = '/api';
 
@@ -170,7 +180,13 @@ export async function dispatchPush(
 
 export async function getHistoryWithToken(
   token: string,
-  options?: { page?: number; pageSize?: number; channel?: string; status?: string; keyword?: string }
+  options?: {
+    page?: number;
+    pageSize?: number;
+    channel?: string;
+    status?: string;
+    keyword?: string;
+  }
 ): Promise<{
   history: Array<{
     id: string;
@@ -180,7 +196,13 @@ export async function getHistoryWithToken(
     url: string;
     channels: string[];
     status: string;
-    results: Array<{ channel: PushChannel; success: boolean; message: string; latencyMs?: number; retries?: number }>;
+    results: Array<{
+      channel: PushChannel;
+      success: boolean;
+      message: string;
+      latencyMs?: number;
+      retries?: number;
+    }>;
   }>;
   total: number;
   hasMore: boolean;
@@ -309,10 +331,10 @@ export async function downloadBackupFromEndpoint(
   }
 
   const blob = await res.blob();
-  const filename = res.headers.get('Content-Disposition')
-    ?.match(/filename="([^"]+)"/)?.[1]
-    || key.split('/').pop()
-    || 'backup.json';
+  const filename =
+    res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ||
+    key.split('/').pop() ||
+    'backup.json';
 
   const downloadUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -529,7 +551,11 @@ export async function webhookPush(
     channels?: PushChannel[];
     url?: string;
   }
-): Promise<{ success: boolean; results: Array<{ channel: PushChannel; success: boolean; message: string }>; message: string }> {
+): Promise<{
+  success: boolean;
+  results: Array<{ channel: PushChannel; success: boolean; message: string }>;
+  message: string;
+}> {
   return tokenRequest(`${BASE}/admin/webhook/push`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

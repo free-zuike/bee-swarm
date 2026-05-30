@@ -20,7 +20,12 @@
       <div v-if="showFilters" class="filter-bar">
         <div class="filter-group">
           <label>搜索分组</label>
-          <input v-model="searchQuery" type="text" placeholder="输入分组名称..." class="filter-input" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="输入分组名称..."
+            class="filter-input"
+          />
         </div>
         <div class="filter-group">
           <label>包含渠道</label>
@@ -51,7 +56,9 @@
               <div class="group-name-row">
                 <h3 class="group-name">{{ group.name }}</h3>
                 <div class="group-tags">
-                  <span v-for="ch in group.channels" :key="ch" class="tag tag-channel">{{ getChannelName(ch) }}</span>
+                  <span v-for="ch in group.channels" :key="ch" class="tag tag-channel">{{
+                    getChannelName(ch)
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -68,7 +75,11 @@
           </div>
           <div class="group-actions">
             <button class="action-btn action-use" @click="useGroup(group)">使用</button>
-            <button class="action-btn action-test" @click="testGroup(group)" :disabled="testingGroup === group.id">
+            <button
+              class="action-btn action-test"
+              @click="testGroup(group)"
+              :disabled="testingGroup === group.id"
+            >
               {{ testingGroup === group.id ? '测试中...' : '测试' }}
             </button>
             <button class="action-btn action-edit" @click="editGroup(group)">编辑</button>
@@ -87,22 +98,43 @@
         <form @submit.prevent="saveGroup" class="modal-body">
           <div class="form-group">
             <label>{{ t('groups.name') }} *</label>
-            <input v-model="form.name" type="text" :placeholder="t('groups.namePlaceholder')" required />
+            <input
+              v-model="form.name"
+              type="text"
+              :placeholder="t('groups.namePlaceholder')"
+              required
+            />
           </div>
           <div class="form-group">
             <label>{{ t('groups.channels') }}</label>
             <div class="channels-grid">
-              <label v-for="ch in availableChannels" :key="ch.id" class="channel-checkbox" :class="{ 'channel-disabled': !ch.enabled }">
-                <input type="checkbox" :value="ch.id" v-model="form.channels" :disabled="!ch.enabled" />
+              <label
+                v-for="ch in availableChannels"
+                :key="ch.id"
+                class="channel-checkbox"
+                :class="{ 'channel-disabled': !ch.enabled }"
+              >
+                <input
+                  type="checkbox"
+                  :value="ch.id"
+                  v-model="form.channels"
+                  :disabled="!ch.enabled"
+                />
                 <span class="channel-icon">{{ ch.icon }}</span>
                 <span>{{ ch.name }}</span>
               </label>
             </div>
           </div>
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn btn-primary" :disabled="saving || form.channels.length === 0">
-              {{ saving ? (t('common.saving') || '保存中...') : (t('common.save') || '保存') }}
+            <button type="button" class="btn btn-secondary" @click="closeModal">
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              :disabled="saving || form.channels.length === 0"
+            >
+              {{ saving ? t('common.saving') || '保存中...' : t('common.save') || '保存' }}
             </button>
           </div>
         </form>
@@ -118,9 +150,11 @@
         <div class="modal-body">
           <p>{{ t('groups.deleteConfirm', { name: deletingGroup?.name }) }}</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showDeleteConfirm = false">{{ t('common.cancel') }}</button>
+            <button class="btn btn-secondary" @click="showDeleteConfirm = false">
+              {{ t('common.cancel') }}
+            </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
-              {{ deleting ? (t('common.deleting') || '删除中...') : t('common.delete') }}
+              {{ deleting ? t('common.deleting') || '删除中...' : t('common.delete') }}
             </button>
           </div>
         </div>
@@ -137,7 +171,12 @@
         <div class="modal-body">
           <div class="test-result" :class="{ success: testResult.success }">
             <p class="test-status">{{ testResult.success ? '✅ 测试成功' : '❌ 测试失败' }}</p>
-            <div v-for="r in testResult.results" :key="r.channel" class="test-channel-result" :class="{ success: r.success }">
+            <div
+              v-for="r in testResult.results"
+              :key="r.channel"
+              class="test-channel-result"
+              :class="{ success: r.success }"
+            >
               <span class="test-channel-icon">{{ getChannelIcon(r.channel) }}</span>
               <span class="test-channel-name">{{ getChannelName(r.channel) }}</span>
               <span class="test-channel-status">{{ r.success ? '成功' : '失败' }}</span>
@@ -230,12 +269,14 @@ const allChannels = computed(() => {
     slack: '💬',
     discord: '🎮',
   };
-  return (props.channels || []).filter((c) => c.enabled).map((c) => ({
-    id: c.id,
-    name: channelNameMap[c.id] || c.id,
-    icon: channelIconMap[c.id] || '📡',
-    enabled: true,
-  }));
+  return (props.channels || [])
+    .filter((c) => c.enabled)
+    .map((c) => ({
+      id: c.id,
+      name: channelNameMap[c.id] || c.id,
+      icon: channelIconMap[c.id] || '📡',
+      enabled: true,
+    }));
 });
 
 const availableChannels = computed(() => {
@@ -901,8 +942,12 @@ onMounted(loadGroups);
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .test-result {

@@ -37,7 +37,8 @@ function getLogLevel(env?: Env): LogLevel {
     return cachedLogLevel;
   }
 
-  const level = env?.LOG_LEVEL || (globalThis as { LOG_LEVEL?: string }).LOG_LEVEL || DEFAULT_LOG_LEVEL;
+  const level =
+    env?.LOG_LEVEL || (globalThis as { LOG_LEVEL?: string }).LOG_LEVEL || DEFAULT_LOG_LEVEL;
   cachedLogLevel = (level as LogLevel) in LOG_LEVELS ? (level as LogLevel) : DEFAULT_LOG_LEVEL;
   lastCheckTime = now;
   return cachedLogLevel;

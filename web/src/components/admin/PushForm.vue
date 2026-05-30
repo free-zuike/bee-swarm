@@ -31,7 +31,7 @@ function fillFromTemplate(template: PushTemplate) {
   pushTitle.value = template.title;
   pushBody.value = template.content || '';
   pushUrl.value = template.url || '';
-  
+
   if (template.channels && template.channels.length > 0) {
     const newSelection = new Set<PushChannel>(template.channels);
     emit('update:selectedChannels', newSelection);
@@ -43,7 +43,7 @@ defineExpose({ fillFromTemplate });
 
 const enabledChannelCount = computed(() => props.channels.filter((c) => c.enabled).length);
 
-const enabledChannels = computed(() => props.channels.filter(c => c.enabled));
+const enabledChannels = computed(() => props.channels.filter((c) => c.enabled));
 
 function toggleChannel(ch: ChannelConfig) {
   if (!ch.enabled) return;
@@ -69,7 +69,7 @@ function doPush() {
 
 function isNoChannelSelectedError(results: PushResult[]): boolean {
   if (results.length === 0) return false;
-  return results.every(r => !r.success && r.message === t('error.no_channel_selected'));
+  return results.every((r) => !r.success && r.message === t('error.no_channel_selected'));
 }
 </script>
 
@@ -124,7 +124,9 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
       <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
         🚀 {{ t('button.push') }}
       </button>
-      <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">{{ t('button.refresh_channels') }}</button>
+      <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">
+        {{ t('button.refresh_channels') }}
+      </button>
     </div>
   </div>
 </template>
@@ -135,8 +137,14 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .stats {

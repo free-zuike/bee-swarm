@@ -6,7 +6,7 @@
 /**
  * 使用 PBKDF2 算法安全哈希密码
  * 生成格式为 `salt:hash` 的字符串，salt 为 16 字节随机值
- * 
+ *
  * @param password - 原始密码字符串
  * @returns 哈希后的密码字符串
  */
@@ -41,7 +41,7 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * 验证密码是否匹配存储的哈希值
  * 兼容新版 PBKDF2 格式和旧版 SHA-256 格式
- * 
+ *
  * @param password - 用户输入的原始密码
  * @param stored - 存储的哈希密码字符串
  * @returns 密码是否匹配
@@ -49,7 +49,7 @@ export async function hashPassword(password: string): Promise<string> {
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const [saltHex, hashHex] = stored.split(':');
-  
+
   // 如果没有 salt，说明是旧版 SHA-256 格式，进行兼容处理
   if (!saltHex || !hashHex) {
     const data = encoder.encode(password);

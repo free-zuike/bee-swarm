@@ -2,7 +2,7 @@
   <div class="scheduled-push-manager">
     <div class="panel">
       <div class="panel-header">
-        <h2> {{ t('scheduled.title') }}</h2>
+        <h2>{{ t('scheduled.title') }}</h2>
         <button class="btn btn-primary" @click="openCreateModal" :disabled="creating">
           + {{ t('scheduled.create') }}
         </button>
@@ -37,7 +37,9 @@
               <div class="push-top">
                 <div class="push-name-row">
                   <h3 class="push-name">{{ push.title }}</h3>
-                  <span class="status-badge" :class="push.status">{{ getStatusLabel(push.status) }}</span>
+                  <span class="status-badge" :class="push.status">{{
+                    getStatusLabel(push.status)
+                  }}</span>
                 </div>
               </div>
               <div class="push-body">
@@ -48,7 +50,9 @@
                 <div class="field-row">
                   <span class="field-label">渠道</span>
                   <span class="field-value channels">
-                    <span v-for="ch in push.channels" :key="ch" class="tag tag-channel">{{ getChannelName(ch) }}</span>
+                    <span v-for="ch in push.channels" :key="ch" class="tag tag-channel">{{
+                      getChannelName(ch)
+                    }}</span>
                   </span>
                 </div>
                 <div class="field-row" v-if="push.content">
@@ -62,9 +66,23 @@
               </div>
             </div>
             <div class="push-actions">
-              <button v-if="push.status === 'pending'" class="action-btn action-test" @click="confirmTestPush(push)">测试</button>
-              <button v-if="push.status === 'pending'" class="action-btn action-cancel" @click="confirmCancelPush(push)">取消</button>
-              <button class="action-btn action-delete" @click="confirmDeletePush(push)">删除</button>
+              <button
+                v-if="push.status === 'pending'"
+                class="action-btn action-test"
+                @click="confirmTestPush(push)"
+              >
+                测试
+              </button>
+              <button
+                v-if="push.status === 'pending'"
+                class="action-btn action-cancel"
+                @click="confirmCancelPush(push)"
+              >
+                取消
+              </button>
+              <button class="action-btn action-delete" @click="confirmDeletePush(push)">
+                删除
+              </button>
             </div>
           </div>
         </div>
@@ -81,12 +99,7 @@
         <form @submit.prevent="createScheduledPushHandler" class="modal-body">
           <div class="form-group">
             <label>任务名称</label>
-            <input
-              v-model="newPush.name"
-              type="text"
-              placeholder="例如: 每日早报"
-              required
-            />
+            <input v-model="newPush.name" type="text" placeholder="例如: 每日早报" required />
           </div>
 
           <div class="form-group">
@@ -122,22 +135,19 @@
 
             <div v-if="scheduleType === 'once'" class="datetime-section">
               <div class="datetime-inputs">
-                <input
-                  v-model="newPush.date"
-                  type="date"
-                  :min="today"
-                  required
-                />
-                <input
-                  v-model="newPush.time"
-                  type="time"
-                  required
-                />
+                <input v-model="newPush.date" type="date" :min="today" required />
+                <input v-model="newPush.time" type="time" required />
               </div>
               <div class="quick-schedule">
-                <button type="button" class="btn-quick" @click="setQuickSchedule('1h')">1小时后</button>
-                <button type="button" class="btn-quick" @click="setQuickSchedule('tomorrow')">明天9:00</button>
-                <button type="button" class="btn-quick" @click="setQuickSchedule('nextweek')">下周一</button>
+                <button type="button" class="btn-quick" @click="setQuickSchedule('1h')">
+                  1小时后
+                </button>
+                <button type="button" class="btn-quick" @click="setQuickSchedule('tomorrow')">
+                  明天9:00
+                </button>
+                <button type="button" class="btn-quick" @click="setQuickSchedule('nextweek')">
+                  下周一
+                </button>
               </div>
             </div>
 
@@ -205,14 +215,12 @@
                 <label class="interval-label">小时执行一次</label>
               </div>
 
-              <div v-if="recurringType !== 'hourly' && recurringType !== 'interval'" class="recurring-time">
+              <div
+                v-if="recurringType !== 'hourly' && recurringType !== 'interval'"
+                class="recurring-time"
+              >
                 <label class="recurring-time-label">执行时间</label>
-                <input
-                  v-model="newPush.time"
-                  type="time"
-                  class="recurring-time-input"
-                  required
-                />
+                <input v-model="newPush.time" type="time" class="recurring-time-input" required />
               </div>
 
               <div v-if="recurringType === 'weekly'" class="weekday-selector">
@@ -257,14 +265,13 @@
                 />
                 <div class="cron-help">
                   <p class="cron-help-title">常用示例：</p>
-                  <code>*/5 * * * *</code> - 每5分钟<br/>
-                  <code>0 */2 * * *</code> - 每2小时<br/>
-                  <code>0 9 * * 1-5</code> - 工作日9:00<br/>
-                  <code>0 0 1 * *</code> - 每月1号0点<br/>
+                  <code>*/5 * * * *</code> - 每5分钟<br />
+                  <code>0 */2 * * *</code> - 每2小时<br />
+                  <code>0 9 * * 1-5</code> - 工作日9:00<br />
+                  <code>0 0 1 * *</code> - 每月1号0点<br />
                   <code>0 9,12,18 * * *</code> - 每天9/12/18点
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -300,25 +307,50 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
+            <button type="button" class="btn btn-secondary" @click="closeModal">
+              {{ t('common.cancel') }}
+            </button>
             <button type="submit" class="btn btn-primary" :disabled="creating">
-              {{ creating ? (t('common.saving') || '创建中...') : '创建定时推送' }}
+              {{ creating ? t('common.saving') || '创建中...' : '创建定时推送' }}
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false; actionTarget = null">
+    <div
+      v-if="showDeleteConfirm"
+      class="modal-overlay"
+      @click.self="
+        showDeleteConfirm = false;
+        actionTarget = null;
+      "
+    >
       <div class="modal modal-small">
         <div class="modal-header">
           <h3>确认删除</h3>
-          <button class="btn-close" @click="showDeleteConfirm = false; actionTarget = null">&times;</button>
+          <button
+            class="btn-close"
+            @click="
+              showDeleteConfirm = false;
+              actionTarget = null;
+            "
+          >
+            &times;
+          </button>
         </div>
         <div class="modal-body">
           <p>确定要删除定时推送「{{ actionTarget?.title }}」吗？</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showDeleteConfirm = false; actionTarget = null">{{ t('common.cancel') }}</button>
+            <button
+              class="btn btn-secondary"
+              @click="
+                showDeleteConfirm = false;
+                actionTarget = null;
+              "
+            >
+              {{ t('common.cancel') }}
+            </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
               {{ deleting ? '删除中...' : t('common.delete') }}
             </button>
@@ -327,16 +359,39 @@
       </div>
     </div>
 
-    <div v-if="showCancelConfirm" class="modal-overlay" @click.self="showCancelConfirm = false; actionTarget = null">
+    <div
+      v-if="showCancelConfirm"
+      class="modal-overlay"
+      @click.self="
+        showCancelConfirm = false;
+        actionTarget = null;
+      "
+    >
       <div class="modal modal-small">
         <div class="modal-header">
           <h3>确认取消</h3>
-          <button class="btn-close" @click="showCancelConfirm = false; actionTarget = null">&times;</button>
+          <button
+            class="btn-close"
+            @click="
+              showCancelConfirm = false;
+              actionTarget = null;
+            "
+          >
+            &times;
+          </button>
         </div>
         <div class="modal-body">
           <p>确定要取消定时推送「{{ actionTarget?.title }}」吗？</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showCancelConfirm = false; actionTarget = null">{{ t('common.cancel') }}</button>
+            <button
+              class="btn btn-secondary"
+              @click="
+                showCancelConfirm = false;
+                actionTarget = null;
+              "
+            >
+              {{ t('common.cancel') }}
+            </button>
             <button class="btn btn-danger" @click="doCancel" :disabled="deleting">
               {{ deleting ? '取消中...' : '确认取消' }}
             </button>
@@ -345,16 +400,39 @@
       </div>
     </div>
 
-    <div v-if="showTestConfirm" class="modal-overlay" @click.self="showTestConfirm = false; actionTarget = null">
+    <div
+      v-if="showTestConfirm"
+      class="modal-overlay"
+      @click.self="
+        showTestConfirm = false;
+        actionTarget = null;
+      "
+    >
       <div class="modal modal-small">
         <div class="modal-header">
           <h3>确认测试</h3>
-          <button class="btn-close" @click="showTestConfirm = false; actionTarget = null">&times;</button>
+          <button
+            class="btn-close"
+            @click="
+              showTestConfirm = false;
+              actionTarget = null;
+            "
+          >
+            &times;
+          </button>
         </div>
         <div class="modal-body">
           <p>确定要立即执行推送「{{ actionTarget?.title }}」进行测试吗？</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showTestConfirm = false; actionTarget = null">{{ t('common.cancel') }}</button>
+            <button
+              class="btn btn-secondary"
+              @click="
+                showTestConfirm = false;
+                actionTarget = null;
+              "
+            >
+              {{ t('common.cancel') }}
+            </button>
             <button class="btn btn-primary" @click="doTest" :disabled="testRunning">
               {{ testRunning ? '执行中...' : '确认执行' }}
             </button>
@@ -369,7 +447,13 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
-import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteScheduledPush, getTemplates } from '@/api';
+import {
+  getScheduledPushes,
+  createScheduledPush,
+  cancelScheduledPush,
+  deleteScheduledPush,
+  getTemplates,
+} from '@/api';
 
 const { showToast } = useGlobalToast();
 
@@ -398,16 +482,16 @@ const props = defineProps<{
 
 const loading = ref(false);
 const creating = ref(false);
-  const deleting = ref(false);
-  const testRunning = ref(false);
-  const scheduledPushes = ref<ScheduledPush[]>([]);
-  const templates = ref<Template[]>([]);
-  const showCreateModal = ref(false);
-  const showDeleteConfirm = ref(false);
-  const showTestConfirm = ref(false);
-  const showCancelConfirm = ref(false);
-  const actionTarget = ref<ScheduledPush | null>(null);
-  const filterStatus = ref<string>('all');
+const deleting = ref(false);
+const testRunning = ref(false);
+const scheduledPushes = ref<ScheduledPush[]>([]);
+const templates = ref<Template[]>([]);
+const showCreateModal = ref(false);
+const showDeleteConfirm = ref(false);
+const showTestConfirm = ref(false);
+const showCancelConfirm = ref(false);
+const actionTarget = ref<ScheduledPush | null>(null);
+const filterStatus = ref<string>('all');
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -425,7 +509,7 @@ const weekDays = [
   { value: 4, label: '四' },
   { value: 5, label: '五' },
   { value: 6, label: '六' },
-  { value: 0, label: '日' }
+  { value: 0, label: '日' },
 ];
 
 const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -435,7 +519,7 @@ const statusFilters = [
   { value: 'pending', label: '待执行' },
   { value: 'processing', label: '执行中' },
   { value: 'completed', label: '已完成' },
-  { value: 'failed', label: '失败' }
+  { value: 'failed', label: '失败' },
 ];
 
 const availableChannels = [
@@ -447,7 +531,7 @@ const availableChannels = [
   { id: 'ntfy', name: 'Ntfy', icon: '🔔' },
   { id: 'email', name: '邮件', icon: '' },
   { id: 'slack', name: 'Slack', icon: '💼' },
-  { id: 'discord', name: 'Discord', icon: '🎮' }
+  { id: 'discord', name: 'Discord', icon: '🎮' },
 ];
 
 const newPush = ref({
@@ -457,19 +541,19 @@ const newPush = ref({
   time: '09:00',
   channels: [] as string[],
   templateId: '',
-  maxRetries: 3
+  maxRetries: 3,
 });
 
 const filteredPushes = computed(() => {
   if (filterStatus.value === 'all') {
     return scheduledPushes.value;
   }
-  return scheduledPushes.value.filter(p => p.status === filterStatus.value);
+  return scheduledPushes.value.filter((p) => p.status === filterStatus.value);
 });
 
 function getCountByStatus(status: string): number {
   if (status === 'all') return scheduledPushes.value.length;
-  return scheduledPushes.value.filter(p => p.status === status).length;
+  return scheduledPushes.value.filter((p) => p.status === status).length;
 }
 
 function getStatusLabel(status: string): string {
@@ -478,7 +562,7 @@ function getStatusLabel(status: string): string {
     running: '执行中',
     completed: '已完成',
     failed: '失败',
-    cancelled: '已取消'
+    cancelled: '已取消',
   };
   return labels[status] || status;
 }
@@ -492,7 +576,7 @@ function formatDateTime(dateStr: string): string {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 
@@ -512,7 +596,7 @@ function getChannelName(ch: string): string {
 }
 
 function getTemplateName(templateId: string): string {
-  const template = templates.value.find(t => t.id === templateId);
+  const template = templates.value.find((t) => t.id === templateId);
   return template ? template.name : templateId;
 }
 
@@ -542,7 +626,7 @@ function resetForm() {
     time: '09:00',
     channels: [],
     templateId: '',
-    maxRetries: 3
+    maxRetries: 3,
   };
   scheduleType.value = 'once';
   recurringType.value = 'daily';
@@ -582,7 +666,7 @@ function setQuickSchedule(type: string) {
 }
 
 function onTemplateChange() {
-  const template = templates.value.find(t => t.id === newPush.value.templateId);
+  const template = templates.value.find((t) => t.id === newPush.value.templateId);
   if (template) {
     newPush.value.name = template.name;
     newPush.value.content = template.content;
@@ -672,7 +756,8 @@ async function createScheduledPushHandler() {
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
       intervalHours: recurringType.value === 'interval' ? intervalHours.value : undefined,
-      cronExpression: recurringType.value === 'cron' ? cronExpression.value.trim() || undefined : undefined,
+      cronExpression:
+        recurringType.value === 'cron' ? cronExpression.value.trim() || undefined : undefined,
     });
 
     showCreateModal.value = false;
@@ -683,7 +768,7 @@ async function createScheduledPushHandler() {
       time: '09:00',
       channels: [],
       templateId: '',
-      maxRetries: 3
+      maxRetries: 3,
     };
     showToast('创建定时推送成功', 'success');
     await loadScheduledPushes();
@@ -782,10 +867,13 @@ onUnmounted(() => {
   }
 });
 
-watch(() => props.accessToken, () => {
-  loadScheduledPushes();
-  loadTemplates();
-});
+watch(
+  () => props.accessToken,
+  () => {
+    loadScheduledPushes();
+    loadTemplates();
+  }
+);
 </script>
 
 <style scoped>
@@ -1420,8 +1508,12 @@ watch(() => props.accessToken, () => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .cron-input {

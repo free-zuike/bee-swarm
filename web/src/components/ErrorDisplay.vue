@@ -37,12 +37,7 @@ function handleRetry() {
       <h3 class="error-title">{{ title }}</h3>
       <p class="error-message">{{ error }}</p>
     </div>
-    <button
-      v-if="showRetry"
-      class="retry-button"
-      :class="{ dark: isDark }"
-      @click="handleRetry"
-    >
+    <button v-if="showRetry" class="retry-button" :class="{ dark: isDark }" @click="handleRetry">
       🔄 重试
     </button>
   </div>

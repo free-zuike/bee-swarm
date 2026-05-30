@@ -34,12 +34,7 @@ function handleAction() {
     <div class="empty-icon">{{ icon }}</div>
     <h3 class="empty-title">{{ title }}</h3>
     <p v-if="description" class="empty-description">{{ description }}</p>
-    <button
-      v-if="actionText"
-      class="action-button"
-      :class="{ dark: isDark }"
-      @click="handleAction"
-    >
+    <button v-if="actionText" class="action-button" :class="{ dark: isDark }" @click="handleAction">
       {{ actionText }}
     </button>
   </div>

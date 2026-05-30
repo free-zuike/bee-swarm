@@ -499,7 +499,9 @@ async function sendToChannelWithRetry(
           latencyMs: Date.now() - startTime,
         };
       }
-      await new Promise((resolve) => setTimeout(resolve, PUSH_CONFIG.retryBaseDelayMs * Math.pow(2, attempt)));
+      await new Promise((resolve) =>
+        setTimeout(resolve, PUSH_CONFIG.retryBaseDelayMs * Math.pow(2, attempt))
+      );
     }
   }
 
@@ -541,7 +543,13 @@ async function sendToChannel(
 export async function getPushHistory(
   username: string,
   env: Env,
-  options: { page?: number; pageSize?: number; channel?: string; status?: string; keyword?: string } = {}
+  options: {
+    page?: number;
+    pageSize?: number;
+    channel?: string;
+    status?: string;
+    keyword?: string;
+  } = {}
 ): Promise<{ records: PushHistoryRecord[]; total: number; hasMore: boolean }> {
   const prefix = `user:${username}:push:`;
   const pageSize = options.pageSize || 20;
@@ -712,7 +720,11 @@ export async function batchDeletePushHistoryByFilter(
 
   const deletePromises = keysToDelete.map((key) => env.SUBSCRIPTIONS.delete(key));
   await Promise.all(deletePromises);
-  return { success: true, message: `已删除 ${keysToDelete.length} 条记录`, deletedCount: keysToDelete.length };
+  return {
+    success: true,
+    message: `已删除 ${keysToDelete.length} 条记录`,
+    deletedCount: keysToDelete.length,
+  };
 }
 
 export async function healthCheckChannel(

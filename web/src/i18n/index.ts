@@ -511,8 +511,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.list_backups_webdav_failed': 'Failed to load WebDAV backup list',
     'msg.list_backups_error': 'Error loading backup list',
     'msg.backup_endpoint_name_required': 'Please enter a backup endpoint name',
-    'msg.confirm_delete_endpoint': 'Are you sure you want to delete this backup endpoint? Associated backup data will not be deleted.',
-    'msg.confirm_restore_backup': 'Are you sure you want to restore from this backup? This will overwrite all current data!',
+    'msg.confirm_delete_endpoint':
+      'Are you sure you want to delete this backup endpoint? Associated backup data will not be deleted.',
+    'msg.confirm_restore_backup':
+      'Are you sure you want to restore from this backup? This will overwrite all current data!',
     'msg.confirm_delete_backup': 'Are you sure you want to delete this backup?',
     'msg.confirm_batch_delete': 'Are you sure you want to delete {count} selected backup(s)?',
     'label.webdav_config': 'WebDAV Configuration',

@@ -35,13 +35,23 @@ const isBackingUpAll = ref(false);
 const isBackingUpSingle = ref(false);
 const isBatchDeleting = ref(false);
 
-type BackupItem = { key: string; size: number; lastModified: string; endpointId: string; endpointName: string };
+type BackupItem = {
+  key: string;
+  size: number;
+  lastModified: string;
+  endpointId: string;
+  endpointName: string;
+};
 const endpointBackups = ref<BackupItem[]>([]);
 const isLoadingEndpointBackups = ref(false);
 const selectedBackups = ref<Set<string>>(new Set());
 
 const backupPage = ref(1);
-const backupPageSize = ref(typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('backup_pageSize') || '50', 10) || 50 : 50);
+const backupPageSize = ref(
+  typeof localStorage !== 'undefined'
+    ? parseInt(localStorage.getItem('backup_pageSize') || '50', 10) || 50
+    : 50
+);
 const pageSizeOptions = [10, 20, 50, 100, 200];
 
 const paginatedBackups = computed(() => {
@@ -49,13 +59,15 @@ const paginatedBackups = computed(() => {
   return endpointBackups.value.slice(start, start + backupPageSize.value);
 });
 
-const totalBackupPages = computed(() => Math.ceil(endpointBackups.value.length / backupPageSize.value));
+const totalBackupPages = computed(() =>
+  Math.ceil(endpointBackups.value.length / backupPageSize.value)
+);
 
 const backupPageNumbers = computed(() => {
   const total = totalBackupPages.value;
   const current = backupPage.value;
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  
+
   const pages: number[] = [];
   if (current <= 4) {
     for (let i = 1; i <= 5; i++) pages.push(i);
@@ -101,16 +113,16 @@ const editingEndpoint = reactive<Partial<BackupEndpoint>>({
     enabled: false,
     interval: 24,
     startTime: '02:00',
-    timezone: 'Asia/Shanghai'
+    timezone: 'Asia/Shanghai',
   },
-  retention: 30
+  retention: 30,
 });
 
 const isCreatingNew = ref(false);
 
 const selectedEndpoint = computed(() => {
   if (isCreatingNew.value) return null;
-  return backupEndpoints.value.find(e => e.id === selectedEndpointId.value) || null;
+  return backupEndpoints.value.find((e) => e.id === selectedEndpointId.value) || null;
 });
 
 function loadBackupEndpoints() {
@@ -120,14 +132,18 @@ function loadBackupEndpoints() {
 
 function setEndpoints(endpoints: BackupEndpoint[]) {
   backupEndpoints.value = endpoints || [];
-  if (selectedEndpointId.value && !backupEndpoints.value.find(e => e.id === selectedEndpointId.value)) {
-    selectedEndpointId.value = backupEndpoints.value.length > 0 ? backupEndpoints.value[0].id : null;
+  if (
+    selectedEndpointId.value &&
+    !backupEndpoints.value.find((e) => e.id === selectedEndpointId.value)
+  ) {
+    selectedEndpointId.value =
+      backupEndpoints.value.length > 0 ? backupEndpoints.value[0].id : null;
   }
   if (!selectedEndpointId.value && backupEndpoints.value.length > 0) {
     selectedEndpointId.value = backupEndpoints.value[0].id;
   }
   if (selectedEndpointId.value && !isCreatingNew.value) {
-    const endpoint = backupEndpoints.value.find(e => e.id === selectedEndpointId.value);
+    const endpoint = backupEndpoints.value.find((e) => e.id === selectedEndpointId.value);
     if (endpoint) {
       copyEndpointToEditing(endpoint);
       loadEndpointBackups();
@@ -140,7 +156,7 @@ function selectEndpoint(id: string) {
   selectedEndpointId.value = id;
   isCreatingNew.value = false;
   loadEndpointBackups();
-  const endpoint = backupEndpoints.value.find(e => e.id === id);
+  const endpoint = backupEndpoints.value.find((e) => e.id === id);
   if (endpoint) {
     copyEndpointToEditing(endpoint);
   }
@@ -171,7 +187,7 @@ function startCreateEndpoint() {
     enabled: false,
     interval: 24,
     startTime: '02:00',
-    timezone: 'Asia/Shanghai'
+    timezone: 'Asia/Shanghai',
   };
   editingEndpoint.retention = 30;
 }
@@ -198,7 +214,7 @@ async function saveEndpoint() {
     enabled: editingEndpoint.enabled ?? true,
     config: { ...editingEndpoint.config },
     schedule: { ...editingEndpoint.schedule },
-    retention: editingEndpoint.retention || 30
+    retention: editingEndpoint.retention || 30,
   };
 
   if (endpointData.config) {
@@ -239,7 +255,7 @@ async function testEndpoint() {
 
   const endpointToTest = {
     type: editingEndpoint.type,
-    config: configCleaned
+    config: configCleaned,
   };
 
   emit('test-endpoint', isCreatingNew.value ? null : selectedEndpointId.value, endpointToTest);
@@ -252,7 +268,7 @@ function loadEndpointBackups() {
 }
 
 function setBackups(backups: Array<{ key: string; size: number; lastModified: string }>) {
-  endpointBackups.value = (backups || []).map(b => ({
+  endpointBackups.value = (backups || []).map((b) => ({
     ...b,
     endpointId: selectedEndpointId.value || '',
     endpointName: selectedEndpoint.value?.name || '',
@@ -291,23 +307,27 @@ function selectAll() {
   if (selectedBackups.value.size === endpointBackups.value.length) {
     selectedBackups.value.clear();
   } else {
-    selectedBackups.value = new Set(endpointBackups.value.map(b => b.key));
+    selectedBackups.value = new Set(endpointBackups.value.map((b) => b.key));
   }
 }
 
 const isAllPageSelected = computed(() => {
-  return paginatedBackups.value.length > 0 && paginatedBackups.value.every(b => selectedBackups.value.has(b.key));
+  return (
+    paginatedBackups.value.length > 0 &&
+    paginatedBackups.value.every((b) => selectedBackups.value.has(b.key))
+  );
 });
 
 const hasSelection = computed(() => selectedBackups.value.size > 0);
 
 function batchDeleteSelected() {
   if (selectedBackups.value.size === 0) return;
-  if (!confirm(t('msg.confirm_batch_delete', { count: String(selectedBackups.value.size) }))) return;
+  if (!confirm(t('msg.confirm_batch_delete', { count: String(selectedBackups.value.size) })))
+    return;
   isBatchDeleting.value = true;
   const items = endpointBackups.value
-    .filter(b => selectedBackups.value.has(b.key))
-    .map(b => ({ endpointId: b.endpointId, key: b.key }));
+    .filter((b) => selectedBackups.value.has(b.key))
+    .map((b) => ({ endpointId: b.endpointId, key: b.key }));
   emit('batch-delete-backups', items);
 }
 
@@ -358,12 +378,18 @@ function formatLastBackupTime(endpoint: BackupEndpoint): string {
 
 function formatScheduleInterval(interval: number): string {
   switch (interval) {
-    case 1: return t('interval.hourly');
-    case 6: return t('interval.every_6_hours');
-    case 12: return t('interval.every_12_hours');
-    case 24: return t('interval.daily');
-    case 168: return t('interval.weekly');
-    default: return `${interval}h`;
+    case 1:
+      return t('interval.hourly');
+    case 6:
+      return t('interval.every_6_hours');
+    case 12:
+      return t('interval.every_12_hours');
+    case 24:
+      return t('interval.daily');
+    case 168:
+      return t('interval.weekly');
+    default:
+      return `${interval}h`;
   }
 }
 
@@ -392,7 +418,7 @@ function handleAddResult(endpoint: BackupEndpoint, message: string) {
 }
 
 function handleUpdateResult(endpoint: BackupEndpoint, message: string) {
-  const index = backupEndpoints.value.findIndex(e => e.id === selectedEndpointId.value);
+  const index = backupEndpoints.value.findIndex((e) => e.id === selectedEndpointId.value);
   if (index !== -1) {
     backupEndpoints.value[index] = endpoint;
   }
@@ -402,10 +428,10 @@ function handleUpdateResult(endpoint: BackupEndpoint, message: string) {
 }
 
 function handleDeleteResult(message: string) {
-  backupEndpoints.value = backupEndpoints.value.filter(e => e.id !== selectedEndpointId.value);
+  backupEndpoints.value = backupEndpoints.value.filter((e) => e.id !== selectedEndpointId.value);
   selectedEndpointId.value = backupEndpoints.value.length > 0 ? backupEndpoints.value[0].id : null;
   if (selectedEndpointId.value) {
-    const endpoint = backupEndpoints.value.find(e => e.id === selectedEndpointId.value);
+    const endpoint = backupEndpoints.value.find((e) => e.id === selectedEndpointId.value);
     if (endpoint) copyEndpointToEditing(endpoint);
   }
   showBackupToast(message || t('msg.delete_endpoint_success'), 'success');
@@ -433,7 +459,10 @@ function handleTestResult(success: boolean, result: any) {
     } else if (msgKey === 'msg.backup_success') {
       displayText = t('msg.backup_success', { endpointName: result.endpointName || '' });
     } else if (msgKey === 'msg.backup_failed') {
-      displayText = t('msg.backup_failed', { endpointName: result.endpointName || '', message: result.errorMessage || '' });
+      displayText = t('msg.backup_failed', {
+        endpointName: result.endpointName || '',
+        message: result.errorMessage || '',
+      });
     } else if (msgKey === 'msg.restore_success') {
       displayText = t('msg.restore_success', { count: result.count || 0 });
     } else if (msgKey === 'msg.restore_failed') {
@@ -449,7 +478,10 @@ function handleTestResult(success: boolean, result: any) {
     } else if (msgKey === 'msg.batch_delete_success') {
       displayText = t('msg.batch_delete_success', { count: result.count || 0 });
     } else if (msgKey === 'msg.batch_delete_partial') {
-      displayText = t('msg.batch_delete_partial', { success: result.success || 0, failed: result.failed || 0 });
+      displayText = t('msg.batch_delete_partial', {
+        success: result.success || 0,
+        failed: result.failed || 0,
+      });
     } else if (msgKey === 'msg.batch_delete_failed') {
       displayText = t('msg.batch_delete_failed', { message: result.errorMessage || '' });
     } else if (msgKey === 'msg.delete_backup_failed') {
@@ -557,7 +589,11 @@ defineExpose({
       <div class="endpoints-sidebar">
         <div class="sidebar-header">
           <span class="sidebar-title">{{ t('label.backup_endpoints') }}</span>
-          <button class="btn-add-endpoint" @click="startCreateEndpoint" :title="t('button.add_endpoint')">
+          <button
+            class="btn-add-endpoint"
+            @click="startCreateEndpoint"
+            :title="t('button.add_endpoint')"
+          >
             <span>+</span>
           </button>
         </div>
@@ -569,7 +605,9 @@ defineExpose({
 
         <div v-else-if="backupEndpoints.length === 0 && !isCreatingNew" class="endpoints-empty">
           <p>{{ t('label.no_backup_endpoints') }}</p>
-          <button class="btn btn-secondary btn-sm" @click="startCreateEndpoint">{{ t('button.add_first_endpoint') }}</button>
+          <button class="btn btn-secondary btn-sm" @click="startCreateEndpoint">
+            {{ t('button.add_first_endpoint') }}
+          </button>
         </div>
 
         <div v-else class="endpoints-list">
@@ -589,7 +627,9 @@ defineExpose({
                 <span class="endpoint-type">{{ endpoint.type.toUpperCase() }}</span>
               </div>
               <div class="endpoint-meta">
-                <span v-if="endpoint.schedule?.enabled" class="endpoint-schedule">{{ formatScheduleInterval(endpoint.schedule.interval) }}</span>
+                <span v-if="endpoint.schedule?.enabled" class="endpoint-schedule">{{
+                  formatScheduleInterval(endpoint.schedule.interval)
+                }}</span>
                 <span class="endpoint-time">{{ formatLastBackupTime(endpoint) }}</span>
               </div>
             </div>
@@ -646,7 +686,10 @@ defineExpose({
             <div class="form-row">
               <div class="form-group">
                 <label>{{ t('label.s3_endpoint') }}</label>
-                <input v-model="editingEndpoint.config.endpoint" placeholder="https://s3.example.com" />
+                <input
+                  v-model="editingEndpoint.config.endpoint"
+                  placeholder="https://s3.example.com"
+                />
               </div>
               <div class="form-group">
                 <label>{{ t('label.s3_region') }}</label>
@@ -659,8 +702,17 @@ defineExpose({
                 <input v-model="editingEndpoint.config.accessKeyId" placeholder="AKIA..." />
               </div>
               <div class="form-group">
-                <label>{{ t('label.secret_access_key') }} {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label>
-                <input v-model="editingEndpoint.config.secretAccessKey" type="password" :placeholder="isCreatingNew ? t('placeholder.access_key') : t('placeholder.configured')" />
+                <label
+                  >{{ t('label.secret_access_key') }}
+                  {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label
+                >
+                <input
+                  v-model="editingEndpoint.config.secretAccessKey"
+                  type="password"
+                  :placeholder="
+                    isCreatingNew ? t('placeholder.access_key') : t('placeholder.configured')
+                  "
+                />
               </div>
             </div>
             <div class="form-row">
@@ -670,7 +722,10 @@ defineExpose({
               </div>
               <div class="form-group">
                 <label>{{ t('label.root_path') }}</label>
-                <input v-model="editingEndpoint.config.path" :placeholder="t('placeholder.default_path')" />
+                <input
+                  v-model="editingEndpoint.config.path"
+                  :placeholder="t('placeholder.default_path')"
+                />
               </div>
             </div>
             <div class="form-row">
@@ -688,7 +743,10 @@ defineExpose({
             <div class="form-row">
               <div class="form-group">
                 <label>{{ t('label.webdav_url') }}</label>
-                <input v-model="editingEndpoint.config.url" placeholder="https://dav.example.com/backup" />
+                <input
+                  v-model="editingEndpoint.config.url"
+                  placeholder="https://dav.example.com/backup"
+                />
               </div>
             </div>
             <div class="form-row">
@@ -697,8 +755,17 @@ defineExpose({
                 <input v-model="editingEndpoint.config.username" placeholder="username" />
               </div>
               <div class="form-group">
-                <label>{{ t('label.password') }} {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label>
-                <input v-model="editingEndpoint.config.password" type="password" :placeholder="isCreatingNew ? t('placeholder.password') : t('placeholder.configured')" />
+                <label
+                  >{{ t('label.password') }}
+                  {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label
+                >
+                <input
+                  v-model="editingEndpoint.config.password"
+                  type="password"
+                  :placeholder="
+                    isCreatingNew ? t('placeholder.password') : t('placeholder.configured')
+                  "
+                />
               </div>
             </div>
           </div>
@@ -732,8 +799,12 @@ defineExpose({
               <div v-if="editingEndpoint.schedule.interval !== 1" class="form-group">
                 <label>{{ t('label.start_time') }}</label>
                 <input v-model="editingEndpoint.schedule.startTime" type="time" />
-                <span v-if="editingEndpoint.schedule.interval === 168" class="input-hint">{{ t('hint.weekly_time') }}</span>
-                <span v-else-if="editingEndpoint.schedule.interval >= 24" class="input-hint">{{ t('hint.daily_time') }}</span>
+                <span v-if="editingEndpoint.schedule.interval === 168" class="input-hint">{{
+                  t('hint.weekly_time')
+                }}</span>
+                <span v-else-if="editingEndpoint.schedule.interval >= 24" class="input-hint">{{
+                  t('hint.daily_time')
+                }}</span>
                 <span v-else class="input-hint">{{ t('hint.interval_time') }}</span>
               </div>
               <div v-else class="form-group">
@@ -786,7 +857,9 @@ defineExpose({
               <div class="form-group">
                 <label>{{ t('label.retention_count') }}</label>
                 <input v-model.number="editingEndpoint.retention" type="number" min="1" max="365" />
-                <span class="input-hint">{{ t('hint.retention_count', { count: editingEndpoint.retention }) }}</span>
+                <span class="input-hint">{{
+                  t('hint.retention_count', { count: editingEndpoint.retention })
+                }}</span>
               </div>
             </div>
           </div>
@@ -795,17 +868,33 @@ defineExpose({
             <button v-if="isCreatingNew" class="btn" @click="cancelCreateEndpoint">
               {{ t('button.cancel') }}
             </button>
-            <button v-if="!isCreatingNew" class="btn btn-warning" @click="deleteEndpoint" :disabled="isDeletingEndpoint">
+            <button
+              v-if="!isCreatingNew"
+              class="btn btn-warning"
+              @click="deleteEndpoint"
+              :disabled="isDeletingEndpoint"
+            >
               {{ isDeletingEndpoint ? t('label.deleting') : t('button.delete') }}
             </button>
-            <button v-if="!isCreatingNew" class="btn" @click="doBackupSingle" :disabled="isBackingUpSingle">
+            <button
+              v-if="!isCreatingNew"
+              class="btn"
+              @click="doBackupSingle"
+              :disabled="isBackingUpSingle"
+            >
               {{ isBackingUpSingle ? t('label.backing_up') : t('button.backup_now') }}
             </button>
             <button class="btn" @click="testEndpoint" :disabled="isTestingEndpoint">
               {{ isTestingEndpoint ? t('label.testing') : t('button.test_connection') }}
             </button>
             <button class="btn btn-primary" @click="saveEndpoint" :disabled="isSavingEndpoint">
-              {{ isSavingEndpoint ? t('label.saving') : (isCreatingNew ? t('button.create') : t('button.save')) }}
+              {{
+                isSavingEndpoint
+                  ? t('label.saving')
+                  : isCreatingNew
+                    ? t('button.create')
+                    : t('button.save')
+              }}
             </button>
           </div>
 
@@ -814,8 +903,16 @@ defineExpose({
             <div class="backup-list-header">
               <h4>{{ t('label.backup_list') }}</h4>
               <div v-if="hasSelection" class="batch-actions">
-                <button class="btn btn-sm btn-warning" @click="batchDeleteSelected" :disabled="isBatchDeleting">
-                  {{ isBatchDeleting ? t('label.deleting') : `${t('button.delete_selected')} (${selectedBackups.size})` }}
+                <button
+                  class="btn btn-sm btn-warning"
+                  @click="batchDeleteSelected"
+                  :disabled="isBatchDeleting"
+                >
+                  {{
+                    isBatchDeleting
+                      ? t('label.deleting')
+                      : `${t('button.delete_selected')} (${selectedBackups.size})`
+                  }}
                 </button>
               </div>
             </div>
@@ -832,38 +929,85 @@ defineExpose({
                   <input type="checkbox" :checked="isAllPageSelected" @change="selectAll" />
                   <span>{{ t('button.select_all_page') }}</span>
                 </label>
-                <span class="backup-count">{{ t('label.backup_count', { current: endpointBackups.length }) }}</span>
+                <span class="backup-count">{{
+                  t('label.backup_count', { current: endpointBackups.length })
+                }}</span>
               </div>
               <div v-for="b in paginatedBackups" :key="b.key" class="backup-item">
                 <div class="backup-checkbox">
-                  <input type="checkbox" :checked="selectedBackups.has(b.key)" @change="toggleSelect(b.key)" />
+                  <input
+                    type="checkbox"
+                    :checked="selectedBackups.has(b.key)"
+                    @change="toggleSelect(b.key)"
+                  />
                 </div>
                 <div class="backup-info">
                   <span class="backup-name">{{ formatBackupName(b.key) }}</span>
-                  <span class="backup-meta">{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span>
+                  <span class="backup-meta"
+                    >{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span
+                  >
                 </div>
                 <div class="backup-actions-item">
-                  <button class="btn btn-sm btn-info" @click="downloadBackup(b.key)" :title="t('button.download')">{{ t('button.download') }}</button>
-                  <button class="btn btn-sm" @click="restoreFromEndpoint(b.key)">{{ t('button.restore') }}</button>
-                  <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">{{ t('button.delete') }}</button>
+                  <button
+                    class="btn btn-sm btn-info"
+                    @click="downloadBackup(b.key)"
+                    :title="t('button.download')"
+                  >
+                    {{ t('button.download') }}
+                  </button>
+                  <button class="btn btn-sm" @click="restoreFromEndpoint(b.key)">
+                    {{ t('button.restore') }}
+                  </button>
+                  <button class="btn btn-sm btn-warning" @click="deleteEndpointBackup(b.key)">
+                    {{ t('button.delete') }}
+                  </button>
                 </div>
               </div>
               <div v-if="endpointBackups.length > 0" class="backup-pagination">
                 <div class="page-size-selector">
                   <span>{{ t('label.per_page') }}</span>
                   <select v-model.number="backupPageSize" @change="onPageSizeChange">
-                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">
+                      {{ size }}
+                    </option>
                   </select>
                 </div>
                 <div class="page-nav">
-                  <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(1)">&laquo;</button>
-                  <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(backupPage - 1)">&lsaquo;</button>
+                  <button class="page-btn" :disabled="backupPage === 1" @click="goToBackupPage(1)">
+                    &laquo;
+                  </button>
+                  <button
+                    class="page-btn"
+                    :disabled="backupPage === 1"
+                    @click="goToBackupPage(backupPage - 1)"
+                  >
+                    &lsaquo;
+                  </button>
                   <template v-for="p in backupPageNumbers" :key="p">
                     <span v-if="p === -1" class="page-ellipsis">...</span>
-                    <button v-else class="page-btn" :class="{ active: p === backupPage }" @click="goToBackupPage(p)">{{ p }}</button>
+                    <button
+                      v-else
+                      class="page-btn"
+                      :class="{ active: p === backupPage }"
+                      @click="goToBackupPage(p)"
+                    >
+                      {{ p }}
+                    </button>
                   </template>
-                  <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(backupPage + 1)">&rsaquo;</button>
-                  <button class="page-btn" :disabled="backupPage === totalBackupPages" @click="goToBackupPage(totalBackupPages)">&raquo;</button>
+                  <button
+                    class="page-btn"
+                    :disabled="backupPage === totalBackupPages"
+                    @click="goToBackupPage(backupPage + 1)"
+                  >
+                    &rsaquo;
+                  </button>
+                  <button
+                    class="page-btn"
+                    :disabled="backupPage === totalBackupPages"
+                    @click="goToBackupPage(totalBackupPages)"
+                  >
+                    &raquo;
+                  </button>
                 </div>
               </div>
             </div>
@@ -1219,8 +1363,6 @@ defineExpose({
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-
-
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -1343,7 +1485,7 @@ defineExpose({
   white-space: normal !important;
 }
 
-.toolbar-checkbox input[type="checkbox"] {
+.toolbar-checkbox input[type='checkbox'] {
   cursor: pointer;
 }
 
@@ -1351,7 +1493,7 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.backup-checkbox input[type="checkbox"] {
+.backup-checkbox input[type='checkbox'] {
   cursor: pointer;
   width: 16px;
   height: 16px;
@@ -1385,7 +1527,9 @@ defineExpose({
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .backup-list {

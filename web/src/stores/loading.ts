@@ -23,10 +23,7 @@ function endLoading(key?: string) {
   }
 }
 
-export async function withLoading<T>(
-  fn: () => Promise<T>,
-  key?: string
-): Promise<T> {
+export async function withLoading<T>(fn: () => Promise<T>, key?: string): Promise<T> {
   startLoading(key);
   try {
     return await fn();

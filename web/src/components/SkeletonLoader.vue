@@ -72,11 +72,7 @@ const skeletonStyle = computed(() => {
     </template>
 
     <template v-else>
-      <div
-        class="skeleton"
-        :class="{ dark: isDark, animated }"
-        :style="skeletonStyle"
-      ></div>
+      <div class="skeleton" :class="{ dark: isDark, animated }" :style="skeletonStyle"></div>
     </template>
   </div>
 </template>
@@ -89,23 +85,13 @@ const skeletonStyle = computed(() => {
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 25%,
-    #e8e8e8 50%,
-    #f0f0f0 75%
-  );
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   border-radius: 4px;
 }
 
 .skeleton.dark {
-  background: linear-gradient(
-    90deg,
-    #3c3c3c 25%,
-    #4a4a4a 50%,
-    #3c3c3c 75%
-  );
+  background: linear-gradient(90deg, #3c3c3c 25%, #4a4a4a 50%, #3c3c3c 75%);
   background-size: 200% 100%;
 }
 

@@ -70,7 +70,7 @@ function applyTheme() {
   if (!containerRef.value) return;
 
   const container = containerRef.value;
-  
+
   if (isDark.value) {
     container.classList.add('swagger-dark');
   } else {
@@ -304,8 +304,8 @@ onMounted(async () => {
   border-color: var(--border-color, #e0e0e0);
 }
 
-.swagger-ui input[type=text],
-.swagger-ui input[type=password] {
+.swagger-ui input[type='text'],
+.swagger-ui input[type='password'] {
   background: white;
   color: var(--text-primary, #1a1a2e);
   border-color: var(--border-color, #e0e0e0);
@@ -425,8 +425,8 @@ onMounted(async () => {
   border-color: #3c3c3c;
 }
 
-.swagger-dark .swagger-ui input[type=text],
-.swagger-dark .swagger-ui input[type=password] {
+.swagger-dark .swagger-ui input[type='text'],
+.swagger-dark .swagger-ui input[type='password'] {
   background: #2d2d2d;
   color: #e0e0e0;
   border-color: #3c3c3c;

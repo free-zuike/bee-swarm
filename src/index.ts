@@ -21,7 +21,7 @@ app.use('*', securityHeaders());
 /** 匹配 cron 单个字段是否包含指定值 */
 function matchCronField(field: string, value: number): boolean {
   if (field === '*') return true;
-  
+
   const values = field.split(',');
   for (const v of values) {
     if (v.includes('/')) {
@@ -209,8 +209,13 @@ export default {
 
                   case 'interval':
                     const intervalHours = push.intervalHours || 2;
-                    const hoursSinceStart = Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60));
-                    shouldExecute = hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && nowMinute === pushMinute;
+                    const hoursSinceStart = Math.floor(
+                      (nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60)
+                    );
+                    shouldExecute =
+                      hoursSinceStart > 0 &&
+                      hoursSinceStart % intervalHours === 0 &&
+                      nowMinute === pushMinute;
                     break;
 
                   case 'daily':
@@ -219,12 +224,18 @@ export default {
 
                   case 'weekly':
                     const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-                    shouldExecute = selectedWeekDays.includes(nowDay) && nowHour === pushHour && nowMinute === pushMinute;
+                    shouldExecute =
+                      selectedWeekDays.includes(nowDay) &&
+                      nowHour === pushHour &&
+                      nowMinute === pushMinute;
                     break;
 
                   case 'monthly':
                     const selectedMonthDays = push.selectedMonthDays || [1, 15];
-                    shouldExecute = selectedMonthDays.includes(nowDateOfMonth) && nowHour === pushHour && nowMinute === pushMinute;
+                    shouldExecute =
+                      selectedMonthDays.includes(nowDateOfMonth) &&
+                      nowHour === pushHour &&
+                      nowMinute === pushMinute;
                     break;
 
                   case 'cron':
@@ -232,13 +243,24 @@ export default {
                     if (push.cronExpression) {
                       const parts = push.cronExpression.trim().split(/\s+/);
                       if (parts.length === 5) {
-                        const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
+                        const [
+                          minuteField,
+                          hourField,
+                          dayOfMonthField,
+                          monthField,
+                          dayOfWeekField,
+                        ] = parts;
                         const matchesMinute = matchCronField(minuteField, nowMinute);
                         const matchesHour = matchCronField(hourField, nowHour);
                         const matchesDayOfMonth = matchCronField(dayOfMonthField, nowDateOfMonth);
                         const matchesMonth = matchCronField(monthField, nowDate.getMonth() + 1);
                         const matchesDayOfWeek = matchCronField(dayOfWeekField, nowDay);
-                        shouldExecute = matchesMinute && matchesHour && matchesDayOfMonth && matchesMonth && matchesDayOfWeek;
+                        shouldExecute =
+                          matchesMinute &&
+                          matchesHour &&
+                          matchesDayOfMonth &&
+                          matchesMonth &&
+                          matchesDayOfWeek;
                       }
                     } else {
                       shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
@@ -311,11 +333,21 @@ export default {
                 weekday: 'short',
               });
               const dayMap: Record<string, number> = {
-                Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+                Sun: 0,
+                Mon: 1,
+                Tue: 2,
+                Wed: 3,
+                Thu: 4,
+                Fri: 5,
+                Sat: 6,
               };
               const currentDay = dayMap[localDay] ?? 0;
               const expectedDay = endpoint.schedule.startDay ?? 0;
-              if (currentDay === expectedDay && localHour === startHour && localMinute === startMinute) {
+              if (
+                currentDay === expectedDay &&
+                localHour === startHour &&
+                localMinute === startMinute
+              ) {
                 shouldRun = true;
               }
             } else if (interval >= 24) {

@@ -3,7 +3,7 @@
 // ============================================
 import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
-import { SENSITIVE_FIELDS, filterSensitiveConfig } from '../utils/config';
+import { filterSensitiveConfig } from '../utils/config';
 import { convertTimezone } from '../utils/timezone';
 
 // 备份端类型
@@ -180,7 +180,9 @@ function sanitizeBackupValue(key: string, value: string): string {
           parsed.map((endpoint: BackupEndpoint) => {
             const sanitized = { ...endpoint };
             if (sanitized.config) {
-              sanitized.config = filterSensitiveConfig(sanitized.config as unknown as Record<string, unknown>) as unknown as S3Config | WebDAVConfig;
+              sanitized.config = filterSensitiveConfig(
+                sanitized.config as unknown as Record<string, unknown>
+              ) as unknown as S3Config | WebDAVConfig;
             }
             return sanitized;
           })
@@ -329,11 +331,7 @@ export async function uploadBackupToEndpoint(
       const path = `${root}/backups/${username}/${filename}`;
 
       // 递归创建目录（遇到已存在目录立即跳过，避免冗余请求）
-      const dirPaths = [
-        `/${root}/`,
-        `/${root}/backups/`,
-        `/${root}/backups/${username}/`,
-      ];
+      const dirPaths = [`/${root}/`, `/${root}/backups/`, `/${root}/backups/${username}/`];
 
       for (const dirPath of dirPaths) {
         const resp = await webdavRequest('MKCOL', dirPath, config);
@@ -682,7 +680,10 @@ export async function restoreBackupFromEndpoint(
       if (verifiedCount !== entries.length) {
         // 验证失败，清理临时数据
         await cleanupTempRestoreData(env, tempPrefix);
-        return { success: false, message: `备份数据验证失败（${verifiedCount}/${entries.length}）` };
+        return {
+          success: false,
+          message: `备份数据验证失败（${verifiedCount}/${entries.length}）`,
+        };
       }
 
       // 第三步：删除旧数据
@@ -714,7 +715,11 @@ export async function restoreBackupFromEndpoint(
       if (currentEndpointsStr) {
         await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
       }
-      return { success: false, message: 'msg.restore_failed_rollback', errorMessage: (err as Error).message };
+      return {
+        success: false,
+        message: 'msg.restore_failed_rollback',
+        errorMessage: (err as Error).message,
+      };
     }
   } catch (err) {
     return { success: false, message: 'msg.restore_failed', errorMessage: (err as Error).message };
@@ -811,9 +816,12 @@ export async function deleteBackupFromEndpoint(
 }
 
 // 测试备份端连接
-export async function testBackupEndpoint(
-  endpoint: BackupEndpoint
-): Promise<{ success: boolean; message: string; statusCode?: number | null; errorMessage?: string }> {
+export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{
+  success: boolean;
+  message: string;
+  statusCode?: number | null;
+  errorMessage?: string;
+}> {
   try {
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
@@ -845,7 +853,12 @@ export async function testBackupEndpoint(
 
     return { success: false, message: 'msg.unsupported_backup_type', statusCode: null };
   } catch (err) {
-    return { success: false, message: 'msg.connection_error', statusCode: null, errorMessage: (err as Error).message };
+    return {
+      success: false,
+      message: 'msg.connection_error',
+      statusCode: null,
+      errorMessage: (err as Error).message,
+    };
   }
 }
 

@@ -404,7 +404,10 @@ export interface PushStats {
     failed: number;
   }>;
   /** 渠道使用统计 */
-  channelUsage?: Record<string, { count: number; success: number; failed: number; avgLatency: number }>;
+  channelUsage?: Record<
+    string,
+    { count: number; success: number; failed: number; avgLatency: number }
+  >;
   /** 最近成功率 */
   recentSuccessRate?: number;
   /** 总记录数 */

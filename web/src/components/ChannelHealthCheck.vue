@@ -142,8 +142,8 @@ const testResult = ref<{
 } | null>(null);
 
 const totalChannels = computed(() => channelResults.value.length);
-const healthyCount = computed(() => channelResults.value.filter(ch => ch.healthy).length);
-const warningCount = computed(() => channelResults.value.filter(ch => !ch.healthy).length);
+const healthyCount = computed(() => channelResults.value.filter((ch) => ch.healthy).length);
+const warningCount = computed(() => channelResults.value.filter((ch) => !ch.healthy).length);
 
 const channelIcons: Record<string, string> = {
   wework: '💼',
@@ -223,7 +223,7 @@ async function testSingleChannel(channel: PushChannel) {
     testResult.value = result;
 
     // 更新列表中的状态
-    const idx = channelResults.value.findIndex(ch => ch.channel === channel);
+    const idx = channelResults.value.findIndex((ch) => ch.channel === channel);
     if (idx >= 0) {
       channelResults.value[idx] = {
         ...channelResults.value[idx],
@@ -261,7 +261,9 @@ onMounted(async () => {
   background: var(--bg-panel, #ffffff);
   border-radius: 16px;
   padding: 28px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
   border: 1px solid var(--border-color, #e8e8e8);
 }
@@ -326,7 +328,9 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .health-summary {

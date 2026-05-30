@@ -36,7 +36,9 @@
 
           <div class="example-code">
             <pre><code>{{ exampleCode }}</code></pre>
-            <button class="btn btn-sm btn-icon" @click="copyExampleCode" title="复制代码">📋</button>
+            <button class="btn btn-sm btn-icon" @click="copyExampleCode" title="复制代码">
+              📋
+            </button>
           </div>
         </div>
 
@@ -57,7 +59,7 @@
             </div>
           </div>
 
-          <h3 style="margin-top: 16px;">请求体</h3>
+          <h3 style="margin-top: 16px">请求体</h3>
           <div class="schema-table">
             <div class="schema-row header">
               <span>字段</span>
@@ -239,7 +241,9 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .webhook-url-section,

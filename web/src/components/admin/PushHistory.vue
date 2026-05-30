@@ -79,10 +79,14 @@ function formatLatency(ms?: number): string {
 
 function getStatusLabel(status: string): string {
   switch (status) {
-    case 'success': return '全部成功';
-    case 'partial': return '部分失败';
-    case 'failed': return '全部失败';
-    default: return status;
+    case 'success':
+      return '全部成功';
+    case 'partial':
+      return '部分失败';
+    case 'failed':
+      return '全部失败';
+    default:
+      return status;
   }
 }
 
@@ -96,9 +100,10 @@ function getAvgLatency(record: HistoryRecord): string {
   const validLatencies = record.results
     .filter((r: ChannelResult) => r.latencyMs !== undefined)
     .map((r: ChannelResult) => r.latencyMs as number);
-  
+
   if (validLatencies.length === 0) return '-';
-  const avg = validLatencies.reduce((sum: number, val: number) => sum + val, 0) / validLatencies.length;
+  const avg =
+    validLatencies.reduce((sum: number, val: number) => sum + val, 0) / validLatencies.length;
   return formatLatency(avg);
 }
 
@@ -156,10 +161,10 @@ function clearSelection() {
 
 async function batchDeleteSelected() {
   if (selectedIds.value.size === 0 || !props.accessToken) return;
-  
+
   batchDeleting.value = true;
   showBatchDeleteConfirm.value = false;
-  
+
   try {
     const { batchDeleteHistory } = await import('@/api');
     const result = await batchDeleteHistory(props.accessToken, Array.from(selectedIds.value));
@@ -183,8 +188,9 @@ const uniqueChannels = computed(() => {
 });
 
 const activeFilters = computed(() => {
-  const count = [filterChannel.value, filterStatus.value, searchKeyword.value]
-    .filter(Boolean).length;
+  const count = [filterChannel.value, filterStatus.value, searchKeyword.value].filter(
+    Boolean
+  ).length;
   return count;
 });
 </script>
@@ -199,10 +205,18 @@ const activeFilters = computed(() => {
             🔍 {{ showFilters ? '收起筛选' : '筛选' }}
             <span v-if="activeFilters > 0" class="filter-badge">{{ activeFilters }}</span>
           </button>
-          <button v-if="selectedIds.size > 0" class="btn btn-sm btn-warning" @click="showBatchDeleteConfirm = true">
+          <button
+            v-if="selectedIds.size > 0"
+            class="btn btn-sm btn-warning"
+            @click="showBatchDeleteConfirm = true"
+          >
             🗑️ 批量删除 ({{ selectedIds.size }})
           </button>
-          <button v-if="selectedIds.size > 0" class="btn btn-sm btn-secondary" @click="clearSelection">
+          <button
+            v-if="selectedIds.size > 0"
+            class="btn btn-sm btn-secondary"
+            @click="clearSelection"
+          >
             取消选择
           </button>
           <button class="btn btn-sm btn-danger" @click="emit('clear')">🗑️ 清空</button>
@@ -311,11 +325,7 @@ const activeFilters = computed(() => {
               </div>
               <div class="header-right">
                 <div class="channel-tags">
-                  <span
-                    v-for="ch in record.channels"
-                    :key="ch"
-                    class="channel-tag"
-                  >
+                  <span v-for="ch in record.channels" :key="ch" class="channel-tag">
                     {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
                   </span>
                 </div>
@@ -330,9 +340,7 @@ const activeFilters = computed(() => {
 
             <details class="results-details">
               <summary class="results-summary">
-                <span class="summary-text">
-                  查看详情 ({{ record.results.length }} 个渠道)
-                </span>
+                <span class="summary-text"> 查看详情 ({{ record.results.length }} 个渠道) </span>
                 <span class="summary-icon">▼</span>
               </summary>
               <div class="history-results">
@@ -367,15 +375,21 @@ const activeFilters = computed(() => {
           <button
             class="btn btn-sm btn-secondary"
             :disabled="currentPage <= 1"
-            @click="currentPage--; emit('load-page', currentPage)"
+            @click="
+              currentPage--;
+              emit('load-page', currentPage);
+            "
           >
             ← 上一页
           </button>
           <span class="page-info">第 {{ currentPage }} 页</span>
           <button
             class="btn btn-sm btn-secondary"
-            :disabled="!((currentPage * pageSize) < (total || 0))"
-            @click="currentPage++; emit('load-page', currentPage)"
+            :disabled="!(currentPage * pageSize < (total || 0))"
+            @click="
+              currentPage++;
+              emit('load-page', currentPage);
+            "
           >
             下一页 →
           </button>
@@ -385,7 +399,11 @@ const activeFilters = computed(() => {
   </div>
 
   <!-- 批量删除确认 -->
-  <div v-if="showBatchDeleteConfirm" class="modal-overlay" @click.self="showBatchDeleteConfirm = false">
+  <div
+    v-if="showBatchDeleteConfirm"
+    class="modal-overlay"
+    @click.self="showBatchDeleteConfirm = false"
+  >
     <div class="modal modal-small">
       <div class="modal-header">
         <h3>批量删除确认</h3>
@@ -411,8 +429,14 @@ const activeFilters = computed(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .panel {
@@ -563,7 +587,9 @@ const activeFilters = computed(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty {

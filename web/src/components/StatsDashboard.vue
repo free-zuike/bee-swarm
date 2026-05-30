@@ -2,10 +2,8 @@
   <div class="stats-dashboard">
     <div class="panel">
       <div class="panel-header">
-        <h2> {{ t('dashboard.title') }}</h2>
-        <button class="btn btn-sm btn-secondary" @click="loadData" :disabled="loading">
-           刷新
-        </button>
+        <h2>{{ t('dashboard.title') }}</h2>
+        <button class="btn btn-sm btn-secondary" @click="loadData" :disabled="loading">刷新</button>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -49,7 +47,13 @@
             <div class="stat-label">{{ t('dashboard.successRate') }}</div>
             <div class="trend-indicator" :class="stats.trend.direction">
               <span class="trend-icon">{{ trendIcon }}</span>
-              {{ stats.trend.direction === 'up' ? t('dashboard.trend.up') : stats.trend.direction === 'down' ? t('dashboard.trend.down') : t('dashboard.trend.stable') }}
+              {{
+                stats.trend.direction === 'up'
+                  ? t('dashboard.trend.up')
+                  : stats.trend.direction === 'down'
+                    ? t('dashboard.trend.down')
+                    : t('dashboard.trend.stable')
+              }}
             </div>
           </div>
         </div>
@@ -59,8 +63,14 @@
           <div class="bar-chart">
             <div v-for="(item, i) in stats.recent" :key="i" class="bar-group">
               <div class="bar-container">
-                <div class="bar bar-success" :style="{ height: `${(item.success / maxRecent) * 100}%` }"></div>
-                <div class="bar bar-failed" :style="{ height: `${(item.failed / maxRecent) * 100}%` }"></div>
+                <div
+                  class="bar bar-success"
+                  :style="{ height: `${(item.success / maxRecent) * 100}%` }"
+                ></div>
+                <div
+                  class="bar bar-failed"
+                  :style="{ height: `${(item.failed / maxRecent) * 100}%` }"
+                ></div>
               </div>
               <div class="bar-label">{{ item.date }}</div>
             </div>
@@ -70,7 +80,11 @@
         <div v-if="Object.keys(stats.channelUsage || {}).length > 0" class="section">
           <h3>渠道使用统计</h3>
           <div class="channel-stats-grid">
-            <div v-for="(data, channel) in stats.channelUsage" :key="channel" class="channel-stat-card">
+            <div
+              v-for="(data, channel) in stats.channelUsage"
+              :key="channel"
+              class="channel-stat-card"
+            >
               <div class="channel-header">
                 <div class="channel-icon">{{ getChannelIcon(channel) }}</div>
                 <div class="channel-name">{{ getChannelName(channel) }}</div>
@@ -90,7 +104,9 @@
                 </div>
                 <div class="channel-stat-row">
                   <span class="row-label">成功率</span>
-                  <span class="row-value">{{ data.count > 0 ? Math.round((data.success / data.count) * 100) : 0 }}%</span>
+                  <span class="row-value"
+                    >{{ data.count > 0 ? Math.round((data.success / data.count) * 100) : 0 }}%</span
+                  >
                 </div>
                 <div class="channel-stat-row">
                   <span class="row-label">平均延迟</span>
@@ -98,7 +114,10 @@
                 </div>
               </div>
               <div class="channel-bar">
-                <div class="channel-bar-fill" :style="{ width: `${data.count > 0 ? (data.success / data.count) * 100 : 0}%` }"></div>
+                <div
+                  class="channel-bar-fill"
+                  :style="{ width: `${data.count > 0 ? (data.success / data.count) * 100 : 0}%` }"
+                ></div>
               </div>
             </div>
           </div>
@@ -123,7 +142,10 @@ const stats = ref({
   session: { total: 0, success: 0, failed: 0 },
   trend: { rate: 0, direction: 'stable' as 'up' | 'down' | 'stable' },
   recent: [] as Array<{ date: string; pushes: number; success: number; failed: number }>,
-  channelUsage: {} as Record<string, { count: number; success: number; failed: number; avgLatency: number }>,
+  channelUsage: {} as Record<
+    string,
+    { count: number; success: number; failed: number; avgLatency: number }
+  >,
 });
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -174,9 +196,12 @@ const maxRecent = computed(() => {
 
 const trendIcon = computed(() => {
   switch (stats.value.trend.direction) {
-    case 'up': return '↑';
-    case 'down': return '↓';
-    default: return '→';
+    case 'up':
+      return '↑';
+    case 'down':
+      return '↓';
+    default:
+      return '→';
   }
 });
 
@@ -517,8 +542,12 @@ defineExpose({ loadData });
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 768px) {

@@ -26,9 +26,7 @@ const expandedChannels = ref<Set<string>>(new Set());
 const savingChannels = reactive<Record<string, boolean>>({});
 const togglingChannel = ref<string | null>(null);
 
-const settingsDefinitions = computed(() =>
-  props.channelDefinitions
-);
+const settingsDefinitions = computed(() => props.channelDefinitions);
 
 function isChannelConfigured(def: ChannelDefinition): boolean {
   return def.fields.some((f) => {
@@ -170,29 +168,24 @@ defineExpose({
   handleSaveSuccess,
   handleSaveError,
   handleTestResult,
-  handleToggleComplete
+  handleToggleComplete,
 });
 </script>
 
 <template>
   <div class="panel">
     <h2>⚙️ {{ t('label.channel_settings') }}</h2>
-    <p class="hint" style="margin-bottom: 20px;">{{ t('hint.channel_settings') }}</p>
+    <p class="hint" style="margin-bottom: 20px">{{ t('hint.channel_settings') }}</p>
 
     <div class="channel-cards">
-      <div
-        v-for="def in settingsDefinitions"
-        :key="def.id"
-        class="channel-card"
-      >
-        <div
-          class="channel-card-header"
-          @click="toggleChannelExpand(def.id)"
-        >
+      <div v-for="def in settingsDefinitions" :key="def.id" class="channel-card">
+        <div class="channel-card-header" @click="toggleChannelExpand(def.id)">
           <div class="channel-card-info">
             <span class="channel-card-icon">{{ def.icon }}</span>
             <span class="channel-card-name">{{ def.name }}</span>
-            <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint">({{ t('label.unsaved') }})</span>
+            <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint"
+              >({{ t('label.unsaved') }})</span
+            >
             <span v-if="!canToggleChannel(def)" class="status-tag status-unconfigured">
               {{ t('label.unconfigured') }}
             </span>
@@ -205,17 +198,11 @@ defineExpose({
               {{ isChannelEnabled(def.id) ? t('label.enabled') : t('label.disabled') }}
             </span>
           </div>
-          <span class="expand-arrow" :class="{ expanded: expandedChannels.has(def.id) }">
-            ▾
-          </span>
+          <span class="expand-arrow" :class="{ expanded: expandedChannels.has(def.id) }"> ▾ </span>
         </div>
 
         <div v-if="expandedChannels.has(def.id)" class="channel-card-body">
-          <div
-            v-for="field in def.fields"
-            :key="field.key"
-            class="form-group"
-          >
+          <div v-for="field in def.fields" :key="field.key" class="form-group">
             <label>
               {{ field.label }}
               <span v-if="field.required" class="required-mark">*</span>
@@ -229,10 +216,7 @@ defineExpose({
           </div>
 
           <div class="channel-save-area">
-            <button
-              class="btn btn-secondary btn-sm"
-              @click="doTestChannel(def.id)"
-            >
+            <button class="btn btn-secondary btn-sm" @click="doTestChannel(def.id)">
               {{ t('button.test') }}
             </button>
             <button

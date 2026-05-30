@@ -26,7 +26,9 @@
                 <h3 class="template-name">{{ tpl.name }}</h3>
                 <div class="template-tags">
                   <span v-if="tpl.useMarkdown" class="tag tag-markdown">Markdown</span>
-                  <span v-for="ch in tpl.channels" :key="ch" class="tag tag-channel">{{ getChannelName(ch) }}</span>
+                  <span v-for="ch in tpl.channels" :key="ch" class="tag tag-channel">{{
+                    getChannelName(ch)
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -37,7 +39,9 @@
               </div>
               <div class="field-row">
                 <span class="field-label">内容</span>
-                <span class="field-value field-content">{{ tpl.content || t('templates.noContent') }}</span>
+                <span class="field-value field-content">{{
+                  tpl.content || t('templates.noContent')
+                }}</span>
               </div>
               <div v-if="tpl.url" class="field-row">
                 <span class="field-label">URL</span>
@@ -63,16 +67,33 @@
         <form @submit.prevent="saveTemplate" class="modal-body">
           <div class="form-group">
             <label>{{ t('templates.name') }} *</label>
-            <input v-model="form.name" type="text" :placeholder="t('templates.namePlaceholder')" required />
+            <input
+              v-model="form.name"
+              type="text"
+              :placeholder="t('templates.namePlaceholder')"
+              required
+            />
           </div>
           <div class="form-group">
             <label>{{ t('label.title') }} *</label>
-            <input v-model="form.title" type="text" :placeholder="t('templates.titlePlaceholder')" required />
-            <p class="variable-hint">支持变量: <code v-text="'{{date}}'"></code> <code v-text="'{{time}}'"></code> <code v-text="'{{name}}'"></code> 等</p>
+            <input
+              v-model="form.title"
+              type="text"
+              :placeholder="t('templates.titlePlaceholder')"
+              required
+            />
+            <p class="variable-hint">
+              支持变量: <code v-text="'{{date}}'"></code> <code v-text="'{{time}}'"></code>
+              <code v-text="'{{name}}'"></code> 等
+            </p>
           </div>
           <div class="form-group">
             <label>{{ t('label.content') || '内容' }}</label>
-            <textarea v-model="form.content" :placeholder="t('templates.contentPlaceholder')" rows="4"></textarea>
+            <textarea
+              v-model="form.content"
+              :placeholder="t('templates.contentPlaceholder')"
+              rows="4"
+            ></textarea>
           </div>
           <div class="form-group">
             <label>{{ t('templates.url') }}</label>
@@ -101,7 +122,13 @@
               <div v-if="detectedVariables.length > 0" class="variables-list">
                 <div class="variables-header">
                   <span>已检测到的变量</span>
-                  <button type="button" class="btn btn-sm btn-secondary" @click="showPreview = true">预览</button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-secondary"
+                    @click="showPreview = true"
+                  >
+                    预览
+                  </button>
                 </div>
                 <div v-for="v in detectedVariables" :key="v" class="variable-item">
                   <span class="variable-key" v-text="wrapVar(v)"></span>
@@ -120,9 +147,11 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
+            <button type="button" class="btn btn-secondary" @click="closeModal">
+              {{ t('common.cancel') }}
+            </button>
             <button type="submit" class="btn btn-primary" :disabled="saving">
-              {{ saving ? (t('common.saving') || '保存中...') : (t('common.save') || '保存') }}
+              {{ saving ? t('common.saving') || '保存中...' : t('common.save') || '保存' }}
             </button>
           </div>
         </form>
@@ -184,9 +213,11 @@
         <div class="modal-body">
           <p>{{ t('templates.deleteConfirm', { name: deletingTemplate?.name }) }}</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showDeleteConfirm = false">{{ t('common.cancel') }}</button>
+            <button class="btn btn-secondary" @click="showDeleteConfirm = false">
+              {{ t('common.cancel') }}
+            </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
-              {{ deleting ? (t('common.deleting') || '删除中...') : t('common.delete') }}
+              {{ deleting ? t('common.deleting') || '删除中...' : t('common.delete') }}
             </button>
           </div>
         </div>
@@ -262,11 +293,13 @@ const allChannels = computed(() => {
     bark: 'Bark',
     pushplus: 'PushPlus',
   };
-  return props.channels.filter((c) => c.enabled).map((c) => ({
-    id: c.id,
-    name: channelNameMap[c.id] || c.id,
-    icon: c.icon,
-  }));
+  return props.channels
+    .filter((c) => c.enabled)
+    .map((c) => ({
+      id: c.id,
+      name: channelNameMap[c.id] || c.id,
+      icon: c.icon,
+    }));
 });
 
 const form = reactive({
@@ -286,8 +319,8 @@ const detectedVariables = computed(() => {
   const varRegex = /\{\{(\w+)\}\}/g;
   const vars = new Set<string>();
   const autoVars = new Set(['date', 'time', 'datetime', 'timestamp', 'year', 'month', 'day']);
-  
-  [form.title, form.content, form.url].forEach(text => {
+
+  [form.title, form.content, form.url].forEach((text) => {
     if (!text) return;
     let match;
     while ((match = varRegex.exec(text)) !== null) {
@@ -296,7 +329,7 @@ const detectedVariables = computed(() => {
       }
     }
   });
-  
+
   return Array.from(vars).sort();
 });
 
@@ -320,7 +353,7 @@ function openCreateModal() {
   form.url = '';
   form.useMarkdown = false;
   form.channels = [];
-  Object.keys(variableValues).forEach(key => delete variableValues[key]);
+  Object.keys(variableValues).forEach((key) => delete variableValues[key]);
   showModal.value = true;
 }
 
@@ -332,20 +365,20 @@ function editTemplate(tpl: PushTemplate) {
   form.url = tpl.url || '';
   form.useMarkdown = tpl.useMarkdown || false;
   form.channels = tpl.channels ? [...tpl.channels] : [];
-  
+
   if (tpl.variables) {
     for (const v of tpl.variables) {
       variableValues[v.key] = v.defaultValue || '';
     }
   }
-  
+
   showModal.value = true;
 }
 
 function closeModal() {
   showModal.value = false;
   editingTemplate.value = null;
-  Object.keys(variableValues).forEach(key => delete variableValues[key]);
+  Object.keys(variableValues).forEach((key) => delete variableValues[key]);
 }
 
 function useTemplate(tpl: PushTemplate) {
@@ -374,10 +407,10 @@ async function doDelete() {
 
 async function loadAndPreview() {
   if (!editingTemplate.value?.id) return;
-  
+
   previewLoading.value = true;
   previewResult.value = { title: '', content: '', url: '' };
-  
+
   try {
     const { previewTemplate } = await import('@/api');
     const result = await previewTemplate(props.accessToken, editingTemplate.value.id, {
@@ -401,12 +434,12 @@ async function saveTemplate() {
   if (!props.accessToken || !form.name || !form.title) return;
   saving.value = true;
   try {
-    const variables = detectedVariables.value.map(key => ({
+    const variables = detectedVariables.value.map((key) => ({
       key,
       defaultValue: variableValues[key] || '',
       description: `${key} 变量`,
     }));
-    
+
     const templateData = {
       name: form.name,
       title: form.title,
@@ -418,7 +451,11 @@ async function saveTemplate() {
     };
 
     if (editingTemplate.value) {
-      const result = await updateTemplate(props.accessToken, editingTemplate.value.id, templateData);
+      const result = await updateTemplate(
+        props.accessToken,
+        editingTemplate.value.id,
+        templateData
+      );
       const index = templates.value.findIndex((t) => t.id === editingTemplate.value!.id);
       if (index !== -1) {
         templates.value[index] = result.template;
@@ -887,8 +924,12 @@ onMounted(loadTemplates);
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .variable-hint {

@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { showToast } from './useToast';
 import { withLoading } from '@/stores/loading';
 
-interface AsyncState<T = unknown> {
+interface AsyncState {
   data: unknown | null;
   loading: boolean;
   error: string | null;

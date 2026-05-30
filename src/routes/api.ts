@@ -7,7 +7,6 @@ import type { Env, PushRequest, PushChannel, ChannelResult } from '../types';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
-import { filterSensitiveConfig } from '../utils/config';
 import {
   dispatchPush,
   dispatchPushWithOptions,
@@ -19,9 +18,7 @@ import {
   deletePushHistory,
   batchDeletePushHistory,
   batchDeletePushHistoryByFilter,
-  healthCheckChannel,
 } from '../services/dispatcher';
-import type { ChannelHealth } from '../types';
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
@@ -342,7 +339,13 @@ adminApi.get('/history', async (c) => {
   const channel = c.req.query('channel');
   const status = c.req.query('status');
   const keyword = c.req.query('keyword');
-  const result = await getPushHistory(username, c.env, { page, pageSize, channel, status, keyword });
+  const result = await getPushHistory(username, c.env, {
+    page,
+    pageSize,
+    channel,
+    status,
+    keyword,
+  });
   return c.json({ history: result.records, total: result.total, hasMore: result.hasMore });
 });
 
@@ -432,15 +435,13 @@ adminApi.get('/test/bark', async (c) => {
 adminApi.get('/channels/health', async (c) => {
   const username = c.get('username');
   const settings = await loadUserChannelSettings(username, c.env);
-  
+
   const results = await Promise.all(
     CHANNEL_DEFINITIONS.map(async (ch) => {
       // settings 的键格式是 "channel:bark:webhook_url", "channel:ntfy:topic" 等
       const channelPrefix = `channel:${ch.id}:`;
-      const isConfigured = Object.keys(settings).some(
-        (key) => key.startsWith(channelPrefix)
-      );
-      
+      const isConfigured = Object.keys(settings).some((key) => key.startsWith(channelPrefix));
+
       if (!isConfigured) {
         return {
           channel: ch.id as PushChannel,
@@ -449,7 +450,7 @@ adminApi.get('/channels/health', async (c) => {
           testedAt: new Date().toISOString(),
         };
       }
-      
+
       // 实际发送测试消息
       const results = await dispatchPushWithOptions(
         {
@@ -460,7 +461,7 @@ adminApi.get('/channels/health', async (c) => {
         username,
         c.env
       );
-      
+
       const result = results[0];
       return {
         channel: ch.id as PushChannel,
@@ -470,7 +471,7 @@ adminApi.get('/channels/health', async (c) => {
       };
     })
   );
-  
+
   return c.json({ channels: results });
 });
 
@@ -479,12 +480,10 @@ adminApi.post('/channels/health/:channel/test', async (c) => {
   const username = c.get('username');
   const channel = c.req.param('channel') as PushChannel;
   const settings = await loadUserChannelSettings(username, c.env);
-  
+
   // settings 的键格式是 "channel:bark:webhook_url", "channel:ntfy:topic" 等
   const channelPrefix = `channel:${channel}:`;
-  const isConfigured = Object.keys(settings).some(
-    (key) => key.startsWith(channelPrefix)
-  );
+  const isConfigured = Object.keys(settings).some((key) => key.startsWith(channelPrefix));
 
   if (!isConfigured) {
     return c.json({ error: '渠道未配置', code: 'NOT_CONFIGURED' }, 400);
@@ -520,11 +519,11 @@ adminApi.delete('/history', async (c) => {
 adminApi.post('/history/batch-delete', async (c) => {
   const username = c.get('username');
   const body = (await c.req.json()) as { ids?: string[] };
-  
+
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json({ error: '请提供要删除的记录 ID 列表', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const result = await batchDeletePushHistory(username, c.env, body.ids);
   return c.json(result);
 });
@@ -537,7 +536,7 @@ adminApi.post('/history/batch-delete-filter', async (c) => {
     channel?: string;
     status?: string;
   };
-  
+
   const result = await batchDeletePushHistoryByFilter(username, c.env, body);
   return c.json(result);
 });
@@ -645,7 +644,7 @@ adminApi.post('/templates/:id/preview', async (c) => {
 
   // 合并用户变量和默认变量
   const vars: Record<string, string> = { ...body.variables };
-  
+
   // 使用模板中定义的默认值
   if (template.variables) {
     for (const v of template.variables) {
@@ -658,7 +657,9 @@ adminApi.post('/templates/:id/preview', async (c) => {
   const result = {
     title: replaceTemplateVariables(template.title, vars, body.autoVars !== false),
     content: replaceTemplateVariables(template.content, vars, body.autoVars !== false),
-    url: template.url ? replaceTemplateVariables(template.url, vars, body.autoVars !== false) : undefined,
+    url: template.url
+      ? replaceTemplateVariables(template.url, vars, body.autoVars !== false)
+      : undefined,
   };
 
   return c.json(result);
@@ -741,11 +742,11 @@ adminApi.delete('/groups/:id', async (c) => {
 adminApi.post('/groups/batch-delete', async (c) => {
   const username = c.get('username');
   const body = (await c.req.json()) as { ids?: string[] };
-  
+
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json({ error: '请提供要删除的分组 ID 列表', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const pushService = new PushService(c.env, username);
   let deleted = 0;
   for (const id of body.ids) {
@@ -753,7 +754,7 @@ adminApi.post('/groups/batch-delete', async (c) => {
       deleted++;
     }
   }
-  
+
   return c.json({ success: true, message: `已删除 ${deleted} 个分组`, deleted });
 });
 
@@ -825,9 +826,16 @@ adminApi.post('/scheduled', async (c) => {
 
   // Cron 表达式验证（简单验证：必须包含5个空格分隔的字段）
   if (body.recurringType === 'cron' && body.cronExpression) {
-    const cronRegex = /^(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)$/;
+    const cronRegex =
+      /^(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)$/;
     if (!cronRegex.test(body.cronExpression.trim())) {
-      return c.json({ error: '无效的 Cron 表达式，请使用标准5字段格式（分 时 日 月 周）', code: 'VALIDATION_ERROR' }, 400);
+      return c.json(
+        {
+          error: '无效的 Cron 表达式，请使用标准5字段格式（分 时 日 月 周）',
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      );
     }
   }
 
@@ -873,11 +881,11 @@ adminApi.delete('/scheduled/:id', async (c) => {
 adminApi.post('/scheduled/batch-cancel', async (c) => {
   const username = c.get('username');
   const body = (await c.req.json()) as { ids?: string[] };
-  
+
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json({ error: '请提供要取消的任务 ID 列表', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const pushService = new PushService(c.env, username);
   const result = await pushService.batchCancelScheduledPushes(body.ids);
   return c.json({ success: true, message: `已取消 ${result.cancelled} 个任务`, ...result });
@@ -887,11 +895,11 @@ adminApi.post('/scheduled/batch-cancel', async (c) => {
 adminApi.post('/scheduled/batch-enable', async (c) => {
   const username = c.get('username');
   const body = (await c.req.json()) as { ids?: string[] };
-  
+
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json({ error: '请提供要启用的任务 ID 列表', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const pushService = new PushService(c.env, username);
   const result = await pushService.batchEnableScheduledPushes(body.ids);
   return c.json({ success: true, message: `已启用 ${result.enabled} 个任务`, ...result });
@@ -901,11 +909,11 @@ adminApi.post('/scheduled/batch-enable', async (c) => {
 adminApi.post('/scheduled/batch-delete', async (c) => {
   const username = c.get('username');
   const body = (await c.req.json()) as { ids?: string[] };
-  
+
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json({ error: '请提供要删除的任务 ID 列表', code: 'VALIDATION_ERROR' }, 400);
   }
-  
+
   const pushService = new PushService(c.env, username);
   let deleted = 0;
   for (const id of body.ids) {
@@ -913,7 +921,7 @@ adminApi.post('/scheduled/batch-delete', async (c) => {
       deleted++;
     }
   }
-  
+
   return c.json({ success: true, message: `已删除 ${deleted} 个任务`, deleted });
 });
 
@@ -926,12 +934,15 @@ adminApi.get('/stats', async (c) => {
   const username = c.get('username');
   const pushService = new PushService(c.env, username);
   const stats = await pushService.getPushStats();
-  
+
   // 获取推送历史用于渠道使用统计
   const { records } = await getPushHistory(username, c.env, { pageSize: 1000 });
-  
+
   // 渠道使用统计
-  const channelUsage: Record<string, { count: number; success: number; failed: number; avgLatency: number }> = {};
+  const channelUsage: Record<
+    string,
+    { count: number; success: number; failed: number; avgLatency: number }
+  > = {};
   for (const record of records) {
     for (const result of record.results) {
       if (!channelUsage[result.channel]) {
@@ -949,7 +960,7 @@ adminApi.get('/stats', async (c) => {
       }
     }
   }
-  
+
   return c.json({
     ...stats,
     channelUsage,
@@ -1022,7 +1033,8 @@ adminApi.post('/webhook/push', async (c) => {
 /** 获取用户的 Webhook URL */
 adminApi.get('/webhook/url', async (c) => {
   const username = c.get('username');
-  const baseUrl = ((c.env as unknown) as Record<string, string>).APP_URL || 'https://beeswarm.zuike.qzz.io';
+  const baseUrl =
+    (c.env as unknown as Record<string, string>).APP_URL || 'https://beeswarm.zuike.qzz.io';
   return c.json({
     webhookUrl: `${baseUrl}/api/admin/webhook/push`,
     description: '使用 API Key 作为 Bearer Token 发送 POST 请求到此 URL 来触发推送',

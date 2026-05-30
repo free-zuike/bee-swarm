@@ -53,7 +53,10 @@ export function usePush(options: UsePushOptions = {}) {
         showToast(t('msg.push_success', { count: String(successCount) }), 'success');
         options.onSuccess?.(resultsRef.value);
       } else if (successCount > 0) {
-        showToast(t('msg.push_partial', { success: String(successCount), total: String(totalCount) }), 'error');
+        showToast(
+          t('msg.push_partial', { success: String(successCount), total: String(totalCount) }),
+          'error'
+        );
       } else {
         showToast(t('msg.push_failed'), 'error');
         options.onError?.(t('msg.push_failed'));
@@ -133,9 +136,9 @@ export function useScheduledPushes() {
       const result = await withLoading(async () => {
         return await getScheduledPushes(accessToken, status);
       }, 'scheduled');
-      
+
       // 处理可能的返回格式（可能返回数组或带scheduled属性的对象）
-      scheduledPushesRef.value = Array.isArray(result) ? result : (result.scheduled || []);
+      scheduledPushesRef.value = Array.isArray(result) ? result : result.scheduled || [];
     } catch (err) {
       showToast(getErrorMessage(err, '加载定时推送失败'), 'error');
     } finally {

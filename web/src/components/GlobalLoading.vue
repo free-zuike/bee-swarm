@@ -23,7 +23,9 @@ const loadingCount = computed(() => loadingState.loadingCount);
             <div class="spinner-ring"></div>
           </div>
           <p class="loading-text">加载中...</p>
-          <p v-if="loadingCount > 1" class="loading-count">还有 {{ loadingCount - 1 }} 个请求进行中</p>
+          <p v-if="loadingCount > 1" class="loading-count">
+            还有 {{ loadingCount - 1 }} 个请求进行中
+          </p>
         </div>
       </div>
     </Transition>

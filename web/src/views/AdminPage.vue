@@ -7,9 +7,37 @@ import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
 import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
-import { register, login, getToken, refreshToken, getChannelsWithToken, saveChannelWithToken, sendPushWithToken, getHistoryWithToken, getApiKeyWithToken, getBackupEndpoints, addBackupEndpoint, updateBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, listBackupsFromEndpoint, restoreBackupFromEndpoint, deleteBackupFromEndpoint, downloadBackupFromEndpoint, backupAll, backupSingleEndpoint } from '@/api';
+import {
+  register,
+  login,
+  getToken,
+  refreshToken,
+  getChannelsWithToken,
+  saveChannelWithToken,
+  sendPushWithToken,
+  getHistoryWithToken,
+  getApiKeyWithToken,
+  getBackupEndpoints,
+  addBackupEndpoint,
+  updateBackupEndpoint,
+  deleteBackupEndpoint,
+  testBackupEndpoint,
+  listBackupsFromEndpoint,
+  restoreBackupFromEndpoint,
+  deleteBackupFromEndpoint,
+  downloadBackupFromEndpoint,
+  backupAll,
+  backupSingleEndpoint,
+} from '@/api';
 import type { BackupEndpoint } from '@/api';
-import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushHistoryRecord } from '@/types';
+import type {
+  ChannelConfig,
+  ChannelDefinition,
+  ChannelSettings,
+  PushChannel,
+  PushResult,
+  PushHistoryRecord,
+} from '@/types';
 
 // 导入子组件
 import AuthForm from '@/components/admin/AuthForm.vue';
@@ -47,7 +75,7 @@ function toggleLocale() {
   const newLocale: 'zh' | 'en' = localCurrentLocale.value === 'zh' ? 'en' : 'zh';
   setLocale(newLocale);
   localCurrentLocale.value = newLocale;
-  
+
   // 关闭菜单
   showFabMenu.value = false;
 }
@@ -69,7 +97,9 @@ const refreshTokenValue = ref('');
 const tokenExpiresAt = ref(0);
 
 // ==================== Dashboard Tab ====================
-const activeTab = ref<'push' | 'history' | 'stats' | 'templates' | 'groups' | 'scheduled' | 'webhook' | 'health'>('stats');
+const activeTab = ref<
+  'push' | 'history' | 'stats' | 'templates' | 'groups' | 'scheduled' | 'webhook' | 'health'
+>('stats');
 
 // ==================== 设置面板 ====================
 const showSettings = ref(false);
@@ -88,7 +118,7 @@ const localeText = computed(() => {
     hideSettings: t('button.hide_settings'),
     logout: t('button.logout'),
     toggleLocale: currentLocale.value === 'zh' ? 'English' : '中文',
-    toggleLocaleIcon: currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳'
+    toggleLocaleIcon: currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳',
   };
 });
 
@@ -427,7 +457,9 @@ async function handlePush(title: string, body: string, url: string, pushChannels
 
     await loadHistory();
   } catch (err: unknown) {
-    pushResults.value = [{ channel: 'wework', success: false, message: getErrorMessage(err, '推送失败') }];
+    pushResults.value = [
+      { channel: 'wework', success: false, message: getErrorMessage(err, '推送失败') },
+    ];
     showToast(getErrorMessage(err, '推送失败'), 'error');
   }
 
@@ -479,7 +511,10 @@ async function handleDeleteEndpoint(id: string) {
     await deleteBackupEndpoint(accessToken.value, id);
     backupManagerRef.value?.handleDeleteResult(t('msg.delete_endpoint_success'));
   } catch (err: unknown) {
-    backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.delete_failed', { message: '' })), 'delete');
+    backupManagerRef.value?.handleError(
+      getErrorMessage(err, t('msg.delete_failed', { message: '' })),
+      'delete'
+    );
   }
 }
 
@@ -571,7 +606,7 @@ async function handleBatchDeleteBackups(items: Array<{ endpointId: string; key: 
 async function handleBackupAll() {
   try {
     const result = await backupAll(accessToken.value);
-    const successCount = result.results.filter(r => r.success).length;
+    const successCount = result.results.filter((r) => r.success).length;
     const totalCount = result.results.length;
 
     if (successCount === totalCount) {
@@ -580,8 +615,10 @@ async function handleBackupAll() {
         'success'
       );
     } else {
-      const failed = result.results.filter(r => !r.success);
-      const details = failed.map(r => `${r.endpointName || t('common.unknown')}: ${r.message}`).join('; ');
+      const failed = result.results.filter((r) => !r.success);
+      const details = failed
+        .map((r) => `${r.endpointName || t('common.unknown')}: ${r.message}`)
+        .join('; ');
       backupManagerRef.value?.handleBackupAllResult(
         t('msg.backup_partial', { success: successCount, total: totalCount }) + ' — ' + details,
         'error'
@@ -604,7 +641,10 @@ async function handleBackupSingle(id: string) {
       );
     } else {
       backupManagerRef.value?.handleBackupSingleResult(
-        t('msg.backup_failed', { endpointName: result.endpointName || t('common.unknown'), message: result.message }),
+        t('msg.backup_failed', {
+          endpointName: result.endpointName || t('common.unknown'),
+          message: result.message,
+        }),
         'error'
       );
     }
@@ -661,24 +701,30 @@ function handleUseGroup(channels: PushChannel[]) {
         <h1>{{ t('app.title') }}</h1>
         <span class="header-email">{{ email }}</span>
       </div>
-      
+
       <!-- 右上角头像悬浮按钮 -->
-      <button 
-        class="fab-toggle" 
+      <button
+        class="fab-toggle"
         :class="{ dark: isDark, active: showFabMenu }"
         @click="showFabMenu = !showFabMenu"
       >
         👤
       </button>
-      
+
       <!-- 悬浮菜单 -->
-      <div 
+      <div
         v-if="showFabMenu"
-        class="fab-menu" 
+        class="fab-menu"
         :class="{ dark: isDark }"
         :key="`${localCurrentLocale}-${isDark ? 'dark' : 'light'}`"
       >
-        <button class="fab-item" @click="themeStore.toggleTheme(); showFabMenu = false">
+        <button
+          class="fab-item"
+          @click="
+            themeStore.toggleTheme();
+            showFabMenu = false;
+          "
+        >
           <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
@@ -686,15 +732,35 @@ function handleUseGroup(channels: PushChannel[]) {
           <span class="fab-icon">{{ localCurrentLocale === 'zh' ? '🇬🇧' : '🇨🇳' }}</span>
           <span class="fab-label">{{ localCurrentLocale === 'zh' ? 'English' : '中文' }}</span>
         </button>
-        <button class="fab-item" @click="goToApiDocs(); showFabMenu = false">
+        <button
+          class="fab-item"
+          @click="
+            goToApiDocs();
+            showFabMenu = false;
+          "
+        >
           <span class="fab-icon">📚</span>
           <span class="fab-label">{{ t('button.api_docs') }}</span>
         </button>
-        <button class="fab-item" @click="showSettings = !showSettings; showFabMenu = false">
+        <button
+          class="fab-item"
+          @click="
+            showSettings = !showSettings;
+            showFabMenu = false;
+          "
+        >
           <span class="fab-icon">⚙️</span>
-          <span class="fab-label">{{ showSettings ? t('button.hide_settings') : t('button.settings') }}</span>
+          <span class="fab-label">{{
+            showSettings ? t('button.hide_settings') : t('button.settings')
+          }}</span>
         </button>
-        <button class="fab-item fab-logout" @click="logout(); showFabMenu = false">
+        <button
+          class="fab-item fab-logout"
+          @click="
+            logout();
+            showFabMenu = false;
+          "
+        >
           <span class="fab-icon">🚪</span>
           <span class="fab-label">{{ t('button.logout') }}</span>
         </button>
@@ -711,11 +777,22 @@ function handleUseGroup(channels: PushChannel[]) {
             <p class="hint">{{ t('hint.api_key') }}</p>
             <div v-if="apiKey" class="api-key-display">
               <code :class="{ dark: isDark }">{{ apiKey }}</code>
-              <button class="btn btn-sm btn-icon" :class="{ dark: isDark }" @click="copyApiKey" :title="t('button.copy_api_key')">📋</button>
-              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">{{ t('button.refresh') }}</button>
+              <button
+                class="btn btn-sm btn-icon"
+                :class="{ dark: isDark }"
+                @click="copyApiKey"
+                :title="t('button.copy_api_key')"
+              >
+                📋
+              </button>
+              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
+                {{ t('button.refresh') }}
+              </button>
             </div>
             <div v-else>
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">{{ t('button.generate_api_key') }}</button>
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
+                {{ t('button.generate_api_key') }}
+              </button>
             </div>
           </div>
         </div>
@@ -816,10 +893,7 @@ function handleUseGroup(channels: PushChannel[]) {
         </div>
 
         <!-- ==================== 统计仪表盘 Tab ==================== -->
-        <StatsDashboard
-          v-if="activeTab === 'stats'"
-          :access-token="accessToken"
-        />
+        <StatsDashboard v-if="activeTab === 'stats'" :access-token="accessToken" />
 
         <!-- ==================== 推送 Tab ==================== -->
         <PushForm
@@ -864,24 +938,14 @@ function handleUseGroup(channels: PushChannel[]) {
         />
 
         <!-- ==================== 定时推送 Tab ==================== -->
-        <ScheduledPushManager
-          v-if="activeTab === 'scheduled'"
-          :access-token="accessToken"
-        />
+        <ScheduledPushManager v-if="activeTab === 'scheduled'" :access-token="accessToken" />
 
         <!-- ==================== Webhook 触发推送 Tab ==================== -->
-        <WebhookManager
-          v-if="activeTab === 'webhook'"
-          :access-token="accessToken"
-        />
+        <WebhookManager v-if="activeTab === 'webhook'" :access-token="accessToken" />
 
         <!-- ==================== 渠道健康检查 Tab ==================== -->
-        <ChannelHealthCheck
-          v-if="activeTab === 'health'"
-          :access-token="accessToken"
-        />
+        <ChannelHealthCheck v-if="activeTab === 'health'" :access-token="accessToken" />
       </template>
-
     </div>
   </div>
 </template>
@@ -899,7 +963,9 @@ function handleUseGroup(channels: PushChannel[]) {
   justify-content: center;
   gap: 16px;
   color: var(--text-secondary, #666);
-  transition: background 0.3s, color 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
 .loading-overlay.dark {
@@ -917,7 +983,9 @@ function handleUseGroup(channels: PushChannel[]) {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ==================== 轻提示 Toast ==================== */
@@ -1070,7 +1138,9 @@ function handleUseGroup(channels: PushChannel[]) {
   background: var(--bg-secondary, #f5f5f5);
   padding: 4px 12px;
   border-radius: 20px;
-  transition: color 0.3s, background 0.3s;
+  transition:
+    color 0.3s,
+    background 0.3s;
 }
 
 .header.dark .header-email {
@@ -1165,8 +1235,14 @@ function handleUseGroup(channels: PushChannel[]) {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ==================== 面板 ==================== */
@@ -1190,7 +1266,9 @@ function handleUseGroup(channels: PushChannel[]) {
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
-  transition: color 0.3s, border-bottom-color 0.3s;
+  transition:
+    color 0.3s,
+    border-bottom-color 0.3s;
   height: 32px;
   line-height: 32px;
   box-sizing: border-box;
@@ -1327,7 +1405,9 @@ function handleUseGroup(channels: PushChannel[]) {
   flex: 1;
   font-size: 13px;
   color: var(--text-primary, #1a1a2e);
-  transition: background 0.3s, color 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
 .api-key-display code.dark {
