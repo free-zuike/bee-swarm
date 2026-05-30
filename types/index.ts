@@ -36,7 +36,8 @@ export type PushChannel =
   | 'slack'
   | 'discord'
   | 'serverchan'
-  | 'pushplus';
+  | 'pushplus'
+  | 'webhook';
 
 /**
  * 推送请求

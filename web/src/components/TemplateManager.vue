@@ -3,9 +3,30 @@
     <div class="panel">
       <div class="panel-header">
         <h2>📝 {{ t('templates.title') }}</h2>
-        <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
-          + {{ t('templates.create') }}
-        </button>
+        <div class="header-actions">
+          <div v-if="selectedTemplateIds.size > 0" class="selected-actions">
+            <span class="selected-count">{{ selectedTemplateIds.size }} 个已选</span>
+            <button class="btn btn-sm btn-secondary" @click="clearSelection">取消选择</button>
+            <button class="btn btn-sm btn-danger" @click="confirmBatchDelete">批量删除</button>
+          </div>
+          <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
+            + {{ t('templates.create') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 搜索和筛选 -->
+      <div class="filter-bar">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="搜索模板名称或标题..."
+          class="search-input"
+        />
+        <select v-model="selectedCategory" class="category-select">
+          <option value="">所有分类</option>
+          <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+        </select>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -13,18 +34,26 @@
         <span>{{ t('common.loading') || '加载中...' }}</span>
       </div>
 
-      <div v-else-if="templates.length === 0" class="empty-state">
+      <div v-else-if="filteredTemplates.length === 0" class="empty-state">
         <div class="empty-icon"></div>
-        <p>{{ t('templates.empty') }}</p>
+        <p>{{ searchQuery || selectedCategory ? '没有找到匹配的模板' : t('templates.empty') }}</p>
       </div>
 
       <div v-else class="template-list">
-        <div v-for="tpl in templates" :key="tpl.id" class="template-card">
+        <div v-for="tpl in filteredTemplates" :key="tpl.id" class="template-card">
+          <div class="template-select">
+            <input
+              type="checkbox"
+              :checked="selectedTemplateIds.has(tpl.id)"
+              @change="toggleSelect(tpl.id)"
+            />
+          </div>
           <div class="template-main">
             <div class="template-top">
               <div class="template-name-row">
                 <h3 class="template-name">{{ tpl.name }}</h3>
                 <div class="template-tags">
+                  <span v-if="tpl.category" class="tag tag-category">{{ tpl.category }}</span>
                   <span v-if="tpl.useMarkdown" class="tag tag-markdown">Markdown</span>
                   <span v-for="ch in tpl.channels" :key="ch" class="tag tag-channel">{{
                     getChannelName(ch)
@@ -108,6 +137,19 @@
               </label>
             </div>
           </div>
+          <div class="form-group">
+            <label>分类</label>
+            <input
+              v-model="form.category"
+              type="text"
+              placeholder="例如：通知、提醒、告警"
+              list="category-list"
+            />
+            <datalist id="category-list">
+              <option v-for="cat in categories" :key="cat" :value="cat" />
+            </datalist>
+          </div>
+
           <div class="form-group">
             <label class="checkbox-label">
               <input type="checkbox" v-model="form.useMarkdown" />
@@ -223,6 +265,28 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="showBatchDeleteConfirm"
+      class="modal-overlay"
+      @click.self="showBatchDeleteConfirm = false"
+    >
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>确认批量删除</h3>
+          <button class="btn-close" @click="showBatchDeleteConfirm = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要删除选中的 {{ selectedTemplateIds.size }} 个模板吗？此操作不可撤销。</p>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">取消</button>
+            <button class="btn btn-danger" @click="doBatchDelete" :disabled="deleting">
+              {{ deleting ? '删除中...' : '删除' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -257,12 +321,16 @@ const deleting = ref(false);
 const showModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showPreview = ref(false);
+const showBatchDeleteConfirm = ref(false);
 const editingTemplate = ref<PushTemplate | null>(null);
 const deletingTemplate = ref<PushTemplate | null>(null);
 const templates = ref<PushTemplate[]>([]);
 const previewLoading = ref(false);
 const previewResult = ref({ title: '', content: '', url: '' });
 const variableValues = reactive<Record<string, string>>({});
+const searchQuery = ref('');
+const selectedCategory = ref('');
+const selectedTemplateIds = ref<Set<string>>(new Set());
 
 function getChannelName(ch: string): string {
   const channelNameMap: Record<string, string> = {
@@ -302,12 +370,34 @@ const allChannels = computed(() => {
     }));
 });
 
+const categories = computed(() => {
+  const cats = new Set<string>();
+  templates.value.forEach((t) => {
+    if (t.category) {
+      cats.add(t.category);
+    }
+  });
+  return Array.from(cats).sort();
+});
+
+const filteredTemplates = computed(() => {
+  return templates.value.filter((tpl) => {
+    const matchesSearch =
+      !searchQuery.value ||
+      tpl.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      tpl.title.toLowerCase().includes(searchQuery.value.toLowerCase());
+    const matchesCategory = !selectedCategory.value || tpl.category === selectedCategory.value;
+    return matchesSearch && matchesCategory;
+  });
+});
+
 const form = reactive({
   name: '',
   title: '',
   content: '',
   url: '',
   useMarkdown: false,
+  category: '',
   channels: [] as PushChannel[],
 });
 
@@ -352,6 +442,7 @@ function openCreateModal() {
   form.content = '';
   form.url = '';
   form.useMarkdown = false;
+  form.category = '';
   form.channels = [];
   Object.keys(variableValues).forEach((key) => delete variableValues[key]);
   showModal.value = true;
@@ -364,6 +455,7 @@ function editTemplate(tpl: PushTemplate) {
   form.content = tpl.content;
   form.url = tpl.url || '';
   form.useMarkdown = tpl.useMarkdown || false;
+  form.category = tpl.category || '';
   form.channels = tpl.channels ? [...tpl.channels] : [];
 
   if (tpl.variables) {
@@ -388,6 +480,45 @@ function useTemplate(tpl: PushTemplate) {
 function confirmDelete(tpl: PushTemplate) {
   deletingTemplate.value = tpl;
   showDeleteConfirm.value = true;
+}
+
+function toggleSelect(templateId: string) {
+  const newSet = new Set(selectedTemplateIds.value);
+  if (newSet.has(templateId)) {
+    newSet.delete(templateId);
+  } else {
+    newSet.add(templateId);
+  }
+  selectedTemplateIds.value = newSet;
+}
+
+function clearSelection() {
+  selectedTemplateIds.value = new Set();
+}
+
+function confirmBatchDelete() {
+  showBatchDeleteConfirm.value = true;
+}
+
+async function doBatchDelete() {
+  if (!props.accessToken || selectedTemplateIds.value.size === 0) return;
+  deleting.value = true;
+
+  try {
+    const deletePromises = Array.from(selectedTemplateIds.value).map((id) =>
+      deleteTemplate(props.accessToken, id)
+    );
+    await Promise.all(deletePromises);
+
+    templates.value = templates.value.filter((t) => !selectedTemplateIds.value.has(t.id));
+    selectedTemplateIds.value = new Set();
+    showBatchDeleteConfirm.value = false;
+    showToast('批量删除成功', 'success');
+  } catch (_err) {
+    showToast((_err as Error).message || '批量删除失败', 'error');
+  } finally {
+    deleting.value = false;
+  }
 }
 
 async function doDelete() {
@@ -446,6 +577,7 @@ async function saveTemplate() {
       content: form.content,
       url: form.url || undefined,
       useMarkdown: form.useMarkdown,
+      category: form.category || undefined,
       channels: form.channels.length > 0 ? form.channels : undefined,
       variables,
     };
@@ -501,13 +633,69 @@ onMounted(loadTemplates);
 }
 
 .panel-header {
-  height: 50px;
+  height: auto;
+  min-height: 50px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+.panel-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selected-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-count {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+}
+
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-panel, white);
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.category-select {
+  min-width: 150px;
+  padding: 10px 14px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-panel, white);
+  cursor: pointer;
+}
+
+.category-select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .panel h2 {
@@ -561,6 +749,23 @@ onMounted(loadTemplates);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
+.template-card:has(.template-select input:checked) {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+}
+
+.template-select {
+  display: flex;
+  align-items: flex-start;
+  padding: 24px 12px 24px 24px;
+}
+
+.template-select input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
 .template-main {
   flex: 1;
   min-width: 0;
@@ -606,6 +811,11 @@ onMounted(loadTemplates);
 .tag-channel {
   background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
   color: #667eea;
+}
+
+.tag-category {
+  background: #e0f7fa;
+  color: #00838f;
 }
 
 .template-body {
@@ -1118,19 +1328,40 @@ onMounted(loadTemplates);
     gap: 12px;
   }
 
-  .panel-header h2 {
-    font-size: 16px;
-  }
-
-  .header-actions {
+  .panel-header .header-actions {
     width: 100%;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  .header-actions .btn {
-    flex: 1;
-    min-width: 80px;
+  .panel-header h2 {
+    font-size: 16px;
+  }
+
+  .selected-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .category-select {
+    width: 100%;
+  }
+
+  .template-card {
+    flex-direction: column;
+  }
+
+  .template-select {
+    padding: 12px 16px 0;
+  }
+
+  .template-main {
+    padding: 16px;
   }
 
   .modal-large {

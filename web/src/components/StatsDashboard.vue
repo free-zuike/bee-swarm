@@ -3,7 +3,16 @@
     <div class="panel">
       <div class="panel-header">
         <h2>{{ t('dashboard.title') }}</h2>
-        <button class="btn btn-sm btn-secondary" @click="loadData" :disabled="loading">刷新</button>
+        <div class="panel-actions">
+          <select v-model="timeRange" class="time-range-select" @change="loadData">
+            <option value="7">最近 7 天</option>
+            <option value="30">最近 30 天</option>
+            <option value="90">最近 90 天</option>
+          </select>
+          <button class="btn btn-sm btn-secondary" @click="loadData" :disabled="loading">
+            刷新
+          </button>
+        </div>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -58,21 +67,52 @@
           </div>
         </div>
 
-        <div class="section">
-          <h3>{{ t('dashboard.recentActivity') }}</h3>
-          <div class="bar-chart">
-            <div v-for="(item, i) in stats.recent" :key="i" class="bar-group">
-              <div class="bar-container">
-                <div
-                  class="bar bar-success"
-                  :style="{ height: `${(item.success / maxRecent) * 100}%` }"
-                ></div>
-                <div
-                  class="bar bar-failed"
-                  :style="{ height: `${(item.failed / maxRecent) * 100}%` }"
-                ></div>
+        <div class="charts-row">
+          <div class="section chart-section">
+            <h3>{{ t('dashboard.recentActivity') }}</h3>
+            <div class="bar-chart">
+              <div v-for="(item, i) in stats.recent" :key="i" class="bar-group">
+                <div class="bar-container">
+                  <div
+                    class="bar bar-success"
+                    :style="{ height: `${(item.success / maxRecent) * 100}%` }"
+                  ></div>
+                  <div
+                    class="bar bar-failed"
+                    :style="{ height: `${(item.failed / maxRecent) * 100}%` }"
+                  ></div>
+                </div>
+                <div class="bar-label">{{ item.date }}</div>
               </div>
-              <div class="bar-label">{{ item.date }}</div>
+            </div>
+          </div>
+
+          <div
+            v-if="Object.keys(stats.channelUsage || {}).length > 0"
+            class="section chart-section"
+          >
+            <h3>渠道占比</h3>
+            <div class="pie-chart-container">
+              <div class="pie-chart">
+                <svg width="200" height="200" viewBox="0 0 200 200">
+                  <g transform="translate(100, 100)">
+                    <path
+                      v-for="(slice, i) in pieSlices"
+                      :key="i"
+                      :d="slice.path"
+                      :fill="slice.color"
+                      class="pie-slice"
+                    />
+                  </g>
+                </svg>
+              </div>
+              <div class="pie-legend">
+                <div v-for="(slice, i) in pieSlices" :key="i" class="legend-item">
+                  <div class="legend-color" :style="{ backgroundColor: slice.color }"></div>
+                  <span class="legend-name">{{ slice.name }}</span>
+                  <span class="legend-value">{{ slice.percent }}%</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -138,6 +178,7 @@ const props = defineProps<{
 
 const loading = ref(true);
 const error = ref('');
+const timeRange = ref('30');
 const stats = ref({
   session: { total: 0, success: 0, failed: 0 },
   trend: { rate: 0, direction: 'stable' as 'up' | 'down' | 'stable' },
@@ -176,6 +217,21 @@ const channelNameMap: Record<string, string> = {
   email: '邮件',
 };
 
+const channelColors = [
+  '#667eea',
+  '#764ba2',
+  '#f093fb',
+  '#f5576c',
+  '#4facfe',
+  '#43e97b',
+  '#fa709a',
+  '#fee140',
+  '#30cfd0',
+  '#a8edea',
+  '#fed6e3',
+  '#b790d4',
+];
+
 function getChannelIcon(channelId: string): string {
   return channelIconMap[channelId] || '📡';
 }
@@ -203,6 +259,58 @@ const trendIcon = computed(() => {
     default:
       return '→';
   }
+});
+
+const pieSlices = computed(() => {
+  const usage = stats.value.channelUsage;
+  const entries = Object.entries(usage);
+  if (entries.length === 0) return [];
+
+  const total = entries.reduce((sum, [, data]) => sum + data.count, 0);
+  if (total === 0) return [];
+
+  const slices: Array<{
+    name: string;
+    value: number;
+    percent: number;
+    color: string;
+    path: string;
+  }> = [];
+
+  let startAngle = -Math.PI / 2;
+  const radius = 80;
+
+  entries.forEach(([channel, data], index) => {
+    const percent = (data.count / total) * 100;
+    const angle = (data.count / total) * Math.PI * 2;
+    const endAngle = startAngle + angle;
+
+    const x1 = Math.cos(startAngle) * radius;
+    const y1 = Math.sin(startAngle) * radius;
+    const x2 = Math.cos(endAngle) * radius;
+    const y2 = Math.sin(endAngle) * radius;
+
+    const largeArc = angle > Math.PI ? 1 : 0;
+
+    const path = [
+      `M 0 0`,
+      `L ${x1} ${y1}`,
+      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+      `Z`,
+    ].join(' ');
+
+    slices.push({
+      name: getChannelName(channel),
+      value: data.count,
+      percent: Math.round(percent),
+      color: channelColors[index % channelColors.length],
+      path,
+    });
+
+    startAngle = endAngle;
+  });
+
+  return slices;
 });
 
 async function loadData() {
@@ -252,12 +360,37 @@ defineExpose({ loadData });
 }
 
 .panel-header {
-  height: 50px;
+  height: auto;
+  min-height: 50px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
   box-sizing: border-box;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time-range-select {
+  padding: 6px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+}
+
+.time-range-select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .panel h2 {
@@ -494,6 +627,66 @@ defineExpose({ loadData });
   text-align: center;
 }
 
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.chart-section {
+  margin-top: 0;
+}
+
+.pie-chart-container {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.pie-chart {
+  flex-shrink: 0;
+}
+
+.pie-slice {
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.pie-slice:hover {
+  transform: scale(1.05);
+}
+
+.pie-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.legend-name {
+  flex: 1;
+  color: var(--text-primary, #333);
+}
+
+.legend-value {
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
 .btn {
   padding: 10px 24px;
   border: none;
@@ -555,6 +748,20 @@ defineExpose({ loadData });
     padding: 16px;
   }
 
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .panel-actions {
+    width: 100%;
+  }
+
+  .time-range-select {
+    flex: 1;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
@@ -582,6 +789,17 @@ defineExpose({ loadData });
 
   .stat-label {
     font-size: 12px;
+  }
+
+  .charts-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .pie-chart-container {
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
   }
 
   .section h3 {

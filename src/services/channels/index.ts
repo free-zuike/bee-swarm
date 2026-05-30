@@ -12,3 +12,4 @@ export { NtfyChannel, sendNtfy } from './ntfy';
 export { EmailChannel, sendEmail } from './email';
 export { ServerchanChannel, sendServerchan } from './serverchan';
 export { PushplusChannel, sendPushplus } from './pushplus';
+export { WebhookChannel, sendWebhook } from './webhook';

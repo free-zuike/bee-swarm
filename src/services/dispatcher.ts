@@ -26,6 +26,7 @@ import {
   sendDiscord,
   sendServerchan,
   sendPushplus,
+  sendWebhook,
   WeworkChannel,
   DingtalkChannel,
   FeishuChannel,
@@ -37,6 +38,7 @@ import {
   DiscordChannel,
   ServerchanChannel,
   PushplusChannel,
+  WebhookChannel,
 } from './channels';
 
 interface PushHistoryRecord {
@@ -267,6 +269,49 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
         label: '群发编码',
         type: 'text',
         placeholder: '群发时使用（可选）',
+        required: false,
+      },
+    ],
+  },
+  {
+    id: 'webhook',
+    name: '通用 Webhook',
+    icon: '🔗',
+    fields: [
+      {
+        key: 'webhookUrl',
+        label: 'Webhook URL',
+        type: 'url',
+        placeholder: 'https://example.com/webhook',
+        required: true,
+      },
+      {
+        key: 'method',
+        label: 'HTTP 方法',
+        type: 'text',
+        placeholder: 'POST（默认）',
+        required: false,
+      },
+      {
+        key: 'contentType',
+        label: 'Content-Type',
+        type: 'text',
+        placeholder: 'application/json（默认）',
+        required: false,
+      },
+      {
+        key: 'headers',
+        label: '自定义 Headers',
+        type: 'text',
+        placeholder: 'JSON 格式或每行一个，如 "Authorization: Bearer xxx"',
+        required: false,
+      },
+      {
+        key: 'payloadTemplate',
+        label: 'Payload 模板',
+        type: 'text',
+        placeholder:
+          'JSON 格式，支持变量 {{title}}, {{body}}, {{url}}, {{imageUrl}}, {{timestamp}}',
         required: false,
       },
     ],
@@ -580,6 +625,8 @@ async function sendToChannel(
       return sendServerchan(payload, channelEnv);
     case 'pushplus':
       return sendPushplus(payload, channelEnv);
+    case 'webhook':
+      return sendWebhook(channelEnv, payload);
     default:
       return { channel, success: false, message: `未知渠道: ${channel}` };
   }
@@ -844,6 +891,11 @@ export async function healthCheckChannel(
       }
       case 'pushplus': {
         const channel = new PushplusChannel(channelId, channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'webhook': {
+        const channel = new WebhookChannel(channelEnv);
         const result = await channel.healthCheck();
         return { channel: channelId, ...result };
       }

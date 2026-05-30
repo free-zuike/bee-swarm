@@ -1,54 +1,104 @@
-import { reactive } from 'vue';
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
 
-const state = reactive({
-  isDark: false,
-});
+// 定义主题类型
+type ThemeType = 'light' | 'dark' | 'auto';
 
-function initTheme() {
-  const savedTheme = localStorage.getItem('bee_swarm_theme');
-  if (savedTheme !== null) {
-    state.isDark = savedTheme === 'dark';
-  } else {
-    state.isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-  applyTheme();
+// 定义主题配置
+interface ThemeColors {
+  '--bg-primary': string;
+  '--bg-secondary': string;
+  '--bg-panel': string;
+  '--text-primary': string;
+  '--text-secondary': string;
+  '--border-color': string;
 }
 
-function toggleTheme() {
-  state.isDark = !state.isDark;
-  localStorage.setItem('bee_swarm_theme', state.isDark ? 'dark' : 'light');
-  applyTheme();
-}
+const themes: Record<'light' | 'dark', ThemeColors> = {
+  light: {
+    '--bg-primary': '#f0f2f5',
+    '--bg-secondary': '#e0e0e0',
+    '--bg-panel': '#ffffff',
+    '--text-primary': '#1a1a2e',
+    '--text-secondary': '#666',
+    '--border-color': '#e0e0e0',
+  },
+  dark: {
+    '--bg-primary': '#1e1e1e',
+    '--bg-secondary': '#2d2d2d',
+    '--bg-panel': '#2d2d2d',
+    '--text-primary': '#e0e0e0',
+    '--text-secondary': '#999',
+    '--border-color': '#3c3c3c',
+  },
+};
 
-function applyTheme() {
-  if (state.isDark) {
-    document.documentElement.classList.add('dark');
-    document.documentElement.style.setProperty('--bg-primary', '#1e1e1e');
-    document.documentElement.style.setProperty('--bg-secondary', '#2d2d2d');
-    document.documentElement.style.setProperty('--bg-panel', '#2d2d2d');
-    document.documentElement.style.setProperty('--text-primary', '#e0e0e0');
-    document.documentElement.style.setProperty('--text-secondary', '#999');
-    document.documentElement.style.setProperty('--border-color', '#3c3c3c');
-  } else {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.style.setProperty('--bg-primary', '#f0f2f5');
-    document.documentElement.style.setProperty('--bg-secondary', '#e0e0e0');
-    document.documentElement.style.setProperty('--bg-panel', '#ffffff');
-    document.documentElement.style.setProperty('--text-primary', '#1a1a2e');
-    document.documentElement.style.setProperty('--text-secondary', '#666');
-    document.documentElement.style.setProperty('--border-color', '#e0e0e0');
-  }
-}
+export const useThemeStore = defineStore('theme', () => {
+  const currentTheme = ref<ThemeType>('auto');
+  const isDark = ref(false);
 
-initTheme();
+  const initTheme = () => {
+    const savedTheme = localStorage.getItem('bee_swarm_theme') as ThemeType | null;
+    if (savedTheme) {
+      currentTheme.value = savedTheme;
+    }
+    applyTheme();
 
-export function useThemeStore() {
-  return {
-    get isDark() {
-      return state.isDark;
-    },
-    toggleTheme,
+    // 监听系统主题变化
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (currentTheme.value === 'auto') {
+          applyTheme();
+        }
+      });
+    }
   };
-}
 
-export { state as themeState };
+  const setTheme = (theme: ThemeType) => {
+    currentTheme.value = theme;
+    localStorage.setItem('bee_swarm_theme', theme);
+    applyTheme();
+  };
+
+  const toggleTheme = () => {
+    if (currentTheme.value === 'light') {
+      setTheme('dark');
+    } else if (currentTheme.value === 'dark') {
+      setTheme('auto');
+    } else {
+      setTheme('light');
+    }
+  };
+
+  const applyTheme = () => {
+    let effectiveTheme: 'light' | 'dark';
+    if (currentTheme.value === 'auto') {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } else {
+      effectiveTheme = currentTheme.value;
+    }
+
+    isDark.value = effectiveTheme === 'dark';
+    const colors = themes[effectiveTheme];
+
+    if (isDark.value) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    Object.entries(colors).forEach(([key, value]) => {
+      document.documentElement.style.setProperty(key, value);
+    });
+  };
+
+  initTheme();
+
+  return {
+    currentTheme,
+    isDark,
+    setTheme,
+    toggleTheme,
+    initTheme,
+  };
+});

@@ -4,14 +4,11 @@
 // ============================================
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { themeState, useThemeStore } from '@/stores/theme';
+import { useThemeStore } from '@/stores/theme';
+import { useAuthStore } from '@/stores/auth';
 import { setLocale, t, currentLocale } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
-  register,
-  login,
-  getToken,
-  refreshToken,
   getChannelsWithToken,
   saveChannelWithToken,
   sendPushWithToken,
@@ -55,8 +52,9 @@ import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
+const authStore = useAuthStore();
 
-const isDark = computed(() => themeState.isDark);
+const isDark = computed(() => themeStore.isDark);
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error) return err.message;
@@ -85,17 +83,11 @@ function toggleLocale() {
 const pageState = ref<'loading' | 'auth' | 'dashboard'>('loading');
 
 // ==================== 认证相关 ====================
-const isAuthing = ref(false);
-const authError = ref('');
-
-// 登录后的凭证
-const email = ref('');
-const password = ref('');
-
-// Token 相关
-const accessToken = ref('');
-const refreshTokenValue = ref('');
-const tokenExpiresAt = ref(0);
+// 使用 auth store 的状态
+const isAuthing = computed(() => authStore.isAuthenticating);
+const authError = computed(() => authStore.authError);
+const email = computed(() => authStore.email);
+const accessToken = computed(() => authStore.accessToken);
 
 // ==================== Dashboard Tab ====================
 const activeTab = ref<
@@ -211,20 +203,12 @@ async function handleClearHistory() {
 // ==================== 初始化 ====================
 onMounted(async () => {
   try {
-    // 尝试从 sessionStorage 恢复凭证（不再保存密码）
-    const savedEmail = sessionStorage.getItem('bee_swarm_email');
-    const savedToken = sessionStorage.getItem('bee_swarm_token');
-    const savedRefreshToken = sessionStorage.getItem('bee_swarm_refresh_token');
-    const savedExpiresAt = sessionStorage.getItem('bee_swarm_expires_at');
+    // 尝试从 store 恢复凭证
+    const hasAuth = authStore.initAuth();
 
-    if (savedEmail && savedToken && savedRefreshToken && savedExpiresAt) {
-      email.value = savedEmail;
-      accessToken.value = savedToken;
-      refreshTokenValue.value = savedRefreshToken;
-      tokenExpiresAt.value = parseInt(savedExpiresAt, 10);
-
+    if (hasAuth) {
       // 检查 token 是否过期
-      if (tokenExpiresAt.value > Date.now()) {
+      if (authStore.isAuthenticated) {
         try {
           await loadChannels();
           await loadHistory();
@@ -236,24 +220,12 @@ onMounted(async () => {
       }
 
       // 尝试刷新 token
-      try {
-        const tokenData = await refreshToken(refreshTokenValue.value);
-        accessToken.value = tokenData.token;
-        refreshTokenValue.value = tokenData.refreshToken;
-        tokenExpiresAt.value = tokenData.expiresAt;
-        sessionStorage.setItem('bee_swarm_token', tokenData.token);
-        sessionStorage.setItem('bee_swarm_refresh_token', tokenData.refreshToken);
-        sessionStorage.setItem('bee_swarm_expires_at', tokenData.expiresAt.toString());
+      const refreshSuccess = await authStore.doRefreshToken();
+      if (refreshSuccess) {
         await loadChannels();
         await loadHistory();
         pageState.value = 'dashboard';
         return;
-      } catch {
-        // 刷新失败，清除凭证
-        sessionStorage.removeItem('bee_swarm_email');
-        sessionStorage.removeItem('bee_swarm_token');
-        sessionStorage.removeItem('bee_swarm_refresh_token');
-        sessionStorage.removeItem('bee_swarm_expires_at');
       }
     }
     pageState.value = 'auth';
@@ -279,62 +251,25 @@ watch(activeTab, (newTab, oldTab) => {
 
 // ==================== 认证函数 ====================
 async function doLogin(authEmail: string, authPassword: string) {
-  isAuthing.value = true;
-  authError.value = '';
-
-  try {
-    // 登录验证
-    const res = await login(authEmail, authPassword);
-    email.value = res.email || authEmail;
-    password.value = authPassword; // 仅在内存中保存密码用于登录流程
-
-    // 获取 Token
-    const tokenData = await getToken(authEmail, authPassword);
-    accessToken.value = tokenData.token;
-    refreshTokenValue.value = tokenData.refreshToken;
-    tokenExpiresAt.value = tokenData.expiresAt;
-
-    // 保存凭证到 sessionStorage（不保存密码）
-    sessionStorage.setItem('bee_swarm_email', email.value);
-    sessionStorage.setItem('bee_swarm_token', tokenData.token);
-    sessionStorage.setItem('bee_swarm_refresh_token', tokenData.refreshToken);
-    sessionStorage.setItem('bee_swarm_expires_at', tokenData.expiresAt.toString());
-
+  const success = await authStore.doLogin(authEmail, authPassword);
+  if (success) {
     await loadChannels();
     await loadHistory();
     pageState.value = 'dashboard';
-  } catch (err: unknown) {
-    authError.value = getErrorMessage(err, '登录失败');
   }
-
-  isAuthing.value = false;
 }
 
 async function doRegister(authEmail: string, authPassword: string) {
-  isAuthing.value = true;
-  authError.value = '';
-
-  try {
-    await register(authEmail, authPassword);
-    // 注册成功，自动登录
-    await doLogin(authEmail, authPassword);
-  } catch (err: unknown) {
-    authError.value = getErrorMessage(err, '注册失败');
-    isAuthing.value = false;
+  const success = await authStore.doRegister(authEmail, authPassword);
+  if (success) {
+    await loadChannels();
+    await loadHistory();
+    pageState.value = 'dashboard';
   }
 }
 
 function logout() {
-  sessionStorage.removeItem('bee_swarm_email');
-  sessionStorage.removeItem('bee_swarm_token');
-  sessionStorage.removeItem('bee_swarm_refresh_token');
-  sessionStorage.removeItem('bee_swarm_expires_at');
-  email.value = '';
-  password.value = '';
-  accessToken.value = '';
-  refreshTokenValue.value = '';
-  tokenExpiresAt.value = 0;
-  authError.value = '';
+  authStore.logout();
   pageState.value = 'auth';
 }
 
@@ -718,7 +653,13 @@ function handleUseGroup(channels: PushChannel[]) {
             showFabMenu = false;
           "
         >
-          <span class="fab-icon">{{ isDark ? '☀️' : '🌙' }}</span>
+          <span class="fab-icon">{{
+            themeStore.currentTheme === 'light'
+              ? '☀️'
+              : themeStore.currentTheme === 'dark'
+                ? '🌙'
+                : '🌓'
+          }}</span>
           <span class="fab-label">{{ t('button.toggle_theme') }}</span>
         </button>
         <button class="fab-item" @click="toggleLocale()">
@@ -763,6 +704,28 @@ function handleUseGroup(channels: PushChannel[]) {
     <div class="container">
       <!-- 设置面板 -->
       <div v-if="showSettings" class="tab-content">
+        <!-- 主题选择面板 -->
+        <div class="panel" :class="{ dark: isDark }">
+          <h3>主题设置</h3>
+          <div class="theme-options">
+            <button
+              v-for="theme in [
+                { value: 'light', label: '浅色', icon: '☀️' },
+                { value: 'dark', label: '深色', icon: '🌙' },
+                { value: 'auto', label: '跟随系统', icon: '🌓' },
+              ]"
+              :key="theme.value"
+              class="theme-option"
+              :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
+              @click="themeStore.setTheme(theme.value as any)"
+            >
+              <span class="theme-icon">{{ theme.icon }}</span>
+              <span class="theme-label">{{ theme.label }}</span>
+              <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
+            </button>
+          </div>
+        </div>
+
         <!-- API Key 面板 -->
         <div class="panel" :class="{ dark: isDark }">
           <div class="api-key-panel" :class="{ dark: isDark }">
@@ -1649,5 +1612,60 @@ function handleUseGroup(channels: PushChannel[]) {
 
 .fab-menu.dark .fab-label {
   color: var(--text-primary, #e0e0e0);
+}
+
+/* ==================== 主题选择器样式 ==================== */
+.theme-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 10px;
+  background: var(--bg-panel, white);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-option:hover {
+  border-color: #667eea;
+  background: var(--bg-secondary, #f0f0f0);
+}
+
+.theme-option.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+}
+
+.theme-option.dark:hover {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.theme-option.dark.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+}
+
+.theme-icon {
+  font-size: 24px;
+}
+
+.theme-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+  flex: 1;
+}
+
+.theme-check {
+  color: #667eea;
+  font-size: 20px;
+  font-weight: bold;
 }
 </style>
