@@ -271,7 +271,7 @@
             <select v-model="newPush.templateId" @change="onTemplateChange">
               <option value="">不使用模板</option>
               <option v-for="t in templates" :key="t.id" :value="t.id">
-                {{ t.name }} ({{ t.channel }})
+                {{ t.name }} ({{ (t.channels || []).join(', ') }})
               </option>
             </select>
           </div>
@@ -323,7 +323,7 @@ interface ScheduledPush {
 interface Template {
   id: string;
   name: string;
-  channel: string;
+  title: string;
   content: string;
   channels?: string[];
 }
@@ -369,13 +369,13 @@ const statusFilters = [
 ];
 
 const availableChannels = [
-  { id: 'email', name: '邮件', icon: '📧' },
-  { id: 'sms', name: '短信', icon: '' },
-  { id: 'push', name: '推送', icon: '🔔' },
-  { id: 'wechat', name: '微信', icon: '💬' },
+  { id: 'wework', name: '企业微信', icon: '💼' },
   { id: 'dingtalk', name: '钉钉', icon: '🚀' },
   { id: 'feishu', name: '飞书', icon: '📮' },
   { id: 'telegram', name: 'Telegram', icon: '✈️' },
+  { id: 'bark', name: 'Bark', icon: '📱' },
+  { id: 'ntfy', name: 'Ntfy', icon: '🔔' },
+  { id: 'email', name: '邮件', icon: '' },
   { id: 'slack', name: 'Slack', icon: '💼' },
   { id: 'discord', name: 'Discord', icon: '🎮' },
   { id: 'webpush', name: 'Web Push', icon: '🌐' }
@@ -499,6 +499,9 @@ function onTemplateChange() {
     if (template.channels && template.channels.length > 0) {
       newPush.value.channels = [...template.channels];
     }
+  } else {
+    // 取消选择模板时不清空用户已填写的内容，只清空渠道选择
+    newPush.value.channels = [];
   }
 }
 
