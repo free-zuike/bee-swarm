@@ -156,6 +156,18 @@ export async function sendPushWithToken(
   });
 }
 
+/** dispatchPush alias for GroupManager */
+export async function dispatchPush(
+  token: string,
+  payload: { title: string; body?: string; url?: string; channels?: PushChannel[] }
+): Promise<{
+  success: boolean;
+  message: string;
+  results: Array<{ channel: PushChannel; success: boolean; message: string }>;
+}> {
+  return sendPushWithToken(token, payload);
+}
+
 export async function getHistoryWithToken(
   token: string,
   options?: { page?: number; pageSize?: number; channel?: string; status?: string; keyword?: string }

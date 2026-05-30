@@ -1004,6 +1004,22 @@ const activeFilters = computed(() => {
     padding: 16px;
   }
 
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .header-actions .btn {
+    flex: 1;
+    min-width: 80px;
+  }
+
   .stats-bar {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -1017,24 +1033,130 @@ const activeFilters = computed(() => {
     min-width: 100%;
   }
 
+  .select-all-bar {
+    padding: 6px 10px;
+  }
+
+  .history-item {
+    padding: 12px;
+  }
+
   .history-header {
     flex-direction: column;
+    gap: 8px;
   }
 
   .header-right {
     width: 100%;
   }
 
+  .channel-tags {
+    flex-wrap: wrap;
+  }
+
+  .channel-tag {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
   .history-meta {
     gap: 8px;
+    flex-wrap: wrap;
   }
 
   .history-result {
     flex-direction: column;
+    padding: 8px;
   }
 
   .result-right {
     margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal {
+    width: 95%;
+    margin: 16px;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+  }
+
+  .stat-item {
+    padding: 10px 12px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .history-title {
+    font-size: 14px;
+  }
+
+  .history-body {
+    font-size: 12px;
+  }
+
+  .channel-tag {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .meta-time,
+  .meta-status,
+  .meta-avg-latency,
+  .meta-retries {
+    font-size: 10px;
+  }
+
+  .history-result {
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  .result-channel {
+    min-width: 60px;
+    font-size: 11px;
   }
 }
 </style>

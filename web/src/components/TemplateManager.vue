@@ -1073,9 +1073,76 @@ onMounted(loadTemplates);
     padding: 16px;
   }
 
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-actions .btn {
+    flex: 1;
+    min-width: 80px;
+  }
+
   .modal-large {
     width: 95%;
     max-width: 100%;
+  }
+
+  .modal {
+    width: 95%;
+    max-width: 100%;
+    margin: 16px;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .channels-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .channel-checkbox {
+    padding: 6px 10px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-actions .btn {
+    width: 100%;
   }
 
   .auto-vars-grid {
@@ -1085,6 +1152,107 @@ onMounted(loadTemplates);
   .variables-header {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .variable-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .variable-key {
+    min-width: auto;
+    text-align: left;
+  }
+
+  .template-item {
+    padding: 12px;
+  }
+
+  .template-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .template-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .template-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .template-actions .btn {
+    width: 100%;
+  }
+
+  .preview-section {
+    padding: 12px;
+  }
+
+  .preview-item {
+    margin-bottom: 8px;
+  }
+
+  .template-channels {
+    flex-wrap: wrap;
+  }
+
+  .channel-tag {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 14px;
+  }
+
+  .modal-header h3 {
+    font-size: 14px;
+  }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .template-name {
+    font-size: 13px;
+  }
+
+  .template-desc {
+    font-size: 11px;
+  }
+
+  .channel-tag {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+
+  .template-channels {
+    gap: 4px;
+  }
+
+  .variable-hint {
+    font-size: 11px;
+  }
+
+  .variable-key {
+    font-size: 11px;
+  }
+
+  .variable-input {
+    font-size: 12px;
+    padding: 4px 8px;
   }
 }
 </style>

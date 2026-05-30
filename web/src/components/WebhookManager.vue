@@ -668,8 +668,29 @@ textarea.form-input {
     padding: 16px;
   }
 
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .header-actions .btn {
+    flex: 1;
+    min-width: 80px;
+  }
+
   .channel-selector {
     gap: 6px;
+    flex-wrap: wrap;
   }
 
   .channel-checkbox {
@@ -683,6 +704,102 @@ textarea.form-input {
 
   .example-code code {
     font-size: 11px;
+    word-break: break-all;
+  }
+
+  .webhook-item {
+    padding: 12px;
+  }
+
+  .webhook-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .webhook-info {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .webhook-actions {
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .webhook-actions .btn {
+    width: 100%;
+  }
+
+  .modal {
+    width: 95%;
+    max-width: 100%;
+    margin: 16px;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 14px;
+  }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .webhook-name {
+    font-size: 13px;
+  }
+
+  .webhook-url {
+    font-size: 11px;
+  }
+
+  .webhook-desc {
+    font-size: 11px;
+  }
+
+  .channel-checkbox {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  .example-code {
+    padding: 10px;
+  }
+
+  .example-code code {
+    font-size: 10px;
+  }
+
+  .modal-header h3 {
+    font-size: 14px;
+  }
+
+  .webhook-empty p {
+    font-size: 12px;
   }
 }
 </style>

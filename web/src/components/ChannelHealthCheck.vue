@@ -494,6 +494,16 @@ onMounted(async () => {
     padding: 16px;
   }
 
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+  }
+
   .health-summary {
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
@@ -506,6 +516,7 @@ onMounted(async () => {
   .channel-card {
     flex-wrap: wrap;
     gap: 12px;
+    padding: 12px;
   }
 
   .channel-info {
@@ -514,10 +525,91 @@ onMounted(async () => {
 
   .channel-status {
     flex: 1 1 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .channel-status-info {
+    width: 100%;
   }
 
   .btn-test {
     width: 100%;
+  }
+
+  .test-result {
+    padding: 12px;
+    margin-top: 16px;
+  }
+
+  .test-result h4 {
+    font-size: 14px;
+  }
+
+  .result-channel {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 14px;
+  }
+
+  .health-summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .summary-value {
+    font-size: 20px;
+  }
+
+  .summary-label {
+    font-size: 11px;
+  }
+
+  .channel-name {
+    font-size: 13px;
+  }
+
+  .channel-type {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .status-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .channel-last-check {
+    font-size: 10px;
+  }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .test-result {
+    padding: 10px;
+  }
+
+  .result-channel {
+    font-size: 12px;
+  }
+
+  .result-status {
+    font-size: 13px;
+  }
+
+  .result-message {
+    font-size: 12px;
   }
 }
 </style>

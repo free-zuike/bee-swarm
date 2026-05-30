@@ -698,4 +698,178 @@ defineExpose({ loadData });
     padding: 0;
   }
 }
+
+@media (max-width: 768px) {
+  .stats-panel {
+    padding: 12px;
+  }
+
+  .stats-panel h3 {
+    font-size: 14px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .stats-panel > p {
+    font-size: 11px;
+  }
+
+  .stat-card .stat-label {
+    font-size: 12px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 24px;
+  }
+
+  .section-title {
+    font-size: 13px;
+  }
+
+  .section-title::after {
+    margin-bottom: 2px;
+  }
+
+  .channel-usage-list {
+    gap: 8px;
+  }
+
+  .channel-usage-item {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .channel-name {
+    font-size: 12px;
+  }
+
+  .channel-stats {
+    gap: 10px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .channel-count {
+    font-size: 11px;
+  }
+
+  .channel-latency {
+    font-size: 11px;
+  }
+
+  .channel-bar-container {
+    width: 100%;
+  }
+
+  .trend-list {
+    gap: 6px;
+  }
+
+  .trend-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 10px;
+  }
+
+  .trend-label {
+    font-size: 11px;
+  }
+
+  .trend-bar-container {
+    width: 100%;
+    height: 5px;
+  }
+
+  .trend-value {
+    font-size: 11px;
+  }
+
+  .channel-trend-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .channel-trend-item {
+    padding: 8px 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .channel-trend-name {
+    font-size: 12px;
+  }
+
+  .channel-trend-stats {
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .channel-trend-rate {
+    font-size: 11px;
+  }
+
+  .channel-trend-bar-container {
+    width: 100%;
+    height: 5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-panel {
+    padding: 10px;
+  }
+
+  .stats-panel h3 {
+    font-size: 13px;
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 20px;
+  }
+
+  .channel-usage-item {
+    padding: 8px 10px;
+  }
+
+  .channel-name {
+    font-size: 11px;
+  }
+
+  .channel-stats {
+    font-size: 10px;
+  }
+
+  .channel-count,
+  .channel-latency {
+    font-size: 10px;
+  }
+
+  .trend-item {
+    padding: 6px 8px;
+  }
+
+  .channel-trend-item {
+    padding: 6px 8px;
+  }
+}
 </style>

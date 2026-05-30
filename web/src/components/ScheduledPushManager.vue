@@ -1480,4 +1480,234 @@ watch(() => props.accessToken, () => {
   color: #667eea;
   min-width: 80px;
 }
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    height: auto;
+    margin-bottom: 16px;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+    line-height: normal;
+  }
+
+  .filter-bar {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .filter-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .push-card {
+    flex-direction: column;
+  }
+
+  .push-main {
+    padding: 16px;
+  }
+
+  .push-actions {
+    flex-direction: row;
+    border-left: none;
+    border-top: 1px solid #f5f5f5;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .push-actions .action-btn {
+    flex: 1;
+    border-radius: 8px;
+  }
+
+  .push-name {
+    font-size: 15px;
+  }
+
+  .field-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-label {
+    min-width: auto;
+  }
+
+  .field-value.channels {
+    flex-wrap: wrap;
+  }
+
+  .modal {
+    width: 95%;
+    max-width: 100%;
+    margin: 16px;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .channels-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .channel-checkbox {
+    padding: 6px 10px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+
+  .datetime-inputs {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .quick-schedule {
+    flex-wrap: wrap;
+  }
+
+  .schedule-type-selector {
+    flex-wrap: wrap;
+  }
+
+  .recurring-options {
+    flex-wrap: wrap;
+  }
+
+  .recurring-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .weekday-options {
+    gap: 6px;
+  }
+
+  .weekday-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .monthday-options {
+    gap: 4px;
+  }
+
+  .monthday-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .cron-help {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .cron-help code {
+    font-size: 11px;
+    min-width: 70px;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 14px;
+  }
+
+  .push-main {
+    padding: 12px;
+  }
+
+  .push-name {
+    font-size: 14px;
+  }
+
+  .field-row {
+    font-size: 12px;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .btn-small {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .filter-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .filter-btn .count {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+
+  .modal-header h3 {
+    font-size: 14px;
+  }
+
+  .channel-icon {
+    font-size: 16px;
+  }
+
+  .channel-name {
+    font-size: 13px;
+  }
+
+  .channel-checkbox {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  .status-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+}
 </style>

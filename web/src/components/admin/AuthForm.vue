@@ -246,4 +246,74 @@ const displayError = computed(() => props.authError || localError.value);
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .login-card {
+    width: 90%;
+    padding: 32px 24px;
+  }
+
+  .login-card h2 {
+    font-size: 22px;
+  }
+
+  .login-card > p {
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+
+  .login-card input {
+    padding: 10px 14px;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .auth-tabs {
+    margin-bottom: 20px;
+  }
+
+  .auth-tab-btn {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    width: 95%;
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+
+  .login-card h2 {
+    font-size: 20px;
+  }
+
+  .login-card > p {
+    font-size: 11px;
+    margin-bottom: 16px;
+  }
+
+  .login-card input {
+    padding: 9px 12px;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+
+  .auth-tab-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .login-error {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+  }
+}
 </style>
