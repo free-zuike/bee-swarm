@@ -37,6 +37,7 @@ const emit = defineEmits<{
   (e: 'load-page', page: number): void;
   (e: 'clear'): void;
   (e: 'batch-delete', ids: string[]): void;
+  (e: 'filter-change', filters: { channel?: string; status?: string; search?: string }): void;
 }>();
 
 const locale = computed(() => {
@@ -119,11 +120,17 @@ function resetFilters() {
   searchKeyword.value = '';
   currentPage.value = 1;
   selectedIds.value.clear();
+  emit('filter-change', { channel: '', status: '', search: '' });
   emit('load-page', 1);
 }
 
 function applyFilters() {
   currentPage.value = 1;
+  emit('filter-change', {
+    channel: filterChannel.value || undefined,
+    status: filterStatus.value || undefined,
+    search: searchKeyword.value || undefined,
+  });
   emit('load-page', 1);
 }
 

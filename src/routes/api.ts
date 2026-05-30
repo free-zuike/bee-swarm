@@ -994,22 +994,23 @@ adminApi.get('/channels/health/:channel', async (c) => {
   return c.json({ channel, healthy: true, message: '渠道已配置' });
 });
 
-/** 批量检查所有渠道健康状态 */
+/** 批量渠道健康检查 */
 adminApi.get('/channels/health', async (c) => {
   const username = c.get('username');
-  const allChannels: PushChannel[] = ['wework', 'dingtalk', 'feishu', 'telegram', 'bark', 'ntfy', 'email', 'slack', 'discord'];
-  const results: ChannelHealth[] = [];
-
-  for (const channel of allChannels) {
-    const configKey = `user:${username}:channel:${channel}`;
-    const config = await c.env.SUBSCRIPTIONS.get(configKey);
-    results.push({
-      channel,
-      healthy: !!config,
-      message: config ? '渠道已配置' : '渠道未配置',
-    });
-  }
-
+  const settings = await loadUserChannelSettings(username, c.env);
+  const results = await Promise.all(
+    CHANNEL_DEFINITIONS.map((ch) => {
+      const isConfigured = Object.keys(settings).some(
+        (key) => key.startsWith(`channel:${ch.id}:`)
+      );
+      return {
+        channel: ch.id as PushChannel,
+        healthy: isConfigured,
+        message: isConfigured ? '渠道已配置' : '渠道未配置',
+        testedAt: new Date().toISOString(),
+      };
+    })
+  );
   return c.json({ channels: results });
 });
 
@@ -1017,10 +1018,13 @@ adminApi.get('/channels/health', async (c) => {
 adminApi.post('/channels/health/:channel/test', async (c) => {
   const username = c.get('username');
   const channel = c.req.param('channel') as PushChannel;
-  const configKey = `user:${username}:channel:${channel}`;
-  const config = await c.env.SUBSCRIPTIONS.get(configKey);
+  const settings = await loadUserChannelSettings(username, c.env);
+  const channelPrefix = `channel:${channel}:`;
+  const isConfigured = Object.keys(settings).some(
+    (key) => key.startsWith(channelPrefix)
+  );
 
-  if (!config) {
+  if (!isConfigured) {
     return c.json({ error: '渠道未配置', code: 'NOT_CONFIGURED' }, 400);
   }
 

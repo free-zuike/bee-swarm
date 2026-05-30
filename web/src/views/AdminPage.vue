@@ -143,14 +143,25 @@ async function copyApiKey() {
 }
 
 // ==================== 历史记录加载 ====================
+const historyFilters = reactive({
+  channel: '' as string,
+  status: '' as string,
+  search: '',
+});
+
 async function loadHistory(page = 1) {
   isLoadingHistory.value = true;
   historyPage.value = page;
   try {
-    const data = await getHistoryWithToken(accessToken.value, { page, pageSize: historyPageSize });
+    const data = await getHistoryWithToken(accessToken.value, {
+      page,
+      pageSize: historyPageSize,
+      channel: historyFilters.channel || undefined,
+      status: historyFilters.status || undefined,
+      keyword: historyFilters.search || undefined,
+    });
     pushHistory.value = data.history || [];
     historyTotal.value = data.total || 0;
-    // 如果有历史记录，设置 lastPushTime 为最近一条的时间
     if (pushHistory.value.length > 0) {
       lastPushTime.value = new Date(pushHistory.value[0].time).toLocaleString('zh-CN');
     }
@@ -158,6 +169,13 @@ async function loadHistory(page = 1) {
     console.error('加载历史记录失败:', err);
   }
   isLoadingHistory.value = false;
+}
+
+function handleFilterChange(filters: { channel?: string; status?: string; search?: string }) {
+  historyFilters.channel = filters.channel || '';
+  historyFilters.status = filters.status || '';
+  historyFilters.search = filters.search || '';
+  loadHistory(1);
 }
 
 async function handleClearHistory() {
@@ -823,8 +841,10 @@ function handleUseGroup(channels: PushChannel[]) {
           :loading="isLoadingHistory"
           :channels="channels"
           :total="historyTotal"
+          :access-token="accessToken"
           @load-page="loadHistory"
           @clear="handleClearHistory"
+          @filter-change="handleFilterChange"
         />
 
         <!-- ==================== 模板管理 Tab ==================== -->
