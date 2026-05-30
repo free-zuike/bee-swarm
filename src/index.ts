@@ -18,6 +18,29 @@ const app = new Hono<{ Bindings: Env }>();
 // 安全 HTTP 头
 app.use('*', securityHeaders());
 
+/** 匹配 cron 单个字段是否包含指定值 */
+function matchCronField(field: string, value: number): boolean {
+  if (field === '*') return true;
+  
+  const values = field.split(',');
+  for (const v of values) {
+    if (v.includes('/')) {
+      const [base, step] = v.split('/');
+      const start = base === '*' ? 0 : parseInt(base, 10);
+      const interval = parseInt(step, 10);
+      if ((value - start) % interval === 0 && value >= start) return true;
+      continue;
+    }
+    if (v.includes('-')) {
+      const [start, end] = v.split('-').map(Number);
+      if (value >= start && value <= end) return true;
+      continue;
+    }
+    if (parseInt(v, 10) === value) return true;
+  }
+  return false;
+}
+
 // 限流配置
 app.use(
   '*',
@@ -181,32 +204,45 @@ export default {
 
                 switch (recurringType) {
                   case 'hourly':
-                    // 每小时执行：检查分钟是否匹配
                     shouldExecute = nowMinute === pushMinute;
                     break;
 
                   case 'interval':
-                    // 自定义间隔：检查是否到了间隔时间
                     const intervalHours = push.intervalHours || 2;
                     const hoursSinceStart = Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60));
                     shouldExecute = hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && nowMinute === pushMinute;
                     break;
 
                   case 'daily':
-                    // 每天执行：检查时间是否匹配
                     shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
                     break;
 
                   case 'weekly':
-                    // 每周执行：检查星期和时间是否匹配
                     const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
                     shouldExecute = selectedWeekDays.includes(nowDay) && nowHour === pushHour && nowMinute === pushMinute;
                     break;
 
                   case 'monthly':
-                    // 每月执行：检查日期和时间是否匹配
                     const selectedMonthDays = push.selectedMonthDays || [1, 15];
                     shouldExecute = selectedMonthDays.includes(nowDateOfMonth) && nowHour === pushHour && nowMinute === pushMinute;
+                    break;
+
+                  case 'cron':
+                    // Cron 表达式匹配：分 时 日 月 周
+                    if (push.cronExpression) {
+                      const parts = push.cronExpression.trim().split(/\s+/);
+                      if (parts.length === 5) {
+                        const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
+                        const matchesMinute = matchCronField(minuteField, nowMinute);
+                        const matchesHour = matchCronField(hourField, nowHour);
+                        const matchesDayOfMonth = matchCronField(dayOfMonthField, nowDateOfMonth);
+                        const matchesMonth = matchCronField(monthField, nowDate.getMonth() + 1);
+                        const matchesDayOfWeek = matchCronField(dayOfWeekField, nowDay);
+                        shouldExecute = matchesMinute && matchesHour && matchesDayOfMonth && matchesMonth && matchesDayOfWeek;
+                      }
+                    } else {
+                      shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
+                    }
                     break;
 
                   default:
@@ -214,7 +250,6 @@ export default {
                     break;
                 }
               } else {
-                // 单次执行：只检查时间是否到了
                 shouldExecute = true;
               }
 

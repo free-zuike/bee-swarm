@@ -623,10 +623,11 @@ adminApi.post('/scheduled', async (c) => {
     scheduledAt: string;
     templateId?: string;
     scheduleType?: 'once' | 'recurring';
-    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval';
+    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron';
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
     intervalHours?: number;
+    cronExpression?: string;
   };
 
   if (!body.title || !body.scheduledAt || !body.channels?.length) {
@@ -636,6 +637,14 @@ adminApi.post('/scheduled', async (c) => {
   const scheduledTime = new Date(body.scheduledAt);
   if (isNaN(scheduledTime.getTime())) {
     return c.json({ error: '无效的定时时间', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  // Cron 表达式验证（简单验证：必须包含5个空格分隔的字段）
+  if (body.recurringType === 'cron' && body.cronExpression) {
+    const cronRegex = /^(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)\s+(\*|(\d+(-\d+)?(\/\d+)?)(,(\d+(-\d+)?(\/\d+)?))*)$/;
+    if (!cronRegex.test(body.cronExpression.trim())) {
+      return c.json({ error: '无效的 Cron 表达式，请使用标准5字段格式（分 时 日 月 周）', code: 'VALIDATION_ERROR' }, 400);
+    }
   }
 
   if (scheduledTime <= new Date()) {
@@ -655,6 +664,7 @@ adminApi.post('/scheduled', async (c) => {
     selectedWeekDays: body.selectedWeekDays,
     selectedMonthDays: body.selectedMonthDays,
     intervalHours: body.intervalHours,
+    cronExpression: body.cronExpression,
   });
 
   return c.json({ success: true, scheduled: push });
@@ -693,6 +703,149 @@ adminApi.get('/metrics', async (c) => {
   const metrics = new MetricsCollector(c.env, username);
   await metrics.loadSessionMetrics();
   return c.json(metrics.getSessionMetrics());
+});
+
+// ============================================
+// Webhook 触发推送
+// ============================================
+
+/** 通过 Webhook 触发推送（需要 API Key 认证） */
+adminApi.post('/webhook/push', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    title?: string;
+    content?: string;
+    templateId?: string;
+    channels?: PushChannel[];
+    url?: string;
+  };
+
+  // 如果使用模板
+  if (body.templateId) {
+    const pushService = new PushService(c.env, username);
+    const template = await pushService.getTemplate(body.templateId);
+    if (!template) {
+      return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+    }
+    body.title = body.title || template.title;
+    body.content = body.content || template.content;
+    body.channels = body.channels || template.channels || [];
+  }
+
+  if (!body.title && !body.content) {
+    return c.json({ error: '标题或内容至少提供一个，或使用模板', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  if (!body.channels || body.channels.length === 0) {
+    return c.json({ error: '请至少指定一个推送渠道', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const results = await dispatchPushWithOptions(
+    {
+      title: body.title || '',
+      body: body.content || '',
+      url: body.url,
+    },
+    body.channels as any[],
+    username,
+    c.env
+  );
+
+  const success = results.every((r) => r.success);
+  return c.json({
+    success,
+    results,
+    message: success ? '推送成功' : '部分推送失败',
+  });
+});
+
+/** 获取用户的 Webhook URL */
+adminApi.get('/webhook/url', async (c) => {
+  const username = c.get('username');
+  const baseUrl = c.env.APP_URL || 'https://beeswarm.zuike.qzz.io';
+  return c.json({
+    webhookUrl: `${baseUrl}/api/admin/webhook/push`,
+    description: '使用 API Key 作为 Bearer Token 发送 POST 请求到此 URL 来触发推送',
+    exampleBody: {
+      title: '推送标题',
+      content: '推送内容',
+      channels: ['wework', 'dingtalk'],
+    },
+    templateExample: {
+      templateId: '模板ID',
+      content: '可选：覆盖模板内容',
+      channels: ['wework'],
+    },
+  });
+});
+
+// ============================================
+// 渠道健康检查
+// ============================================
+
+/** 检查单个渠道健康状态 */
+adminApi.get('/channels/health/:channel', async (c) => {
+  const username = c.get('username');
+  const channel = c.req.param('channel') as PushChannel;
+  const configKey = `user:${username}:channel:${channel}`;
+  const config = await c.env.SUBSCRIPTIONS.get(configKey);
+
+  if (!config) {
+    return c.json({ channel, status: 'not_configured', healthy: false } as ChannelHealth);
+  }
+
+  // 简单检查：有配置就算健康
+  return c.json({ channel, status: 'configured', healthy: true, lastChecked: new Date().toISOString() } as ChannelHealth);
+});
+
+/** 批量检查所有渠道健康状态 */
+adminApi.get('/channels/health', async (c) => {
+  const username = c.get('username');
+  const allChannels: PushChannel[] = ['wework', 'dingtalk', 'feishu', 'telegram', 'bark', 'ntfy', 'email', 'slack', 'discord'];
+  const results: ChannelHealth[] = [];
+
+  for (const channel of allChannels) {
+    const configKey = `user:${username}:channel:${channel}`;
+    const config = await c.env.SUBSCRIPTIONS.get(configKey);
+    results.push({
+      channel,
+      status: config ? 'configured' : 'not_configured',
+      healthy: !!config,
+      lastChecked: new Date().toISOString(),
+    });
+  }
+
+  return c.json({ channels: results });
+});
+
+/** 测试单个渠道（实际发送测试消息） */
+adminApi.post('/channels/health/:channel/test', async (c) => {
+  const username = c.get('username');
+  const channel = c.req.param('channel') as PushChannel;
+  const configKey = `user:${username}:channel:${channel}`;
+  const config = await c.env.SUBSCRIPTIONS.get(configKey);
+
+  if (!config) {
+    return c.json({ error: '渠道未配置', code: 'NOT_CONFIGURED' }, 400);
+  }
+
+  const results = await dispatchPushWithOptions(
+    {
+      title: '渠道健康检查',
+      body: `这是一条测试消息，用于验证 ${channel} 渠道是否正常工作。`,
+    },
+    [channel],
+    username,
+    c.env
+  );
+
+  const result = results[0];
+  return c.json({
+    channel,
+    healthy: result.success,
+    message: result.success ? '渠道正常' : result.error,
+    testedAt: new Date().toISOString(),
+  });
 });
 
 api.route('/admin', adminApi);

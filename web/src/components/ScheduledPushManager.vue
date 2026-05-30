@@ -183,6 +183,14 @@
                 >
                   每月
                 </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'cron' }"
+                  @click="recurringType = 'cron'"
+                >
+                  Cron 表达式
+                </button>
               </div>
 
               <div v-if="recurringType === 'interval'" class="interval-input">
@@ -238,6 +246,25 @@
                   </button>
                 </div>
               </div>
+
+              <div v-if="recurringType === 'cron'" class="cron-input">
+                <label class="cron-label">Cron 表达式</label>
+                <input
+                  v-model="cronExpression"
+                  type="text"
+                  placeholder="* * * * *  (分 时 日 月 周)"
+                  class="cron-input-field"
+                />
+                <div class="cron-help">
+                  <p class="cron-help-title">常用示例：</p>
+                  <code>*/5 * * * *</code> - 每5分钟<br/>
+                  <code>0 */2 * * *</code> - 每2小时<br/>
+                  <code>0 9 * * 1-5</code> - 工作日9:00<br/>
+                  <code>0 0 1 * *</code> - 每月1号0点<br/>
+                  <code>0 9,12,18 * * *</code> - 每天9/12/18点
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -385,10 +412,11 @@ const creating = ref(false);
 const today = new Date().toISOString().split('T')[0];
 
 const scheduleType = ref<'once' | 'recurring'>('once');
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron'>('daily');
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
 const selectedMonthDays = ref<number[]>([1, 15]);
 const intervalHours = ref(2);
+const cronExpression = ref('');
 
 const weekDays = [
   { value: 1, label: '一' },
@@ -645,6 +673,7 @@ async function createScheduledPushHandler() {
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
       intervalHours: recurringType.value === 'interval' ? intervalHours.value : undefined,
+      cronExpression: recurringType.value === 'cron' ? cronExpression.value.trim() || undefined : undefined,
     });
 
     showCreateModal.value = false;
@@ -1394,5 +1423,61 @@ watch(() => props.accessToken, () => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.cron-input {
+  margin-top: 12px;
+}
+
+.cron-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 8px;
+}
+
+.cron-input-field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+  transition: border-color 0.2s;
+}
+
+.cron-input-field:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.cron-help {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-secondary, #666);
+}
+
+.cron-help-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.cron-help code {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-panel, white);
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #667eea;
+  min-width: 80px;
 }
 </style>
