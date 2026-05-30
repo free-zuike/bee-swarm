@@ -435,10 +435,9 @@ adminApi.get('/channels/health', async (c) => {
   
   const results = await Promise.all(
     CHANNEL_DEFINITIONS.map(async (ch) => {
-      const channelPrefix = `channel:${ch.id}:`;
-      const isConfigured = Object.keys(settings).some(
-        (key) => key.startsWith(channelPrefix)
-      );
+      // loadUserChannelSettings 返回的键格式是 "channel:${channelId}"
+      const channelKey = `channel:${ch.id}`;
+      const isConfigured = channelKey in settings && settings[channelKey];
       
       if (!isConfigured) {
         return {
@@ -478,10 +477,10 @@ adminApi.post('/channels/health/:channel/test', async (c) => {
   const username = c.get('username');
   const channel = c.req.param('channel') as PushChannel;
   const settings = await loadUserChannelSettings(username, c.env);
-  const channelPrefix = `channel:${channel}:`;
-  const isConfigured = Object.keys(settings).some(
-    (key) => key.startsWith(channelPrefix)
-  );
+  
+  // loadUserChannelSettings 返回的键格式是 "channel:${channelId}"
+  const channelKey = `channel:${channel}`;
+  const isConfigured = channelKey in settings && settings[channelKey];
 
   if (!isConfigured) {
     return c.json({ error: '渠道未配置', code: 'NOT_CONFIGURED' }, 400);
