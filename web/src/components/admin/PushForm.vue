@@ -108,28 +108,6 @@ function isNoChannelSelectedError(results: PushResult[]): boolean {
         🚀 {{ t('button.push') }}
       </button>
       <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">{{ t('button.refresh_channels') }}</button>
-
-      <div v-if="pushResults?.length" class="result-list">
-        <template v-if="isNoChannelSelectedError(pushResults)">
-          <div class="result-item error">
-            <span>⚠️ {{ t('error.no_channel_selected_full') }}</span>
-          </div>
-        </template>
-        <template v-else>
-          <div
-            v-for="r in pushResults"
-            :key="r.channel"
-            class="result-item"
-            :class="r.success ? 'success' : 'error'"
-          >
-            <span class="ch-label">
-              {{ channels.find((c) => c.id === r.channel)?.icon || '❓' }}
-              {{ channels.find((c) => c.id === r.channel)?.name || r.channel }}
-            </span>
-            <span>{{ r.message }}</span>
-          </div>
-        </template>
-      </div>
     </div>
   </div>
 </template>
