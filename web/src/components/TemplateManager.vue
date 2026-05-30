@@ -21,21 +21,30 @@
       <div v-else class="template-list">
         <div v-for="tpl in templates" :key="tpl.id" class="template-item">
           <div class="template-info">
-            <div class="template-name">{{ tpl.name }}</div>
-            <div class="template-title">{{ tpl.title }}</div>
-            <div class="template-content">{{ tpl.content }}</div>
-            <div class="template-meta">
-              <span class="meta-tag channel">{{ tpl.channel }}</span>
-              <span v-if="tpl.useMarkdown" class="meta-tag">Markdown</span>
-              <span v-if="tpl.url" class="meta-tag">URL: {{ tpl.url }}</span>
+            <div class="template-header">
+              <div class="template-name">{{ tpl.name }}</div>
+              <div class="template-tags">
+                <span v-if="tpl.useMarkdown" class="meta-tag">Markdown</span>
+                <span v-for="ch in tpl.channels" :key="ch" class="meta-tag channel">{{ getChannelName(ch) }}</span>
+              </div>
+            </div>
+            <div class="template-row">
+              <span class="template-title">{{ tpl.title }}</span>
+            </div>
+            <div class="template-row">
+              <span class="template-content">{{ tpl.content || t('templates.noContent') }}</span>
             </div>
           </div>
           <div class="template-actions">
-            <button class="btn btn-small btn-secondary" @click="useTemplate(tpl)">
+            <button class="btn btn-small btn-primary" @click="useTemplate(tpl)">
               {{ t('templates.use') }}
             </button>
-            <button class="btn-icon" @click="editTemplate(tpl)" title="{{ t('common.edit') }}">✏️</button>
-            <button class="btn-icon" @click="confirmDelete(tpl)" title="{{ t('common.delete') }}">🗑️</button>
+            <button class="btn-icon" @click="editTemplate(tpl)" :title="t('common.edit')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn-icon btn-danger" @click="confirmDelete(tpl)" :title="t('common.delete')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -140,27 +149,43 @@ const editingTemplate = ref<PushTemplate | null>(null);
 const deletingTemplate = ref<PushTemplate | null>(null);
 const templates = ref<PushTemplate[]>([]);
 
-const channelNameMap: Record<string, string> = {
-  wework: '企业微信',
-  dingtalk: '钉钉',
-  feishu: '飞书',
-  telegram: 'Telegram',
-  discord: 'Discord',
-  slack: 'Slack',
-  mail: '邮件',
-  webhook: 'Webhook',
-  bark: 'Bark',
-  pushplus: 'PushPlus',
-  webpush: 'Web Push',
-};
+function getChannelName(ch: string): string {
+  const channelNameMap: Record<string, string> = {
+    wework: '企业微信',
+    dingtalk: '钉钉',
+    feishu: '飞书',
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    mail: '邮件',
+    webhook: 'Webhook',
+    bark: 'Bark',
+    pushplus: 'PushPlus',
+    webpush: 'Web Push',
+  };
+  return channelNameMap[ch] || ch;
+}
 
-const allChannels = computed(() =>
-  props.channels.filter((c) => c.enabled).map((c) => ({
+const allChannels = computed(() => {
+  const channelNameMap: Record<string, string> = {
+    wework: '企业微信',
+    dingtalk: '钉钉',
+    feishu: '飞书',
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    mail: '邮件',
+    webhook: 'Webhook',
+    bark: 'Bark',
+    pushplus: 'PushPlus',
+    webpush: 'Web Push',
+  };
+  return props.channels.filter((c) => c.enabled).map((c) => ({
     id: c.id,
     name: channelNameMap[c.id] || c.id,
     icon: c.icon,
-  }))
-);
+  }));
+});
 
 const form = reactive({
   name: '',
@@ -329,17 +354,17 @@ onMounted(loadTemplates);
 .template-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 10px;
-  border: 1px solid var(--border-color, #f0f0f0);
+  align-items: flex-start;
+  padding: 20px 24px;
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e8e8e8);
   transition: all 0.2s;
 }
 
 .template-item:hover {
   border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.1);
 }
 
 .template-info {
@@ -347,26 +372,43 @@ onMounted(loadTemplates);
   min-width: 0;
 }
 
+.template-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
 .template-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary, #1a1a2e);
+}
+
+.template-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.template-row {
+  display: flex;
+  align-items: center;
   margin-bottom: 4px;
 }
 
 .template-title {
-  font-size: 13px;
-  color: var(--text-secondary, #666);
-  margin-bottom: 4px;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  font-weight: 500;
 }
 
 .template-content {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary, #888);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 8px;
 }
 
 .template-meta {
@@ -377,10 +419,26 @@ onMounted(loadTemplates);
 
 .meta-tag {
   font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #e8e8e8;
-  color: #666;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-secondary, #666);
+  font-weight: 500;
+}
+
+.meta-tag.channel {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  color: #667eea;
+  border: 1px solid #667eea30;
+}
+
+.template-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 16px;
+  padding-top: 2px;
 }
 
 .meta-tag.channel {
