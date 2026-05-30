@@ -6,6 +6,8 @@ import { cors } from 'hono/cors';
 import type { Env } from './types';
 import api from './routes/api';
 import { getBackupEndpoints, uploadBackupToEndpoint, saveBackupEndpoint } from './services/backup';
+import { PushService } from './services/push';
+import { dispatchPushWithOptions } from './services/dispatcher';
 import { rateLimit } from './middleware/rateLimit';
 import { securityHeaders } from './middleware/securityHeaders';
 import { createErrorResponse, logError } from './utils/errors';
@@ -142,6 +144,53 @@ export default {
           const username = key.name.replace('user:', '');
           if (username.includes(':')) continue;
 
+          // ==================== 处理定时推送 ====================
+          try {
+            const pushService = new PushService(env, username);
+            const pendingPushes = await pushService.getScheduledPushes('pending');
+            const nowDate = new Date();
+
+            for (const push of pendingPushes) {
+              const scheduledTime = new Date(push.scheduledAt);
+              if (scheduledTime <= nowDate) {
+                // 防重复执行：使用当前时间戳的分钟级作为执行标识
+                const execKey = `scheduled_exec:${username}:${push.id}`;
+                const lastExecMinute = Math.floor(scheduledTime.getTime() / 60000);
+                const alreadyExecuted = await env.SUBSCRIPTIONS.get(execKey);
+                if (alreadyExecuted && parseInt(alreadyExecuted, 10) === lastExecMinute) {
+                  continue;
+                }
+
+                // 更新状态为执行中
+                await pushService.updateScheduledPushStatus(push.id, 'processing');
+
+                // 执行推送
+                const results = await dispatchPushWithOptions(
+                  {
+                    title: push.title,
+                    body: push.content,
+                    url: push.url,
+                  },
+                  push.channels as any[],
+                  username,
+                  env
+                );
+
+                // 更新最终状态
+                const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
+                await pushService.updateScheduledPushStatus(push.id, finalStatus);
+
+                // 记录执行时间防重复
+                await env.SUBSCRIPTIONS.put(execKey, String(lastExecMinute), {
+                  expirationTtl: 24 * 60 * 60,
+                });
+              }
+            }
+          } catch (err) {
+            console.error(`[Cron ScheduledPush] Error for ${username}:`, (err as Error).message);
+          }
+
+          // ==================== 处理备份 ====================
           const endpoints = await getBackupEndpoints(env, username);
 
           for (const endpoint of endpoints) {
