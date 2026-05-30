@@ -12,6 +12,7 @@ import type {
   PushMetrics,
   ChannelHealth,
 } from '@/types';
+import { withCache, apiCache } from '@/composables/useApiCache';
 
 const BASE = '/api';
 
@@ -54,7 +55,7 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
     }
     throw await handleResponseError(res);
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 // -------------------------------------------
@@ -132,7 +133,8 @@ export async function getChannelsWithToken(token: string): Promise<{
     }>;
   }>;
 }> {
-  return tokenRequest(`${BASE}/admin/channels`, token);
+  const url = `${BASE}/admin/channels`;
+  return withCache(url, () => tokenRequest(url, token), token, { ttl: 10 * 60 * 1000 });
 }
 
 export async function saveChannelWithToken(
@@ -144,11 +146,18 @@ export async function saveChannelWithToken(
   message: string;
   channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
 }> {
-  return tokenRequest(`${BASE}/admin/channels/${channelId}`, token, {
+  const result = await tokenRequest<{
+    success: boolean;
+    message: string;
+    channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
+  }>(`${BASE}/admin/channels/${channelId}`, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields }),
   });
+  apiCache.invalidate(`${BASE}/admin/channels`, token);
+  apiCache.invalidate(`${BASE}/admin/channels/health`, token);
+  return result;
 }
 
 export async function sendPushWithToken(
@@ -232,7 +241,8 @@ export async function getApiKeyWithToken(
 
 // 获取所有备份端
 export async function getBackupEndpoints(token: string): Promise<{ endpoints: BackupEndpoint[] }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints`, token);
+  const url = `${BASE}/admin/backup-endpoints`;
+  return withCache(url, () => tokenRequest(url, token), token, { ttl: 5 * 60 * 1000 });
 }
 
 // 添加备份端
@@ -240,11 +250,14 @@ export async function addBackupEndpoint(
   token: string,
   endpoint: Omit<BackupEndpoint, 'id'>
 ): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints`, token, {
+  const url = `${BASE}/admin/backup-endpoints`;
+  const result = await tokenRequest<{ success: boolean; endpoint: BackupEndpoint }>(url, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(endpoint),
   });
+  apiCache.invalidate(url, token);
+  return result;
 }
 
 // 更新备份端
@@ -253,11 +266,14 @@ export async function updateBackupEndpoint(
   id: string,
   endpoint: Partial<BackupEndpoint>
 ): Promise<{ success: boolean; endpoint: BackupEndpoint }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}`, token, {
+  const url = `${BASE}/admin/backup-endpoints/${id}`;
+  const result = await tokenRequest<{ success: boolean; endpoint: BackupEndpoint }>(url, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(endpoint),
   });
+  apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
+  return result;
 }
 
 // 删除备份端
@@ -265,7 +281,12 @@ export async function deleteBackupEndpoint(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}`, token, { method: 'DELETE' });
+  const url = `${BASE}/admin/backup-endpoints/${id}`;
+  const result = await tokenRequest<{ success: boolean; message: string }>(url, token, {
+    method: 'DELETE',
+  });
+  apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
+  return result;
 }
 
 // 测试备份端连接
@@ -367,7 +388,8 @@ export async function backupSingleEndpoint(
 
 // 获取所有模板
 export async function getTemplates(token: string): Promise<{ templates: PushTemplate[] }> {
-  return tokenRequest(`${BASE}/admin/templates`, token);
+  const url = `${BASE}/admin/templates`;
+  return withCache(url, () => tokenRequest(url, token), token, { ttl: 5 * 60 * 1000 });
 }
 
 // 创建模板
@@ -375,11 +397,14 @@ export async function createTemplate(
   token: string,
   template: Omit<PushTemplate, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<{ success: boolean; template: PushTemplate }> {
-  return tokenRequest(`${BASE}/admin/templates`, token, {
+  const url = `${BASE}/admin/templates`;
+  const result = await tokenRequest<{ success: boolean; template: PushTemplate }>(url, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(template),
   });
+  apiCache.invalidate(url, token);
+  return result;
 }
 
 // 更新模板
@@ -388,11 +413,14 @@ export async function updateTemplate(
   id: string,
   template: Partial<PushTemplate>
 ): Promise<{ success: boolean; template: PushTemplate }> {
-  return tokenRequest(`${BASE}/admin/templates/${id}`, token, {
+  const url = `${BASE}/admin/templates/${id}`;
+  const result = await tokenRequest<{ success: boolean; template: PushTemplate }>(url, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(template),
   });
+  apiCache.invalidate(`${BASE}/admin/templates`, token);
+  return result;
 }
 
 // 删除模板
@@ -400,7 +428,12 @@ export async function deleteTemplate(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  return tokenRequest(`${BASE}/admin/templates/${id}`, token, { method: 'DELETE' });
+  const url = `${BASE}/admin/templates/${id}`;
+  const result = await tokenRequest<{ success: boolean; message: string }>(url, token, {
+    method: 'DELETE',
+  });
+  apiCache.invalidate(`${BASE}/admin/templates`, token);
+  return result;
 }
 
 // -------------------------------------------
@@ -409,7 +442,8 @@ export async function deleteTemplate(
 
 // 获取所有分组
 export async function getChannelGroups(token: string): Promise<{ groups: ChannelGroup[] }> {
-  return tokenRequest(`${BASE}/admin/groups`, token);
+  const url = `${BASE}/admin/groups`;
+  return withCache(url, () => tokenRequest(url, token), token, { ttl: 5 * 60 * 1000 });
 }
 
 // 创建分组
@@ -417,11 +451,14 @@ export async function createChannelGroup(
   token: string,
   group: { name: string; channels: PushChannel[] }
 ): Promise<{ success: boolean; group: ChannelGroup }> {
-  return tokenRequest(`${BASE}/admin/groups`, token, {
+  const url = `${BASE}/admin/groups`;
+  const result = await tokenRequest<{ success: boolean; group: ChannelGroup }>(url, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(group),
   });
+  apiCache.invalidate(url, token);
+  return result;
 }
 
 // 删除分组
@@ -429,7 +466,12 @@ export async function deleteChannelGroup(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  return tokenRequest(`${BASE}/admin/groups/${id}`, token, { method: 'DELETE' });
+  const url = `${BASE}/admin/groups/${id}`;
+  const result = await tokenRequest<{ success: boolean; message: string }>(url, token, {
+    method: 'DELETE',
+  });
+  apiCache.invalidate(`${BASE}/admin/groups`, token);
+  return result;
 }
 
 // 更新分组
@@ -438,11 +480,14 @@ export async function updateChannelGroup(
   id: string,
   group: { name?: string; channels?: string[] }
 ): Promise<{ success: boolean; group: ChannelGroup }> {
-  return tokenRequest(`${BASE}/admin/groups/${id}`, token, {
+  const url = `${BASE}/admin/groups/${id}`;
+  const result = await tokenRequest<{ success: boolean; group: ChannelGroup }>(url, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(group),
   });
+  apiCache.invalidate(`${BASE}/admin/groups`, token);
+  return result;
 }
 
 // -------------------------------------------
@@ -455,7 +500,8 @@ export async function getScheduledPushes(
   status?: string
 ): Promise<{ scheduled: ScheduledPush[] }> {
   const url = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
-  return tokenRequest(url, token);
+  const cacheKey = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
+  return withCache(cacheKey, () => tokenRequest(url, token), token, { ttl: 2 * 60 * 1000 });
 }
 
 // 创建定时推送
