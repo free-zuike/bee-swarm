@@ -10,3 +10,5 @@ export { TelegramChannel, sendTelegram } from './telegram';
 export { BarkChannel, sendBark } from './bark';
 export { NtfyChannel, sendNtfy } from './ntfy';
 export { EmailChannel, sendEmail } from './email';
+export { ServerchanChannel, sendServerchan } from './serverchan';
+export { PushplusChannel, sendPushplus } from './pushplus';

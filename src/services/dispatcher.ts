@@ -24,6 +24,8 @@ import {
   sendEmail,
   sendSlack,
   sendDiscord,
+  sendServerchan,
+  sendPushplus,
   WeworkChannel,
   DingtalkChannel,
   FeishuChannel,
@@ -33,6 +35,8 @@ import {
   EmailChannel,
   SlackChannel,
   DiscordChannel,
+  ServerchanChannel,
+  PushplusChannel,
 } from './channels';
 
 interface PushHistoryRecord {
@@ -221,6 +225,48 @@ export const CHANNEL_DEFINITIONS: ChannelDefinition[] = [
         label: '头像 URL',
         type: 'url',
         placeholder: 'https://example.com/avatar.png（可选）',
+        required: false,
+      },
+    ],
+  },
+  {
+    id: 'serverchan',
+    name: 'Server酱',
+    icon: '🔔',
+    fields: [
+      {
+        key: 'key',
+        label: 'SendKey',
+        type: 'text',
+        placeholder: 'SCTxxxxxxxxxx',
+        required: true,
+      },
+      {
+        key: 'server',
+        label: '服务器地址',
+        type: 'url',
+        placeholder: 'https://sctapi.ftqq.com（默认官方）',
+        required: false,
+      },
+    ],
+  },
+  {
+    id: 'pushplus',
+    name: 'PushPlus',
+    icon: '➕',
+    fields: [
+      {
+        key: 'token',
+        label: 'Token',
+        type: 'text',
+        placeholder: '您的 PushPlus Token',
+        required: true,
+      },
+      {
+        key: 'topic',
+        label: '群发编码',
+        type: 'text',
+        placeholder: '群发时使用（可选）',
         required: false,
       },
     ],
@@ -530,6 +576,10 @@ async function sendToChannel(
         username: channelEnv.username,
         avatarUrl: channelEnv.avatar_url,
       });
+    case 'serverchan':
+      return sendServerchan(payload, channelEnv);
+    case 'pushplus':
+      return sendPushplus(payload, channelEnv);
     default:
       return { channel, success: false, message: `未知渠道: ${channel}` };
   }
@@ -779,6 +829,16 @@ export async function healthCheckChannel(
       }
       case 'discord': {
         const channel = new DiscordChannel(channelId, channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'serverchan': {
+        const channel = new ServerchanChannel(channelId, channelEnv);
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
+      }
+      case 'pushplus': {
+        const channel = new PushplusChannel(channelId, channelEnv);
         const result = await channel.healthCheck();
         return { channel: channelId, ...result };
       }
