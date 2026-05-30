@@ -17,7 +17,7 @@
 ## 📁 项目架构
 
 ```
-web-push/
+bee-swarm/
 ├── web/                          # Vue 前端项目
 │   ├── index.html                # 入口 HTML
 │   └── src/
@@ -27,7 +27,6 @@ web-push/
 │       ├── api.ts                # API 封装
 │       ├── types.ts              # 前端类型
 │       └── views/
-│           ├── SubscribePage.vue # 订阅页面
 │           └── AdminPage.vue     # 管理后台
 │
 ├── src/                          # Workers 后端
@@ -35,16 +34,19 @@ web-push/
 │   ├── types.ts                  # 后端类型
 │   ├── routes/
 │   │   └── api.ts                # API 路由
-│   └── services/                 # 推送服务（8 个渠道）
+│   └── services/                 # 推送服务（9 个渠道）
 │       ├── dispatcher.ts         # 推送调度器
-│       ├── webpush.ts            # 浏览器推送
 │       ├── wework.ts             # 企业微信
 │       ├── dingtalk.ts           # 钉钉
 │       ├── feishu.ts             # 飞书
 │       ├── telegram.ts           # Telegram
 │       ├── bark.ts               # Bark
 │       ├── ntfy.ts               # ntfy
-│       └── email.ts              # Email
+│       ├── email.ts              # Email
+│       └── channels/             # 其他渠道（Slack, Discord）
+│           ├── index.ts
+│           ├── slack.ts
+│           └── discord.ts
 │
 ├── vite.config.ts                # Vite 配置
 ├── wrangler.toml                 # Workers 配置（不含敏感信息）
@@ -56,7 +58,6 @@ web-push/
 
 | 渠道 | 说明 | 费用 |
 |------|------|------|
-| 🔔 Web Push | 浏览器推送 | 免费 |
 | 💼 企业微信 | 群机器人 | 免费 |
 | 💬 钉钉 | 群机器人（支持加签） | 免费 |
 | 🪶 飞书 | 群机器人 | 免费 |
@@ -64,6 +65,8 @@ web-push/
 | 🐕 Bark | iOS 推送 | 免费 |
 | 📢 ntfy | 开源推送服务 | 免费 |
 | 📧 Email | Resend（100封/天） | 免费 |
+| 💬 Slack | 群机器人 | 免费 |
+| 🎮 Discord | 群机器人 | 免费 |
 
 ## 🚀 快速开始
 
@@ -91,7 +94,6 @@ web-push/
    ```
 
    Workflow 会自动：
-   - ✅ 生成 VAPID 密钥对
    - ✅ 创建 KV 命名空间
    - ✅ 生成随机管理密码
    - ✅ 构建并部署
@@ -106,7 +108,7 @@ npm install
 
 # 2. 配置本地环境
 cp .dev.vars.example .dev.vars
-# 编辑 .dev.vars 填写密码和 VAPID 密钥
+# 编辑 .dev.vars 填写管理员密码
 
 # 3. 本地开发
 npm run dev:worker  # 终端 1：Workers 后端
@@ -123,9 +125,6 @@ npx wrangler login
 
 # 2. 设置 Secrets
 npx wrangler secret put ADMIN_PASSWORD
-npx wrangler secret put VAPID_PUBLIC_KEY
-npx wrangler secret put VAPID_PRIVATE_KEY
-npx wrangler secret put KV_NAMESPACE_ID
 
 # 3. 部署
 npm run deploy
@@ -150,10 +149,6 @@ npm run deploy
 ```bash
 # 设置管理密码
 npx wrangler secret put ADMIN_PASSWORD
-
-# 设置 VAPID 密钥（Web Push 必需）
-npx wrangler secret put VAPID_PUBLIC_KEY
-npx wrangler secret put VAPID_PRIVATE_KEY
 ```
 
 ### 非敏感配置（wrangler.toml）
