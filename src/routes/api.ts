@@ -428,22 +428,82 @@ adminApi.get('/test/bark', async (c) => {
 // 渠道管理
 // ============================================
 
-/** 渠道健康检查 */
+/** 批量渠道健康检查（真实发送测试消息） */
 adminApi.get('/channels/health', async (c) => {
   const username = c.get('username');
-  const channelId = c.req.query('channel');
-
   const settings = await loadUserChannelSettings(username, c.env);
+  
+  const results = await Promise.all(
+    CHANNEL_DEFINITIONS.map(async (ch) => {
+      const channelPrefix = `channel:${ch.id}:`;
+      const isConfigured = Object.keys(settings).some(
+        (key) => key.startsWith(channelPrefix)
+      );
+      
+      if (!isConfigured) {
+        return {
+          channel: ch.id as PushChannel,
+          healthy: false,
+          message: '渠道未配置',
+          testedAt: new Date().toISOString(),
+        };
+      }
+      
+      // 实际发送测试消息
+      const results = await dispatchPushWithOptions(
+        {
+          title: '渠道健康检查',
+          body: `这是一条测试消息，用于验证 ${ch.id} 渠道是否正常工作。`,
+        },
+        [ch.id as PushChannel],
+        username,
+        c.env
+      );
+      
+      const result = results[0];
+      return {
+        channel: ch.id as PushChannel,
+        healthy: result.success,
+        message: result.success ? '渠道正常' : result.message,
+        testedAt: new Date().toISOString(),
+      };
+    })
+  );
+  
+  return c.json({ channels: results });
+});
 
-  if (channelId) {
-    const result = await healthCheckChannel(channelId as PushChannel, settings);
-    return c.json(result);
+/** 测试单个渠道（真实发送测试消息） */
+adminApi.post('/channels/health/:channel/test', async (c) => {
+  const username = c.get('username');
+  const channel = c.req.param('channel') as PushChannel;
+  const settings = await loadUserChannelSettings(username, c.env);
+  const channelPrefix = `channel:${channel}:`;
+  const isConfigured = Object.keys(settings).some(
+    (key) => key.startsWith(channelPrefix)
+  );
+
+  if (!isConfigured) {
+    return c.json({ error: '渠道未配置', code: 'NOT_CONFIGURED' }, 400);
   }
 
-  const results = await Promise.all(
-    CHANNEL_DEFINITIONS.map((ch) => healthCheckChannel(ch.id, settings))
+  const results = await dispatchPushWithOptions(
+    {
+      title: '渠道健康检查',
+      body: `这是一条测试消息，用于验证 ${channel} 渠道是否正常工作。`,
+    },
+    [channel],
+    username,
+    c.env
   );
-  return c.json({ channels: results });
+
+  const result = results[0];
+  return c.json({
+    channel,
+    healthy: result.success,
+    message: result.success ? '渠道正常' : result.message,
+    testedAt: new Date().toISOString(),
+  });
 });
 
 /** 删除推送历史 */
@@ -975,77 +1035,5 @@ adminApi.get('/webhook/url', async (c) => {
     },
   });
 });
-
-// ============================================
-// 渠道健康检查
-// ============================================
-
-/** 检查单个渠道健康状态 */
-adminApi.get('/channels/health/:channel', async (c) => {
-  const username = c.get('username');
-  const channel = c.req.param('channel') as PushChannel;
-  const configKey = `user:${username}:channel:${channel}`;
-  const config = await c.env.SUBSCRIPTIONS.get(configKey);
-
-  if (!config) {
-    return c.json({ channel, healthy: false, message: '渠道未配置' });
-  }
-
-  return c.json({ channel, healthy: true, message: '渠道已配置' });
-});
-
-/** 批量渠道健康检查 */
-adminApi.get('/channels/health', async (c) => {
-  const username = c.get('username');
-  const settings = await loadUserChannelSettings(username, c.env);
-  const results = await Promise.all(
-    CHANNEL_DEFINITIONS.map((ch) => {
-      const isConfigured = Object.keys(settings).some(
-        (key) => key.startsWith(`channel:${ch.id}:`)
-      );
-      return {
-        channel: ch.id as PushChannel,
-        healthy: isConfigured,
-        message: isConfigured ? '渠道已配置' : '渠道未配置',
-        testedAt: new Date().toISOString(),
-      };
-    })
-  );
-  return c.json({ channels: results });
-});
-
-/** 测试单个渠道（实际发送测试消息） */
-adminApi.post('/channels/health/:channel/test', async (c) => {
-  const username = c.get('username');
-  const channel = c.req.param('channel') as PushChannel;
-  const settings = await loadUserChannelSettings(username, c.env);
-  const channelPrefix = `channel:${channel}:`;
-  const isConfigured = Object.keys(settings).some(
-    (key) => key.startsWith(channelPrefix)
-  );
-
-  if (!isConfigured) {
-    return c.json({ error: '渠道未配置', code: 'NOT_CONFIGURED' }, 400);
-  }
-
-  const results = await dispatchPushWithOptions(
-    {
-      title: '渠道健康检查',
-      body: `这是一条测试消息，用于验证 ${channel} 渠道是否正常工作。`,
-    },
-    [channel],
-    username,
-    c.env
-  );
-
-  const result = results[0];
-  return c.json({
-    channel,
-    healthy: result.success,
-    message: result.success ? '渠道正常' : result.message,
-    testedAt: new Date().toISOString(),
-  });
-});
-
 api.route('/admin', adminApi);
 export default api;
