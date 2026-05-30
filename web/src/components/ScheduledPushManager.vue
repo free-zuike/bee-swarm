@@ -547,16 +547,26 @@ async function createScheduledPushHandler() {
     return;
   }
 
-  const scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`);
+  // 构建执行时间
+  let scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`);
   if (isNaN(scheduledTime.getTime())) {
     alert('请选择有效的执行时间');
     return;
   }
 
-  // 仅单次执行需要检查时间是否在未来，重复执行不受此限制
+  // 单次执行：如果时间已过，提示用户
   if (scheduleType.value === 'once' && scheduledTime <= new Date()) {
     alert('执行时间必须是将来的时间，请选择明天的日期或更晚的时间');
     return;
+  }
+
+  // 重复执行：如果时间已过，自动调整为明天的同一时间
+  if (scheduleType.value === 'recurring' && scheduledTime <= new Date()) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const [hours, minutes] = newPush.value.time.split(':').map(Number);
+    tomorrow.setHours(hours, minutes, 0, 0);
+    scheduledTime = tomorrow;
   }
 
   creating.value = true;
