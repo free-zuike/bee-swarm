@@ -3,9 +3,35 @@
     <div class="panel">
       <div class="panel-header">
         <h2>📁 {{ t('groups.title') }}</h2>
-        <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
-          + {{ t('groups.create') }}
-        </button>
+        <div class="header-actions">
+          <button class="btn btn-sm btn-secondary" @click="showFilters = !showFilters">
+            🔍 {{ showFilters ? '收起' : '筛选' }}
+          </button>
+          <button class="btn btn-sm btn-secondary" @click="toggleSort">
+            {{ sortOrder === 'asc' ? '↑ 名称升序' : '↓ 名称降序' }}
+          </button>
+          <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
+            + {{ t('groups.create') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 筛选面板 -->
+      <div v-if="showFilters" class="filter-bar">
+        <div class="filter-group">
+          <label>搜索分组</label>
+          <input v-model="searchQuery" type="text" placeholder="输入分组名称..." class="filter-input" />
+        </div>
+        <div class="filter-group">
+          <label>包含渠道</label>
+          <select v-model="filterChannel" class="filter-select">
+            <option value="">全部渠道</option>
+            <option v-for="ch in allChannels" :key="ch.id" :value="ch.id">
+              {{ ch.icon }} {{ ch.name }}
+            </option>
+          </select>
+        </div>
+        <button class="btn btn-sm btn-secondary" @click="clearFilters">重置</button>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -13,13 +39,13 @@
         <span>{{ t('common.loading') || '加载中...' }}</span>
       </div>
 
-      <div v-else-if="groups.length === 0" class="empty-state">
+      <div v-else-if="displayGroups.length === 0" class="empty-state">
         <div class="empty-icon"></div>
-        <p>{{ t('groups.empty') }}</p>
+        <p>{{ groups.length === 0 ? t('groups.empty') : '没有符合条件的分组' }}</p>
       </div>
 
       <div v-else class="group-list">
-        <div v-for="group in groups" :key="group.id" class="group-card">
+        <div v-for="group in displayGroups" :key="group.id" class="group-card">
           <div class="group-main">
             <div class="group-top">
               <div class="group-name-row">
@@ -34,10 +60,17 @@
                 <span class="field-label">渠道</span>
                 <span class="field-value">{{ group.channels.length }} 个渠道</span>
               </div>
+              <div class="field-row">
+                <span class="field-label">创建时间</span>
+                <span class="field-value">{{ formatTime(group.createdAt) }}</span>
+              </div>
             </div>
           </div>
           <div class="group-actions">
             <button class="action-btn action-use" @click="useGroup(group)">使用</button>
+            <button class="action-btn action-test" @click="testGroup(group)" :disabled="testingGroup === group.id">
+              {{ testingGroup === group.id ? '测试中...' : '测试' }}
+            </button>
             <button class="action-btn action-edit" @click="editGroup(group)">编辑</button>
             <button class="action-btn action-delete" @click="confirmDelete(group)">删除</button>
           </div>
@@ -93,6 +126,30 @@
         </div>
       </div>
     </div>
+
+    <!-- 测试推送结果 -->
+    <div v-if="testResult" class="modal-overlay" @click.self="testResult = null">
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>分组推送测试</h3>
+          <button class="btn-close" @click="testResult = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="test-result" :class="{ success: testResult.success }">
+            <p class="test-status">{{ testResult.success ? '✅ 测试成功' : '❌ 测试失败' }}</p>
+            <div v-for="r in testResult.results" :key="r.channel" class="test-channel-result" :class="{ success: r.success }">
+              <span class="test-channel-icon">{{ getChannelIcon(r.channel) }}</span>
+              <span class="test-channel-name">{{ getChannelName(r.channel) }}</span>
+              <span class="test-channel-status">{{ r.success ? '成功' : '失败' }}</span>
+            </div>
+            <p class="test-message">{{ testResult.message }}</p>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="testResult = null">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -105,8 +162,10 @@ import {
   createChannelGroup,
   deleteChannelGroup,
   updateChannelGroup,
+  dispatchPush,
   type ChannelGroup,
   type PushChannel,
+  type ChannelConfig,
 } from '@/api';
 
 const { showToast } = useGlobalToast();
@@ -117,7 +176,7 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   accessToken: string;
-  channels?: Array<{ id: string; name: string; icon: string; enabled: boolean }>;
+  channels?: ChannelConfig[];
 }>();
 
 const loading = ref(true);
@@ -125,27 +184,120 @@ const saving = ref(false);
 const deleting = ref(false);
 const showModal = ref(false);
 const showDeleteConfirm = ref(false);
+const showFilters = ref(false);
 const editingGroup = ref<ChannelGroup | null>(null);
 const deletingGroup = ref<ChannelGroup | null>(null);
 const groups = ref<ChannelGroup[]>([]);
+const searchQuery = ref('');
+const filterChannel = ref('');
+const sortOrder = ref<'asc' | 'desc'>('asc');
+const testingGroup = ref<string | null>(null);
+
+interface TestResult {
+  success: boolean;
+  message: string;
+  results: Array<{ channel: string; success: boolean; message: string }>;
+}
+
+const testResult = ref<TestResult | null>(null);
 
 const form = reactive({
   name: '',
   channels: [] as PushChannel[],
 });
 
-const availableChannels = computed(() => props.channels || [
-  { id: 'wechat', name: '企业微信', icon: '💼', enabled: true },
-  { id: 'dingtalk', name: '钉钉', icon: '📌', enabled: true },
-  { id: 'feishu', name: '飞书', icon: '🍃', enabled: true },
-  { id: 'telegram', name: 'Telegram', icon: '✈️', enabled: true },
-  { id: 'email', name: '邮件', icon: '📧', enabled: true },
-  { id: 'sms', name: '短信', icon: '📱', enabled: true },
-  { id: 'push', name: '推送', icon: '🔔', enabled: true },
-  { id: 'slack', name: 'Slack', icon: '', enabled: true },
-  { id: 'discord', name: 'Discord', icon: '🎮', enabled: true },
-  { id: 'webpush', name: 'Web Push', icon: '🌐', enabled: true },
-]);
+const allChannels = computed(() => {
+  const channelNameMap: Record<string, string> = {
+    wework: '企业微信',
+    dingtalk: '钉钉',
+    feishu: '飞书',
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    mail: '邮件',
+    webhook: 'Webhook',
+    bark: 'Bark',
+    pushplus: 'PushPlus',
+    webpush: 'Web Push',
+  };
+  const channelIconMap: Record<string, string> = {
+    wework: '💼',
+    dingtalk: '🅰️',
+    feishu: '🪶',
+    telegram: '✈️',
+    bark: '📱',
+    ntfy: '📢',
+    email: '📧',
+    slack: '💬',
+    discord: '🎮',
+  };
+  return (props.channels || []).filter((c) => c.enabled).map((c) => ({
+    id: c.id,
+    name: channelNameMap[c.id] || c.id,
+    icon: channelIconMap[c.id] || '📡',
+    enabled: true,
+  }));
+});
+
+const availableChannels = computed(() => {
+  const channelNameMap: Record<string, string> = {
+    wework: '企业微信',
+    dingtalk: '钉钉',
+    feishu: '飞书',
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    mail: '邮件',
+    webhook: 'Webhook',
+    bark: 'Bark',
+    pushplus: 'PushPlus',
+    webpush: 'Web Push',
+  };
+  return (props.channels || []).map((c) => ({
+    id: c.id,
+    name: channelNameMap[c.id] || c.id,
+    icon: c.icon,
+    enabled: c.enabled,
+  }));
+});
+
+const displayGroups = computed(() => {
+  let filtered = [...groups.value];
+
+  // 搜索过滤
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    filtered = filtered.filter((g) => g.name.toLowerCase().includes(q));
+  }
+
+  // 渠道过滤
+  if (filterChannel.value) {
+    filtered = filtered.filter((g) => g.channels.includes(filterChannel.value as PushChannel));
+  }
+
+  // 排序
+  filtered.sort((a, b) => {
+    const compare = a.name.localeCompare(b.name, 'zh-CN');
+    return sortOrder.value === 'asc' ? compare : -compare;
+  });
+
+  return filtered;
+});
+
+function getChannelIcon(ch: string): string {
+  const iconMap: Record<string, string> = {
+    wework: '💼',
+    dingtalk: '🅰️',
+    feishu: '🪶',
+    telegram: '✈️',
+    bark: '📱',
+    ntfy: '📢',
+    email: '📧',
+    slack: '💬',
+    discord: '🎮',
+  };
+  return iconMap[ch] || '📡';
+}
 
 function getChannelName(ch: string): string {
   const channelNameMap: Record<string, string> = {
@@ -162,6 +314,23 @@ function getChannelName(ch: string): string {
     webpush: 'Web Push',
   };
   return channelNameMap[ch] || ch;
+}
+
+function formatTime(timeStr: string): string {
+  try {
+    return new Date(timeStr).toLocaleString('zh-CN');
+  } catch {
+    return timeStr;
+  }
+}
+
+function toggleSort() {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+}
+
+function clearFilters() {
+  searchQuery.value = '';
+  filterChannel.value = '';
 }
 
 function openCreateModal() {
@@ -203,6 +372,35 @@ async function doDelete() {
     showToast((err as Error).message, 'error');
   } finally {
     deleting.value = false;
+  }
+}
+
+async function testGroup(group: ChannelGroup) {
+  if (!props.accessToken) return;
+  testingGroup.value = group.id;
+  testResult.value = null;
+
+  try {
+    const results = await dispatchPush(props.accessToken, {
+      title: `分组测试: ${group.name}`,
+      body: '这是一条测试推送，用于验证分组配置是否正常。',
+      channels: group.channels,
+    });
+
+    const success = results.every((r: any) => r.success);
+    testResult.value = {
+      success,
+      message: success ? '所有渠道推送成功' : '部分渠道推送失败',
+      results,
+    };
+  } catch (err: any) {
+    testResult.value = {
+      success: false,
+      message: err.message || '推送失败',
+      results: group.channels.map((ch) => ({ channel: ch, success: false, message: '推送失败' })),
+    };
+  } finally {
+    testingGroup.value = null;
   }
 }
 
@@ -263,13 +461,13 @@ onMounted(loadGroups);
 }
 
 .panel-header {
-  height: 50px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 12px;
 }
 
 .panel h2 {
@@ -278,6 +476,54 @@ onMounted(loadGroups);
   margin: 0;
   padding: 0;
   line-height: 36px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 16px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  flex: 1;
+  min-width: 180px;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
+}
+
+.filter-input,
+.filter-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+  box-sizing: border-box;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .loading-state {
@@ -380,7 +626,7 @@ onMounted(loadGroups);
 
 .field-label {
   color: #999;
-  min-width: 40px;
+  min-width: 60px;
   flex-shrink: 0;
 }
 
@@ -417,6 +663,21 @@ onMounted(loadGroups);
 
 .action-use:hover {
   opacity: 0.9;
+}
+
+.action-test {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-top: 1px solid #059669;
+}
+
+.action-test:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.action-test:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .action-edit {
@@ -578,6 +839,12 @@ onMounted(loadGroups);
   transition: all 0.2s;
 }
 
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  height: 30px;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -612,11 +879,6 @@ onMounted(loadGroups);
   background: #ff7875;
 }
 
-.btn-small {
-  padding: 6px 14px;
-  font-size: 13px;
-}
-
 .btn-icon {
   background: none;
   border: none;
@@ -644,5 +906,107 @@ onMounted(loadGroups);
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.test-result {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.test-result.success {
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
+.test-result:not(.success) {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.test-status {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.test-result.success .test-status {
+  color: #065f46;
+}
+
+.test-result:not(.success) .test-status {
+  color: #991b1b;
+}
+
+.test-channel-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.test-channel-icon {
+  font-size: 16px;
+}
+
+.test-channel-name {
+  font-weight: 500;
+  color: var(--text-primary, #333);
+  min-width: 80px;
+}
+
+.test-channel-status.success {
+  color: #10b981;
+}
+
+.test-channel-status:not(.success) {
+  color: #ef4444;
+}
+
+.test-message {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  margin: 8px 0 0;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .filter-group {
+    min-width: 100%;
+  }
+
+  .group-card {
+    flex-direction: column;
+  }
+
+  .group-actions {
+    flex-direction: row;
+    border-left: none;
+    border-top: 1px solid #f5f5f5;
+  }
+
+  .action-btn {
+    flex: 1;
+    border-radius: 0 !important;
+  }
+
+  .group-top {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 </style>
