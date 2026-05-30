@@ -5,7 +5,7 @@
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
-import { setLocale, t, currentLocale} from '@/i18n';
+import { setLocale, t, currentLocale } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
   register,
@@ -36,7 +36,7 @@ import type {
   ChannelSettings,
   PushChannel,
   PushResult,
-  PushHistoryRecord,
+  PushTemplate,
 } from '@/types';
 
 // 导入子组件
@@ -107,21 +107,6 @@ const showSettings = ref(false);
 // ==================== 移动端悬浮菜单 ====================
 const showFabMenu = ref(false);
 
-// 确保菜单文本响应语言变化
-// const localeText = computed(() => {
-  // 确保访问 currentLocale.value 以触发响应式更新
-  // currentLocale.value;
-  return {
-    toggleTheme: t('button.toggle_theme'),
-    apiDocs: t('button.api_docs'),
-    settings: t('button.settings'),
-    hideSettings: t('button.hide_settings'),
-    logout: t('button.logout'),
-    toggleLocale: currentLocale.value === 'zh' ? 'English' : '中文',
-    toggleLocaleIcon: currentLocale.value === 'zh' ? '🇬🇧' : '🇨🇳',
-  };
-});
-
 // ==================== 渠道状态 ====================
 const channels = ref<ChannelConfig[]>([]);
 const channelDefinitions = ref<ChannelDefinition[]>([]);
@@ -167,7 +152,7 @@ async function copyApiKey() {
   try {
     await navigator.clipboard.writeText(apiKey.value);
     showToast(t('msg.copied_to_clipboard'), 'success');
-  } catch (err) {
+  } catch (_err) {
     showToast(t('msg.copy_failed'), 'error');
   }
 }
@@ -214,7 +199,7 @@ async function handleClearHistory() {
     await clearHistory(accessToken.value);
     showToast('推送历史已清空', 'success');
     await loadHistory(1);
-  } catch (err: unknown) {
+  } catch (_err: unknown) {
     showToast('清空失败', 'error');
   }
 }
@@ -390,7 +375,7 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
   }
 }
 
-async function handleTestChannel(channelId: string, fields: Record<string, string>) {
+async function handleTestChannel(channelId: string, _fields: Record<string, string>) {
   try {
     const result = await sendPushWithToken(accessToken.value, {
       title: '测试消息',

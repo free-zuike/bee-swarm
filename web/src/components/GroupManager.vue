@@ -210,7 +210,7 @@ import {
 const { showToast } = useGlobalToast();
 
 const emit = defineEmits<{
-  (e: 'use-group', channels: PushChannel[]): void;
+  'use-group': [channels: PushChannel[]];
 }>();
 
 const props = defineProps<{
@@ -407,7 +407,7 @@ async function doDelete() {
     showDeleteConfirm.value = false;
     deletingGroup.value = null;
   } catch (_err) {
-    showToast((err as Error).message, 'error');
+    showToast((_err as Error).message, 'error');
   } finally {
     deleting.value = false;
   }
@@ -463,7 +463,7 @@ async function saveGroup() {
       groups.value.push(result.group);
     }
     closeModal();
-  } catch (_err) {
+  } catch (err) {
     showToast((err as Error).message, 'error');
   } finally {
     saving.value = false;
@@ -477,7 +477,7 @@ async function loadGroups() {
     const data = await getChannelGroups(props.accessToken);
     groups.value = data.groups || [];
   } catch (_err) {
-    console.error('加载分组失败:', err);
+    console.error('加载分组失败:', _err);
   } finally {
     loading.value = false;
   }

@@ -207,7 +207,7 @@ export default {
                     shouldExecute = nowMinute === pushMinute;
                     break;
 
-                  case 'interval':
+                  case 'interval': {
                     const intervalHours = push.intervalHours || 2;
                     const hoursSinceStart = Math.floor(
                       (nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60)
@@ -217,26 +217,29 @@ export default {
                       hoursSinceStart % intervalHours === 0 &&
                       nowMinute === pushMinute;
                     break;
+                  }
 
                   case 'daily':
                     shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
                     break;
 
-                  case 'weekly':
+                  case 'weekly': {
                     const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
                     shouldExecute =
                       selectedWeekDays.includes(nowDay) &&
                       nowHour === pushHour &&
                       nowMinute === pushMinute;
                     break;
+                  }
 
-                  case 'monthly':
+                  case 'monthly': {
                     const selectedMonthDays = push.selectedMonthDays || [1, 15];
                     shouldExecute =
                       selectedMonthDays.includes(nowDateOfMonth) &&
                       nowHour === pushHour &&
                       nowMinute === pushMinute;
                     break;
+                  }
 
                   case 'cron':
                     // Cron 表达式匹配：分 时 日 月 周

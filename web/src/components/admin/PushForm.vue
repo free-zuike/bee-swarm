@@ -66,11 +66,6 @@ function doPush() {
   const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
   emit('push', pushTitle.value.trim(), pushBody.value.trim(), pushUrl.value.trim(), channels);
 }
-
-function isNoChannelSelectedError(results: PushResult[]): boolean {
-  if (results.length === 0) return false;
-  return results.every((r) => !r.success && r.message === t('error.no_channel_selected'));
-}
 </script>
 
 <template>

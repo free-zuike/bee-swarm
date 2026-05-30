@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { BackupEndpoint } from '@/api';
 
 const { toast: backupToast, showToast: showBackupToast } = useGlobalToast();
 
-const props = defineProps<{
+defineProps<{
   accessToken: string;
 }>();
 
@@ -346,12 +346,6 @@ function doBackupSingle() {
   if (!selectedEndpointId.value) return;
   isBackingUpSingle.value = true;
   emit('backup-single', selectedEndpointId.value);
-}
-
-function getEndpointStatusText(endpoint: BackupEndpoint): string {
-  if (!endpoint.enabled) return t('msg.endpoint_disabled');
-  if (!endpoint.lastBackup) return t('msg.not_backed_up');
-  return endpoint.lastBackup.status === 'success' ? t('msg.endpoint_normal') : t('status.failed');
 }
 
 function getEndpointStatusClass(endpoint: BackupEndpoint): string {

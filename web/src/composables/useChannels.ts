@@ -8,7 +8,6 @@ import type {
   ChannelDefinition,
   ChannelSettings,
   PushChannel,
-  PushResult,
   PushHistoryRecord,
 } from '@/types';
 import { showToast } from './useToast';
@@ -92,34 +91,6 @@ export function useChannels() {
     }
   }
 
-  async function testChannel(
-    accessToken: string,
-    channelId: string,
-    fields: Record<string, string>
-  ): Promise<{ success: boolean; message: string }> {
-    try {
-      const { sendPushWithToken } = await import('@/api');
-      const result = await withLoading(async () => {
-        return await sendPushWithToken(accessToken, {
-          title: '测试消息',
-          body: '这是一条来自蜂群的测试消息',
-          channels: [channelId as any],
-        });
-      }, 'testChannel');
-
-      const channelResult = result.results?.find((r: PushResult) => r.channel === channelId);
-      return {
-        success: channelResult?.success || false,
-        message: channelResult?.message || result.message || '测试完成',
-      };
-    } catch (err) {
-      return {
-        success: false,
-        message: getErrorMessage(err, '测试失败'),
-      };
-    }
-  }
-
   function restoreChannelSelection() {
     const saved = sessionStorage.getItem('push_selected_channels');
     if (saved) {
@@ -168,7 +139,6 @@ export function useChannels() {
     loadChannels,
     saveChannel,
     toggleChannelEnabled,
-    testChannel,
     restoreChannelSelection,
     saveChannelSelection,
     toggleChannel,

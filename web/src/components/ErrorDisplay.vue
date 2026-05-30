@@ -13,7 +13,7 @@ interface Props {
   compact?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: '出错了',
   showRetry: true,
   compact: false,

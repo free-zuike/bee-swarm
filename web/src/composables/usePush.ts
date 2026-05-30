@@ -116,14 +116,6 @@ function getErrorMessage(err: unknown, fallback: string): string {
 /**
  * 定时推送管理 Composable
  */
-interface UseScheduledPushesReturn {
-  scheduledPushes: typeof scheduledPushesRef;
-  isLoading: typeof isLoadingRef;
-  loadScheduledPushes: (accessToken: string, status?: string) => Promise<void>;
-  createScheduledPush: (accessToken: string, data: any) => Promise<boolean>;
-  deleteScheduledPush: (accessToken: string, id: string) => Promise<boolean>;
-}
-
 const scheduledPushesRef = ref<any[]>([]);
 const isLoadingRef = ref(false);
 

@@ -166,7 +166,7 @@ async function loadWebhookUrl() {
     const data = await getWebhookUrl(props.accessToken);
     webhookUrl.value = data.webhookUrl;
   } catch (_err) {
-    console.error('获取 Webhook URL 失败:', err);
+    console.error('获取 Webhook URL 失败:', _err);
     showToast('获取 Webhook URL 失败', 'error');
   }
 }

@@ -17,7 +17,7 @@ interface SwaggerUIConfig {
 }
 
 interface SwaggerUIBundle {
-  (config: SwaggerUIConfig): void;
+  (_config: SwaggerUIConfig): void;
 }
 
 interface SwaggerWindow extends Window {

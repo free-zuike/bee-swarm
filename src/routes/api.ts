@@ -1032,7 +1032,7 @@ adminApi.post('/webhook/push', async (c) => {
 
 /** 获取用户的 Webhook URL */
 adminApi.get('/webhook/url', async (c) => {
-  const username = c.get('username');
+  c.get('username'); // 保留用于中间件验证
   const baseUrl =
     (c.env as unknown as Record<string, string>).APP_URL || 'https://beeswarm.zuike.qzz.io';
   return c.json({

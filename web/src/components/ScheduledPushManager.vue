@@ -444,7 +444,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
@@ -655,11 +655,12 @@ function setQuickSchedule(type: string) {
       now.setDate(now.getDate() + 1);
       now.setHours(9, 0, 0, 0);
       break;
-    case 'nextweek':
+    case 'nextweek': {
       const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
       now.setDate(now.getDate() + daysUntilMonday);
       now.setHours(9, 0, 0, 0);
       break;
+    }
   }
   newPush.value.date = now.toISOString().split('T')[0];
   newPush.value.time = now.toTimeString().slice(0, 5);

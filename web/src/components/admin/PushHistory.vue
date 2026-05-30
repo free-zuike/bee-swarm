@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
-import type { ChannelConfig, PushChannel } from '@/types';
+import type { ChannelConfig } from '@/types';
 
 const { showToast } = useGlobalToast();
 
@@ -34,10 +34,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'load-page', page: number): void;
-  (e: 'clear'): void;
-  (e: 'batch-delete', ids: string[]): void;
-  (e: 'filter-change', filters: { channel?: string; status?: string; search?: string }): void;
+  'load-page': [page: number];
+  clear: [];
+  'batch-delete': [ids: string[]];
+  'filter-change': [filters: { channel?: string; status?: string; search?: string }];
 }>();
 
 const locale = computed(() => {

@@ -3,7 +3,6 @@
 // ============================================
 import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
-import { filterSensitiveConfig } from '../utils/config';
 import { convertTimezone } from '../utils/timezone';
 
 // 备份端类型
@@ -155,56 +154,6 @@ export async function exportAllData(env: Env, username: string): Promise<BackupD
     cursor = (list as { cursor?: string }).cursor;
   } while (cursor && !listComplete);
   return { timestamp: new Date().toISOString(), version: '1.0', username, data };
-}
-
-/**
- * 过滤备份数据中的敏感信息
- * - 渠道配置（ch:*）：移除 token、key、webhook URL 等
- * - 备份端配置（backup_endpoints）：移除 S3/WebDAV 凭证
- * - 用户账户（user:${username} 无前缀）：移除密码哈希
- * - 推送历史/指标/模板/分组：保持不变
- */
-function sanitizeBackupValue(key: string, value: string): string {
-  try {
-    const parsed = JSON.parse(value);
-
-    if (key.includes(':ch:')) {
-      // 渠道配置 - 过滤敏感字段
-      return JSON.stringify(filterSensitiveConfig(parsed));
-    }
-
-    if (key.endsWith(':backup_endpoints')) {
-      // 备份端配置 - 过滤 S3/WebDAV 凭证
-      if (Array.isArray(parsed)) {
-        return JSON.stringify(
-          parsed.map((endpoint: BackupEndpoint) => {
-            const sanitized = { ...endpoint };
-            if (sanitized.config) {
-              sanitized.config = filterSensitiveConfig(
-                sanitized.config as unknown as Record<string, unknown>
-              ) as unknown as S3Config | WebDAVConfig;
-            }
-            return sanitized;
-          })
-        );
-      }
-      return JSON.stringify(filterSensitiveConfig(parsed));
-    }
-
-    // 用户账户信息 - 移除密码
-    if (/^user:[^:]+$/.test(key)) {
-      if (parsed && typeof parsed === 'object' && 'password' in parsed) {
-        const { password: _, ...rest } = parsed;
-        return JSON.stringify(rest);
-      }
-    }
-
-    // 其他数据（推送历史、指标、模板、分组等）保持不变
-    return value;
-  } catch {
-    // 非 JSON 数据直接返回
-    return value;
-  }
 }
 
 // 创建 S3 客户端
@@ -613,7 +562,7 @@ export async function listBackupsFromEndpoint(
       return backups.sort((a, b) => b.key.localeCompare(a.key));
     }
     return [];
-  } catch (err) {
+  } catch {
     throw new Error('msg.list_backups_error');
   }
 }

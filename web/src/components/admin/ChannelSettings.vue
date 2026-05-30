@@ -60,13 +60,6 @@ function setSettingValue(channelId: string, fieldKey: string, value: string) {
   editingValues.value[`channel:${channelId}:${fieldKey}`] = value;
 }
 
-function isFieldEdited(channelId: string, fieldKey: string): boolean {
-  const key = `channel:${channelId}:${fieldKey}`;
-  const edited = editingValues.value[key];
-  const saved = props.channelSettings[key];
-  return edited !== undefined && edited !== saved;
-}
-
 function hasUnsavedChanges(channelId: string): boolean {
   const prefix = `channel:${channelId}:`;
   for (const [key, edited] of Object.entries(editingValues.value)) {

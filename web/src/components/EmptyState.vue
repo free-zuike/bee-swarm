@@ -13,7 +13,7 @@ interface Props {
   actionText?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: '暂无数据',
   icon: '📭',
 });
