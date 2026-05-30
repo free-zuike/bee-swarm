@@ -553,7 +553,8 @@ async function createScheduledPushHandler() {
     return;
   }
 
-  if (scheduledTime <= new Date()) {
+  // 仅单次执行需要检查时间是否在未来，重复执行不受此限制
+  if (scheduleType.value === 'once' && scheduledTime <= new Date()) {
     alert('执行时间必须是将来的时间，请选择明天的日期或更晚的时间');
     return;
   }
