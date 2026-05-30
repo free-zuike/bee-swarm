@@ -417,8 +417,8 @@ async function loadAndPreview() {
       variables: { ...variableValues },
     });
     previewResult.value = result;
-  } catch (err: any) {
-    showToast(err.message || '预览失败', 'error');
+  } catch (err: unknown) {
+    showToast((err as Error).message || '预览失败', 'error');
   } finally {
     previewLoading.value = false;
   }

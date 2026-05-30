@@ -3,7 +3,7 @@
 // ============================================
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env } from './types';
+import type { Env, PushChannel } from './types';
 import api from './routes/api';
 import { getBackupEndpoints, uploadBackupToEndpoint, saveBackupEndpoint } from './services/backup';
 import { PushService } from './services/push';
@@ -292,7 +292,7 @@ export default {
                   body: push.content,
                   url: push.url,
                 },
-                push.channels as any[],
+                push.channels as PushChannel[],
                 username,
                 env
               );

@@ -42,6 +42,14 @@ type BackupItem = {
   endpointId: string;
   endpointName: string;
 };
+
+type TestResult = {
+  message?: string;
+  statusCode?: number;
+  errorMessage?: string;
+  endpointName?: string;
+  count?: number;
+};
 const endpointBackups = ref<BackupItem[]>([]);
 const isLoadingEndpointBackups = ref(false);
 const selectedBackups = ref<Set<string>>(new Set());
@@ -432,7 +440,7 @@ function handleDeleteResult(message: string) {
   isDeletingEndpoint.value = false;
 }
 
-function handleTestResult(success: boolean, result: any) {
+function handleTestResult(success: boolean, result: string | TestResult) {
   let displayText = '';
   if (typeof result === 'string') {
     displayText = result;

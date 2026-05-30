@@ -207,8 +207,8 @@ async function checkAllChannels() {
     if (data.channels.length > 0) {
       showToast('渠道检查完成', 'success');
     }
-  } catch (err: any) {
-    showToast(err.message || '渠道检查失败', 'error');
+  } catch (err: unknown) {
+    showToast((err as Error).message || '渠道检查失败', 'error');
   } finally {
     checking.value = false;
   }
@@ -238,8 +238,8 @@ async function testSingleChannel(channel: PushChannel) {
     } else {
       showToast(`${getChannelName(channel)} 测试失败: ${result.message}`, 'error');
     }
-  } catch (err: any) {
-    showToast(err.message || '测试失败', 'error');
+  } catch (err: unknown) {
+    showToast((err as Error).message || '测试失败', 'error');
   } finally {
     testingChannel.value = null;
   }

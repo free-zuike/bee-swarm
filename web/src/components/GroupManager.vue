@@ -196,6 +196,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
+import type { PushResult } from '@/types';
 import {
   getChannelGroups,
   createChannelGroup,
@@ -425,16 +426,16 @@ async function testGroup(group: ChannelGroup) {
       channels: group.channels,
     });
 
-    const success = results.every((r: any) => r.success);
+    const success = results.every((r: PushResult) => r.success);
     testResult.value = {
       success,
       message: success ? '所有渠道推送成功' : '部分渠道推送失败',
       results,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     testResult.value = {
       success: false,
-      message: err.message || '推送失败',
+      message: (err as Error).message || '推送失败',
       results: group.channels.map((ch) => ({ channel: ch, success: false, message: '推送失败' })),
     };
   } finally {

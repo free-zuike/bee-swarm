@@ -172,8 +172,8 @@ async function batchDeleteSelected() {
     selectedIds.value.clear();
     emit('batch-delete', Array.from(selectedIds.value));
     emit('load-page', currentPage.value);
-  } catch (err: any) {
-    showToast(err.message || '批量删除失败', 'error');
+  } catch (err: unknown) {
+    showToast((err as Error).message || '批量删除失败', 'error');
   } finally {
     batchDeleting.value = false;
   }

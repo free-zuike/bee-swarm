@@ -37,6 +37,7 @@ import type {
   PushChannel,
   PushResult,
   PushTemplate,
+  PushHistoryRecord,
 } from '@/types';
 
 // 导入子组件
@@ -119,7 +120,7 @@ const pushResults = ref<PushResult[]>([]);
 const lastPushTime = ref('-');
 
 // ==================== 历史记录 ====================
-const pushHistory = ref<any[]>([]);
+const pushHistory = ref<PushHistoryRecord[]>([]);
 const isLoadingHistory = ref(false);
 const historyTotal = ref(0);
 const historyPage = ref(1);
@@ -380,7 +381,7 @@ async function handleTestChannel(channelId: string, _fields: Record<string, stri
     const result = await sendPushWithToken(accessToken.value, {
       title: '测试消息',
       body: '这是一条来自蜂群的测试消息',
-      channels: [channelId as any],
+      channels: [channelId as PushChannel],
     });
 
     const channelResult = result.results?.find((r) => r.channel === channelId);
@@ -415,12 +416,19 @@ async function handleToggleChannelEnabled(channelId: string) {
 }
 
 // ==================== 推送相关 ====================
+type PushPayload = {
+  title: string;
+  body?: string;
+  url?: string;
+  channels?: PushChannel[];
+};
+
 async function handlePush(title: string, body: string, url: string, pushChannels: PushChannel[]) {
   if (isPushing.value) return;
   isPushing.value = true;
 
   try {
-    const payload: any = { title, body, url };
+    const payload: PushPayload = { title, body, url };
     if (pushChannels.length > 0) {
       payload.channels = pushChannels;
     }

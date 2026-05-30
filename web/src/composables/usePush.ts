@@ -3,7 +3,7 @@
  * 统一管理推送操作的状态和结果
  */
 import { ref, computed } from 'vue';
-import type { PushChannel, PushResult, PushPayload } from '@/types';
+import type { PushChannel, PushResult, PushPayload, ScheduledPush } from '@/types';
 import { showToast } from './useToast';
 import { withLoading } from '@/stores/loading';
 import { useTranslation } from '@/i18n';
@@ -12,6 +12,15 @@ interface UsePushOptions {
   onSuccess?: (results: PushResult[]) => void;
   onError?: (error: string) => void;
 }
+
+type CreateScheduledPushData = Omit<ScheduledPush, 'id' | 'status' | 'createdBy'>;
+
+type SendPushPayload = {
+  title: string;
+  body?: string;
+  url?: string;
+  channels?: PushChannel[];
+};
 
 const isPushingRef = ref(false);
 const resultsRef = ref<PushResult[]>([]);
@@ -36,7 +45,7 @@ export function usePush(options: UsePushOptions = {}) {
       const { sendPushWithToken } = await import('@/api');
 
       const result = await withLoading(async () => {
-        const reqPayload: any = { ...payload };
+        const reqPayload: SendPushPayload = { ...payload };
         if (channels.length > 0) {
           reqPayload.channels = channels;
         }
@@ -116,7 +125,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 /**
  * 定时推送管理 Composable
  */
-const scheduledPushesRef = ref<any[]>([]);
+const scheduledPushesRef = ref<ScheduledPush[]>([]);
 const isLoadingRef = ref(false);
 
 export function useScheduledPushes() {
@@ -138,7 +147,10 @@ export function useScheduledPushes() {
     }
   }
 
-  async function createScheduledPush(accessToken: string, data: any): Promise<boolean> {
+  async function createScheduledPush(
+    accessToken: string,
+    data: CreateScheduledPushData
+  ): Promise<boolean> {
     try {
       const { createScheduledPush } = await import('@/api');
       await withLoading(async () => {
