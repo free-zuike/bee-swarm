@@ -783,6 +783,7 @@ watch(showSettings, (val, oldVal) => {
         <TemplateManager
           v-if="activeTab === 'templates'"
           :access-token="accessToken"
+          :channels="channels"
         />
 
         <!-- ==================== 渠道分组 Tab ==================== -->

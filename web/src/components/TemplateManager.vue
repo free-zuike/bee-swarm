@@ -67,9 +67,9 @@
           <div class="form-group">
             <label>{{ t('templates.channels') }}</label>
             <div class="channels-grid">
-              <label v-for="ch in allChannels" :key="ch" class="channel-checkbox">
-                <input type="checkbox" :value="ch" v-model="form.channels" />
-                <span>{{ ch }}</span>
+              <label v-for="ch in allChannels" :key="ch.id" class="channel-checkbox">
+                <input type="checkbox" :value="ch.id" v-model="form.channels" />
+                <span>{{ ch.icon }} {{ ch.name }}</span>
               </label>
             </div>
           </div>
@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { t } from '@/i18n';
 import {
   getTemplates,
@@ -119,6 +119,7 @@ import {
   deleteTemplate,
   type PushTemplate,
   type PushChannel,
+  type ChannelConfig,
 } from '@/api';
 
 const emit = defineEmits<{
@@ -127,6 +128,7 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   accessToken: string;
+  channels: ChannelConfig[];
 }>();
 
 const loading = ref(true);
@@ -138,7 +140,27 @@ const editingTemplate = ref<PushTemplate | null>(null);
 const deletingTemplate = ref<PushTemplate | null>(null);
 const templates = ref<PushTemplate[]>([]);
 
-const allChannels = ['email', 'sms', 'push', 'wechat', 'dingtalk', 'feishu', 'telegram', 'slack', 'discord', 'webpush'];
+const channelNameMap: Record<string, string> = {
+  wework: '企业微信',
+  dingtalk: '钉钉',
+  feishu: '飞书',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  slack: 'Slack',
+  mail: '邮件',
+  webhook: 'Webhook',
+  bark: 'Bark',
+  pushplus: 'PushPlus',
+  webpush: 'Web Push',
+};
+
+const allChannels = computed(() =>
+  props.channels.filter((c) => c.enabled).map((c) => ({
+    id: c.id,
+    name: channelNameMap[c.id] || c.id,
+    icon: c.icon,
+  }))
+);
 
 const form = reactive({
   name: '',
