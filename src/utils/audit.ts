@@ -39,8 +39,8 @@ export interface AuditLogEntry {
 export class AuditLogger {
   private env: Env;
   private userId: string;
-  private static readonly MAX_LOGS = 1000; // 保留最多 1000 条日志
-  private static readonly RETENTION_DAYS = 30; // 保留 30 天
+  private static readonly MAX_LOGS = 100; // 减少到 100 条日志，节省 KV 空间
+  private static readonly RETENTION_DAYS = 7; // 保留 7 天
 
   constructor(env: Env, userId: string) {
     this.env = env;
@@ -65,13 +65,7 @@ export class AuditLogger {
       userAgent: options?.userAgent,
     };
 
-    // 保存单条日志（用于按时间查询）
-    const timestampKey = `audit:${this.userId}:${entry.timestamp}`;
-    await this.env.SUBSCRIPTIONS.put(timestampKey, JSON.stringify(entry), {
-      expirationTtl: this.RENTENTION_SECONDS(),
-    });
-
-    // 维护日志列表
+    // 只维护一个日志列表，不单独保存每条日志，减少 KV 操作
     await this.updateLogList(entry);
   }
 
@@ -114,16 +108,10 @@ export class AuditLogger {
   }
 
   /**
-   * 删除所有审计日志
+   * 清理审计日志
    */
   async clearLogs(): Promise<void> {
-    const prefix = `audit:${this.userId}:`;
-    const keys = await this.listAllKeys(prefix);
-
-    const deletePromises = keys.map((key) => this.env.SUBSCRIPTIONS.delete(key));
-    await Promise.all(deletePromises);
-
-    // 清空日志列表
+    // 只删除日志列表，不需要处理单独的日志
     await this.env.SUBSCRIPTIONS.delete(`audit:${this.userId}:list`);
   }
 
@@ -156,27 +144,6 @@ export class AuditLogger {
     await this.env.SUBSCRIPTIONS.put(`audit:${this.userId}:list`, JSON.stringify(logs), {
       expirationTtl: this.RENTENTION_SECONDS() * 2,
     });
-  }
-
-  private async listAllKeys(prefix: string): Promise<string[]> {
-    const keys: string[] = [];
-    let cursor: string | undefined = undefined;
-    let listComplete = false;
-
-    while (!listComplete) {
-      const list: {
-        keys: Array<{ name: string }>;
-        cursor?: string;
-        list_complete?: boolean;
-      } = await this.env.SUBSCRIPTIONS.list({ prefix, cursor, limit: 100 });
-      for (const key of list.keys) {
-        keys.push(key.name);
-      }
-      cursor = list.cursor;
-      listComplete = list.list_complete ?? true;
-    }
-
-    return keys;
   }
 
   private RENTENTION_SECONDS(): number {

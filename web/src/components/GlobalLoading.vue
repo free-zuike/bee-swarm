@@ -5,9 +5,10 @@
  */
 import { computed } from 'vue';
 import { loadingState } from '@/stores/loading';
-import { themeState } from '@/stores/theme';
+import { useThemeStore } from '@/stores/theme';
 
-const isDark = computed(() => themeState.isDark);
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 const isVisible = computed(() => loadingState.globalLoading);
 const loadingCount = computed(() => loadingState.loadingCount);
 </script>

@@ -315,11 +315,11 @@ export async function uploadBackupToEndpoint(
       await cleanupOldBackupsWebDAV(config, root, username, endpoint.retention);
     }
 
-    return { success: true, message: 'msg.backup_success', endpointId: endpoint.id };
+    return { success: true, message: '备份成功', endpointId: endpoint.id };
   } catch (err) {
     return {
       success: false,
-      message: 'msg.backup_failed',
+      message: '备份失败',
       errorMessage: (err as Error).message,
       endpointId: endpoint.id,
     };
@@ -452,7 +452,7 @@ export async function listBackupsFromEndpoint(
         prefix: `${root}/backups/${username}/`,
       });
 
-      if (!response.ok) throw new Error('msg.list_backups_failed');
+      if (!response.ok) throw new Error('列出备份失败');
 
       const xml = await response.text();
       const backups: BackupInfo[] = [];
@@ -480,7 +480,7 @@ export async function listBackupsFromEndpoint(
 
       const response = await webdavRequest('PROPFIND', dirPath, config);
       if (!response.ok && response.status !== 207) {
-        throw new Error('msg.list_backups_webdav_failed');
+        throw new Error('列出 WebDAV 备份失败');
       }
 
       const xml = await response.text();
@@ -563,7 +563,7 @@ export async function listBackupsFromEndpoint(
     }
     return [];
   } catch {
-    throw new Error('msg.list_backups_error');
+    throw new Error('列出备份时出错');
   }
 }
 
@@ -585,7 +585,7 @@ export async function restoreBackupFromEndpoint(
       const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
       response = await webdavRequest('GET', normalizedKey, config);
     } else {
-      return { success: false, message: 'msg.unsupported_backup_type' };
+      return { success: false, message: '不支持的备份类型' };
     }
 
     if (!response.ok) {
@@ -594,7 +594,7 @@ export async function restoreBackupFromEndpoint(
 
     const backupData: BackupData = await response.json();
     if (!backupData.data || typeof backupData.data !== 'object') {
-      return { success: false, message: 'msg.restore_invalid_format' };
+      return { success: false, message: '备份格式无效' };
     }
 
     // 先保存当前备份端配置（防止恢复失败导致配置丢失）
@@ -658,7 +658,7 @@ export async function restoreBackupFromEndpoint(
         await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
       }
 
-      return { success: true, message: 'msg.restore_success', count: entries.length };
+      return { success: true, message: '恢复成功', count: entries.length };
     } catch (err) {
       await cleanupTempRestoreData(env, tempPrefix);
       if (currentEndpointsStr) {
@@ -666,12 +666,12 @@ export async function restoreBackupFromEndpoint(
       }
       return {
         success: false,
-        message: 'msg.restore_failed_rollback',
+        message: '恢复失败，已回滚',
         errorMessage: (err as Error).message,
       };
     }
   } catch (err) {
-    return { success: false, message: 'msg.restore_failed', errorMessage: (err as Error).message };
+    return { success: false, message: '恢复失败', errorMessage: (err as Error).message };
   }
 }
 
@@ -725,7 +725,7 @@ export async function downloadBackupFromEndpoint(
     const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
     response = await webdavRequest('GET', normalizedKey, config);
   } else {
-    return new Response(JSON.stringify({ error: 'msg.unsupported_backup_type' }), {
+    return new Response(JSON.stringify({ error: '不支持的备份类型' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -752,15 +752,15 @@ export async function deleteBackupFromEndpoint(
       const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
       response = await webdavRequest('DELETE', normalizedKey, config);
     } else {
-      return { success: false, message: 'msg.unsupported_backup_type' };
+      return { success: false, message: '不支持的备份类型' };
     }
 
     if (response.status !== 204 && !response.ok) {
-      return { success: false, message: 'msg.delete_backup_failed', statusCode: response.status };
+      return { success: false, message: '删除备份失败', statusCode: response.status };
     }
-    return { success: true, message: 'msg.delete_backup_success' };
+    return { success: true, message: '删除备份成功' };
   } catch (err) {
-    return { success: false, message: 'msg.delete_failed', errorMessage: (err as Error).message };
+    return { success: false, message: '删除失败', errorMessage: (err as Error).message };
   }
 }
 
@@ -782,29 +782,29 @@ export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{
         const errorText = await response.text();
         return {
           success: false,
-          message: 'msg.connection_failed',
+          message: '连接失败',
           statusCode: response.status,
           errorMessage: errorText.substring(0, 200),
         };
       }
-      return { success: true, message: 'msg.s3_connection_success', statusCode: null };
+      return { success: true, message: 'S3 连接成功', statusCode: null };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const response = await webdavRequest('PROPFIND', '/', config);
       if (response.status === 429) {
-        return { success: false, message: 'msg.too_many_requests', statusCode: 429 };
+        return { success: false, message: '请求太频繁', statusCode: 429 };
       }
       if (!response.ok && response.status !== 207) {
-        return { success: false, message: 'msg.connection_failed', statusCode: response.status };
+        return { success: false, message: '连接失败', statusCode: response.status };
       }
-      return { success: true, message: 'msg.webdav_connection_success', statusCode: null };
+      return { success: true, message: 'WebDAV 连接成功', statusCode: null };
     }
 
-    return { success: false, message: 'msg.unsupported_backup_type', statusCode: null };
+    return { success: false, message: '不支持的备份类型', statusCode: null };
   } catch (err) {
     return {
       success: false,
-      message: 'msg.connection_error',
+      message: '连接错误',
       statusCode: null,
       errorMessage: (err as Error).message,
     };
@@ -817,7 +817,7 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
   const enabledEndpoints = endpoints.filter((e) => e.enabled);
 
   if (enabledEndpoints.length === 0) {
-    return [{ success: false, message: 'msg.backup_no_endpoints' }];
+    return [{ success: false, message: '没有启用的备份端点' }];
   }
 
   // 并发上传（读取备份数据只发生一次，各端点独立上传）
