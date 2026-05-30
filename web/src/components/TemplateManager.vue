@@ -486,14 +486,14 @@ onMounted(loadTemplates);
 }
 
 .action-edit {
-  background: white;
-  color: #333;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border-top: 1px solid #d97706;
+  border-bottom: 1px solid #d97706;
 }
 
 .action-edit:hover {
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
 }
 
 .action-delete {

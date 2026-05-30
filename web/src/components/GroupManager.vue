@@ -416,6 +416,15 @@ onMounted(loadGroups);
   opacity: 0.9;
 }
 
+.action-edit {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.action-edit:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
 .action-delete {
   background: #ff4757;
   color: white;

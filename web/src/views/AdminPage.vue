@@ -211,7 +211,11 @@ onMounted(async () => {
 });
 
 // ==================== Tab 切换软刷新 ====================
-watch(activeTab, (newTab) => {
+watch(activeTab, (newTab, oldTab) => {
+  // 离开推送 tab 时清空渠道选择（使用分组的选择是临时的）
+  if (oldTab === 'push' && newTab !== 'push') {
+    selectedChannels.value = new Set();
+  }
   // 只在数据为空时加载，避免重复请求
   if (newTab === 'push' && channels.value.length === 0) {
     loadChannels();
