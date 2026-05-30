@@ -92,7 +92,7 @@ export function useChannels() {
   }
 
   function restoreChannelSelection() {
-    const saved = sessionStorage.getItem('push_selected_channels');
+    const saved = sessionStorage.getItem('bee_swarm_selected_channels');
     if (saved) {
       try {
         const selectedIds: string[] = JSON.parse(saved);
@@ -105,7 +105,7 @@ export function useChannels() {
 
   function saveChannelSelection() {
     const selectedIds = Array.from(selectedChannelsRef.value);
-    sessionStorage.setItem('push_selected_channels', JSON.stringify(selectedIds));
+    sessionStorage.setItem('bee_swarm_selected_channels', JSON.stringify(selectedIds));
   }
 
   function toggleChannel(channel: PushChannel) {
@@ -119,7 +119,7 @@ export function useChannels() {
 
   function clearChannelSelection() {
     selectedChannelsRef.value.clear();
-    sessionStorage.removeItem('push_selected_channels');
+    sessionStorage.removeItem('bee_swarm_selected_channels');
   }
 
   function getSelectedChannels(): PushChannel[] {

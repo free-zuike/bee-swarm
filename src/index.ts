@@ -6,40 +6,33 @@ import { cors } from 'hono/cors';
 import type { Env, PushChannel } from './types';
 import api from './routes/api';
 import { getBackupEndpoints, uploadBackupToEndpoint, saveBackupEndpoint } from './services/backup';
-import { PushService } from './services/push';
+import { PushService, type ScheduledPush } from './services/push';
 import { dispatchPushWithOptions } from './services/dispatcher';
 import { rateLimit } from './middleware/rateLimit';
 import { securityHeaders } from './middleware/securityHeaders';
 import { createErrorResponse, logError } from './utils/errors';
 import { convertTimezone } from './utils/timezone';
+import { escapeRegex } from './utils/regex';
+import { matchCronField } from './utils/cron';
+import { getLocalTime, getLocalWeekday } from './utils/datetime';
 
 const app = new Hono<{ Bindings: Env }>();
 
 // 安全 HTTP 头
 app.use('*', securityHeaders());
 
-/** 匹配 cron 单个字段是否包含指定值 */
-function matchCronField(field: string, value: number): boolean {
-  if (field === '*') return true;
-
-  const values = field.split(',');
-  for (const v of values) {
-    if (v.includes('/')) {
-      const [base, step] = v.split('/');
-      const start = base === '*' ? 0 : parseInt(base, 10);
-      const interval = parseInt(step, 10);
-      if ((value - start) % interval === 0 && value >= start) return true;
-      continue;
+// 请求体大小限制
+const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB
+app.use('*', async (c, next) => {
+  const contentLength = c.req.header('Content-Length');
+  if (contentLength) {
+    const size = parseInt(contentLength, 10);
+    if (size > MAX_REQUEST_SIZE) {
+      return c.json({ error: '请求体过大，最大支持 1MB', code: 'PAYLOAD_TOO_LARGE' }, 413);
     }
-    if (v.includes('-')) {
-      const [start, end] = v.split('-').map(Number);
-      if (value >= start && value <= end) return true;
-      continue;
-    }
-    if (parseInt(v, 10) === value) return true;
   }
-  return false;
-}
+  await next();
+});
 
 // 限流配置
 app.use(
@@ -94,13 +87,6 @@ app.use('*', async (c, next) => {
   })(c, next);
 });
 
-/**
- * 转义正则表达式特殊字符（保留 __WILDCARD__ 占位符）
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 // 全局错误处理
 app.onError((err, c) => {
   const requestId = crypto.randomUUID().slice(0, 8);
@@ -130,274 +116,260 @@ app.notFound(async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-function getLocalTime(now: Date, tz: string): { hour: number; minute: number } {
-  const localHourStr = now.toLocaleString('en-US', {
-    timeZone: tz,
-    hour: '2-digit',
-    hour12: false,
-    hourCycle: 'h23',
-  });
-  const localMinuteStr = now.toLocaleString('en-US', {
-    timeZone: tz,
-    minute: '2-digit',
-  });
-  return {
-    hour: parseInt(localHourStr, 10),
-    minute: parseInt(localMinuteStr, 10),
-  };
-}
-
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
   },
 
-  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const now = new Date();
     const currentEpochMinute = Math.floor(now.getTime() / 60000);
 
     try {
       let cursor: string | undefined;
-      let list_complete = false;
+      let listComplete = false;
+      let processedUsers = 0;
+      const maxUsersPerCron = 500; // 避免处理过多用户超时
 
       do {
-        const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor });
+        const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor, limit: 100 });
 
         for (const key of list.keys) {
+          if (processedUsers >= maxUsersPerCron) {
+            console.warn(`[Cron] Reached max users limit (${maxUsersPerCron}), stopping early`);
+            break;
+          }
+
           const username = key.name.replace('user:', '');
           if (username.includes(':')) continue;
 
-          // ==================== 处理定时推送 ====================
-          try {
-            const pushService = new PushService(env, username);
-            const pendingPushes = await pushService.getScheduledPushes('pending');
-            const nowDate = new Date();
+          // 处理单个用户的所有任务
+          ctx.waitUntil(
+            processUserTasks(env, username, now, currentEpochMinute).catch((err) => {
+              console.error(`[Cron] Failed to process user ${username}:`, (err as Error).message);
+            })
+          );
 
-            for (const push of pendingPushes) {
-              const scheduledTime = new Date(push.scheduledAt);
-              if (scheduledTime > nowDate) {
-                continue;
-              }
-
-              // 防重复执行：使用当前时间戳的分钟级作为执行标识
-              const execKey = `scheduled_exec:${username}:${push.id}`;
-              const currentMinute = Math.floor(nowDate.getTime() / 60000);
-              const alreadyExecuted = await env.SUBSCRIPTIONS.get(execKey);
-              if (alreadyExecuted && parseInt(alreadyExecuted, 10) === currentMinute) {
-                continue;
-              }
-
-              // 检查是否应该执行（针对重复执行模式）
-              const scheduleType = push.scheduleType || 'once';
-              let shouldExecute = true;
-
-              if (scheduleType === 'recurring') {
-                const recurringType = push.recurringType || 'daily';
-                const nowHour = nowDate.getHours();
-                const nowMinute = nowDate.getMinutes();
-                const nowDay = nowDate.getDay();
-                const nowDateOfMonth = nowDate.getDate();
-
-                // 获取推送的执行时间（小时和分钟）
-                const pushHour = scheduledTime.getHours();
-                const pushMinute = scheduledTime.getMinutes();
-
-                switch (recurringType) {
-                  case 'hourly':
-                    shouldExecute = nowMinute === pushMinute;
-                    break;
-
-                  case 'interval': {
-                    const intervalHours = push.intervalHours || 2;
-                    const hoursSinceStart = Math.floor(
-                      (nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60)
-                    );
-                    shouldExecute =
-                      hoursSinceStart > 0 &&
-                      hoursSinceStart % intervalHours === 0 &&
-                      nowMinute === pushMinute;
-                    break;
-                  }
-
-                  case 'daily':
-                    shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
-                    break;
-
-                  case 'weekly': {
-                    const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-                    shouldExecute =
-                      selectedWeekDays.includes(nowDay) &&
-                      nowHour === pushHour &&
-                      nowMinute === pushMinute;
-                    break;
-                  }
-
-                  case 'monthly': {
-                    const selectedMonthDays = push.selectedMonthDays || [1, 15];
-                    shouldExecute =
-                      selectedMonthDays.includes(nowDateOfMonth) &&
-                      nowHour === pushHour &&
-                      nowMinute === pushMinute;
-                    break;
-                  }
-
-                  case 'cron':
-                    // Cron 表达式匹配：分 时 日 月 周
-                    if (push.cronExpression) {
-                      const parts = push.cronExpression.trim().split(/\s+/);
-                      if (parts.length === 5) {
-                        const [
-                          minuteField,
-                          hourField,
-                          dayOfMonthField,
-                          monthField,
-                          dayOfWeekField,
-                        ] = parts;
-                        const matchesMinute = matchCronField(minuteField, nowMinute);
-                        const matchesHour = matchCronField(hourField, nowHour);
-                        const matchesDayOfMonth = matchCronField(dayOfMonthField, nowDateOfMonth);
-                        const matchesMonth = matchCronField(monthField, nowDate.getMonth() + 1);
-                        const matchesDayOfWeek = matchCronField(dayOfWeekField, nowDay);
-                        shouldExecute =
-                          matchesMinute &&
-                          matchesHour &&
-                          matchesDayOfMonth &&
-                          matchesMonth &&
-                          matchesDayOfWeek;
-                      }
-                    } else {
-                      shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
-                    }
-                    break;
-
-                  default:
-                    shouldExecute = nowHour === pushHour && nowMinute === pushMinute;
-                    break;
-                }
-              } else {
-                shouldExecute = true;
-              }
-
-              if (!shouldExecute) {
-                continue;
-              }
-
-              // 更新状态为执行中
-              await pushService.updateScheduledPushStatus(push.id, 'processing');
-
-              // 执行推送
-              const results = await dispatchPushWithOptions(
-                {
-                  title: push.title,
-                  body: push.content,
-                  url: push.url,
-                },
-                push.channels as PushChannel[],
-                username,
-                env
-              );
-
-              // 更新最终状态
-              const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
-
-              // 重复执行模式：更新状态为 pending 以便下次执行
-              if (scheduleType === 'recurring') {
-                await pushService.updateScheduledPushStatus(push.id, 'pending');
-              } else {
-                await pushService.updateScheduledPushStatus(push.id, finalStatus);
-              }
-
-              // 记录执行时间防重复
-              await env.SUBSCRIPTIONS.put(execKey, String(currentMinute), {
-                expirationTtl: 24 * 60 * 60,
-              });
-            }
-          } catch (err) {
-            console.error(`[Cron ScheduledPush] Error for ${username}:`, (err as Error).message);
-          }
-
-          // ==================== 处理备份 ====================
-          const endpoints = await getBackupEndpoints(env, username);
-
-          for (const endpoint of endpoints) {
-            if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
-
-            const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
-            const interval = endpoint.schedule.interval || 24;
-            const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
-            const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
-
-            // 计算应该执行备份的小时（从 startHour 开始，每隔 interval 小时）
-            let shouldRun = false;
-            if (interval >= 168) {
-              // 每周周期：检查 startDay 和 startHour
-              const localDay = now.toLocaleString('en-US', {
-                timeZone: tz,
-                weekday: 'short',
-              });
-              const dayMap: Record<string, number> = {
-                Sun: 0,
-                Mon: 1,
-                Tue: 2,
-                Wed: 3,
-                Thu: 4,
-                Fri: 5,
-                Sat: 6,
-              };
-              const currentDay = dayMap[localDay] ?? 0;
-              const expectedDay = endpoint.schedule.startDay ?? 0;
-              if (
-                currentDay === expectedDay &&
-                localHour === startHour &&
-                localMinute === startMinute
-              ) {
-                shouldRun = true;
-              }
-            } else if (interval >= 24) {
-              // 每天或更长周期：只在 startHour 触发
-              if (localHour === startHour && localMinute === startMinute) {
-                shouldRun = true;
-              }
-            } else {
-              // 小于 24 小时：从 startHour 开始每隔 interval 小时触发
-              for (let h = startHour; h < 24; h += interval) {
-                if (h === localHour && localMinute === startMinute) {
-                  shouldRun = true;
-                  break;
-                }
-              }
-            }
-
-            if (!shouldRun) continue;
-
-            // 防重复：检查是否在同一分钟内已执行过
-            const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
-            const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
-            if (lastRunStr && parseInt(lastRunStr, 10) === currentEpochMinute) {
-              continue;
-            }
-
-            const result = await uploadBackupToEndpoint(env, username, endpoint);
-
-            // 更新 lastBackup 状态
-            endpoint.lastBackup = {
-              time: new Date().toISOString(),
-              status: result.success ? 'success' : 'failed',
-              message: result.message,
-            };
-            await saveBackupEndpoint(env, username, endpoint);
-
-            // 记录本次执行时间
-            await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
-              expirationTtl: 24 * 60 * 60,
-            });
-          }
+          processedUsers++;
         }
+
         cursor = (list as { cursor?: string }).cursor;
-        list_complete = list.list_complete ?? false;
-      } while (cursor && !list_complete);
+        listComplete = list.list_complete ?? false;
+      } while (cursor && !listComplete && processedUsers < maxUsersPerCron);
+
+      console.log(`[Cron] Completed. Processed ${processedUsers} users`);
     } catch (err) {
-      console.error(`[Cron Backup] Error: ${(err as Error).message}`, (err as Error).stack);
+      console.error(`[Cron] Fatal error: ${(err as Error).message}`, (err as Error).stack);
     }
   },
 };
+
+/**
+ * 处理单个用户的任务
+ */
+async function processUserTasks(
+  env: Env,
+  username: string,
+  now: Date,
+  currentEpochMinute: number
+): Promise<void> {
+  await Promise.all([
+    processScheduledPushes(env, username, now, currentEpochMinute),
+    processBackups(env, username, now, currentEpochMinute),
+  ]);
+}
+
+/**
+ * 处理定时推送任务
+ */
+async function processScheduledPushes(
+  env: Env,
+  username: string,
+  _now: Date,
+  _currentEpochMinute: number
+): Promise<void> {
+  try {
+    const pushService = new PushService(env, username);
+    const pendingPushes = await pushService.getScheduledPushes('pending');
+    const nowDate = new Date();
+
+    for (const push of pendingPushes) {
+      const scheduledTime = new Date(push.scheduledAt);
+      if (scheduledTime > nowDate) {
+        continue;
+      }
+
+      // 防重复执行
+      const execKey = `scheduled_exec:${username}:${push.id}`;
+      const currentMinute = Math.floor(nowDate.getTime() / 60000);
+      const alreadyExecuted = await env.SUBSCRIPTIONS.get(execKey);
+      if (alreadyExecuted && parseInt(alreadyExecuted, 10) === currentMinute) {
+        continue;
+      }
+
+      const shouldExecute = shouldExecutePush(push, nowDate, scheduledTime);
+      if (!shouldExecute) {
+        continue;
+      }
+
+      await pushService.updateScheduledPushStatus(push.id, 'processing');
+      const results = await dispatchPushWithOptions(
+        {
+          title: push.title,
+          body: push.content,
+          url: push.url,
+        },
+        push.channels as PushChannel[],
+        username,
+        env
+      );
+
+      const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
+      const scheduleType = push.scheduleType || 'once';
+
+      if (scheduleType === 'recurring') {
+        await pushService.updateScheduledPushStatus(push.id, 'pending');
+      } else {
+        await pushService.updateScheduledPushStatus(push.id, finalStatus);
+      }
+
+      await env.SUBSCRIPTIONS.put(execKey, String(currentMinute), {
+        expirationTtl: 24 * 60 * 60,
+      });
+    }
+  } catch (err) {
+    console.error(`[Cron ScheduledPush] Error for ${username}:`, (err as Error).message);
+  }
+}
+
+/**
+ * 判断是否应该执行推送
+ */
+function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Date): boolean {
+  const scheduleType = push.scheduleType || 'once';
+
+  if (scheduleType !== 'recurring') {
+    return true;
+  }
+
+  const recurringType = push.recurringType || 'daily';
+  const nowHour = nowDate.getHours();
+  const nowMinute = nowDate.getMinutes();
+  const nowDay = nowDate.getDay();
+  const nowDateOfMonth = nowDate.getDate();
+  const pushHour = scheduledTime.getHours();
+  const pushMinute = scheduledTime.getMinutes();
+
+  switch (recurringType) {
+    case 'hourly':
+      return nowMinute === pushMinute;
+
+    case 'interval': {
+      const intervalHours = push.intervalHours || 2;
+      const hoursSinceStart = Math.floor(
+        (nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60)
+      );
+      return (
+        hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && nowMinute === pushMinute
+      );
+    }
+
+    case 'daily':
+      return nowHour === pushHour && nowMinute === pushMinute;
+
+    case 'weekly': {
+      const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
+      return selectedWeekDays.includes(nowDay) && nowHour === pushHour && nowMinute === pushMinute;
+    }
+
+    case 'monthly': {
+      const selectedMonthDays = push.selectedMonthDays || [1, 15];
+      return (
+        selectedMonthDays.includes(nowDateOfMonth) &&
+        nowHour === pushHour &&
+        nowMinute === pushMinute
+      );
+    }
+
+    case 'cron':
+      if (push.cronExpression) {
+        const parts = push.cronExpression.trim().split(/\s+/);
+        if (parts.length === 5) {
+          const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
+          const matchesMinute = matchCronField(minuteField, nowMinute);
+          const matchesHour = matchCronField(hourField, nowHour);
+          const matchesDayOfMonth = matchCronField(dayOfMonthField, nowDateOfMonth);
+          const matchesMonth = matchCronField(monthField, nowDate.getMonth() + 1);
+          const matchesDayOfWeek = matchCronField(dayOfWeekField, nowDay);
+          return (
+            matchesMinute && matchesHour && matchesDayOfMonth && matchesMonth && matchesDayOfWeek
+          );
+        }
+      }
+      return nowHour === pushHour && nowMinute === pushMinute;
+
+    default:
+      return nowHour === pushHour && nowMinute === pushMinute;
+  }
+}
+
+/**
+ * 处理备份任务
+ */
+async function processBackups(
+  env: Env,
+  username: string,
+  now: Date,
+  currentEpochMinute: number
+): Promise<void> {
+  try {
+    const endpoints = await getBackupEndpoints(env, username);
+
+    for (const endpoint of endpoints) {
+      if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
+
+      const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
+      const interval = endpoint.schedule.interval || 24;
+      const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
+      const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
+
+      let shouldRun = false;
+      if (interval >= 168) {
+        const currentDay = getLocalWeekday(now, tz);
+        const expectedDay = endpoint.schedule.startDay ?? 0;
+        shouldRun =
+          currentDay === expectedDay && localHour === startHour && localMinute === startMinute;
+      } else if (interval >= 24) {
+        shouldRun = localHour === startHour && localMinute === startMinute;
+      } else {
+        for (let h = startHour; h < 24; h += interval) {
+          if (h === localHour && localMinute === startMinute) {
+            shouldRun = true;
+            break;
+          }
+        }
+      }
+
+      if (!shouldRun) continue;
+
+      const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
+      const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
+      if (lastRunStr && parseInt(lastRunStr, 10) === currentEpochMinute) {
+        continue;
+      }
+
+      const result = await uploadBackupToEndpoint(env, username, endpoint);
+      endpoint.lastBackup = {
+        time: new Date().toISOString(),
+        status: result.success ? 'success' : 'failed',
+        message: result.message,
+      };
+      await saveBackupEndpoint(env, username, endpoint);
+      await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
+        expirationTtl: 24 * 60 * 60,
+      });
+    }
+  } catch (err) {
+    console.error(`[Cron Backup] Error for ${username}:`, (err as Error).message);
+  }
+}

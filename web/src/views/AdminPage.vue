@@ -212,10 +212,10 @@ async function handleClearHistory() {
 onMounted(async () => {
   try {
     // 尝试从 sessionStorage 恢复凭证（不再保存密码）
-    const savedEmail = sessionStorage.getItem('push_hub_email');
-    const savedToken = sessionStorage.getItem('push_hub_token');
-    const savedRefreshToken = sessionStorage.getItem('push_hub_refresh_token');
-    const savedExpiresAt = sessionStorage.getItem('push_hub_expires_at');
+    const savedEmail = sessionStorage.getItem('bee_swarm_email');
+    const savedToken = sessionStorage.getItem('bee_swarm_token');
+    const savedRefreshToken = sessionStorage.getItem('bee_swarm_refresh_token');
+    const savedExpiresAt = sessionStorage.getItem('bee_swarm_expires_at');
 
     if (savedEmail && savedToken && savedRefreshToken && savedExpiresAt) {
       email.value = savedEmail;
@@ -241,19 +241,19 @@ onMounted(async () => {
         accessToken.value = tokenData.token;
         refreshTokenValue.value = tokenData.refreshToken;
         tokenExpiresAt.value = tokenData.expiresAt;
-        sessionStorage.setItem('push_hub_token', tokenData.token);
-        sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
-        sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
+        sessionStorage.setItem('bee_swarm_token', tokenData.token);
+        sessionStorage.setItem('bee_swarm_refresh_token', tokenData.refreshToken);
+        sessionStorage.setItem('bee_swarm_expires_at', tokenData.expiresAt.toString());
         await loadChannels();
         await loadHistory();
         pageState.value = 'dashboard';
         return;
       } catch {
         // 刷新失败，清除凭证
-        sessionStorage.removeItem('push_hub_email');
-        sessionStorage.removeItem('push_hub_token');
-        sessionStorage.removeItem('push_hub_refresh_token');
-        sessionStorage.removeItem('push_hub_expires_at');
+        sessionStorage.removeItem('bee_swarm_email');
+        sessionStorage.removeItem('bee_swarm_token');
+        sessionStorage.removeItem('bee_swarm_refresh_token');
+        sessionStorage.removeItem('bee_swarm_expires_at');
       }
     }
     pageState.value = 'auth';
@@ -295,10 +295,10 @@ async function doLogin(authEmail: string, authPassword: string) {
     tokenExpiresAt.value = tokenData.expiresAt;
 
     // 保存凭证到 sessionStorage（不保存密码）
-    sessionStorage.setItem('push_hub_email', email.value);
-    sessionStorage.setItem('push_hub_token', tokenData.token);
-    sessionStorage.setItem('push_hub_refresh_token', tokenData.refreshToken);
-    sessionStorage.setItem('push_hub_expires_at', tokenData.expiresAt.toString());
+    sessionStorage.setItem('bee_swarm_email', email.value);
+    sessionStorage.setItem('bee_swarm_token', tokenData.token);
+    sessionStorage.setItem('bee_swarm_refresh_token', tokenData.refreshToken);
+    sessionStorage.setItem('bee_swarm_expires_at', tokenData.expiresAt.toString());
 
     await loadChannels();
     await loadHistory();
@@ -325,10 +325,10 @@ async function doRegister(authEmail: string, authPassword: string) {
 }
 
 function logout() {
-  sessionStorage.removeItem('push_hub_email');
-  sessionStorage.removeItem('push_hub_token');
-  sessionStorage.removeItem('push_hub_refresh_token');
-  sessionStorage.removeItem('push_hub_expires_at');
+  sessionStorage.removeItem('bee_swarm_email');
+  sessionStorage.removeItem('bee_swarm_token');
+  sessionStorage.removeItem('bee_swarm_refresh_token');
+  sessionStorage.removeItem('bee_swarm_expires_at');
   email.value = '';
   password.value = '';
   accessToken.value = '';
@@ -350,7 +350,7 @@ async function loadChannels() {
 
 // ==================== 渠道选择 ====================
 function restoreChannelSelection() {
-  const saved = sessionStorage.getItem('push_selected_channels');
+  const saved = sessionStorage.getItem('bee_swarm_selected_channels');
   if (saved) {
     try {
       const selectedIds: string[] = JSON.parse(saved);

@@ -35,7 +35,7 @@ function fillFromTemplate(template: PushTemplate) {
   if (template.channels && template.channels.length > 0) {
     const newSelection = new Set<PushChannel>(template.channels);
     emit('update:selectedChannels', newSelection);
-    sessionStorage.setItem('push_selected_channels', JSON.stringify(Array.from(newSelection)));
+    sessionStorage.setItem('bee_swarm_selected_channels', JSON.stringify(Array.from(newSelection)));
   }
 }
 
@@ -55,7 +55,7 @@ function toggleChannel(ch: ChannelConfig) {
   }
   emit('update:selectedChannels', newSelection);
   const selected = Array.from(newSelection);
-  sessionStorage.setItem('push_selected_channels', JSON.stringify(selected));
+  sessionStorage.setItem('bee_swarm_selected_channels', JSON.stringify(selected));
 }
 
 function doPush() {

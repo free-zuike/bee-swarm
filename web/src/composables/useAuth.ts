@@ -47,10 +47,10 @@ export function useAuth() {
 
   async function initialize() {
     try {
-      const savedEmail = sessionStorage.getItem('push_hub_email');
-      const savedToken = sessionStorage.getItem('push_hub_token');
-      const savedRefreshToken = sessionStorage.getItem('push_hub_refresh_token');
-      const savedExpiresAt = sessionStorage.getItem('push_hub_expires_at');
+      const savedEmail = sessionStorage.getItem('bee_swarm_email');
+      const savedToken = sessionStorage.getItem('bee_swarm_token');
+      const savedRefreshToken = sessionStorage.getItem('bee_swarm_refresh_token');
+      const savedExpiresAt = sessionStorage.getItem('bee_swarm_expires_at');
 
       if (savedEmail && savedToken && savedRefreshToken && savedExpiresAt) {
         authState.value.email = savedEmail;
@@ -118,9 +118,10 @@ export function useAuth() {
     authState.value.refreshToken = data.refreshToken;
     authState.value.tokenExpiresAt = data.expiresAt;
 
-    sessionStorage.setItem('push_hub_token', data.token);
-    sessionStorage.setItem('push_hub_refresh_token', data.refreshToken);
-    sessionStorage.setItem('push_hub_expires_at', data.expiresAt.toString());
+    sessionStorage.setItem('bee_swarm_email', authState.value.email);
+    sessionStorage.setItem('bee_swarm_token', data.token);
+    sessionStorage.setItem('bee_swarm_refresh_token', data.refreshToken);
+    sessionStorage.setItem('bee_swarm_expires_at', data.expiresAt.toString());
   }
 
   function clearAuth() {
@@ -128,10 +129,10 @@ export function useAuth() {
     authState.value.accessToken = '';
     authState.value.refreshToken = '';
     authState.value.tokenExpiresAt = 0;
-    sessionStorage.removeItem('push_hub_email');
-    sessionStorage.removeItem('push_hub_token');
-    sessionStorage.removeItem('push_hub_refresh_token');
-    sessionStorage.removeItem('push_hub_expires_at');
+    sessionStorage.removeItem('bee_swarm_email');
+    sessionStorage.removeItem('bee_swarm_token');
+    sessionStorage.removeItem('bee_swarm_refresh_token');
+    sessionStorage.removeItem('bee_swarm_expires_at');
   }
 
   async function refreshTokenIfNeeded(): Promise<boolean> {
