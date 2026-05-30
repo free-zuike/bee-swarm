@@ -165,7 +165,7 @@ async function loadWebhookUrl() {
   try {
     const data = await getWebhookUrl(props.accessToken);
     webhookUrl.value = data.webhookUrl;
-  } catch (err) {
+  } catch (_err) {
     console.error('获取 Webhook URL 失败:', err);
     showToast('获取 Webhook URL 失败', 'error');
   }
@@ -176,7 +176,7 @@ async function copyWebhookUrl() {
   try {
     await navigator.clipboard.writeText(webhookUrl.value);
     showToast('已复制到剪贴板', 'success');
-  } catch (err) {
+  } catch (_err) {
     showToast('复制失败', 'error');
   }
 }
@@ -185,7 +185,7 @@ async function copyExampleCode() {
   try {
     await navigator.clipboard.writeText(exampleCode.value);
     showToast('代码已复制', 'success');
-  } catch (err) {
+  } catch (_err) {
     showToast('复制失败', 'error');
   }
 }

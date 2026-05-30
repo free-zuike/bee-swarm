@@ -186,15 +186,6 @@ function getErrorMessage(err: unknown, fallback: string): string {
 /**
  * 推送历史管理 Composable
  */
-interface UsePushHistoryReturn {
-  history: typeof historyRef;
-  isLoading: typeof isLoadingRef;
-  total: typeof totalRef;
-  page: typeof pageRef;
-  loadHistory: (accessToken: string, options?: HistoryOptions) => Promise<void>;
-  clearHistory: (accessToken: string) => Promise<boolean>;
-  deleteHistory: (accessToken: string, ids: string[]) => Promise<boolean>;
-}
 
 const historyRef = ref<PushHistoryRecord[]>([]);
 const isLoadingRef = ref(false);

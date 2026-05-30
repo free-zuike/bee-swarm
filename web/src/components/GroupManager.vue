@@ -406,7 +406,7 @@ async function doDelete() {
     groups.value = groups.value.filter((g) => g.id !== deletingGroup.value!.id);
     showDeleteConfirm.value = false;
     deletingGroup.value = null;
-  } catch (err) {
+  } catch (_err) {
     showToast((err as Error).message, 'error');
   } finally {
     deleting.value = false;
@@ -463,7 +463,7 @@ async function saveGroup() {
       groups.value.push(result.group);
     }
     closeModal();
-  } catch (err) {
+  } catch (_err) {
     showToast((err as Error).message, 'error');
   } finally {
     saving.value = false;
@@ -476,7 +476,7 @@ async function loadGroups() {
   try {
     const data = await getChannelGroups(props.accessToken);
     groups.value = data.groups || [];
-  } catch (err) {
+  } catch (_err) {
     console.error('加载分组失败:', err);
   } finally {
     loading.value = false;

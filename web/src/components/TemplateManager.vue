@@ -227,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
@@ -398,7 +398,7 @@ async function doDelete() {
     templates.value = templates.value.filter((t) => t.id !== deletingTemplate.value!.id);
     showDeleteConfirm.value = false;
     deletingTemplate.value = null;
-  } catch (err) {
+  } catch (_err) {
     showToast((err as Error).message, 'error');
   } finally {
     deleting.value = false;
@@ -465,7 +465,7 @@ async function saveTemplate() {
       templates.value.push(result.template);
     }
     closeModal();
-  } catch (err) {
+  } catch (_err) {
     alert((err as Error).message);
   } finally {
     saving.value = false;
@@ -478,7 +478,7 @@ async function loadTemplates() {
   try {
     const data = await getTemplates(props.accessToken);
     templates.value = data.templates || [];
-  } catch (err) {
+  } catch (_err) {
     console.error('加载模板失败:', err);
   } finally {
     loading.value = false;

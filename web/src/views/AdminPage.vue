@@ -5,7 +5,7 @@
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { themeState, useThemeStore } from '@/stores/theme';
-import { setLocale, t, currentLocale, useTranslation } from '@/i18n';
+import { setLocale, t, currentLocale} from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
   register,
@@ -108,9 +108,9 @@ const showSettings = ref(false);
 const showFabMenu = ref(false);
 
 // 确保菜单文本响应语言变化
-const localeText = computed(() => {
+// const localeText = computed(() => {
   // 确保访问 currentLocale.value 以触发响应式更新
-  const _ = currentLocale.value;
+  // currentLocale.value;
   return {
     toggleTheme: t('button.toggle_theme'),
     apiDocs: t('button.api_docs'),
@@ -220,7 +220,7 @@ async function handleClearHistory() {
 }
 
 // ==================== 统计 ====================
-const enabledChannelCount = computed(() => channels.value.filter((c) => c.enabled).length);
+// const enabledChannelCount = computed(() => channels.value.filter((c) => c.enabled).length);
 
 // ==================== 初始化 ====================
 onMounted(async () => {
