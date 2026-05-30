@@ -583,6 +583,14 @@ function handleUseTemplate(template: PushTemplate) {
     pushFormRef.value?.fillFromTemplate(template);
   });
 }
+
+function handleUseGroup(channels: PushChannel[]) {
+  activeTab.value = 'push';
+  nextTick(() => {
+    selectedChannels.value = new Set(channels);
+    sessionStorage.setItem('push_selected_channels', JSON.stringify(Array.from(channels)));
+  });
+}
 </script>
 
 <template>
@@ -794,6 +802,7 @@ function handleUseTemplate(template: PushTemplate) {
           v-if="activeTab === 'groups'"
           :access-token="accessToken"
           :channels="channels"
+          @use-group="handleUseGroup"
         />
 
         <!-- ==================== 定时推送 Tab ==================== -->

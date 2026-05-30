@@ -19,18 +19,26 @@
       </div>
 
       <div v-else class="group-list">
-        <div v-for="group in groups" :key="group.id" class="group-item">
-          <div class="group-info">
-            <div class="group-name">{{ group.name }}</div>
-            <div class="group-channels">
-              <span v-for="ch in group.channels" :key="ch" class="channel-tag">{{ ch }}</span>
+        <div v-for="group in groups" :key="group.id" class="group-card">
+          <div class="group-main">
+            <div class="group-top">
+              <div class="group-name-row">
+                <h3 class="group-name">{{ group.name }}</h3>
+                <div class="group-tags">
+                  <span v-for="ch in group.channels" :key="ch" class="tag tag-channel">{{ getChannelName(ch) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="group-body">
+              <div class="field-row">
+                <span class="field-label">渠道</span>
+                <span class="field-value">{{ group.channels.length }} 个渠道</span>
+              </div>
             </div>
           </div>
           <div class="group-actions">
-            <button class="btn btn-small btn-secondary" @click="useGroup(group)">
-              {{ t('groups.use') }}
-            </button>
-            <button class="btn-icon" @click="confirmDelete(group)" title="{{ t('common.delete') }}">🗑️</button>
+            <button class="action-btn action-use" @click="useGroup(group)">使用</button>
+            <button class="action-btn action-delete" @click="confirmDelete(group)">删除</button>
           </div>
         </div>
       </div>
@@ -132,6 +140,23 @@ const availableChannels = computed(() => props.channels || [
   { id: 'discord', name: 'Discord', icon: '🎮', enabled: true },
   { id: 'webpush', name: 'Web Push', icon: '🌐', enabled: true },
 ]);
+
+function getChannelName(ch: string): string {
+  const channelNameMap: Record<string, string> = {
+    wework: '企业微信',
+    dingtalk: '钉钉',
+    feishu: '飞书',
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    mail: '邮件',
+    webhook: 'Webhook',
+    bark: 'Bark',
+    pushplus: 'PushPlus',
+    webpush: 'Web Push',
+  };
+  return channelNameMap[ch] || ch;
+}
 
 function openCreateModal() {
   form.name = '';
@@ -254,57 +279,129 @@ onMounted(loadGroups);
 .group-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.group-item {
+.group-card {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 10px;
-  border: 1px solid var(--border-color, #f0f0f0);
-  transition: all 0.2s;
+  align-items: stretch;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.25s ease;
+  overflow: hidden;
 }
 
-.group-item:hover {
-  border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+.group-card:hover {
+  border-color: #e0e0e0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
-.group-info {
+.group-main {
   flex: 1;
   min-width: 0;
+  padding: 24px;
+}
+
+.group-top {
+  margin-bottom: 16px;
+}
+
+.group-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .group-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
-  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
 }
 
-.group-channels {
+.group-tags {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.channel-tag {
+.tag {
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.tag-channel {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
   color: #667eea;
-  font-weight: 600;
+}
+
+.group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.field-label {
+  color: #999;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.field-value {
+  color: #333;
 }
 
 .group-actions {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-shrink: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding: 20px;
+  border-left: 1px solid #f5f5f5;
+  background: #fafafa;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: center;
+  min-width: 60px;
+}
+
+.action-use {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.action-use:hover {
+  opacity: 0.9;
+}
+
+.action-delete {
+  background: #ff4757;
+  color: white;
+  border-radius: 0 0 8px 8px;
+}
+
+.action-delete:hover {
+  background: #ff3742;
 }
 
 .modal-overlay {
