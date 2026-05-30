@@ -156,16 +156,32 @@ export async function sendPushWithToken(
   });
 }
 
-export async function getHistoryWithToken(token: string): Promise<{
+export async function getHistoryWithToken(
+  token: string,
+  options?: { page?: number; pageSize?: number; channel?: string; status?: string; keyword?: string }
+): Promise<{
   history: Array<{
+    id: string;
     time: string;
     title: string;
     body: string;
     url: string;
-    results: Array<{ channel: PushChannel; success: boolean; message: string }>;
+    channels: string[];
+    status: string;
+    results: Array<{ channel: PushChannel; success: boolean; message: string; latencyMs?: number; retries?: number }>;
   }>;
+  total: number;
+  hasMore: boolean;
 }> {
-  return tokenRequest(`${BASE}/admin/history`, token);
+  const params = new URLSearchParams();
+  if (options?.page) params.set('page', String(options.page));
+  if (options?.pageSize) params.set('pageSize', String(options.pageSize));
+  if (options?.channel) params.set('channel', options.channel);
+  if (options?.status) params.set('status', options.status);
+  if (options?.keyword) params.set('keyword', options.keyword);
+  const query = params.toString();
+  const url = query ? `${BASE}/admin/history?${query}` : `${BASE}/admin/history`;
+  return tokenRequest(url, token);
 }
 
 export async function getApiKeyWithToken(
@@ -485,4 +501,50 @@ export async function checkAllChannelsHealth(
 // 删除推送历史
 export async function clearHistory(token: string): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/history`, token, { method: 'DELETE' });
+}
+
+// -------------------------------------------
+// Webhook 触发推送
+// -------------------------------------------
+
+// 通过 Webhook 触发推送
+export async function webhookPush(
+  token: string,
+  payload: {
+    title?: string;
+    content?: string;
+    templateId?: string;
+    channels?: PushChannel[];
+    url?: string;
+  }
+): Promise<{ success: boolean; results: Array<{ channel: PushChannel; success: boolean; message: string }>; message: string }> {
+  return tokenRequest(`${BASE}/admin/webhook/push`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+// 获取 Webhook URL
+export async function getWebhookUrl(token: string): Promise<{
+  webhookUrl: string;
+  description: string;
+  exampleBody: Record<string, unknown>;
+  templateExample: Record<string, unknown>;
+}> {
+  return tokenRequest(`${BASE}/admin/webhook/url`, token);
+}
+
+// -------------------------------------------
+// 渠道健康检查
+// -------------------------------------------
+
+// 测试单个渠道（实际发送测试消息）
+export async function testChannelHealth(
+  token: string,
+  channel: PushChannel
+): Promise<{ channel: PushChannel; healthy: boolean; message: string; testedAt: string }> {
+  return tokenRequest(`${BASE}/admin/channels/health/${channel}/test`, token, {
+    method: 'POST',
+  });
 }

@@ -541,7 +541,7 @@ async function sendToChannel(
 export async function getPushHistory(
   username: string,
   env: Env,
-  options: { page?: number; pageSize?: number } = {}
+  options: { page?: number; pageSize?: number; channel?: string; status?: string; keyword?: string } = {}
 ): Promise<{ records: PushHistoryRecord[]; total: number; hasMore: boolean }> {
   const prefix = `user:${username}:push:`;
   const pageSize = options.pageSize || 20;
@@ -565,9 +565,44 @@ export async function getPushHistory(
 
   // 按时间戳降序排序（键名包含时间戳，降序即最新的在前）
   const sortedKeys = allKeys.sort((a, b) => b.localeCompare(a));
+
+  // 如果需要过滤，先读取所有记录进行过滤
+  let filteredKeys = sortedKeys;
+  if (options.channel || options.status || options.keyword) {
+    const allRecords = await Promise.all(
+      sortedKeys.map(async (key) => {
+        const data = await env.SUBSCRIPTIONS.get(key);
+        return data ? (JSON.parse(data) as PushHistoryRecord) : null;
+      })
+    );
+
+    filteredKeys = [];
+    for (let i = 0; i < sortedKeys.length; i++) {
+      const record = allRecords[i];
+      if (!record) continue;
+
+      // 渠道过滤
+      if (options.channel && !record.channels.includes(options.channel)) continue;
+
+      // 状态过滤
+      if (options.status && record.status !== options.status) continue;
+
+      // 关键词搜索（标题和内容）
+      if (options.keyword) {
+        const kw = options.keyword.toLowerCase();
+        const matchTitle = record.title?.toLowerCase().includes(kw);
+        const matchBody = record.body?.toLowerCase().includes(kw);
+        if (!matchTitle && !matchBody) continue;
+      }
+
+      filteredKeys.push(sortedKeys[i]);
+    }
+    total = filteredKeys.length;
+  }
+
   const limit = pageSize;
   const skip = (page - 1) * pageSize;
-  const pageKeys = sortedKeys.slice(skip, skip + limit);
+  const pageKeys = filteredKeys.slice(skip, skip + limit);
 
   const readPromises = pageKeys.map(async (key) => {
     const data = await env.SUBSCRIPTIONS.get(key);

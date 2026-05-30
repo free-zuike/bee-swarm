@@ -1,36 +1,200 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { t } from '@/i18n';
-import type { ChannelConfig } from '@/types';
+import type { ChannelConfig, PushChannel } from '@/types';
+
+interface ChannelResult {
+  channel: string;
+  success: boolean;
+  message: string;
+  latencyMs?: number;
+  retries?: number;
+}
 
 interface HistoryRecord {
+  id: string;
   title: string;
   body?: string;
   url?: string;
   time: string;
-  results: Array<{
-    channel: string;
-    success: boolean;
-    message: string;
-  }>;
+  channels: string[];
+  status: string;
+  results: ChannelResult[];
 }
 
 const props = defineProps<{
   history: HistoryRecord[];
   loading?: boolean;
   channels: ChannelConfig[];
+  total?: number;
+}>();
+
+const emit = defineEmits<{
+  (e: 'load-page', page: number): void;
+  (e: 'clear'): void;
 }>();
 
 const locale = computed(() => {
   const lang = localStorage.getItem('bee_swarm_locale') || 'zh';
   return lang === 'zh' ? 'zh-CN' : 'en-US';
 });
+
+const currentPage = ref(1);
+const pageSize = ref(20);
+const showFilters = ref(false);
+const filterChannel = ref<string>('');
+const filterStatus = ref<string>('');
+const searchKeyword = ref<string>('');
+
+const getChannelName = (channelId: string) => {
+  return props.channels.find((c) => c.id === channelId)?.name || channelId;
+};
+
+const getChannelIcon = (channelId: string) => {
+  return props.channels.find((c) => c.id === channelId)?.icon || '📡';
+};
+
+function formatTime(time: string): string {
+  try {
+    return new Date(time).toLocaleString(locale.value);
+  } catch {
+    return time;
+  }
+}
+
+function formatLatency(ms?: number): string {
+  if (ms === undefined) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'success': return '全部成功';
+    case 'partial': return '部分失败';
+    case 'failed': return '全部失败';
+    default: return status;
+  }
+}
+
+function getRecordStatusClass(record: HistoryRecord): string {
+  if (record.results.every((r: ChannelResult) => r.success)) return 'success';
+  if (record.results.some((r: ChannelResult) => r.success)) return 'partial';
+  return 'failed';
+}
+
+function getAvgLatency(record: HistoryRecord): string {
+  const validLatencies = record.results
+    .filter((r: ChannelResult) => r.latencyMs !== undefined)
+    .map((r: ChannelResult) => r.latencyMs as number);
+  
+  if (validLatencies.length === 0) return '-';
+  const avg = validLatencies.reduce((sum: number, val: number) => sum + val, 0) / validLatencies.length;
+  return formatLatency(avg);
+}
+
+function getTotalRetries(record: HistoryRecord): number {
+  return record.results.reduce((sum: number, r: ChannelResult) => sum + (r.retries || 0), 0);
+}
+
+const successRate = computed(() => {
+  if (props.history.length === 0) return 100;
+  const successCount = props.history.filter((record: HistoryRecord) =>
+    record.results.every((r: ChannelResult) => r.success)
+  ).length;
+  return Math.round((successCount / props.history.length) * 100);
+});
+
+function resetFilters() {
+  filterChannel.value = '';
+  filterStatus.value = '';
+  searchKeyword.value = '';
+  currentPage.value = 1;
+  emit('load-page', 1);
+}
+
+function applyFilters() {
+  currentPage.value = 1;
+  emit('load-page', 1);
+}
+
+const uniqueChannels = computed(() => {
+  const channels = new Set<string>();
+  props.history.forEach((record: HistoryRecord) => {
+    record.channels.forEach((ch: string) => channels.add(ch));
+  });
+  return Array.from(channels);
+});
+
+const activeFilters = computed(() => {
+  const count = [filterChannel.value, filterStatus.value, searchKeyword.value]
+    .filter(Boolean).length;
+  return count;
+});
 </script>
 
 <template>
   <div class="tab-content">
     <div class="panel">
-      <h2>📜 {{ t('label.push_history') }}</h2>
+      <div class="panel-header">
+        <h2>📜 {{ t('label.push_history') }}</h2>
+        <div class="header-actions">
+          <button class="btn btn-sm btn-secondary" @click="showFilters = !showFilters">
+            🔍 {{ showFilters ? '收起筛选' : '筛选' }}
+            <span v-if="activeFilters > 0" class="filter-badge">{{ activeFilters }}</span>
+          </button>
+          <button class="btn btn-sm btn-danger" @click="emit('clear')">🗑️ 清空</button>
+        </div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-item">
+          <span class="stat-label">总记录数</span>
+          <span class="stat-value">{{ total || history.length }}</span>
+        </div>
+        <div class="stat-item stat-success">
+          <span class="stat-label">成功率</span>
+          <span class="stat-value">{{ successRate }}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">当前页</span>
+          <span class="stat-value">{{ currentPage }}</span>
+        </div>
+      </div>
+
+      <div v-if="showFilters" class="filter-panel">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label class="filter-label">关键词搜索</label>
+            <input
+              v-model="searchKeyword"
+              type="text"
+              placeholder="搜索标题或内容..."
+              class="filter-input"
+              @keyup.enter="applyFilters"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">渠道</label>
+            <select v-model="filterChannel" class="filter-select" @change="applyFilters">
+              <option value="">全部渠道</option>
+              <option v-for="ch in uniqueChannels" :key="ch" :value="ch">
+                {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">状态</label>
+            <select v-model="filterStatus" class="filter-select" @change="applyFilters">
+              <option value="">全部状态</option>
+              <option value="success">全部成功</option>
+              <option value="partial">部分失败</option>
+              <option value="failed">全部失败</option>
+            </select>
+          </div>
+          <button class="btn btn-sm btn-secondary" @click="resetFilters">重置</button>
+        </div>
+      </div>
 
       <div v-if="loading" class="loading-placeholder">
         <div class="loading-spinner"></div>
@@ -38,35 +202,100 @@ const locale = computed(() => {
       </div>
 
       <div v-else-if="history.length === 0" class="empty">
+        <div class="empty-icon">📭</div>
         <p>{{ t('label.no_history') }}</p>
       </div>
 
       <div v-else class="history-list">
         <div
           v-for="(record, index) in history"
-          :key="index"
+          :key="record.id || index"
           class="history-item"
+          :class="getRecordStatusClass(record)"
         >
           <div class="history-header">
-            <div class="history-title">{{ record.title }}</div>
-            <div class="history-time">{{ new Date(record.time).toLocaleString(locale) }}</div>
+            <div class="header-left">
+              <div class="history-title">{{ record.title }}</div>
+              <div class="history-meta">
+                <span class="meta-time">{{ formatTime(record.time) }}</span>
+                <span class="meta-status" :class="record.status">
+                  {{ getStatusLabel(record.status) }}
+                </span>
+                <span class="meta-avg-latency">⏱️ 平均 {{ getAvgLatency(record) }}</span>
+                <span v-if="getTotalRetries(record) > 0" class="meta-retries">
+                  🔄 重试 {{ getTotalRetries(record) }} 次
+                </span>
+              </div>
+            </div>
+            <div class="header-right">
+              <div class="channel-tags">
+                <span
+                  v-for="ch in record.channels"
+                  :key="ch"
+                  class="channel-tag"
+                >
+                  {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
+                </span>
+              </div>
+            </div>
           </div>
+
           <div v-if="record.body" class="history-body">{{ record.body }}</div>
+
           <div v-if="record.url" class="history-url">
             <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
           </div>
-          <div class="history-results">
-            <div
-              v-for="result in record.results"
-              :key="result.channel"
-              class="history-result"
-              :class="result.success ? 'success' : 'error'"
-            >
-              <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
-              <span class="result-channel">{{ channels.find((c) => c.id === result.channel)?.icon || '' }} {{ channels.find((c) => c.id === result.channel)?.name || result.channel }}</span>
-              <span class="result-message">{{ result.message }}</span>
+
+          <details class="results-details">
+            <summary class="results-summary">
+              <span class="summary-text">
+                查看详情 ({{ record.results.length }} 个渠道)
+              </span>
+              <span class="summary-icon">▼</span>
+            </summary>
+            <div class="history-results">
+              <div
+                v-for="result in record.results"
+                :key="result.channel"
+                class="history-result"
+                :class="result.success ? 'success' : 'error'"
+              >
+                <div class="result-left">
+                  <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
+                  <span class="result-channel">
+                    {{ getChannelIcon(result.channel) }} {{ getChannelName(result.channel) }}
+                  </span>
+                </div>
+                <div class="result-right">
+                  <span v-if="result.latencyMs !== undefined" class="result-latency">
+                    ⏱️ {{ formatLatency(result.latencyMs) }}
+                  </span>
+                  <span v-if="result.retries && result.retries > 0" class="result-retries">
+                    🔄 {{ result.retries }} 次重试
+                  </span>
+                </div>
+                <span class="result-message">{{ result.message }}</span>
+              </div>
             </div>
-          </div>
+          </details>
+        </div>
+
+        <div v-if="(total || 0) > pageSize" class="pagination">
+          <button
+            class="btn btn-sm btn-secondary"
+            :disabled="currentPage <= 1"
+            @click="currentPage--; emit('load-page', currentPage)"
+          >
+            ← 上一页
+          </button>
+          <span class="page-info">第 {{ currentPage }} 页</span>
+          <button
+            class="btn btn-sm btn-secondary"
+            :disabled="!((currentPage * pageSize) < (total || 0))"
+            @click="currentPage++; emit('load-page', currentPage)"
+          >
+            下一页 →
+          </button>
         </div>
       </div>
     </div>
@@ -91,15 +320,124 @@ const locale = computed(() => {
   margin-bottom: 24px;
 }
 
-.panel h2 {
-  font-size: 18px;
-  color: var(--text-primary, #1a1a2e);
-  margin-bottom: 20px;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
-  height: 32px;
-  line-height: 32px;
+}
+
+.panel-header h2 {
+  font-size: 18px;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+  height: auto;
+  line-height: normal;
+  padding-bottom: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-item {
+  background: var(--bg-secondary, #f5f5f5);
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-success {
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.stat-success .stat-value {
+  color: #065f46;
+}
+
+.filter-panel {
+  background: var(--bg-secondary, #f8f9fa);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  flex: 1;
+  min-width: 180px;
+}
+
+.filter-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
+}
+
+.filter-input,
+.filter-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
   box-sizing: border-box;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: #667eea;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 9px;
+  margin-left: 4px;
 }
 
 .loading-placeholder {
@@ -127,17 +465,19 @@ const locale = computed(() => {
 
 .empty {
   text-align: center;
-  padding: 32px;
+  padding: 48px 32px;
   color: var(--text-secondary, #999);
-  font-size: 14px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
 }
 
 .history-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: 600px;
-  overflow-y: auto;
 }
 
 .history-item {
@@ -145,24 +485,98 @@ const locale = computed(() => {
   border-radius: 10px;
   padding: 16px;
   border: 1px solid var(--border-color, #eee);
+  border-left: 3px solid #667eea;
+}
+
+.history-item.success {
+  border-left-color: #10b981;
+}
+
+.history-item.partial {
+  border-left-color: #f59e0b;
+}
+
+.history-item.failed {
+  border-left-color: #ef4444;
 }
 
 .history-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 8px;
+}
+
+.header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-right {
+  flex-shrink: 0;
 }
 
 .history-title {
   font-weight: 600;
   font-size: 15px;
   color: var(--text-primary, #1a1a2e);
+  margin-bottom: 4px;
 }
 
-.history-time {
+.history-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.meta-time {
   font-size: 12px;
   color: var(--text-secondary, #999);
+}
+
+.meta-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.meta-status.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.meta-status.partial {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.meta-status.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.meta-avg-latency,
+.meta-retries {
+  font-size: 11px;
+  color: var(--text-secondary, #666);
+}
+
+.channel-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.channel-tag {
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--bg-panel, white);
+  border-radius: 4px;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
 }
 
 .history-body {
@@ -186,6 +600,34 @@ const locale = computed(() => {
   text-decoration: underline;
 }
 
+.results-details {
+  margin-top: 8px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  padding-top: 8px;
+}
+
+.results-summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  padding: 4px 0;
+}
+
+.results-summary:hover {
+  color: var(--text-primary, #333);
+}
+
+.summary-icon {
+  transition: transform 0.2s;
+}
+
+.results-details[open] .summary-icon {
+  transform: rotate(180deg);
+}
+
 .history-results {
   display: flex;
   flex-direction: column;
@@ -195,11 +637,12 @@ const locale = computed(() => {
 
 .history-result {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 12px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border-radius: 6px;
+  flex-wrap: wrap;
 }
 
 .history-result.success {
@@ -212,6 +655,19 @@ const locale = computed(() => {
   color: #721c24;
 }
 
+.result-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.result-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .result-status {
   font-weight: bold;
 }
@@ -221,8 +677,111 @@ const locale = computed(() => {
   min-width: 80px;
 }
 
+.result-latency,
+.result-retries {
+  font-size: 11px;
+  color: inherit;
+  opacity: 0.8;
+}
+
 .result-message {
+  width: 100%;
   color: inherit;
   opacity: 0.9;
+  margin-top: 2px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.page-info {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 34px;
+  box-sizing: border-box;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  height: 30px;
+}
+
+.btn-secondary {
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--border-color, #e0e0e0);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .stats-bar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-group {
+    min-width: 100%;
+  }
+
+  .history-header {
+    flex-direction: column;
+  }
+
+  .header-right {
+    width: 100%;
+  }
+
+  .history-meta {
+    gap: 8px;
+  }
+
+  .history-result {
+    flex-direction: column;
+  }
+
+  .result-right {
+    margin-left: 0;
+  }
 }
 </style>

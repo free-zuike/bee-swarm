@@ -337,7 +337,10 @@ adminApi.get('/history', async (c) => {
   const username = c.get('username');
   const page = parseInt(c.req.query('page') || '1', 10);
   const pageSize = parseInt(c.req.query('pageSize') || '20', 10);
-  const result = await getPushHistory(username, c.env, { page, pageSize });
+  const channel = c.req.query('channel');
+  const status = c.req.query('status');
+  const keyword = c.req.query('keyword');
+  const result = await getPushHistory(username, c.env, { page, pageSize, channel, status, keyword });
   return c.json({ history: result.records, total: result.total, hasMore: result.hasMore });
 });
 

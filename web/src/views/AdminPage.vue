@@ -21,6 +21,8 @@ import StatsDashboard from '@/components/StatsDashboard.vue';
 import TemplateManager from '@/components/TemplateManager.vue';
 import GroupManager from '@/components/GroupManager.vue';
 import ScheduledPushManager from '@/components/ScheduledPushManager.vue';
+import WebhookManager from '@/components/WebhookManager.vue';
+import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -67,7 +69,7 @@ const refreshTokenValue = ref('');
 const tokenExpiresAt = ref(0);
 
 // ==================== Dashboard Tab ====================
-const activeTab = ref<'push' | 'history' | 'stats' | 'templates' | 'groups' | 'scheduled'>('stats');
+const activeTab = ref<'push' | 'history' | 'stats' | 'templates' | 'groups' | 'scheduled' | 'webhook' | 'health'>('stats');
 
 // ==================== 设置面板 ====================
 const showSettings = ref(false);
@@ -102,8 +104,11 @@ const pushResults = ref<PushResult[]>([]);
 const lastPushTime = ref('-');
 
 // ==================== 历史记录 ====================
-const pushHistory = ref<PushHistoryRecord[]>([]);
+const pushHistory = ref<any[]>([]);
 const isLoadingHistory = ref(false);
+const historyTotal = ref(0);
+const historyPage = ref(1);
+const historyPageSize = 20;
 
 // ==================== API Key ====================
 const apiKey = ref('');
@@ -138,11 +143,13 @@ async function copyApiKey() {
 }
 
 // ==================== 历史记录加载 ====================
-async function loadHistory() {
+async function loadHistory(page = 1) {
   isLoadingHistory.value = true;
+  historyPage.value = page;
   try {
-    const data = await getHistoryWithToken(accessToken.value);
+    const data = await getHistoryWithToken(accessToken.value, { page, pageSize: historyPageSize });
     pushHistory.value = data.history || [];
+    historyTotal.value = data.total || 0;
     // 如果有历史记录，设置 lastPushTime 为最近一条的时间
     if (pushHistory.value.length > 0) {
       lastPushTime.value = new Date(pushHistory.value[0].time).toLocaleString('zh-CN');
@@ -151,6 +158,17 @@ async function loadHistory() {
     console.error('加载历史记录失败:', err);
   }
   isLoadingHistory.value = false;
+}
+
+async function handleClearHistory() {
+  try {
+    const { clearHistory } = await import('@/api');
+    await clearHistory(accessToken.value);
+    showToast('推送历史已清空', 'success');
+    await loadHistory(1);
+  } catch (err: unknown) {
+    showToast('清空失败', 'error');
+  }
 }
 
 // ==================== 统计 ====================
@@ -763,6 +781,20 @@ function handleUseGroup(channels: PushChannel[]) {
           >
             ⏰ {{ t('tab.scheduled') }}
           </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'webhook', dark: isDark }"
+            @click="activeTab = 'webhook'"
+          >
+            🔗 Webhook
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'health', dark: isDark }"
+            @click="activeTab = 'health'"
+          >
+            💚 健康检查
+          </button>
         </div>
 
         <!-- ==================== 统计仪表盘 Tab ==================== -->
@@ -790,6 +822,9 @@ function handleUseGroup(channels: PushChannel[]) {
           :history="pushHistory"
           :loading="isLoadingHistory"
           :channels="channels"
+          :total="historyTotal"
+          @load-page="loadHistory"
+          @clear="handleClearHistory"
         />
 
         <!-- ==================== 模板管理 Tab ==================== -->
@@ -811,6 +846,18 @@ function handleUseGroup(channels: PushChannel[]) {
         <!-- ==================== 定时推送 Tab ==================== -->
         <ScheduledPushManager
           v-if="activeTab === 'scheduled'"
+          :access-token="accessToken"
+        />
+
+        <!-- ==================== Webhook 触发推送 Tab ==================== -->
+        <WebhookManager
+          v-if="activeTab === 'webhook'"
+          :access-token="accessToken"
+        />
+
+        <!-- ==================== 渠道健康检查 Tab ==================== -->
+        <ChannelHealthCheck
+          v-if="activeTab === 'health'"
           :access-token="accessToken"
         />
       </template>
