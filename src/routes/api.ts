@@ -887,16 +887,9 @@ adminApi.get('/stats', async (c) => {
     }
   }
   
-  // 成功率趋势
-  const recentSuccessRate = records.length > 0
-    ? (records.filter(r => r.results.every(res => res.success)).length / records.length * 100)
-    : 0;
-  
   return c.json({
     ...stats,
     channelUsage,
-    recentSuccessRate: Math.round(recentSuccessRate),
-    totalRecords: records.length,
   });
 });
 

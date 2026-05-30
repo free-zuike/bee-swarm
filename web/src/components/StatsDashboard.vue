@@ -2,9 +2,9 @@
   <div class="stats-dashboard">
     <div class="panel">
       <div class="panel-header">
-        <h2>📊 {{ t('dashboard.title') }}</h2>
+        <h2> {{ t('dashboard.title') }}</h2>
         <button class="btn btn-sm btn-secondary" @click="loadData" :disabled="loading">
-          🔄 刷新
+           刷新
         </button>
       </div>
 
@@ -19,7 +19,6 @@
       </div>
 
       <div v-else class="stats-content">
-        <!-- 核心指标 -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-icon">📊</div>
@@ -55,23 +54,6 @@
           </div>
         </div>
 
-        <!-- 近期成功率 -->
-        <div class="summary-bar">
-          <div class="summary-item">
-            <span class="summary-label">总记录数</span>
-            <span class="summary-value">{{ stats.totalRecords || 0 }}</span>
-          </div>
-          <div class="summary-item summary-highlight">
-            <span class="summary-label">近期成功率</span>
-            <span class="summary-value">{{ stats.recentSuccessRate || 0 }}%</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">平均延迟</span>
-            <span class="summary-value">{{ metrics?.avgLatency || 0 }}ms</span>
-          </div>
-        </div>
-
-        <!-- 推送趋势图 -->
         <div class="section">
           <h3>{{ t('dashboard.recentActivity') }}</h3>
           <div class="bar-chart">
@@ -85,13 +67,9 @@
           </div>
         </div>
 
-        <!-- 渠道使用统计 -->
-        <div class="section">
+        <div v-if="Object.keys(stats.channelUsage || {}).length > 0" class="section">
           <h3>渠道使用统计</h3>
-          <div v-if="Object.keys(stats.channelUsage || {}).length === 0" class="empty-hint">
-            <p>暂无推送记录</p>
-          </div>
-          <div v-else class="channel-stats-grid">
+          <div class="channel-stats-grid">
             <div v-for="(data, channel) in stats.channelUsage" :key="channel" class="channel-stat-card">
               <div class="channel-header">
                 <div class="channel-icon">{{ getChannelIcon(channel) }}</div>
@@ -146,10 +124,7 @@ const stats = ref({
   trend: { rate: 0, direction: 'stable' as 'up' | 'down' | 'stable' },
   recent: [] as Array<{ date: string; pushes: number; success: number; failed: number }>,
   channelUsage: {} as Record<string, { count: number; success: number; failed: number; avgLatency: number }>,
-  recentSuccessRate: 0,
-  totalRecords: 0,
 });
-const metrics = ref<{ total: number; success: number; failed: number; byChannel: Record<string, { success: number; failed: number }>; avgLatency: number } | null>(null);
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const channelIconMap: Record<string, string> = {
@@ -159,7 +134,7 @@ const channelIconMap: Record<string, string> = {
   telegram: '✈️',
   bark: '📱',
   ntfy: '📢',
-  email: '📧',
+  email: '',
   slack: '💬',
   discord: '🎮',
 };
@@ -217,16 +192,6 @@ async function loadData() {
       trend: statsData.trend,
       recent: statsData.recent,
       channelUsage: statsData.channelUsage || {},
-      recentSuccessRate: statsData.recentSuccessRate || 0,
-      totalRecords: statsData.totalRecords || 0,
-    };
-    // metrics 保留兼容性
-    metrics.value = {
-      total: statsData.session.total,
-      success: statsData.session.success,
-      failed: statsData.session.failed,
-      byChannel: {},
-      avgLatency: 0,
     };
   } catch (err) {
     error.value = (err as Error).message;
@@ -376,49 +341,6 @@ defineExpose({ loadData });
   border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
 
-.summary-bar {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.summary-item {
-  background: var(--bg-secondary, #f8f9fa);
-  padding: 16px 20px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.summary-highlight {
-  background: #d1fae5;
-  border: 1px solid #a7f3d0;
-}
-
-.summary-label {
-  font-size: 12px;
-  color: var(--text-secondary, #666);
-}
-
-.summary-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary, #1a1a2e);
-}
-
-.summary-highlight .summary-value {
-  color: #065f46;
-}
-
-.empty-hint {
-  text-align: center;
-  padding: 24px;
-  color: var(--text-secondary, #999);
-  font-size: 14px;
-}
-
 .channel-stat-card {
   background: var(--bg-secondary, #f8f9fa);
   border-radius: 10px;
@@ -547,22 +469,6 @@ defineExpose({ loadData });
   text-align: center;
 }
 
-.avg-latency {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 8px;
-  font-size: 14px;
-  color: var(--text-secondary, #666);
-}
-
-.latency-value {
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
-}
-
 .btn {
   padding: 10px 24px;
   border: none;
@@ -626,11 +532,6 @@ defineExpose({ loadData });
     margin-bottom: 24px;
   }
 
-  .summary-bar {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
   .stat-card {
     padding: 16px;
     gap: 12px;
@@ -674,15 +575,6 @@ defineExpose({ loadData });
   .channel-stat-card {
     padding: 14px;
   }
-
-  .avg-latency {
-    font-size: 13px;
-    padding: 10px 14px;
-  }
-
-  .latency-value {
-    font-size: 16px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -696,180 +588,6 @@ defineExpose({ loadData });
 
   .bar-chart {
     padding: 0;
-  }
-}
-
-@media (max-width: 768px) {
-  .stats-panel {
-    padding: 12px;
-  }
-
-  .stats-panel h3 {
-    font-size: 14px;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .stat-card {
-    padding: 14px;
-  }
-
-  .stat-value {
-    font-size: 22px;
-  }
-
-  .stats-panel > p {
-    font-size: 11px;
-  }
-
-  .stat-card .stat-label {
-    font-size: 12px;
-  }
-
-  .stat-card .stat-value {
-    font-size: 24px;
-  }
-
-  .section-title {
-    font-size: 13px;
-  }
-
-  .section-title::after {
-    margin-bottom: 2px;
-  }
-
-  .channel-usage-list {
-    gap: 8px;
-  }
-
-  .channel-usage-item {
-    padding: 10px 12px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  .channel-name {
-    font-size: 12px;
-  }
-
-  .channel-stats {
-    gap: 10px;
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .channel-count {
-    font-size: 11px;
-  }
-
-  .channel-latency {
-    font-size: 11px;
-  }
-
-  .channel-bar-container {
-    width: 100%;
-  }
-
-  .trend-list {
-    gap: 6px;
-  }
-
-  .trend-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding: 8px 10px;
-  }
-
-  .trend-label {
-    font-size: 11px;
-  }
-
-  .trend-bar-container {
-    width: 100%;
-    height: 5px;
-  }
-
-  .trend-value {
-    font-size: 11px;
-  }
-
-  .channel-trend-list {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .channel-trend-item {
-    padding: 8px 10px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .channel-trend-name {
-    font-size: 12px;
-  }
-
-  .channel-trend-stats {
-    gap: 8px;
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .channel-trend-rate {
-    font-size: 11px;
-  }
-
-  .channel-trend-bar-container {
-    width: 100%;
-    height: 5px;
-  }
-}
-
-@media (max-width: 480px) {
-  .stats-panel {
-    padding: 10px;
-  }
-
-  .stats-panel h3 {
-    font-size: 13px;
-  }
-
-  .stat-card {
-    padding: 12px;
-  }
-
-  .stat-card .stat-value {
-    font-size: 20px;
-  }
-
-  .channel-usage-item {
-    padding: 8px 10px;
-  }
-
-  .channel-name {
-    font-size: 11px;
-  }
-
-  .channel-stats {
-    font-size: 10px;
-  }
-
-  .channel-count,
-  .channel-latency {
-    font-size: 10px;
-  }
-
-  .trend-item {
-    padding: 6px 8px;
-  }
-
-  .channel-trend-item {
-    padding: 6px 8px;
   }
 }
 </style>
