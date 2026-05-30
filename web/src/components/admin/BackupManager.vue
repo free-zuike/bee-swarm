@@ -41,7 +41,7 @@ const isLoadingEndpointBackups = ref(false);
 const selectedBackups = ref<Set<string>>(new Set());
 
 const backupPage = ref(1);
-const backupPageSize = ref(50);
+const backupPageSize = ref(parseInt(localStorage.getItem('backup_pageSize') || '50', 10) || 50);
 const pageSizeOptions = [10, 20, 50, 100, 200];
 
 const paginatedBackups = computed(() => {
@@ -840,7 +840,7 @@ defineExpose({
               <div v-if="endpointBackups.length > 0" class="backup-pagination">
                 <div class="page-size-selector">
                   <span>{{ t('label.per_page') }}</span>
-                  <select v-model.number="backupPageSize" @change="backupPage = 1; selectedBackups.clear()">
+                  <select v-model.number="backupPageSize" @change="backupPage = 1; selectedBackups.clear(); localStorage.setItem('backup_pageSize', String(backupPageSize))">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                   </select>
                 </div>
