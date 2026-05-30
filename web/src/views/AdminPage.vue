@@ -598,6 +598,24 @@ function handleUseGroup(channels: PushChannel[]) {
     selectedChannels.value = new Set(channels);
   });
 }
+
+function handleResend(record: PushHistoryRecord) {
+  activeTab.value = 'push';
+  nextTick(() => {
+    // 构造一个类模板对象填充表单
+    const templateLike: PushTemplate = {
+      id: record.id,
+      name: '重新发送',
+      title: record.title,
+      content: record.body || '',
+      url: record.url || '',
+      channels: record.channels as PushChannel[],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    pushFormRef.value?.fillFromTemplate(templateLike);
+  });
+}
 </script>
 
 <template>
@@ -875,6 +893,7 @@ function handleUseGroup(channels: PushChannel[]) {
           @load-page="loadHistory"
           @clear="handleClearHistory"
           @filter-change="handleFilterChange"
+          @resend="handleResend"
         />
 
         <!-- ==================== 模板管理 Tab ==================== -->

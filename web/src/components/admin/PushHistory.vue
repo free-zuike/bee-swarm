@@ -40,6 +40,7 @@ const emit = defineEmits<{
   clear: [];
   'batch-delete': [ids: string[]];
   'filter-change': [filters: { channel?: string; status?: string; search?: string }];
+  resend: [record: HistoryRecord];
 }>();
 
 const locale = computed(() => {
@@ -181,6 +182,10 @@ function selectAll() {
 
 function clearSelection() {
   selectedIds.value.clear();
+}
+
+function handleResend(record: HistoryRecord) {
+  emit('resend', record);
 }
 
 async function batchDeleteSelected() {
@@ -370,6 +375,11 @@ const activeFilters = computed(() => {
                     <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
                   </div>
 
+                  <div class="history-actions">
+                    <button class="btn btn-sm btn-secondary" @click="handleResend(record)">
+                      🔄 重新发送
+                    </button>
+                  </div>
                   <details class="results-details">
                     <summary class="results-summary">
                       <span class="summary-text">
@@ -950,6 +960,12 @@ const activeFilters = computed(() => {
 
 .history-url a:hover {
   text-decoration: underline;
+}
+
+.history-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
 }
 
 .results-details {
