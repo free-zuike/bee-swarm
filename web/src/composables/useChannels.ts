@@ -5,25 +5,12 @@
 import { ref, computed } from 'vue';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings, PushChannel, PushResult, PushHistoryRecord } from '@/types';
 import { showToast } from './useToast';
-import { useLoadingStore } from '@/stores/loading';
-
-interface UseChannelsReturn {
-  channels: typeof channelsRef;
-  channelDefinitions: typeof channelDefinitionsRef;
-  channelSettings: typeof channelSettingsRef;
-  selectedChannels: typeof selectedChannelsRef;
-  loadChannels: (accessToken: string) => Promise<void>;
-  saveChannel: (accessToken: string, channelId: string, fields: Record<string, string>) => Promise<boolean>;
-  toggleChannelEnabled: (accessToken: string, channelId: string) => Promise<boolean>;
-  testChannel: (accessToken: string, channelId: string, fields: Record<string, string>) => Promise<boolean>;
-}
+import { withLoading } from '@/stores/loading';
 
 const channelsRef = ref<ChannelConfig[]>([]);
 const channelDefinitionsRef = ref<ChannelDefinition[]>([]);
 const channelSettingsRef = ref<ChannelSettings>({});
 const selectedChannelsRef = ref<Set<PushChannel>>(new Set());
-
-const loadingStore = useLoadingStore();
 
 export function useChannels() {
   async function loadChannels(accessToken: string): Promise<void> {
@@ -35,7 +22,7 @@ export function useChannels() {
 
       channelsRef.value = data.channels;
       channelSettingsRef.value = data.settings;
-      channelDefinitionsRef.value = data.definitions;
+      channelDefinitionsRef.value = data.definitions as ChannelDefinition[];
 
       restoreChannelSelection();
     } catch (err) {
@@ -61,7 +48,7 @@ export function useChannels() {
       }, 'refreshChannels');
 
       channelSettingsRef.value = data.settings;
-      channelDefinitionsRef.value = data.definitions;
+      channelDefinitionsRef.value = data.definitions as ChannelDefinition[];
 
       showToast(result.message || '保存成功', 'success');
       return true;
@@ -92,7 +79,7 @@ export function useChannels() {
 
       channelsRef.value = data.channels;
       channelSettingsRef.value = data.settings;
-      channelDefinitionsRef.value = data.definitions;
+      channelDefinitionsRef.value = data.definitions as ChannelDefinition[];
 
       return true;
     } catch (err) {
@@ -116,7 +103,7 @@ export function useChannels() {
         });
       }, 'testChannel');
 
-      const channelResult = result.results?.find((r) => r.channel === channelId);
+      const channelResult = result.results?.find((r: PushResult) => r.channel === channelId);
       return {
         success: channelResult?.success || false,
         message: channelResult?.message || result.message || '测试完成',

@@ -1,9 +1,9 @@
 import { ref } from 'vue';
 import { showToast } from './useToast';
-import { useLoadingStore, withLoading } from '@/stores/loading';
+import { withLoading } from '@/stores/loading';
 
-interface AsyncState<T> {
-  data: T | null;
+interface AsyncState<T = unknown> {
+  data: unknown | null;
   loading: boolean;
   error: string | null;
 }
@@ -28,9 +28,8 @@ interface UseAsyncOptions {
  */
 export function useAsync<T>(options: UseAsyncOptions = {}) {
   const { loadingKey, showErrorToast = true, showSuccessToast = false } = options;
-  const loadingStore = useLoadingStore();
 
-  const data = ref<T | null>(null) as { value: T | null };
+  const data = ref<T | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -49,7 +48,7 @@ export function useAsync<T>(options: UseAsyncOptions = {}) {
         return await fn();
       }, loadingKey);
 
-      data.value = result;
+      data.value = result as T;
 
       if (showSuccessToast && successMsg) {
         showToast(successMsg, 'success');
@@ -96,11 +95,10 @@ export function useAsync<T>(options: UseAsyncOptions = {}) {
  * const state = useAsyncState<User[]>();
  * await state.execute(() => fetchUsers());
  */
-export function useAsyncState<T>(options: UseAsyncOptions = {}) {
+export function useAsyncState(options: UseAsyncOptions = {}) {
   const { loadingKey, showErrorToast = true } = options;
-  const loadingStore = useLoadingStore();
 
-  const state = ref<AsyncState<T>>({
+  const state = ref<AsyncState>({
     data: null,
     loading: false,
     error: null,
@@ -109,7 +107,7 @@ export function useAsyncState<T>(options: UseAsyncOptions = {}) {
   /**
    * 执行异步操作并更新状态
    */
-  async function execute(fn: () => Promise<T>): Promise<T | null> {
+  async function execute<T>(fn: () => Promise<T>): Promise<T | null> {
     state.value.loading = true;
     state.value.error = null;
 

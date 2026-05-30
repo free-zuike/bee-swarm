@@ -5,7 +5,7 @@
 import { ref, computed } from 'vue';
 import type { PushChannel, PushResult, PushPayload } from '@/types';
 import { showToast } from './useToast';
-import { useLoadingStore, withLoading } from '@/stores/loading';
+import { withLoading } from '@/stores/loading';
 import { useTranslation } from '@/i18n';
 
 interface UsePushOptions {
@@ -13,21 +13,12 @@ interface UsePushOptions {
   onError?: (error: string) => void;
 }
 
-interface UsePushReturn {
-  isPushing: typeof isPushingRef;
-  results: typeof resultsRef;
-  lastPushTime: typeof lastPushTimeRef;
-  sendPush: (accessToken: string, payload: PushPayload, channels: PushChannel[]) => Promise<PushResult[]>;
-}
-
 const isPushingRef = ref(false);
 const resultsRef = ref<PushResult[]>([]);
 const lastPushTimeRef = ref('-');
 
-const loadingStore = useLoadingStore();
-
 export function usePush(options: UsePushOptions = {}) {
-  const { t } = useTranslation();
+  const t = useTranslation();
 
   async function sendPush(
     accessToken: string,
@@ -59,10 +50,10 @@ export function usePush(options: UsePushOptions = {}) {
       const totalCount = resultsRef.value.length;
 
       if (successCount === totalCount) {
-        showToast(t('msg.push_success', { count: successCount }), 'success');
+        showToast(t('msg.push_success', { count: String(successCount) }), 'success');
         options.onSuccess?.(resultsRef.value);
       } else if (successCount > 0) {
-        showToast(t('msg.push_partial', { success: successCount, total: totalCount }), 'error');
+        showToast(t('msg.push_partial', { success: String(successCount), total: String(totalCount) }), 'error');
       } else {
         showToast(t('msg.push_failed'), 'error');
         options.onError?.(t('msg.push_failed'));
@@ -139,9 +130,12 @@ export function useScheduledPushes() {
 
     try {
       const { getScheduledPushes } = await import('@/api');
-      scheduledPushesRef.value = await withLoading(async () => {
+      const result = await withLoading(async () => {
         return await getScheduledPushes(accessToken, status);
       }, 'scheduled');
+      
+      // 处理可能的返回格式（可能返回数组或带scheduled属性的对象）
+      scheduledPushesRef.value = Array.isArray(result) ? result : (result.scheduled || []);
     } catch (err) {
       showToast(getErrorMessage(err, '加载定时推送失败'), 'error');
     } finally {

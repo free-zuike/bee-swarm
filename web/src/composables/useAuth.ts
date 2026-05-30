@@ -3,14 +3,9 @@
  * 统一管理用户认证相关的状态和操作
  */
 import { ref, computed } from 'vue';
-import { useLoadingStore, withLoading } from '@/stores/loading';
+import { withLoading } from '@/stores/loading';
 import { showToast } from './useToast';
 import { useTranslation } from '@/i18n';
-
-interface AuthCredentials {
-  email: string;
-  password: string;
-}
 
 interface TokenData {
   token: string;
@@ -34,10 +29,8 @@ const authState = ref<UseAuthState>({
   pageState: 'loading',
 });
 
-const loadingStore = useLoadingStore();
-
 export function useAuth() {
-  const { t } = useTranslation();
+  const t = useTranslation();
 
   const isAuthenticated = computed(() => {
     return authState.value.accessToken && authState.value.tokenExpiresAt > Date.now();
