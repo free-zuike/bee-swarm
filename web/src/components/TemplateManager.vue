@@ -125,6 +125,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import {
   getTemplates,
   createTemplate,
@@ -134,6 +135,8 @@ import {
   type PushChannel,
   type ChannelConfig,
 } from '@/api';
+
+const { showToast } = useGlobalToast();
 
 const emit = defineEmits<{
   (e: 'use-template', template: PushTemplate): void;
@@ -245,7 +248,7 @@ async function doDelete() {
     showDeleteConfirm.value = false;
     deletingTemplate.value = null;
   } catch (err) {
-    alert((err as Error).message);
+    showToast((err as Error).message, 'error');
   } finally {
     deleting.value = false;
   }

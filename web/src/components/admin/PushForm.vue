@@ -4,7 +4,10 @@
 // ============================================
 import { ref, computed } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import type { ChannelConfig, PushChannel, PushResult, PushTemplate } from '@/types';
+
+const { showToast } = useGlobalToast();
 
 const props = defineProps<{
   channels: ChannelConfig[];
@@ -57,7 +60,7 @@ function toggleChannel(ch: ChannelConfig) {
 
 function doPush() {
   if (!pushTitle.value.trim()) {
-    alert(t('error.required', { field: t('label.title') }));
+    showToast(t('error.required', { field: t('label.title') }), 'error');
     return;
   }
   const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];

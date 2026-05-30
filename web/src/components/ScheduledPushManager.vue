@@ -341,7 +341,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteScheduledPush, getTemplates } from '@/api';
+
+const { showToast } = useGlobalToast();
 
 interface ScheduledPush {
   id: string;
@@ -591,32 +594,32 @@ async function loadTemplates() {
 
 async function createScheduledPushHandler() {
   if (!props.accessToken) {
-    alert('请先登录');
+    showToast('请先登录', 'error');
     return;
   }
   if (newPush.value.channels.length === 0) {
-    alert('请至少选择一个渠道');
+    showToast('请至少选择一个渠道', 'error');
     return;
   }
   if (!newPush.value.name.trim()) {
-    alert('请输入任务名称');
+    showToast('请输入任务名称', 'error');
     return;
   }
   if (!newPush.value.content.trim()) {
-    alert('请输入消息内容');
+    showToast('请输入消息内容', 'error');
     return;
   }
 
   // 构建执行时间
   let scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`);
   if (isNaN(scheduledTime.getTime())) {
-    alert('请选择有效的执行时间');
+    showToast('请选择有效的执行时间', 'error');
     return;
   }
 
   // 单次执行：如果时间已过，提示用户
   if (scheduleType.value === 'once' && scheduledTime <= new Date()) {
-    alert('执行时间必须是将来的时间，请选择明天的日期或更晚的时间');
+    showToast('执行时间必须是将来的时间，请选择明天的日期或更晚的时间', 'error');
     return;
   }
 
@@ -654,10 +657,11 @@ async function createScheduledPushHandler() {
       templateId: '',
       maxRetries: 3
     };
+    showToast('创建定时推送成功', 'success');
     await loadScheduledPushes();
   } catch (error) {
     console.error('创建定时推送失败:', error);
-    alert('创建失败，请重试');
+    showToast('创建失败，请重试', 'error');
   } finally {
     creating.value = false;
   }
@@ -676,7 +680,7 @@ async function doDelete() {
     await loadScheduledPushes();
   } catch (error) {
     console.error('删除定时推送失败:', error);
-    alert('删除失败，请重试');
+    showToast('删除失败，请重试', 'error');
   } finally {
     deleting.value = false;
     showDeleteConfirm.value = false;
@@ -697,7 +701,7 @@ async function doCancel() {
     await loadScheduledPushes();
   } catch (error) {
     console.error('取消定时推送失败:', error);
-    alert('取消失败，请重试');
+    showToast('取消失败，请重试', 'error');
   } finally {
     deleting.value = false;
     showCancelConfirm.value = false;
@@ -721,11 +725,11 @@ async function doTest() {
       channels: actionTarget.value.channels,
       templateId: actionTarget.value.templateId,
     });
-    alert('测试推送已创建并立即执行');
+    showToast('测试推送已创建并立即执行', 'success');
     await loadScheduledPushes();
   } catch (error) {
     console.error('测试推送失败:', error);
-    alert('测试推送失败，请重试');
+    showToast('测试推送失败，请重试', 'error');
   } finally {
     testRunning.value = false;
     showTestConfirm.value = false;

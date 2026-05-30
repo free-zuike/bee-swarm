@@ -99,6 +99,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import {
   getChannelGroups,
   createChannelGroup,
@@ -107,6 +108,8 @@ import {
   type ChannelGroup,
   type PushChannel,
 } from '@/api';
+
+const { showToast } = useGlobalToast();
 
 const emit = defineEmits<{
   (e: 'use-group', channels: PushChannel[]): void;
@@ -197,7 +200,7 @@ async function doDelete() {
     showDeleteConfirm.value = false;
     deletingGroup.value = null;
   } catch (err) {
-    alert((err as Error).message);
+    showToast((err as Error).message, 'error');
   } finally {
     deleting.value = false;
   }
@@ -225,7 +228,7 @@ async function saveGroup() {
     }
     closeModal();
   } catch (err) {
-    alert((err as Error).message);
+    showToast((err as Error).message, 'error');
   } finally {
     saving.value = false;
   }
