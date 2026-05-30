@@ -289,6 +289,70 @@ export class PushService {
     }
   }
 
+  async batchCancelScheduledPushes(ids: string[]): Promise<{ cancelled: number; notFound: number }> {
+    const key = `scheduled:${this.userId}`;
+    try {
+      const stored = await this.env.SUBSCRIPTIONS.get(key);
+      if (!stored) return { cancelled: 0, notFound: ids.length };
+      
+      const pushes: ScheduledPush[] = JSON.parse(stored);
+      const idSet = new Set(ids);
+      let cancelled = 0;
+      let notFound = 0;
+      
+      for (const push of pushes) {
+        if (idSet.has(push.id)) {
+          if (push.status === 'pending') {
+            push.status = 'failed';
+            cancelled++;
+          } else {
+            notFound++;
+          }
+        }
+      }
+      
+      if (cancelled > 0) {
+        await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+      }
+      
+      return { cancelled, notFound };
+    } catch {
+      return { cancelled: 0, notFound: ids.length };
+    }
+  }
+
+  async batchEnableScheduledPushes(ids: string[]): Promise<{ enabled: number; notFound: number }> {
+    const key = `scheduled:${this.userId}`;
+    try {
+      const stored = await this.env.SUBSCRIPTIONS.get(key);
+      if (!stored) return { enabled: 0, notFound: ids.length };
+      
+      const pushes: ScheduledPush[] = JSON.parse(stored);
+      const idSet = new Set(ids);
+      let enabled = 0;
+      let notFound = 0;
+      
+      for (const push of pushes) {
+        if (idSet.has(push.id)) {
+          if (push.status === 'failed') {
+            push.status = 'pending';
+            enabled++;
+          } else {
+            notFound++;
+          }
+        }
+      }
+      
+      if (enabled > 0) {
+        await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+      }
+      
+      return { enabled, notFound };
+    } catch {
+      return { enabled: 0, notFound: ids.length };
+    }
+  }
+
   async deleteScheduledPush(id: string): Promise<boolean> {
     const key = `scheduled:${this.userId}`;
     try {

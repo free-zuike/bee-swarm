@@ -17,6 +17,8 @@ import {
   CHANNEL_DEFINITIONS,
   getPushHistory,
   deletePushHistory,
+  batchDeletePushHistory,
+  batchDeletePushHistoryByFilter,
   healthCheckChannel,
 } from '../services/dispatcher';
 import type { ChannelHealth } from '../types';
@@ -451,6 +453,32 @@ adminApi.delete('/history', async (c) => {
   return c.json({ success: true, message: '推送历史已清除' });
 });
 
+/** 批量删除推送历史（按 ID） */
+adminApi.post('/history/batch-delete', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { ids?: string[] };
+  
+  if (!body.ids || !Array.isArray(body.ids)) {
+    return c.json({ error: '请提供要删除的记录 ID 列表', code: 'VALIDATION_ERROR' }, 400);
+  }
+  
+  const result = await batchDeletePushHistory(username, c.env, body.ids);
+  return c.json(result);
+});
+
+/** 按条件批量删除推送历史 */
+adminApi.post('/history/batch-delete-filter', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    olderThan?: string;
+    channel?: string;
+    status?: string;
+  };
+  
+  const result = await batchDeletePushHistoryByFilter(username, c.env, body);
+  return c.json(result);
+});
+
 // ============================================
 // 模板管理
 // ============================================
@@ -646,6 +674,26 @@ adminApi.delete('/groups/:id', async (c) => {
   return c.json({ success: true, message: '分组已删除' });
 });
 
+/** 批量删除分组 */
+adminApi.post('/groups/batch-delete', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { ids?: string[] };
+  
+  if (!body.ids || !Array.isArray(body.ids)) {
+    return c.json({ error: '请提供要删除的分组 ID 列表', code: 'VALIDATION_ERROR' }, 400);
+  }
+  
+  const pushService = new PushService(c.env, username);
+  let deleted = 0;
+  for (const id of body.ids) {
+    if (await pushService.deleteChannelGroup(id)) {
+      deleted++;
+    }
+  }
+  
+  return c.json({ success: true, message: `已删除 ${deleted} 个分组`, deleted });
+});
+
 /** 更新分组 */
 adminApi.put('/groups/:id', async (c) => {
   const username = c.get('username');
@@ -758,6 +806,54 @@ adminApi.delete('/scheduled/:id', async (c) => {
   return c.json({ success: true, message: '定时推送已删除' });
 });
 
+/** 批量取消定时任务 */
+adminApi.post('/scheduled/batch-cancel', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { ids?: string[] };
+  
+  if (!body.ids || !Array.isArray(body.ids)) {
+    return c.json({ error: '请提供要取消的任务 ID 列表', code: 'VALIDATION_ERROR' }, 400);
+  }
+  
+  const pushService = new PushService(c.env, username);
+  const result = await pushService.batchCancelScheduledPushes(body.ids);
+  return c.json({ success: true, message: `已取消 ${result.cancelled} 个任务`, ...result });
+});
+
+/** 批量启用定时任务 */
+adminApi.post('/scheduled/batch-enable', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { ids?: string[] };
+  
+  if (!body.ids || !Array.isArray(body.ids)) {
+    return c.json({ error: '请提供要启用的任务 ID 列表', code: 'VALIDATION_ERROR' }, 400);
+  }
+  
+  const pushService = new PushService(c.env, username);
+  const result = await pushService.batchEnableScheduledPushes(body.ids);
+  return c.json({ success: true, message: `已启用 ${result.enabled} 个任务`, ...result });
+});
+
+/** 批量删除定时任务 */
+adminApi.post('/scheduled/batch-delete', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { ids?: string[] };
+  
+  if (!body.ids || !Array.isArray(body.ids)) {
+    return c.json({ error: '请提供要删除的任务 ID 列表', code: 'VALIDATION_ERROR' }, 400);
+  }
+  
+  const pushService = new PushService(c.env, username);
+  let deleted = 0;
+  for (const id of body.ids) {
+    if (await pushService.deleteScheduledPush(id)) {
+      deleted++;
+    }
+  }
+  
+  return c.json({ success: true, message: `已删除 ${deleted} 个任务`, deleted });
+});
+
 // ============================================
 // 推送统计
 // ============================================
@@ -767,7 +863,41 @@ adminApi.get('/stats', async (c) => {
   const username = c.get('username');
   const pushService = new PushService(c.env, username);
   const stats = await pushService.getPushStats();
-  return c.json(stats);
+  
+  // 获取推送历史用于渠道使用统计
+  const { records } = await getPushHistory(username, c.env, { pageSize: 1000 });
+  
+  // 渠道使用统计
+  const channelUsage: Record<string, { count: number; success: number; failed: number; avgLatency: number }> = {};
+  for (const record of records) {
+    for (const result of record.results) {
+      if (!channelUsage[result.channel]) {
+        channelUsage[result.channel] = { count: 0, success: 0, failed: 0, avgLatency: 0 };
+      }
+      channelUsage[result.channel].count++;
+      if (result.success) {
+        channelUsage[result.channel].success++;
+      } else {
+        channelUsage[result.channel].failed++;
+      }
+      if (result.latencyMs !== undefined) {
+        const prev = channelUsage[result.channel];
+        prev.avgLatency = (prev.avgLatency * (prev.count - 1) + result.latencyMs) / prev.count;
+      }
+    }
+  }
+  
+  // 成功率趋势
+  const recentSuccessRate = records.length > 0
+    ? (records.filter(r => r.results.every(res => res.success)).length / records.length * 100)
+    : 0;
+  
+  return c.json({
+    ...stats,
+    channelUsage,
+    recentSuccessRate: Math.round(recentSuccessRate),
+    totalRecords: records.length,
+  });
 });
 
 /** 获取会话指标 */

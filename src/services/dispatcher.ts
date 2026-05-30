@@ -629,6 +629,92 @@ export async function deletePushHistory(username: string, env: Env): Promise<voi
   } while (cursor && !listComplete);
 }
 
+export async function batchDeletePushHistory(
+  username: string,
+  env: Env,
+  ids: string[]
+): Promise<{ success: boolean; message: string; deletedCount: number }> {
+  if (ids.length === 0) {
+    return { success: false, message: '未选择要删除的记录', deletedCount: 0 };
+  }
+
+  const prefix = `user:${username}:push:`;
+  const deletePromises = ids.map(async (id) => {
+    const key = `${prefix}${id}`;
+    await env.SUBSCRIPTIONS.delete(key);
+  });
+
+  await Promise.all(deletePromises);
+  return { success: true, message: `已删除 ${ids.length} 条记录`, deletedCount: ids.length };
+}
+
+export async function batchDeletePushHistoryByFilter(
+  username: string,
+  env: Env,
+  filter: { olderThan?: string; channel?: string; status?: string }
+): Promise<{ success: boolean; message: string; deletedCount: number }> {
+  const prefix = `user:${username}:push:`;
+  let cursor: string | undefined;
+  let listComplete = false;
+  const keysToDelete: string[] = [];
+
+  do {
+    const list = await env.SUBSCRIPTIONS.list({ prefix, limit: 100, cursor });
+    const keys = list.keys.map((k) => k.name);
+
+    for (const key of keys) {
+      let shouldDelete = true;
+
+      // 按时间过滤
+      if (filter.olderThan) {
+        const cutoffTime = new Date(filter.olderThan).getTime();
+        const keyParts = key.split(':');
+        const timestamp = parseInt(keyParts[keyParts.length - 1], 10);
+        if (timestamp >= cutoffTime) {
+          shouldDelete = false;
+        }
+      }
+
+      // 按渠道过滤
+      if (shouldDelete && filter.channel) {
+        const data = await env.SUBSCRIPTIONS.get(key);
+        if (data) {
+          const record = JSON.parse(data) as PushHistoryRecord;
+          if (!record.channels.includes(filter.channel)) {
+            shouldDelete = false;
+          }
+        }
+      }
+
+      // 按状态过滤
+      if (shouldDelete && filter.status) {
+        const data = await env.SUBSCRIPTIONS.get(key);
+        if (data) {
+          const record = JSON.parse(data) as PushHistoryRecord;
+          if (record.status !== filter.status) {
+            shouldDelete = false;
+          }
+        }
+      }
+
+      if (shouldDelete) {
+        keysToDelete.push(key);
+      }
+    }
+
+    cursor = (list as { cursor?: string }).cursor;
+    listComplete = list.list_complete ?? false;
+  } while (cursor && !listComplete);
+
+  if (keysToDelete.length === 0) {
+    return { success: false, message: '没有符合条件的记录', deletedCount: 0 };
+  }
+
+  const deletePromises = keysToDelete.map((key) => env.SUBSCRIPTIONS.delete(key));
+  await Promise.all(deletePromises);
+  return { success: true, message: `已删除 ${keysToDelete.length} 条记录`, deletedCount: keysToDelete.length };
+}
+
 export async function healthCheckChannel(
   channelId: PushChannel,
   settings: ChannelSettings

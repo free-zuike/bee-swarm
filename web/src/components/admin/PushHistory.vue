@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { t } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 import type { ChannelConfig, PushChannel } from '@/types';
+
+const { showToast } = useGlobalToast();
 
 interface ChannelResult {
   channel: string;
@@ -27,11 +30,13 @@ const props = defineProps<{
   loading?: boolean;
   channels: ChannelConfig[];
   total?: number;
+  accessToken?: string;
 }>();
 
 const emit = defineEmits<{
   (e: 'load-page', page: number): void;
   (e: 'clear'): void;
+  (e: 'batch-delete', ids: string[]): void;
 }>();
 
 const locale = computed(() => {
@@ -45,6 +50,9 @@ const showFilters = ref(false);
 const filterChannel = ref<string>('');
 const filterStatus = ref<string>('');
 const searchKeyword = ref<string>('');
+const selectedIds = ref<Set<string>>(new Set());
+const showBatchDeleteConfirm = ref(false);
+const batchDeleting = ref(false);
 
 const getChannelName = (channelId: string) => {
   return props.channels.find((c) => c.id === channelId)?.name || channelId;
@@ -110,12 +118,53 @@ function resetFilters() {
   filterStatus.value = '';
   searchKeyword.value = '';
   currentPage.value = 1;
+  selectedIds.value.clear();
   emit('load-page', 1);
 }
 
 function applyFilters() {
   currentPage.value = 1;
   emit('load-page', 1);
+}
+
+function toggleSelect(id: string) {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id);
+  } else {
+    selectedIds.value.add(id);
+  }
+}
+
+function selectAll() {
+  if (selectedIds.value.size === props.history.length) {
+    selectedIds.value.clear();
+  } else {
+    selectedIds.value = new Set(props.history.map((r: HistoryRecord) => r.id));
+  }
+}
+
+function clearSelection() {
+  selectedIds.value.clear();
+}
+
+async function batchDeleteSelected() {
+  if (selectedIds.value.size === 0 || !props.accessToken) return;
+  
+  batchDeleting.value = true;
+  showBatchDeleteConfirm.value = false;
+  
+  try {
+    const { batchDeleteHistory } = await import('@/api');
+    const result = await batchDeleteHistory(props.accessToken, Array.from(selectedIds.value));
+    showToast(result.message, 'success');
+    selectedIds.value.clear();
+    emit('batch-delete', Array.from(selectedIds.value));
+    emit('load-page', currentPage.value);
+  } catch (err: any) {
+    showToast(err.message || '批量删除失败', 'error');
+  } finally {
+    batchDeleting.value = false;
+  }
 }
 
 const uniqueChannels = computed(() => {
@@ -142,6 +191,12 @@ const activeFilters = computed(() => {
           <button class="btn btn-sm btn-secondary" @click="showFilters = !showFilters">
             🔍 {{ showFilters ? '收起筛选' : '筛选' }}
             <span v-if="activeFilters > 0" class="filter-badge">{{ activeFilters }}</span>
+          </button>
+          <button v-if="selectedIds.size > 0" class="btn btn-sm btn-warning" @click="showBatchDeleteConfirm = true">
+            🗑️ 批量删除 ({{ selectedIds.size }})
+          </button>
+          <button v-if="selectedIds.size > 0" class="btn btn-sm btn-secondary" @click="clearSelection">
+            取消选择
           </button>
           <button class="btn btn-sm btn-danger" @click="emit('clear')">🗑️ 清空</button>
         </div>
@@ -207,77 +262,98 @@ const activeFilters = computed(() => {
       </div>
 
       <div v-else class="history-list">
+        <!-- 全选按钮 -->
+        <div class="select-all-bar">
+          <label class="select-all-label">
+            <input
+              type="checkbox"
+              :checked="selectedIds.size === history.length && history.length > 0"
+              @change="selectAll"
+            />
+            <span>{{ selectedIds.size > 0 ? `已选择 ${selectedIds.size} 项` : '全选' }}</span>
+          </label>
+        </div>
+
         <div
           v-for="(record, index) in history"
           :key="record.id || index"
           class="history-item"
-          :class="getRecordStatusClass(record)"
+          :class="[getRecordStatusClass(record), { selected: selectedIds.has(record.id) }]"
         >
-          <div class="history-header">
-            <div class="header-left">
-              <div class="history-title">{{ record.title }}</div>
-              <div class="history-meta">
-                <span class="meta-time">{{ formatTime(record.time) }}</span>
-                <span class="meta-status" :class="record.status">
-                  {{ getStatusLabel(record.status) }}
-                </span>
-                <span class="meta-avg-latency">⏱️ 平均 {{ getAvgLatency(record) }}</span>
-                <span v-if="getTotalRetries(record) > 0" class="meta-retries">
-                  🔄 重试 {{ getTotalRetries(record) }} 次
-                </span>
+          <div class="history-select">
+            <input
+              type="checkbox"
+              :checked="selectedIds.has(record.id)"
+              @change="toggleSelect(record.id)"
+            />
+          </div>
+          <div class="history-content">
+            <div class="history-header">
+              <div class="header-left">
+                <div class="history-title">{{ record.title }}</div>
+                <div class="history-meta">
+                  <span class="meta-time">{{ formatTime(record.time) }}</span>
+                  <span class="meta-status" :class="record.status">
+                    {{ getStatusLabel(record.status) }}
+                  </span>
+                  <span class="meta-avg-latency">⏱️ 平均 {{ getAvgLatency(record) }}</span>
+                  <span v-if="getTotalRetries(record) > 0" class="meta-retries">
+                    🔄 重试 {{ getTotalRetries(record) }} 次
+                  </span>
+                </div>
+              </div>
+              <div class="header-right">
+                <div class="channel-tags">
+                  <span
+                    v-for="ch in record.channels"
+                    :key="ch"
+                    class="channel-tag"
+                  >
+                    {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
+                  </span>
+                </div>
               </div>
             </div>
-            <div class="header-right">
-              <div class="channel-tags">
-                <span
-                  v-for="ch in record.channels"
-                  :key="ch"
-                  class="channel-tag"
+
+            <div v-if="record.body" class="history-body">{{ record.body }}</div>
+
+            <div v-if="record.url" class="history-url">
+              <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
+            </div>
+
+            <details class="results-details">
+              <summary class="results-summary">
+                <span class="summary-text">
+                  查看详情 ({{ record.results.length }} 个渠道)
+                </span>
+                <span class="summary-icon">▼</span>
+              </summary>
+              <div class="history-results">
+                <div
+                  v-for="result in record.results"
+                  :key="result.channel"
+                  class="history-result"
+                  :class="result.success ? 'success' : 'error'"
                 >
-                  {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="record.body" class="history-body">{{ record.body }}</div>
-
-          <div v-if="record.url" class="history-url">
-            <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
-          </div>
-
-          <details class="results-details">
-            <summary class="results-summary">
-              <span class="summary-text">
-                查看详情 ({{ record.results.length }} 个渠道)
-              </span>
-              <span class="summary-icon">▼</span>
-            </summary>
-            <div class="history-results">
-              <div
-                v-for="result in record.results"
-                :key="result.channel"
-                class="history-result"
-                :class="result.success ? 'success' : 'error'"
-              >
-                <div class="result-left">
-                  <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
-                  <span class="result-channel">
-                    {{ getChannelIcon(result.channel) }} {{ getChannelName(result.channel) }}
-                  </span>
+                  <div class="result-left">
+                    <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
+                    <span class="result-channel">
+                      {{ getChannelIcon(result.channel) }} {{ getChannelName(result.channel) }}
+                    </span>
+                  </div>
+                  <div class="result-right">
+                    <span v-if="result.latencyMs !== undefined" class="result-latency">
+                      ⏱️ {{ formatLatency(result.latencyMs) }}
+                    </span>
+                    <span v-if="result.retries && result.retries > 0" class="result-retries">
+                      🔄 {{ result.retries }} 次重试
+                    </span>
+                  </div>
+                  <span class="result-message">{{ result.message }}</span>
                 </div>
-                <div class="result-right">
-                  <span v-if="result.latencyMs !== undefined" class="result-latency">
-                    ⏱️ {{ formatLatency(result.latencyMs) }}
-                  </span>
-                  <span v-if="result.retries && result.retries > 0" class="result-retries">
-                    🔄 {{ result.retries }} 次重试
-                  </span>
-                </div>
-                <span class="result-message">{{ result.message }}</span>
               </div>
-            </div>
-          </details>
+            </details>
+          </div>
         </div>
 
         <div v-if="(total || 0) > pageSize" class="pagination">
@@ -295,6 +371,26 @@ const activeFilters = computed(() => {
             @click="currentPage++; emit('load-page', currentPage)"
           >
             下一页 →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量删除确认 -->
+  <div v-if="showBatchDeleteConfirm" class="modal-overlay" @click.self="showBatchDeleteConfirm = false">
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h3>批量删除确认</h3>
+        <button class="btn-close" @click="showBatchDeleteConfirm = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>确定要删除选中的 {{ selectedIds.size }} 条推送记录吗？</p>
+        <p class="modal-hint">此操作不可撤销。</p>
+        <div class="form-actions">
+          <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">取消</button>
+          <button class="btn btn-danger" @click="batchDeleteSelected" :disabled="batchDeleting">
+            {{ batchDeleting ? '删除中...' : '确定删除' }}
           </button>
         </div>
       </div>
@@ -498,6 +594,163 @@ const activeFilters = computed(() => {
 
 .history-item.failed {
   border-left-color: #ef4444;
+}
+
+.history-item.selected {
+  background: #eef0ff;
+  border-left-color: #667eea;
+}
+
+.select-all-bar {
+  padding: 8px 12px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.history-select {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.history-select input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-hint {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  margin: 8px 0 16px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #f0f0f0);
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 34px;
+  box-sizing: border-box;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  height: 30px;
+}
+
+.btn-secondary {
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-primary, #333);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--border-color, #e0e0e0);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #ff4d4f;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ff7875;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #d97706;
 }
 
 .history-header {

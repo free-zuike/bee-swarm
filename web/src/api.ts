@@ -565,3 +565,79 @@ export async function previewTemplate(
     body: JSON.stringify(options),
   });
 }
+
+// -------------------------------------------
+// 批量操作
+// -------------------------------------------
+
+// 批量删除推送历史
+export async function batchDeleteHistory(
+  token: string,
+  ids: string[]
+): Promise<{ success: boolean; message: string; deletedCount: number }> {
+  return tokenRequest(`${BASE}/admin/history/batch-delete`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+}
+
+// 按条件批量删除推送历史
+export async function batchDeleteHistoryByFilter(
+  token: string,
+  filter: { olderThan?: string; channel?: string; status?: string }
+): Promise<{ success: boolean; message: string; deletedCount: number }> {
+  return tokenRequest(`${BASE}/admin/history/batch-delete-filter`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(filter),
+  });
+}
+
+// 批量取消定时任务
+export async function batchCancelScheduled(
+  token: string,
+  ids: string[]
+): Promise<{ success: boolean; message: string; cancelled: number; notFound: number }> {
+  return tokenRequest(`${BASE}/admin/scheduled/batch-cancel`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+}
+
+// 批量启用定时任务
+export async function batchEnableScheduled(
+  token: string,
+  ids: string[]
+): Promise<{ success: boolean; message: string; enabled: number; notFound: number }> {
+  return tokenRequest(`${BASE}/admin/scheduled/batch-enable`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+}
+
+// 批量删除定时任务
+export async function batchDeleteScheduled(
+  token: string,
+  ids: string[]
+): Promise<{ success: boolean; message: string; deleted: number }> {
+  return tokenRequest(`${BASE}/admin/scheduled/batch-delete`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+}
+
+// 批量删除分组
+export async function batchDeleteGroups(
+  token: string,
+  ids: string[]
+): Promise<{ success: boolean; message: string; deleted: number }> {
+  return tokenRequest(`${BASE}/admin/groups/batch-delete`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+}

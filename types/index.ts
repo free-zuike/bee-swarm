@@ -207,6 +207,9 @@ export interface PushStats {
     success: number;
     failed: number;
   }>;
+  channelUsage?: Record<string, { count: number; success: number; failed: number; avgLatency: number }>;
+  recentSuccessRate?: number;
+  totalRecords?: number;
 }
 
 export interface ChannelHealth {
