@@ -739,39 +739,48 @@ export async function healthCheckChannel(
     switch (channelId) {
       case 'wework': {
         const channel = new WeworkChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'dingtalk': {
         const channel = new DingtalkChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'feishu': {
         const channel = new FeishuChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'telegram': {
         const channel = new TelegramChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'bark': {
         const channel = new BarkChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'ntfy': {
         const channel = new NtfyChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'email': {
         const channel = new EmailChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'slack': {
         const channel = new SlackChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       case 'discord': {
         const channel = new DiscordChannel(channelId, channelEnv);
-        return await channel.healthCheck();
+        const result = await channel.healthCheck();
+        return { channel: channelId, ...result };
       }
       default:
         return { channel: channelId, healthy: true, message: 'No health check available' };

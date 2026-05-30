@@ -12,6 +12,7 @@ export interface ChannelPayload {
   url?: string;
   imageUrl?: string;
   markdown?: boolean;
+  icon?: string;
 }
 
 export abstract class BaseChannel {
