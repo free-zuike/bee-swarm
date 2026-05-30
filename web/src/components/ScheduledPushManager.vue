@@ -285,7 +285,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { t } from '@/i18n';
 import { getScheduledPushes, createScheduledPush, cancelScheduledPush, deleteScheduledPush, getTemplates } from '@/api';
 
@@ -633,10 +633,23 @@ async function testPush(push: ScheduledPush) {
   }
 }
 
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
 onMounted(() => {
   loadScheduledPushes();
   loadTemplates();
+  // 每5秒刷新一次定时推送状态
+  refreshTimer = setInterval(() => {
+    loadScheduledPushes();
+  }, 5000);
 });
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
+});
+
 watch(() => props.accessToken, () => {
   loadScheduledPushes();
   loadTemplates();
