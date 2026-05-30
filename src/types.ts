@@ -19,6 +19,7 @@ export type {
   EndpointType,
   S3Config,
   WebDAVConfig,
+  ChannelHealth,
 } from '../types';
 
 // Workers 特有类型

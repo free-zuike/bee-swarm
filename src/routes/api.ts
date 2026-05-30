@@ -3,13 +3,14 @@
 // ============================================
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env, PushRequest, PushChannel } from '../types';
+import type { Env, PushRequest, PushChannel, ChannelResult } from '../types';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
 import { filterSensitiveConfig } from '../utils/config';
 import {
   dispatchPush,
+  dispatchPushWithOptions,
   getChannelConfigs,
   loadUserChannelSettings,
   saveUserChannelSetting,
@@ -18,6 +19,7 @@ import {
   deletePushHistory,
   healthCheckChannel,
 } from '../services/dispatcher';
+import type { ChannelHealth } from '../types';
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
@@ -723,7 +725,8 @@ adminApi.post('/webhook/push', async (c) => {
   // 如果使用模板
   if (body.templateId) {
     const pushService = new PushService(c.env, username);
-    const template = await pushService.getTemplate(body.templateId);
+    const templates = await pushService.getTemplates();
+    const template = templates.find((t) => t.id === body.templateId);
     if (!template) {
       return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
     }
@@ -746,12 +749,12 @@ adminApi.post('/webhook/push', async (c) => {
       body: body.content || '',
       url: body.url,
     },
-    body.channels as any[],
+    body.channels,
     username,
     c.env
   );
 
-  const success = results.every((r) => r.success);
+  const success = results.every((r: ChannelResult) => r.success);
   return c.json({
     success,
     results,
@@ -762,7 +765,7 @@ adminApi.post('/webhook/push', async (c) => {
 /** 获取用户的 Webhook URL */
 adminApi.get('/webhook/url', async (c) => {
   const username = c.get('username');
-  const baseUrl = c.env.APP_URL || 'https://beeswarm.zuike.qzz.io';
+  const baseUrl = ((c.env as unknown) as Record<string, string>).APP_URL || 'https://beeswarm.zuike.qzz.io';
   return c.json({
     webhookUrl: `${baseUrl}/api/admin/webhook/push`,
     description: '使用 API Key 作为 Bearer Token 发送 POST 请求到此 URL 来触发推送',
@@ -791,11 +794,10 @@ adminApi.get('/channels/health/:channel', async (c) => {
   const config = await c.env.SUBSCRIPTIONS.get(configKey);
 
   if (!config) {
-    return c.json({ channel, status: 'not_configured', healthy: false } as ChannelHealth);
+    return c.json({ channel, healthy: false, message: '渠道未配置' });
   }
 
-  // 简单检查：有配置就算健康
-  return c.json({ channel, status: 'configured', healthy: true, lastChecked: new Date().toISOString() } as ChannelHealth);
+  return c.json({ channel, healthy: true, message: '渠道已配置' });
 });
 
 /** 批量检查所有渠道健康状态 */
@@ -809,9 +811,8 @@ adminApi.get('/channels/health', async (c) => {
     const config = await c.env.SUBSCRIPTIONS.get(configKey);
     results.push({
       channel,
-      status: config ? 'configured' : 'not_configured',
       healthy: !!config,
-      lastChecked: new Date().toISOString(),
+      message: config ? '渠道已配置' : '渠道未配置',
     });
   }
 
@@ -843,7 +844,7 @@ adminApi.post('/channels/health/:channel/test', async (c) => {
   return c.json({
     channel,
     healthy: result.success,
-    message: result.success ? '渠道正常' : result.error,
+    message: result.success ? '渠道正常' : result.message,
     testedAt: new Date().toISOString(),
   });
 });

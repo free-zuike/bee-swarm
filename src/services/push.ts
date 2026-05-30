@@ -30,10 +30,11 @@ export interface ScheduledPush {
   url?: string;
   scheduledAt: string;
   scheduleType?: 'once' | 'recurring';
-  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval';
+  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron';
   selectedWeekDays?: number[];
   selectedMonthDays?: number[];
   intervalHours?: number;
+  cronExpression?: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   createdBy: string;
 }
