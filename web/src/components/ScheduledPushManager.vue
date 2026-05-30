@@ -168,6 +168,14 @@
                 <button
                   type="button"
                   class="recurring-btn"
+                  :class="{ active: recurringType === 'interval' }"
+                  @click="recurringType = 'interval'"
+                >
+                  自定义间隔
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
                   :class="{ active: recurringType === 'daily' }"
                   @click="recurringType = 'daily'"
                 >
@@ -190,7 +198,20 @@
                   每月
                 </button>
               </div>
-              <div class="recurring-time">
+
+              <div v-if="recurringType === 'interval'" class="interval-input">
+                <label class="interval-label">每</label>
+                <input
+                  v-model.number="intervalHours"
+                  type="number"
+                  min="1"
+                  max="168"
+                  class="interval-number"
+                />
+                <label class="interval-label">小时执行一次</label>
+              </div>
+
+              <div v-if="recurringType !== 'hourly' && recurringType !== 'interval'" class="recurring-time">
                 <label class="recurring-time-label">执行时间</label>
                 <input
                   v-model="newPush.time"
@@ -199,6 +220,7 @@
                   required
                 />
               </div>
+
               <div v-if="recurringType === 'weekly'" class="weekday-selector">
                 <label class="weekday-label">选择星期</label>
                 <div class="weekday-options">
@@ -211,6 +233,22 @@
                     @click="toggleWeekDay(day.value)"
                   >
                     {{ day.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="recurringType === 'monthly'" class="monthday-selector">
+                <label class="weekday-label">选择日期</label>
+                <div class="monthday-options">
+                  <button
+                    type="button"
+                    v-for="day in monthDays"
+                    :key="day"
+                    class="monthday-btn"
+                    :class="{ active: selectedMonthDays.includes(day) }"
+                    @click="toggleMonthDay(day)"
+                  >
+                    {{ day }}
                   </button>
                 </div>
               </div>
@@ -249,7 +287,7 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" @click="showCreateModal = false">{{ t('common.cancel') }}</button>
+            <button type="button" class="btn btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn btn-primary" :disabled="creating">
               {{ creating ? (t('common.saving') || '创建中...') : '创建定时推送' }}
             </button>
@@ -287,6 +325,7 @@ interface Template {
   name: string;
   channel: string;
   content: string;
+  channels?: string[];
 }
 
 const props = defineProps<{
@@ -303,8 +342,10 @@ const filterStatus = ref<string>('all');
 const today = new Date().toISOString().split('T')[0];
 
 const scheduleType = ref<'once' | 'recurring'>('once');
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval'>('daily');
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
+const selectedMonthDays = ref<number[]>([1, 15]);
+const intervalHours = ref(2);
 
 const weekDays = [
   { value: 1, label: '一' },
@@ -315,6 +356,8 @@ const weekDays = [
   { value: 6, label: '六' },
   { value: 0, label: '日' }
 ];
+
+const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const statusFilters = [
   { value: 'all', label: '全部' },
@@ -391,6 +434,15 @@ function toggleWeekDay(day: number) {
   }
 }
 
+function toggleMonthDay(day: number) {
+  const idx = selectedMonthDays.value.indexOf(day);
+  if (idx === -1) {
+    selectedMonthDays.value.push(day);
+  } else {
+    selectedMonthDays.value.splice(idx, 1);
+  }
+}
+
 function resetForm() {
   newPush.value = {
     name: '',
@@ -404,6 +456,8 @@ function resetForm() {
   scheduleType.value = 'once';
   recurringType.value = 'daily';
   selectedWeekDays.value = [1, 2, 3, 4, 5];
+  selectedMonthDays.value = [1, 15];
+  intervalHours.value = 2;
 }
 
 async function openCreateModal() {
@@ -441,6 +495,10 @@ function onTemplateChange() {
   if (template) {
     newPush.value.name = template.name;
     newPush.value.content = template.content;
+    // 自动选择模板的渠道
+    if (template.channels && template.channels.length > 0) {
+      newPush.value.channels = [...template.channels];
+    }
   }
 }
 
@@ -1018,6 +1076,36 @@ watch(() => props.accessToken, () => {
   color: #667eea;
 }
 
+.interval-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.interval-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
+}
+
+.interval-number {
+  width: 60px;
+  padding: 6px 10px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  font-family: inherit;
+  background: var(--bg-panel, white);
+}
+
+.interval-number:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
 .recurring-time {
   display: flex;
   align-items: center;
@@ -1068,6 +1156,35 @@ watch(() => props.accessToken, () => {
 }
 
 .weekday-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.monthday-selector {
+  margin-top: 12px;
+}
+
+.monthday-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.monthday-btn {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #666);
+}
+
+.monthday-btn.active {
   border-color: #667eea;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
