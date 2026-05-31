@@ -85,6 +85,13 @@
               >
                 {{ t('scheduled.button.cancelTask') }}
               </button>
+              <button
+                v-if="push.status === 'completed' || push.status === 'failed'"
+                class="action-btn action-renew"
+                @click="openRenewModal(push)"
+              >
+                {{ t('scheduled.button.renew') || '续订' }}
+              </button>
               <button class="action-btn action-delete" @click="confirmDeletePush(push)">
                 {{ t('common.delete') }}
               </button>
@@ -174,14 +181,6 @@
                 <button
                   type="button"
                   class="recurring-btn"
-                  :class="{ active: recurringType === 'interval' }"
-                  @click="recurringType = 'interval'"
-                >
-                  {{ t('scheduled.label.customInterval') }}
-                </button>
-                <button
-                  type="button"
-                  class="recurring-btn"
                   :class="{ active: recurringType === 'daily' }"
                   @click="recurringType = 'daily'"
                 >
@@ -206,75 +205,15 @@
                 <button
                   type="button"
                   class="recurring-btn"
-                  :class="{ active: recurringType === 'intervalMonth' }"
-                  @click="recurringType = 'intervalMonth'"
-                >
-                  {{ t('scheduled.label.everyMonths') }}
-                </button>
-                <button
-                  type="button"
-                  class="recurring-btn"
                   :class="{ active: recurringType === 'yearly' }"
                   @click="recurringType = 'yearly'"
                 >
                   {{ t('scheduled.label.yearly') }}
                 </button>
-                <button
-                  type="button"
-                  class="recurring-btn"
-                  :class="{ active: recurringType === 'intervalYear' }"
-                  @click="recurringType = 'intervalYear'"
-                >
-                  {{ t('scheduled.label.everyYears') }}
-                </button>
-                <button
-                  type="button"
-                  class="recurring-btn"
-                  :class="{ active: recurringType === 'cron' }"
-                  @click="recurringType = 'cron'"
-                >
-                  {{ t('scheduled.label.cronExpression') }}
-                </button>
-              </div>
-
-              <div v-if="recurringType === 'interval'" class="interval-input">
-                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
-                <input
-                  v-model.number="intervalHours"
-                  type="number"
-                  min="1"
-                  max="168"
-                  class="interval-number"
-                />
-                <label class="interval-label">{{ t('scheduled.label.hoursOnce') }}</label>
-              </div>
-
-              <div v-if="recurringType === 'intervalMonth'" class="interval-input">
-                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
-                <input
-                  v-model.number="intervalMonths"
-                  type="number"
-                  min="1"
-                  max="120"
-                  class="interval-number"
-                />
-                <label class="interval-label">{{ t('scheduled.label.monthsOnce') }}</label>
-              </div>
-
-              <div v-if="recurringType === 'intervalYear'" class="interval-input">
-                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
-                <input
-                  v-model.number="intervalYears"
-                  type="number"
-                  min="1"
-                  max="100"
-                  class="interval-number"
-                />
-                <label class="interval-label">{{ t('scheduled.label.yearsOnce') }}</label>
               </div>
 
               <div
-                v-if="recurringType !== 'hourly' && recurringType !== 'interval' && recurringType !== 'intervalMonth' && recurringType !== 'intervalYear'"
+                v-if="recurringType !== 'hourly'"
                 class="recurring-time"
               >
                 <label class="recurring-time-label">{{ t('scheduled.label.executeTime') }}</label>
@@ -506,19 +445,17 @@ const showModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showTestConfirm = ref(false);
 const showCancelConfirm = ref(false);
+const showRenewModal = ref(false);
 const actionTarget = ref<ScheduledPush | null>(null);
+const renewPush = ref<ScheduledPush | null>(null);
 const filterStatus = ref<string>('all');
 
 const today = new Date().toISOString().split('T')[0];
 
 const scheduleType = ref<'once' | 'recurring'>('once');
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
 const selectedMonthDays = ref<number[]>([1, 15]);
-const intervalHours = ref(2);
-const intervalMonths = ref(1);
-const intervalYears = ref(1);
-const cronExpression = ref('');
 
 const weekDays = [
   { value: 1, label: 'label.monday' },
@@ -639,9 +576,6 @@ function resetForm(): void {
   recurringType.value = 'daily';
   selectedWeekDays.value = [1, 2, 3, 4, 5];
   selectedMonthDays.value = [1, 15];
-  intervalHours.value = 2;
-  intervalMonths.value = 1;
-  intervalYears.value = 1;
 }
 
 function openCreateModal(): void {
@@ -649,8 +583,27 @@ function openCreateModal(): void {
   showModal.value = true;
 }
 
+function openRenewModal(push: ScheduledPush): void {
+  renewPush.value = push;
+  resetForm();
+  newPush.value.name = push.title;
+  newPush.value.content = push.content || '';
+  newPush.value.channels = [...push.channels];
+  if (push.templateId) {
+    newPush.value.templateId = push.templateId;
+  }
+  if (push.scheduleType) {
+    scheduleType.value = push.scheduleType;
+  }
+  if (push.recurringType) {
+    recurringType.value = push.recurringType as any;
+  }
+  showModal.value = true;
+}
+
 function closeModal(): void {
   showModal.value = false;
+  renewPush.value = null;
   resetForm();
 }
 
@@ -760,11 +713,6 @@ async function createScheduledPushHandler(): Promise<void> {
       recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
-      intervalHours: recurringType.value === 'interval' ? intervalHours.value : undefined,
-      intervalMonths: recurringType.value === 'intervalMonth' ? intervalMonths.value : undefined,
-      intervalYears: recurringType.value === 'intervalYear' ? intervalYears.value : undefined,
-      cronExpression:
-        recurringType.value === 'cron' ? cronExpression.value.trim() || undefined : undefined,
     });
 
     showModal.value = false;
@@ -1141,6 +1089,15 @@ watch(
 
 .action-delete:hover {
   background: #ff3742;
+}
+
+.action-renew {
+  background: #13c2c2;
+  color: white;
+}
+
+.action-renew:hover {
+  background: #0fa3a3;
 }
 
 .modal-overlay {

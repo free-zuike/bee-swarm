@@ -597,11 +597,17 @@ export async function createScheduledPush(
     cronExpression?: string;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
-  return tokenRequest(`${BASE}/admin/scheduled`, token, {
+  const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(`${BASE}/admin/scheduled`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(push),
   });
+  apiCache.invalidate(`${BASE}/admin/scheduled`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=completed`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=failed`, token);
+  return result;
 }
 
 // 取消定时推送
@@ -609,7 +615,13 @@ export async function cancelScheduledPush(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  return tokenRequest(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+  const result = await tokenRequest<{ success: boolean; message: string }>(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+  apiCache.invalidate(`${BASE}/admin/scheduled`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=completed`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=failed`, token);
+  return result;
 }
 
 // 删除定时推送
@@ -617,7 +629,13 @@ export async function deleteScheduledPush(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  return tokenRequest(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+  const result = await tokenRequest<{ success: boolean; message: string }>(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+  apiCache.invalidate(`${BASE}/admin/scheduled`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=completed`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=failed`, token);
+  return result;
 }
 
 // -------------------------------------------
