@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue';
 import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
-import { useVirtualScroll } from '@/composables/useVirtualScroll';
 import { useExport } from '@/composables/useExport';
 import type { ChannelConfig } from '@/types';
 
@@ -57,16 +56,6 @@ const searchKeyword = ref<string>('');
 const selectedIds = ref<Set<string>>(new Set());
 const showBatchDeleteConfirm = ref(false);
 const batchDeleting = ref(false);
-
-// 虚拟滚动配置 - 增加高度以适应"重新发送"按钮
-const ITEM_HEIGHT = 300;
-const CONTAINER_HEIGHT = 600;
-
-const { containerRef, totalHeight, visibleItems, offsetY, startIndex } = useVirtualScroll(
-  props.history,
-  ITEM_HEIGHT,
-  CONTAINER_HEIGHT
-);
 
 const { exportToJSON, exportToCSV } = useExport();
 
@@ -315,106 +304,101 @@ const activeFilters = computed(() => {
         <p>{{ t('label.no_history') }}</p>
       </div>
 
-      <div v-else class="history-list-container" :style="{ maxHeight: `${CONTAINER_HEIGHT}px` }">
-        <div class="history-list-wrapper" ref="containerRef">
-          <!-- 全选按钮 -->
-          <div class="select-all-bar">
-            <label class="select-all-label">
+      <div v-else class="history-list-container">
+        <!-- 全选按钮 -->
+        <div class="select-all-bar">
+          <label class="select-all-label">
+            <input
+              type="checkbox"
+              :checked="selectedIds.size === history.length && history.length > 0"
+              @change="selectAll"
+            />
+            <span>{{ selectedIds.size > 0 ? `已选择 ${selectedIds.size} 项` : '全选' }}</span>
+          </label>
+        </div>
+
+        <div class="history-list">
+          <div
+            v-for="record in history"
+            :key="record.id"
+            class="history-item"
+            :class="[getRecordStatusClass(record), { selected: selectedIds.has(record.id) }]"
+          >
+            <div class="history-select">
               <input
                 type="checkbox"
-                :checked="selectedIds.size === history.length && history.length > 0"
-                @change="selectAll"
+                :checked="selectedIds.has(record.id)"
+                @change="toggleSelect(record.id)"
               />
-              <span>{{ selectedIds.size > 0 ? `已选择 ${selectedIds.size} 项` : '全选' }}</span>
-            </label>
-          </div>
-
-          <div class="history-list" :style="{ height: `${totalHeight}px` }">
-            <div class="history-list-inner" :style="{ transform: `translateY(${offsetY}px)` }">
-              <div
-                v-for="(record, index) in visibleItems"
-                :key="record.id || startIndex + index"
-                class="history-item"
-                :class="[getRecordStatusClass(record), { selected: selectedIds.has(record.id) }]"
-                :style="{ height: `${ITEM_HEIGHT}px` }"
-              >
-                <div class="history-select">
-                  <input
-                    type="checkbox"
-                    :checked="selectedIds.has(record.id)"
-                    @change="toggleSelect(record.id)"
-                  />
+            </div>
+            <div class="history-content">
+              <div class="history-header">
+                <div class="header-left">
+                  <div class="history-title">{{ record.title }}</div>
+                  <div class="history-meta">
+                    <span class="meta-time">{{ formatTime(record.time) }}</span>
+                    <span class="meta-status" :class="record.status">
+                      {{ getStatusLabel(record.status) }}
+                    </span>
+                    <span class="meta-avg-latency">⏱️ 平均 {{ getAvgLatency(record) }}</span>
+                    <span v-if="getTotalRetries(record) > 0" class="meta-retries">
+                      🔄 重试 {{ getTotalRetries(record) }} 次
+                    </span>
+                  </div>
                 </div>
-                <div class="history-content">
-                  <div class="history-header">
-                    <div class="header-left">
-                      <div class="history-title">{{ record.title }}</div>
-                      <div class="history-meta">
-                        <span class="meta-time">{{ formatTime(record.time) }}</span>
-                        <span class="meta-status" :class="record.status">
-                          {{ getStatusLabel(record.status) }}
-                        </span>
-                        <span class="meta-avg-latency">⏱️ 平均 {{ getAvgLatency(record) }}</span>
-                        <span v-if="getTotalRetries(record) > 0" class="meta-retries">
-                          🔄 重试 {{ getTotalRetries(record) }} 次
-                        </span>
-                      </div>
-                    </div>
-                    <div class="header-right">
-                      <div class="channel-tags">
-                        <span v-for="ch in record.channels" :key="ch" class="channel-tag">
-                          {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
-                        </span>
-                      </div>
-                    </div>
+                <div class="header-right">
+                  <div class="channel-tags">
+                    <span v-for="ch in record.channels" :key="ch" class="channel-tag">
+                      {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
+                    </span>
                   </div>
-
-                  <div v-if="record.body" class="history-body">{{ record.body }}</div>
-
-                  <div v-if="record.url" class="history-url">
-                    <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
-                  </div>
-
-                  <div class="history-actions">
-                    <button class="btn btn-sm btn-secondary" @click="handleResend(record)">
-                      🔄 重新发送
-                    </button>
-                  </div>
-                  <details class="results-details">
-                    <summary class="results-summary">
-                      <span class="summary-text">
-                        查看详情 ({{ record.results.length }} 个渠道)
-                      </span>
-                      <span class="summary-icon">▼</span>
-                    </summary>
-                    <div class="history-results">
-                      <div
-                        v-for="result in record.results"
-                        :key="result.channel"
-                        class="history-result"
-                        :class="result.success ? 'success' : 'error'"
-                      >
-                        <div class="result-left">
-                          <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
-                          <span class="result-channel">
-                            {{ getChannelIcon(result.channel) }}
-                            {{ getChannelName(result.channel) }}
-                          </span>
-                        </div>
-                        <div class="result-right">
-                          <span v-if="result.latencyMs !== undefined" class="result-latency">
-                            ⏱️ {{ formatLatency(result.latencyMs) }}
-                          </span>
-                          <span v-if="result.retries && result.retries > 0" class="result-retries">
-                            🔄 {{ result.retries }} 次重试
-                          </span>
-                        </div>
-                        <span class="result-message">{{ result.message }}</span>
-                      </div>
-                    </div>
-                  </details>
                 </div>
               </div>
+
+              <div v-if="record.body" class="history-body">{{ record.body }}</div>
+
+              <div v-if="record.url" class="history-url">
+                <a :href="record.url" target="_blank" rel="noopener">{{ record.url }}</a>
+              </div>
+
+              <div class="history-actions">
+                <button class="btn btn-sm btn-secondary" @click="handleResend(record)">
+                  🔄 重新发送
+                </button>
+              </div>
+              <details class="results-details">
+                <summary class="results-summary">
+                  <span class="summary-text">
+                    查看详情 ({{ record.results.length }} 个渠道)
+                  </span>
+                  <span class="summary-icon">▼</span>
+                </summary>
+                <div class="history-results">
+                  <div
+                    v-for="result in record.results"
+                    :key="result.channel"
+                    class="history-result"
+                    :class="result.success ? 'success' : 'error'"
+                  >
+                    <div class="result-left">
+                      <span class="result-status">{{ result.success ? '✓' : '✗' }}</span>
+                      <span class="result-channel">
+                        {{ getChannelIcon(result.channel) }}
+                        {{ getChannelName(result.channel) }}
+                      </span>
+                    </div>
+                    <div class="result-right">
+                      <span v-if="result.latencyMs !== undefined" class="result-latency">
+                        ⏱️ {{ formatLatency(result.latencyMs) }}
+                      </span>
+                      <span v-if="result.retries && result.retries > 0" class="result-retries">
+                        🔄 {{ result.retries }} 次重试
+                      </span>
+                    </div>
+                    <span class="result-message">{{ result.message }}</span>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
         </div>
@@ -662,24 +646,11 @@ const activeFilters = computed(() => {
   border-radius: 8px;
 }
 
-.history-list-wrapper {
-  position: relative;
-}
-
 .history-list {
-  position: relative;
-  overflow: hidden;
-}
-
-.history-list-inner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 16px;
+  padding: 16px 0;
 }
 
 .history-item {
@@ -689,7 +660,6 @@ const activeFilters = computed(() => {
   border: 1px solid var(--border-color, #eee);
   border-left: 3px solid #667eea;
   display: flex;
-  overflow: hidden;
   box-sizing: border-box;
 }
 
