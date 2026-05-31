@@ -228,6 +228,14 @@
                 >
                   {{ t('scheduled.label.yearly') }}
                 </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'cron' }"
+                  @click="recurringType = 'cron'"
+                >
+                  {{ t('scheduled.label.cron') }}
+                </button>
               </div>
 
               <div v-if="recurringType !== 'hourly'" class="recurring-time">
@@ -264,6 +272,39 @@
                   >
                     {{ day }}
                   </button>
+                </div>
+              </div>
+
+              <div v-if="recurringType === 'yearly'" class="yearly-selector">
+                <div class="yearly-month">
+                  <label class="weekday-label">{{ t('scheduled.label.selectMonth') }}</label>
+                  <div class="month-options">
+                    <button
+                      type="button"
+                      v-for="month in months"
+                      :key="month.value"
+                      class="month-btn"
+                      :class="{ active: selectedMonths.includes(month.value) }"
+                      @click="toggleMonth(month.value)"
+                    >
+                      {{ t(month.label) }}
+                    </button>
+                  </div>
+                </div>
+                <div class="yearly-date">
+                  <label class="weekday-label">{{ t('scheduled.label.selectDate') }}</label>
+                  <div class="monthday-options">
+                    <button
+                      type="button"
+                      v-for="day in monthDays"
+                      :key="day"
+                      class="monthday-btn"
+                      :class="{ active: selectedYearDays.includes(day) }"
+                      @click="toggleYearDay(day)"
+                    >
+                      {{ day }}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -599,6 +640,11 @@ interface ScheduledPush {
     | 'intervalMonth'
     | 'yearly'
     | 'intervalYear';
+  selectedWeekDays?: number[];
+  selectedMonthDays?: number[];
+  selectedMonths?: number[];
+  selectedYearDays?: number[];
+  cronExpression?: string;
   overdueReminderSent?: boolean;
   overdueAt?: string;
 }
@@ -637,9 +683,12 @@ const rescheduleDate = ref(today);
 const rescheduleTime = ref('09:00');
 
 const scheduleType = ref<'once' | 'recurring'>('once');
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron'>('daily');
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
 const selectedMonthDays = ref<number[]>([1, 15]);
+const selectedMonths = ref<number[]>([1]);
+const selectedYearDays = ref<number[]>([1]);
+const cronExpression = ref('0 9 * * *');
 
 const weekDays = [
   { value: 1, label: 'label.monday' },
@@ -649,6 +698,21 @@ const weekDays = [
   { value: 5, label: 'label.friday' },
   { value: 6, label: 'label.saturday' },
   { value: 0, label: 'label.sunday' },
+];
+
+const months = [
+  { value: 1, label: 'month.january' },
+  { value: 2, label: 'month.february' },
+  { value: 3, label: 'month.march' },
+  { value: 4, label: 'month.april' },
+  { value: 5, label: 'month.may' },
+  { value: 6, label: 'month.june' },
+  { value: 7, label: 'month.july' },
+  { value: 8, label: 'month.august' },
+  { value: 9, label: 'month.september' },
+  { value: 10, label: 'month.october' },
+  { value: 11, label: 'month.november' },
+  { value: 12, label: 'month.december' },
 ];
 
 const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -748,6 +812,24 @@ function toggleMonthDay(day: number): void {
   }
 }
 
+function toggleMonth(month: number): void {
+  const idx = selectedMonths.value.indexOf(month);
+  if (idx === -1) {
+    selectedMonths.value.push(month);
+  } else {
+    selectedMonths.value.splice(idx, 1);
+  }
+}
+
+function toggleYearDay(day: number): void {
+  const idx = selectedYearDays.value.indexOf(day);
+  if (idx === -1) {
+    selectedYearDays.value.push(day);
+  } else {
+    selectedYearDays.value.splice(idx, 1);
+  }
+}
+
 function resetForm(): void {
   newPush.value = {
     name: '',
@@ -762,6 +844,9 @@ function resetForm(): void {
   recurringType.value = 'daily';
   selectedWeekDays.value = [1, 2, 3, 4, 5];
   selectedMonthDays.value = [1, 15];
+  selectedMonths.value = [1];
+  selectedYearDays.value = [1];
+  cronExpression.value = '0 9 * * *';
 }
 
 function openCreateModal(): void {
@@ -788,7 +873,23 @@ function openRenewModal(push: ScheduledPush): void {
       | 'daily'
       | 'weekly'
       | 'monthly'
-      | 'yearly';
+      | 'yearly'
+      | 'cron';
+  }
+  if (push.selectedWeekDays) {
+    selectedWeekDays.value = [...push.selectedWeekDays];
+  }
+  if (push.selectedMonthDays) {
+    selectedMonthDays.value = [...push.selectedMonthDays];
+  }
+  if (push.selectedMonths) {
+    selectedMonths.value = [...push.selectedMonths];
+  }
+  if (push.selectedYearDays) {
+    selectedYearDays.value = [...push.selectedYearDays];
+  }
+  if (push.cronExpression) {
+    cronExpression.value = push.cronExpression;
   }
   showModal.value = true;
 }
@@ -812,13 +913,23 @@ function openEditModal(push: ScheduledPush): void {
       | 'daily'
       | 'weekly'
       | 'monthly'
-      | 'yearly';
+      | 'yearly'
+      | 'cron';
   }
   if (push.selectedWeekDays) {
     selectedWeekDays.value = [...push.selectedWeekDays];
   }
   if (push.selectedMonthDays) {
     selectedMonthDays.value = [...push.selectedMonthDays];
+  }
+  if (push.selectedMonths) {
+    selectedMonths.value = [...push.selectedMonths];
+  }
+  if (push.selectedYearDays) {
+    selectedYearDays.value = [...push.selectedYearDays];
+  }
+  if (push.cronExpression) {
+    cronExpression.value = push.cronExpression;
   }
   // 解析 scheduledAt
   const scheduledDate = new Date(push.scheduledAt);
