@@ -296,7 +296,7 @@
             <select v-model="newPush.templateId" @change="onTemplateChange">
               <option value="">{{ t('scheduled.label.noTemplate') }}</option>
               <option v-for="template in templates" :key="template.id" :value="template.id">
-                {{ template.name }} ({{ (template.channels || []).join(', ') }})
+                {{ template.name }} ({{ (template.channels || []).map(ch => getChannelName(ch)).join(', ') }})
               </option>
             </select>
           </div>

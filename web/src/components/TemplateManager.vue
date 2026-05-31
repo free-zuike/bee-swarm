@@ -333,8 +333,6 @@ const selectedCategory = ref('');
 const selectedTemplateIds = ref<Set<string>>(new Set());
 
 function getChannelName(ch: string): string {
-  const configured = props.channels.find((c) => c.id === ch)?.name;
-  if (configured) return configured;
   return t(`channel.${ch}`) || ch;
 }
 
@@ -343,7 +341,7 @@ const allChannels = computed(() => {
     .filter((c) => c.enabled)
     .map((c) => ({
       id: c.id,
-      name: c.name || t(`channel.${c.id}`) || c.id,
+      name: t(`channel.${c.id}`) || c.id,
       icon: c.icon,
     }));
 });

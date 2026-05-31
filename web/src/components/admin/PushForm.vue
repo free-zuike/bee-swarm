@@ -98,7 +98,7 @@ function doPush() {
             @click="toggleChannel(ch)"
           >
             <span class="ch-icon">{{ ch.icon }}</span>
-            <span class="ch-name">{{ ch.id === 'mail' ? t('label.mail') : ch.name }}</span>
+            <span class="ch-name">{{ t(`channel.${ch.id}`) }}</span>
           </div>
         </div>
         <p class="hint">{{ t('hint.channel_selection') }}</p>

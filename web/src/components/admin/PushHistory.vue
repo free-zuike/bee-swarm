@@ -71,8 +71,6 @@ const handleExportCSV = () => {
 };
 
 const getChannelName = (channelId: string) => {
-  const configured = props.channels.find((c) => c.id === channelId)?.name;
-  if (configured) return configured;
   return t(`channel.${channelId}`) || channelId;
 };
 

@@ -263,7 +263,7 @@ const allChannels = computed(() => {
     .filter((c) => c.enabled)
     .map((c) => ({
       id: c.id,
-      name: c.name,
+      name: t(`channel.${c.id}`) || c.id,
       icon: channelIconMap[c.id] || '📡',
       enabled: true,
     }));
@@ -283,7 +283,7 @@ const availableChannels = computed(() => {
   };
   return (props.channels || []).map((c) => ({
     id: c.id,
-    name: c.name,
+    name: t(`channel.${c.id}`) || c.id,
     icon: c.icon,
     enabled: c.enabled,
   }));
