@@ -192,10 +192,10 @@ async function handleClearHistory() {
   try {
     const { clearHistory } = await import('@/api');
     await clearHistory(accessToken.value);
-    showToast('推送历史已清空', 'success');
+    showToast(t('message.push_history_cleared'), 'success');
     await loadHistory(1);
   } catch (_err: unknown) {
-    showToast('清空失败', 'error');
+    showToast(t('message.clear_failed'), 'error');
   }
 }
 
@@ -307,17 +307,17 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
     const data = await getChannelsWithToken(accessToken.value);
     channelSettings.value = data.settings;
     channelDefinitions.value = data.definitions;
-    channelSettingsRef.value?.handleSaveSuccess(channelId, result.message || '保存成功');
+    channelSettingsRef.value?.handleSaveSuccess(channelId, result.message || t('msg.save_success'));
   } catch (err: unknown) {
-    channelSettingsRef.value?.handleSaveError(channelId, getErrorMessage(err, '保存失败'));
+    channelSettingsRef.value?.handleSaveError(channelId, getErrorMessage(err, t('message.save_failed')));
   }
 }
 
 async function handleTestChannel(channelId: string, _fields: Record<string, string>) {
   try {
     const result = await sendPushWithToken(accessToken.value, {
-      title: '测试消息',
-      body: '这是一条来自蜂群的测试消息',
+      title: t('message.test_message'),
+      body: t('message.test_message_body'),
       channels: [channelId as PushChannel],
     });
 
@@ -325,10 +325,10 @@ async function handleTestChannel(channelId: string, _fields: Record<string, stri
     channelSettingsRef.value?.handleTestResult(
       channelId,
       channelResult?.success || false,
-      channelResult?.message || result.message || '测试完成'
+      channelResult?.message || result.message || t('message.test_complete')
     );
   } catch (err: unknown) {
-    channelSettingsRef.value?.handleTestResult(channelId, false, getErrorMessage(err, '测试失败'));
+    channelSettingsRef.value?.handleTestResult(channelId, false, getErrorMessage(err, t('message.test_complete')));
   }
 }
 
@@ -388,9 +388,9 @@ async function handlePush(title: string, body: string, url: string, pushChannels
     await loadHistory();
   } catch (err: unknown) {
     pushResults.value = [
-      { channel: 'wework', success: false, message: getErrorMessage(err, '推送失败') },
+      { channel: 'wework', success: false, message: getErrorMessage(err, t('msg.push_failed')) },
     ];
-    showToast(getErrorMessage(err, '推送失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.push_failed')), 'error');
   }
 
   isPushing.value = false;
@@ -607,7 +607,7 @@ function handleResend(record: PushHistoryRecord) {
     // 构造一个类模板对象填充表单
     const templateLike: PushTemplate = {
       id: record.id,
-      name: '重新发送',
+      name: t('label.resend'),
       title: record.title,
       content: record.body || '',
       url: record.url || '',
@@ -815,7 +815,7 @@ function handleResend(record: PushHistoryRecord) {
             :class="{ active: activeTab === 'stats', dark: isDark }"
             @click="activeTab = 'stats'"
           >
-            📊 {{ t('tab.stats') || '统计' }}
+            📊 {{ t('tab.stats') }}
           </button>
           <button
             class="tab-btn"

@@ -5,24 +5,24 @@
         <h2>{{ t('dashboard.title') }}</h2>
         <div class="panel-actions">
           <select v-model="timeRange" class="time-range-select" @change="loadData">
-            <option value="7">最近 7 天</option>
-            <option value="30">最近 30 天</option>
-            <option value="90">最近 90 天</option>
+            <option value="7">{{ t('label.recent_7_days') }}</option>
+            <option value="30">{{ t('label.recent_30_days') }}</option>
+            <option value="90">{{ t('label.recent_90_days') }}</option>
           </select>
           <button class="btn btn-sm btn-secondary" @click="loadData" :disabled="loading">
-            刷新
+            {{ t('label.refresh') }}
           </button>
         </div>
       </div>
 
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <span>{{ t('common.loading') || '加载中...' }}</span>
+        <span>{{ t('label.loading') }}</span>
       </div>
 
       <div v-else-if="error" class="error-state">
         <p>{{ error }}</p>
-        <button class="btn btn-primary" @click="loadData">{{ t('common.retry') || '重试' }}</button>
+        <button class="btn btn-primary" @click="loadData">{{ t('common.retry') || t('label.retry') }}</button>
       </div>
 
       <div v-else class="stats-content">
@@ -91,7 +91,7 @@
             v-if="Object.keys(stats.channelUsage || {}).length > 0"
             class="section chart-section"
           >
-            <h3>渠道占比</h3>
+            <h3>{{ t('label.channel_ratio') }}</h3>
             <div class="pie-chart-container">
               <div class="pie-chart">
                 <svg width="200" height="200" viewBox="0 0 200 200">
@@ -118,7 +118,7 @@
         </div>
 
         <div v-if="Object.keys(stats.channelUsage || {}).length > 0" class="section">
-          <h3>渠道使用统计</h3>
+          <h3>{{ t('label.channel_usage_stats') }}</h3>
           <div class="channel-stats-grid">
             <div
               v-for="(data, channel) in stats.channelUsage"
@@ -131,25 +131,25 @@
               </div>
               <div class="channel-stats">
                 <div class="channel-stat-row">
-                  <span class="row-label">总推送</span>
+                  <span class="row-label">{{ t('label.total_pushes_short') }}</span>
                   <span class="row-value">{{ data.count }}</span>
                 </div>
                 <div class="channel-stat-row">
-                  <span class="row-label">成功</span>
+                  <span class="row-label">{{ t('label.success_short') }}</span>
                   <span class="row-value success">{{ data.success }}</span>
                 </div>
                 <div class="channel-stat-row">
-                  <span class="row-label">失败</span>
+                  <span class="row-label">{{ t('label.failed_short') }}</span>
                   <span class="row-value failed">{{ data.failed }}</span>
                 </div>
                 <div class="channel-stat-row">
-                  <span class="row-label">成功率</span>
+                  <span class="row-label">{{ t('label.success_rate_short') }}</span>
                   <span class="row-value"
                     >{{ data.count > 0 ? Math.round((data.success / data.count) * 100) : 0 }}%</span
                   >
                 </div>
                 <div class="channel-stat-row">
-                  <span class="row-label">平均延迟</span>
+                  <span class="row-label">{{ t('label.avg_latency_short') }}</span>
                   <span class="row-value">{{ Math.round(data.avgLatency) }}ms</span>
                 </div>
               </div>
@@ -169,8 +169,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { getPushStats } from '@/api';
+
+const t = useTranslation();
 
 const props = defineProps<{
   accessToken: string;
@@ -202,21 +204,6 @@ const channelIconMap: Record<string, string> = {
   discord: '🎮',
 };
 
-const channelNameMap: Record<string, string> = {
-  wework: '企业微信',
-  dingtalk: '钉钉',
-  feishu: '飞书',
-  telegram: 'Telegram',
-  discord: 'Discord',
-  slack: 'Slack',
-  mail: '邮件',
-  webhook: 'Webhook',
-  bark: 'Bark',
-  pushplus: 'PushPlus',
-  ntfy: 'ntfy',
-  email: '邮件',
-};
-
 const channelColors = [
   '#667eea',
   '#764ba2',
@@ -237,7 +224,7 @@ function getChannelIcon(channelId: string): string {
 }
 
 function getChannelName(channelId: string): string {
-  return channelNameMap[channelId] || channelId;
+  return t(`channel.${channelId}`) || channelId;
 }
 
 const successRate = computed(() => {

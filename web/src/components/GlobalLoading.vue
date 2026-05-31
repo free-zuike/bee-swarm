@@ -6,6 +6,9 @@
 import { computed } from 'vue';
 import { loadingState } from '@/stores/loading';
 import { useThemeStore } from '@/stores/theme';
+import { useTranslation } from '@/i18n';
+
+const t = useTranslation();
 
 const themeStore = useThemeStore();
 const isDark = computed(() => themeStore.isDark);
@@ -23,9 +26,9 @@ const loadingCount = computed(() => loadingState.loadingCount);
             <div class="spinner-ring"></div>
             <div class="spinner-ring"></div>
           </div>
-          <p class="loading-text">加载中...</p>
+          <p class="loading-text">{{ t('label.loading') }}</p>
           <p v-if="loadingCount > 1" class="loading-count">
-            还有 {{ loadingCount - 1 }} 个请求进行中
+            {{ t('label.remainingRequests', { count: loadingCount - 1 }) }}
           </p>
         </div>
       </div>

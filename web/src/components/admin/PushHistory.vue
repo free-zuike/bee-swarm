@@ -62,16 +62,18 @@ const { exportToJSON, exportToCSV } = useExport();
 
 const handleExportJSON = () => {
   exportToJSON(props.history, `push-history-${new Date().toISOString().split('T')[0]}.json`);
-  showToast('JSON 导出成功！', 'success');
+  showToast(t('message.json_export_success'), 'success');
 };
 
 const handleExportCSV = () => {
   exportToCSV(props.history, `push-history-${new Date().toISOString().split('T')[0]}.csv`);
-  showToast('CSV 导出成功！', 'success');
+  showToast(t('message.csv_export_success'), 'success');
 };
 
 const getChannelName = (channelId: string) => {
-  return props.channels.find((c) => c.id === channelId)?.name || channelId;
+  const configured = props.channels.find((c) => c.id === channelId)?.name;
+  if (configured) return configured;
+  return t(`channel.${channelId}`) || channelId;
 };
 
 const getChannelIcon = (channelId: string) => {
@@ -95,11 +97,11 @@ function formatLatency(ms?: number): string {
 function getStatusLabel(status: string): string {
   switch (status) {
     case 'success':
-      return '全部成功';
+      return t('label.status_all_success');
     case 'partial':
-      return '部分失败';
+      return t('label.status_partial');
     case 'failed':
-      return '全部失败';
+      return t('label.status_all_failed');
     default:
       return status;
   }
@@ -192,7 +194,7 @@ async function batchDeleteSelected() {
     emit('batch-delete', Array.from(selectedIds.value));
     emit('load-page', currentPage.value);
   } catch (err: unknown) {
-    showToast((err as Error).message || '批量删除失败', 'error');
+    showToast((err as Error).message || t('message.batch_delete_failed'), 'error');
   } finally {
     batchDeleting.value = false;
   }
@@ -221,7 +223,7 @@ const activeFilters = computed(() => {
         <h2>📜 {{ t('label.push_history') }}</h2>
         <div class="header-actions">
           <button class="btn btn-sm btn-secondary" @click="showFilters = !showFilters">
-            🔍 {{ showFilters ? '收起筛选' : '筛选' }}
+            🔍 {{ showFilters ? t('label.hide_filter') : t('label.filter') }}
             <span v-if="activeFilters > 0" class="filter-badge">{{ activeFilters }}</span>
           </button>
           <button
@@ -229,34 +231,34 @@ const activeFilters = computed(() => {
             class="btn btn-sm btn-warning"
             @click="showBatchDeleteConfirm = true"
           >
-            🗑️ 批量删除 ({{ selectedIds.size }})
+            🗑️ {{ t('label.batch_delete') }} ({{ selectedIds.size }})
           </button>
           <button
             v-if="selectedIds.size > 0"
             class="btn btn-sm btn-secondary"
             @click="clearSelection"
           >
-            取消选择
+            {{ t('label.deselect') }}
           </button>
           <div class="export-buttons">
-            <button class="btn btn-sm btn-secondary" @click="handleExportCSV">📊 导出 CSV</button>
-            <button class="btn btn-sm btn-secondary" @click="handleExportJSON">📋 导出 JSON</button>
+            <button class="btn btn-sm btn-secondary" @click="handleExportCSV">📊 {{ t('label.export_csv') }}</button>
+            <button class="btn btn-sm btn-secondary" @click="handleExportJSON">📋 {{ t('label.export_json') }}</button>
           </div>
-          <button class="btn btn-sm btn-danger" @click="emit('clear')">🗑️ 清空</button>
+          <button class="btn btn-sm btn-danger" @click="emit('clear')">🗑️ {{ t('label.clear_all') }}</button>
         </div>
       </div>
 
       <div class="stats-bar">
         <div class="stat-item">
-          <span class="stat-label">总记录数</span>
+          <span class="stat-label">{{ t('label.total_records') }}</span>
           <span class="stat-value">{{ total || history.length }}</span>
         </div>
         <div class="stat-item stat-success">
-          <span class="stat-label">成功率</span>
+          <span class="stat-label">{{ t('label.success_rate') }}</span>
           <span class="stat-value">{{ successRate }}%</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">当前页</span>
+          <span class="stat-label">{{ t('label.current_page') }}</span>
           <span class="stat-value">{{ currentPage }}</span>
         </div>
       </div>
@@ -264,34 +266,34 @@ const activeFilters = computed(() => {
       <div v-if="showFilters" class="filter-panel">
         <div class="filter-row">
           <div class="filter-group">
-            <label class="filter-label">关键词搜索</label>
+            <label class="filter-label">{{ t('label.search_keyword') }}</label>
             <input
               v-model="searchKeyword"
               type="text"
-              placeholder="搜索标题或内容..."
+              :placeholder="t('label.search_placeholder')"
               class="filter-input"
               @keyup.enter="applyFilters"
             />
           </div>
           <div class="filter-group">
-            <label class="filter-label">渠道</label>
+            <label class="filter-label">{{ t('label.channel') }}</label>
             <select v-model="filterChannel" class="filter-select" @change="applyFilters">
-              <option value="">全部渠道</option>
+              <option value="">{{ t('label.all_channels') }}</option>
               <option v-for="ch in uniqueChannels" :key="ch" :value="ch">
                 {{ getChannelIcon(ch) }} {{ getChannelName(ch) }}
               </option>
             </select>
           </div>
           <div class="filter-group">
-            <label class="filter-label">状态</label>
+            <label class="filter-label">{{ t('label.status') }}</label>
             <select v-model="filterStatus" class="filter-select" @change="applyFilters">
-              <option value="">全部状态</option>
-              <option value="success">全部成功</option>
-              <option value="partial">部分失败</option>
-              <option value="failed">全部失败</option>
+              <option value="">{{ t('label.all_status') }}</option>
+              <option value="success">{{ t('label.status_all_success') }}</option>
+              <option value="partial">{{ t('label.status_partial') }}</option>
+              <option value="failed">{{ t('label.status_all_failed') }}</option>
             </select>
           </div>
-          <button class="btn btn-sm btn-secondary" @click="resetFilters">重置</button>
+          <button class="btn btn-sm btn-secondary" @click="resetFilters">{{ t('label.reset') }}</button>
         </div>
       </div>
 
@@ -314,7 +316,7 @@ const activeFilters = computed(() => {
               :checked="selectedIds.size === history.length && history.length > 0"
               @change="selectAll"
             />
-            <span>{{ selectedIds.size > 0 ? `已选择 ${selectedIds.size} 项` : '全选' }}</span>
+            <span>{{ selectedIds.size > 0 ? t('label.items_selected', { count: selectedIds.size }) : t('label.select_all') }}</span>
           </label>
         </div>
 
@@ -341,9 +343,9 @@ const activeFilters = computed(() => {
                     <span class="meta-status" :class="record.status">
                       {{ getStatusLabel(record.status) }}
                     </span>
-                    <span class="meta-avg-latency">⏱️ 平均 {{ getAvgLatency(record) }}</span>
+                    <span class="meta-avg-latency">⏱️ {{ t('label.avg') }} {{ getAvgLatency(record) }}</span>
                     <span v-if="getTotalRetries(record) > 0" class="meta-retries">
-                      🔄 重试 {{ getTotalRetries(record) }} 次
+                      🔄 {{ t('label.retries_count', { count: getTotalRetries(record) }) }}
                     </span>
                   </div>
                 </div>
@@ -364,13 +366,13 @@ const activeFilters = computed(() => {
 
               <div class="history-actions">
                 <button class="btn btn-sm btn-secondary" @click="handleResend(record)">
-                  🔄 重新发送
+                  🔄 {{ t('label.resend') }}
                 </button>
               </div>
               <details class="results-details">
                 <summary class="results-summary">
                   <span class="summary-text">
-                    查看详情 ({{ record.results.length }} 个渠道)
+                    {{ t('label.view_details', { count: record.results.length }) }}
                   </span>
                   <span class="summary-icon">▼</span>
                 </summary>
@@ -393,7 +395,7 @@ const activeFilters = computed(() => {
                         ⏱️ {{ formatLatency(result.latencyMs) }}
                       </span>
                       <span v-if="result.retries && result.retries > 0" class="result-retries">
-                        🔄 {{ result.retries }} 次重试
+                        🔄 {{ t('label.retries_count', { count: result.retries }) }}
                       </span>
                     </div>
                     <span class="result-message">{{ result.message }}</span>
@@ -414,9 +416,9 @@ const activeFilters = computed(() => {
             emit('load-page', currentPage);
           "
         >
-          ← 上一页
+          ← {{ t('label.prev_page') }}
         </button>
-        <span class="page-info">第 {{ currentPage }} 页</span>
+        <span class="page-info">{{ t('label.page', { page: currentPage }) }}</span>
         <button
           class="btn btn-sm btn-secondary"
           :disabled="!(currentPage * pageSize < (total || 0))"
@@ -425,7 +427,7 @@ const activeFilters = computed(() => {
             emit('load-page', currentPage);
           "
         >
-          下一页 →
+          {{ t('label.next_page') }} →
         </button>
       </div>
     </div>
@@ -439,16 +441,16 @@ const activeFilters = computed(() => {
   >
     <div class="modal modal-small">
       <div class="modal-header">
-        <h3>批量删除确认</h3>
+        <h3>{{ t('label.batch_delete_confirm') }}</h3>
         <button class="btn-close" @click="showBatchDeleteConfirm = false">&times;</button>
       </div>
       <div class="modal-body">
-        <p>确定要删除选中的 {{ selectedIds.size }} 条推送记录吗？</p>
-        <p class="modal-hint">此操作不可撤销。</p>
+        <p>{{ t('message.confirm_delete_records', { count: selectedIds.size }) }}</p>
+        <p class="modal-hint">{{ t('message.operation_irreversible') }}</p>
         <div class="form-actions">
-          <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">取消</button>
+          <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">{{ t('button.cancel') }}</button>
           <button class="btn btn-danger" @click="batchDeleteSelected" :disabled="batchDeleting">
-            {{ batchDeleting ? '删除中...' : '确定删除' }}
+            {{ batchDeleting ? t('button.deleting') : t('button.confirm_delete') }}
           </button>
         </div>
       </div>

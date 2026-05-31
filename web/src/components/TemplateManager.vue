@@ -333,39 +333,17 @@ const selectedCategory = ref('');
 const selectedTemplateIds = ref<Set<string>>(new Set());
 
 function getChannelName(ch: string): string {
-  const channelNameMap: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    discord: 'Discord',
-    slack: 'Slack',
-    mail: '邮件',
-    webhook: 'Webhook',
-    bark: 'Bark',
-    pushplus: 'PushPlus',
-  };
-  return channelNameMap[ch] || ch;
+  const configured = props.channels.find((c) => c.id === ch)?.name;
+  if (configured) return configured;
+  return t(`channel.${ch}`) || ch;
 }
 
 const allChannels = computed(() => {
-  const channelNameMap: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    discord: 'Discord',
-    slack: 'Slack',
-    mail: '邮件',
-    webhook: 'Webhook',
-    bark: 'Bark',
-    pushplus: 'PushPlus',
-  };
   return props.channels
     .filter((c) => c.enabled)
     .map((c) => ({
       id: c.id,
-      name: channelNameMap[c.id] || c.id,
+      name: c.name || t(`channel.${c.id}`) || c.id,
       icon: c.icon,
     }));
 });
