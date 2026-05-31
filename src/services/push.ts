@@ -89,11 +89,13 @@ export interface ScheduledPush {
   intervalMonths?: number;
   intervalYears?: number;
   cronExpression?: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'overdue';
   createdBy: string;
   createdAt?: string;
   completedAt?: string;
   results?: ChannelResult[];
+  overdueReminderSent?: boolean;
+  overdueAt?: string;
 }
 
 type PushParams = {
@@ -490,5 +492,84 @@ export class PushService {
       },
       recent: dailyMetrics.slice(0, 7).reverse(),
     };
+  }
+
+  /**
+   * 检测并标记超时的任务
+   * @param overdueMinutes 超时时间（分钟），默认30分钟
+   */
+  async detectOverdueTasks(overdueMinutes: number = 30): Promise<ScheduledPush[]> {
+    const now = new Date();
+    const pushes = await this.getScheduledPushes('pending');
+    const overduePushes: ScheduledPush[] = [];
+
+    for (const push of pushes) {
+      const scheduledTime = new Date(push.scheduledAt);
+      const timeDiffMs = now.getTime() - scheduledTime.getTime();
+      const timeDiffMinutes = timeDiffMs / (1000 * 60);
+
+      // 如果任务已超时且还没有被标记为超时
+      if (timeDiffMinutes > overdueMinutes && push.status !== 'overdue') {
+        await this.markPushAsOverdue(push.id);
+        const updatedPush = (await this.getScheduledPushes()).find((p) => p.id === push.id);
+        if (updatedPush) {
+          overduePushes.push(updatedPush);
+        }
+      }
+    }
+
+    return overduePushes;
+  }
+
+  /**
+   * 将任务标记为超时
+   */
+  async markPushAsOverdue(id: string): Promise<void> {
+    const key = `scheduled:${this.userId}`;
+    const stored = await this.env.SUBSCRIPTIONS.get(key);
+    if (!stored) return;
+
+    const pushes: ScheduledPush[] = JSON.parse(stored);
+    const push = pushes.find((p) => p.id === id);
+
+    if (push && push.status === 'pending') {
+      push.status = 'overdue';
+      push.overdueAt = new Date().toISOString();
+      push.overdueReminderSent = false;
+      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+    }
+  }
+
+  /**
+   * 获取所有超时的任务
+   */
+  async getOverdueTasks(): Promise<ScheduledPush[]> {
+    const pushes = await this.getScheduledPushes();
+    return pushes.filter((push) => push.status === 'overdue');
+  }
+
+  /**
+   * 重新安排超时的任务
+   */
+  async rescheduleOverdueTask(id: string, newScheduledAt: string): Promise<ScheduledPush | null> {
+    const key = `scheduled:${this.userId}`;
+    const stored = await this.env.SUBSCRIPTIONS.get(key);
+    if (!stored) return null;
+
+    const pushes: ScheduledPush[] = JSON.parse(stored);
+    const index = pushes.findIndex((p) => p.id === id);
+    if (index === -1) return null;
+
+    // 重新设为 pending 状态
+    pushes[index] = {
+      ...pushes[index],
+      status: 'pending',
+      scheduledAt: newScheduledAt,
+      overdueAt: undefined,
+      overdueReminderSent: undefined,
+    };
+
+    await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+    return pushes[index];
   }
 }

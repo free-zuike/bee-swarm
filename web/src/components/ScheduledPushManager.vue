@@ -103,6 +103,13 @@
               >
                 {{ t('scheduled.button.renew') }}
               </button>
+              <button
+                v-if="push.status === 'overdue'"
+                class="action-btn action-reschedule"
+                @click="openRescheduleModal(push)"
+              >
+                {{ t('scheduled.button.reschedule') }}
+              </button>
               <button class="action-btn action-delete" @click="confirmDeletePush(push)">
                 {{ t('common.delete') }}
               </button>
@@ -451,6 +458,107 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="showRescheduleModal"
+      class="modal-overlay"
+      @click.self="
+        showRescheduleModal = false;
+        reschedulePush = null;
+      "
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ t('scheduled.reschedule.title') }}</h3>
+          <button
+            class="btn-close"
+            @click="
+              showRescheduleModal = false;
+              reschedulePush = null;
+            "
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>{{ t('scheduled.reschedule.message', { title: reschedulePush?.title || '' }) }}</p>
+
+          <div class="form-group">
+            <label>{{ t('scheduled.label.executeTime') }}</label>
+            <div class="datetime-inputs" style="margin-top: 12px">
+              <input v-model="rescheduleDate" type="date" :min="today" required />
+              <input v-model="rescheduleTime" type="time" required />
+            </div>
+            <div class="quick-schedule" style="margin-top: 12px">
+              <button
+                type="button"
+                class="btn-quick"
+                @click="
+                  (() => {
+                    const now = new Date();
+                    now.setHours(now.getHours() + 1);
+                    rescheduleDate = now.toISOString().split('T')[0];
+                    rescheduleTime = now.toTimeString().slice(0, 5);
+                  })()
+                "
+              >
+                {{ t('label.1HourLater') }}
+              </button>
+              <button
+                type="button"
+                class="btn-quick"
+                @click="
+                  (() => {
+                    const now = new Date();
+                    now.setDate(now.getDate() + 1);
+                    now.setHours(9, 0, 0, 0);
+                    rescheduleDate = now.toISOString().split('T')[0];
+                    rescheduleTime = '09:00';
+                  })()
+                "
+              >
+                {{ t('label.tomorrow9am') }}
+              </button>
+              <button
+                type="button"
+                class="btn-quick"
+                @click="
+                  (() => {
+                    const now = new Date();
+                    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+                    now.setDate(now.getDate() + daysUntilMonday);
+                    now.setHours(9, 0, 0, 0);
+                    rescheduleDate = now.toISOString().split('T')[0];
+                    rescheduleTime = '09:00';
+                  })()
+                "
+              >
+                {{ t('label.nextMonday') }}
+              </button>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button
+              class="btn btn-secondary"
+              @click="
+                showRescheduleModal = false;
+                reschedulePush = null;
+              "
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button class="btn btn-primary" @click="doReschedule" :disabled="rescheduling">
+              {{
+                rescheduling
+                  ? t('scheduled.message.rescheduling')
+                  : t('scheduled.message.reschedule')
+              }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -465,6 +573,7 @@ import {
   cancelScheduledPush,
   deleteScheduledPush,
   getTemplates,
+  rescheduleOverdueTask,
 } from '@/api';
 
 const t = useTranslation();
@@ -477,7 +586,7 @@ interface ScheduledPush {
   scheduledAt: string;
   channels: string[];
   templateId?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'overdue';
   createdBy?: string;
   scheduleType?: 'once' | 'recurring';
   recurringType?:
@@ -490,6 +599,8 @@ interface ScheduledPush {
     | 'intervalMonth'
     | 'yearly'
     | 'intervalYear';
+  overdueReminderSent?: boolean;
+  overdueAt?: string;
 }
 
 interface Template {
@@ -514,10 +625,15 @@ const showModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showTestConfirm = ref(false);
 const showCancelConfirm = ref(false);
+const showRescheduleModal = ref(false);
 const actionTarget = ref<ScheduledPush | null>(null);
 const renewPush = ref<ScheduledPush | null>(null);
 const editingPush = ref<ScheduledPush | null>(null);
 const filterStatus = ref<string>('all');
+const rescheduling = ref(false);
+const reschedulePush = ref<ScheduledPush | null>(null);
+const rescheduleDate = ref(today);
+const rescheduleTime = ref('09:00');
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -544,6 +660,7 @@ const statusFilters = [
   { value: 'running', label: 'scheduled.filter.running' },
   { value: 'completed', label: 'scheduled.filter.completed' },
   { value: 'failed', label: 'scheduled.filter.failed' },
+  { value: 'overdue', label: 'scheduled.filter.overdue' },
 ];
 
 const availableChannels = [
@@ -587,6 +704,7 @@ function getStatusLabel(status: string): string {
     completed: 'scheduled.filter.completed',
     failed: 'scheduled.filter.failed',
     cancelled: 'scheduled.filter.pending',
+    overdue: 'scheduled.filter.overdue',
   };
   return labelMap[status] || status;
 }
@@ -947,6 +1065,46 @@ function confirmTestPush(push: ScheduledPush): void {
   showTestConfirm.value = true;
 }
 
+function openRescheduleModal(push: ScheduledPush): void {
+  reschedulePush.value = push;
+  // 初始化时间为明天 9 点
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  rescheduleDate.value = tomorrow.toISOString().split('T')[0];
+  rescheduleTime.value = '09:00';
+  showRescheduleModal.value = true;
+}
+
+async function doReschedule(): Promise<void> {
+  if (!props.accessToken || !reschedulePush.value) return;
+
+  const scheduledTime = new Date(`${rescheduleDate.value}T${rescheduleTime.value}`);
+
+  if (scheduledTime <= new Date()) {
+    showToast(t('message.timeMustBeFuture'), 'error');
+    return;
+  }
+
+  rescheduling.value = true;
+  try {
+    await rescheduleOverdueTask(
+      props.accessToken,
+      reschedulePush.value.id,
+      scheduledTime.toISOString()
+    );
+    showRescheduleModal.value = false;
+    showToast(t('scheduled.message.rescheduleSuccess'), 'success');
+    await loadScheduledPushes();
+  } catch (error) {
+    console.error('Failed to reschedule push:', error);
+    showToast(t('scheduled.message.rescheduleFailed'), 'error');
+  } finally {
+    rescheduling.value = false;
+    reschedulePush.value = null;
+  }
+}
+
 async function doTest(): Promise<void> {
   if (!props.accessToken || !actionTarget.value) return;
   testRunning.value = true;
@@ -1201,6 +1359,11 @@ watch(
   color: #ff4d4f;
 }
 
+.status-badge.overdue {
+  background: #ff787520;
+  color: #ff7875;
+}
+
 .type-badge {
   padding: 4px 10px;
   border-radius: 12px;
@@ -1274,6 +1437,15 @@ watch(
 
 .action-renew:hover {
   background: #0fa3a3;
+}
+
+.action-reschedule {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-reschedule:hover {
+  opacity: 0.9;
 }
 
 .modal-overlay {

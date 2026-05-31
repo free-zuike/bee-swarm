@@ -176,7 +176,75 @@ async function processUserTasks(
   await Promise.all([
     processScheduledPushes(env, username, now, currentEpochMinute),
     processBackups(env, username, now, currentEpochMinute),
+    detectAndRemindOverdueTasks(env, username, now),
   ]);
+}
+
+/**
+ * 检测超时任务并发送提醒
+ */
+async function detectAndRemindOverdueTasks(env: Env, username: string, _now: Date): Promise<void> {
+  try {
+    const pushService = new PushService(env, username);
+
+    // 检测并标记超时任务（默认 30 分钟）
+    const overdueTasks = await pushService.detectOverdueTasks(30);
+
+    for (const task of overdueTasks) {
+      if (!task.overdueReminderSent) {
+        // 发送提醒
+        await sendOverdueReminder(env, username, task);
+
+        // 标记为已发送提醒
+        await markReminderSent(env, username, task.id);
+      }
+    }
+  } catch (err) {
+    console.error(`[Cron Overdue] Error for ${username}:`, (err as Error).message);
+  }
+}
+
+/**
+ * 发送超时提醒
+ */
+async function sendOverdueReminder(env: Env, username: string, task: ScheduledPush): Promise<void> {
+  try {
+    // 使用任务的渠道发送提醒
+    const reminderTitle = `⚠️ 任务超时提醒`;
+    const reminderBody = `任务 "${task.title}" 原定在 ${new Date(task.scheduledAt).toLocaleString()} 执行，但已经超时未执行。请检查或重新安排。`;
+
+    // 使用与任务相同的渠道发送提醒
+    const results = await dispatchPushWithOptions(
+      {
+        title: reminderTitle,
+        body: reminderBody,
+      },
+      task.channels,
+      username,
+      env
+    );
+
+    console.log(`[Overdue Reminder] Sent for task ${task.id}, results:`, results);
+  } catch (err) {
+    console.error(`[Overdue Reminder] Failed to send for ${task.id}:`, (err as Error).message);
+  }
+}
+
+/**
+ * 标记提醒已发送
+ */
+async function markReminderSent(env: Env, username: string, taskId: string): Promise<void> {
+  const key = `scheduled:${username}`;
+  const stored = await env.SUBSCRIPTIONS.get(key);
+  if (!stored) return;
+
+  const pushes: ScheduledPush[] = JSON.parse(stored);
+  const push = pushes.find((p) => p.id === taskId);
+
+  if (push) {
+    push.overdueReminderSent = true;
+    await env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+  }
 }
 
 /**

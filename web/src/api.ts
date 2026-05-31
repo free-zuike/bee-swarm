@@ -794,6 +794,38 @@ export async function testChannelHealth(
   });
 }
 
+// 获取超时任务列表
+export async function getOverdueTasks(token: string): Promise<{ overdue: ScheduledPush[] }> {
+  return withCache(
+    `${BASE}/admin/scheduled/overdue`,
+    () => tokenRequest(`${BASE}/admin/scheduled/overdue`, token),
+    token,
+    { ttl: 30 * 1000 }
+  );
+}
+
+// 重新安排超时任务
+export async function rescheduleOverdueTask(
+  token: string,
+  id: string,
+  scheduledAt: string
+): Promise<{ success: boolean; scheduled: ScheduledPush; message: string }> {
+  const result = await tokenRequest<{
+    success: boolean;
+    scheduled: ScheduledPush;
+    message: string;
+  }>(`${BASE}/admin/scheduled/${id}/reschedule`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scheduledAt }),
+  });
+  apiCache.invalidate(`${BASE}/admin/scheduled`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=overdue`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled/overdue`, token);
+  return result;
+}
+
 // -------------------------------------------
 // 模板预览
 // -------------------------------------------

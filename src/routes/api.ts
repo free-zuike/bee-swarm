@@ -1106,6 +1106,54 @@ adminApi.post('/scheduled/batch-delete', async (c) => {
   return c.json({ success: true, message: `已删除 ${deleted} 个任务`, deleted });
 });
 
+/** 获取超时任务列表 */
+adminApi.get('/scheduled/overdue', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const overdueTasks = await pushService.getOverdueTasks();
+  return c.json({ overdue: overdueTasks });
+});
+
+/** 重新安排超时任务 */
+adminApi.post('/scheduled/:id/reschedule', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as { scheduledAt: string };
+
+  if (!body.scheduledAt) {
+    return c.json({ error: '请提供新的定时时间', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const newScheduledTime = new Date(body.scheduledAt);
+  if (isNaN(newScheduledTime.getTime())) {
+    return c.json({ error: '无效的定时时间', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  if (newScheduledTime <= new Date()) {
+    return c.json({ error: '定时时间必须是将来的时间', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const rescheduled = await pushService.rescheduleOverdueTask(id, body.scheduledAt);
+
+  if (!rescheduled) {
+    return c.json({ error: '定时推送不存在或状态不允许重新安排', code: 'NOT_FOUND' }, 404);
+  }
+
+  // 记录重新安排日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('scheduled_push_rescheduled', {
+      scheduledPushId: id,
+      newScheduledAt: body.scheduledAt,
+    });
+  } catch {
+    // 审计日志失败不影响主流程
+  }
+
+  return c.json({ success: true, scheduled: rescheduled, message: '任务已重新安排' });
+});
+
 // ============================================
 // 推送统计
 // ============================================

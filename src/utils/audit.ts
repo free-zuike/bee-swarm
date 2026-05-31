@@ -16,6 +16,7 @@ export type AuditAction =
   | 'template_deleted'
   | 'scheduled_push_created'
   | 'scheduled_push_cancelled'
+  | 'scheduled_push_rescheduled'
   | 'backup_created'
   | 'backup_restored'
   | 'settings_updated';
