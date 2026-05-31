@@ -979,11 +979,7 @@ async function createScheduledPushHandler(): Promise<void> {
   }
 
   if (scheduleType.value === 'recurring' && scheduledTime <= new Date()) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const [hours, minutes] = newPush.value.time.split(':').map(Number);
-    tomorrow.setHours(hours, minutes, 0, 0);
-    scheduledTime = tomorrow;
+    scheduledTime = calculateNextValidTime(scheduledTime);
   }
 
   creating.value = true;
@@ -1017,6 +1013,130 @@ async function createScheduledPushHandler(): Promise<void> {
     showToast(t('message.createFailedRetry'), 'error');
   } finally {
     creating.value = false;
+  }
+}
+
+/**
+ * 计算下一个有效执行时间
+ * 根据周期类型和选择的时间，自动计算应该开始执行的时间
+ */
+function calculateNextValidTime(scheduledTime: Date): Date {
+  const now = new Date();
+  const [hours, minutes] = newPush.value.time.split(':').map(Number);
+  const selectedTime = new Date(scheduledTime);
+  selectedTime.setHours(hours, minutes, 0, 0);
+
+  // 如果选择的时间还没到，直接返回
+  if (selectedTime > now) {
+    return selectedTime;
+  }
+
+  // 如果已到或已过，根据周期类型计算下一个有效时间
+  switch (recurringType.value) {
+    case 'daily': {
+      // 每天执行，明天同一时间
+      const next = new Date(now);
+      next.setDate(next.getDate() + 1);
+      next.setHours(hours, minutes, 0, 0);
+      return next;
+    }
+
+    case 'weekly': {
+      // 每周执行，找下一个工作日
+      const weekdays = selectedWeekDays.value.length > 0 ? selectedWeekDays.value : [1, 2, 3, 4, 5];
+      const todayDay = now.getDay();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const scheduledHour = hours;
+      const scheduledMinute = minutes;
+
+      // 检查今天是否在选择的工作日内
+      const isTodayWorkday = weekdays.includes(todayDay);
+      const isTodayBeforeScheduledTime =
+        todayDay === 0
+          ? false // 周日不是工作日
+          : todayDay === 6
+            ? false // 周六不是工作日
+            : currentHour < scheduledHour ||
+              (currentHour === scheduledHour && currentMinute < scheduledMinute);
+
+      // 如果今天是工作日且还没到指定时间，就用今天
+      if (isTodayWorkday && isTodayBeforeScheduledTime) {
+        const next = new Date(now);
+        next.setHours(hours, minutes, 0, 0);
+        return next;
+      }
+
+      // 否则找下一个工作日
+      for (let i = 1; i <= 7; i++) {
+        const checkDay = (todayDay + i) % 7;
+        if (weekdays.includes(checkDay) && checkDay !== 0 && checkDay !== 6) {
+          const next = new Date(now);
+          next.setDate(next.getDate() + i);
+          next.setHours(hours, minutes, 0, 0);
+          return next;
+        }
+      }
+
+      // 如果没找到，默认加7天
+      const next = new Date(now);
+      next.setDate(next.getDate() + 7);
+      next.setHours(hours, minutes, 0, 0);
+      return next;
+    }
+
+    case 'monthly': {
+      // 每月执行，找下一个有效日期
+      const monthDays = selectedMonthDays.value.length > 0 ? selectedMonthDays.value : [1];
+      const nowDay = now.getDate();
+      const nowMonth = now.getMonth();
+      const nowYear = now.getFullYear();
+
+      // 检查本月剩余天数中是否有符合条件的
+      for (const day of monthDays) {
+        if (day > nowDay) {
+          // 检查这个日期是否有效（不超过本月天数）
+          const lastDayOfMonth = new Date(nowYear, nowMonth + 1, 0).getDate();
+          if (day <= lastDayOfMonth) {
+            const next = new Date(nowYear, nowMonth, day, hours, minutes, 0, 0);
+            if (next > now) {
+              return next;
+            }
+          }
+        }
+      }
+
+      // 否则找下个月
+      const nextMonth = nowMonth + 1 > 11 ? 0 : nowMonth + 1;
+      const nextYear = nowMonth + 1 > 11 ? nowYear + 1 : nowYear;
+      const firstDay = Math.min(monthDays[0], new Date(nextYear, nextMonth + 1, 0).getDate());
+      const next = new Date(nextYear, nextMonth, firstDay, hours, minutes, 0, 0);
+      return next;
+    }
+
+    case 'hourly': {
+      // 每小时执行，下一个小时
+      const next = new Date(now);
+      next.setHours(next.getHours() + 1);
+      next.setMinutes(minutes, 0, 0);
+      return next;
+    }
+
+    case 'yearly': {
+      // 每年执行，明年同日期
+      const next = new Date(now);
+      next.setFullYear(next.getFullYear() + 1);
+      next.setHours(hours, minutes, 0, 0);
+      return next;
+    }
+
+    default: {
+      // 默认明天同一时间
+      const next = new Date(now);
+      next.setDate(next.getDate() + 1);
+      next.setHours(hours, minutes, 0, 0);
+      return next;
+    }
   }
 }
 
