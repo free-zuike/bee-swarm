@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { ChannelConfig, ChannelDefinition, ChannelSettings } from '@/types';
 
 const { showToast } = useGlobalToast();
+const t = useTranslation();
 
 const props = defineProps<{
   channels: ChannelConfig[];

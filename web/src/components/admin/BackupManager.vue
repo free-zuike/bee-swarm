@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { BackupEndpoint } from '@/api';
 
 const { toast: backupToast, showToast: showBackupToast } = useGlobalToast();
+const t = useTranslation();
 
 defineProps<{
   accessToken: string;

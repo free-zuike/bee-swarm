@@ -3,11 +3,12 @@
 // 推送表单组件
 // ============================================
 import { ref, computed } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { ChannelConfig, PushChannel, PushResult, PushTemplate } from '@/types';
 
 const { showToast } = useGlobalToast();
+const t = useTranslation();
 
 const props = defineProps<{
   channels: ChannelConfig[];

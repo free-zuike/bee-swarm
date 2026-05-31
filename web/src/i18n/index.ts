@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 export type Locale = 'zh' | 'en';
 
@@ -626,9 +626,10 @@ export function initLocale(): void {
   }
 }
 
-// 使用 computed 属性确保 t 函数能响应式
+// 响应式的翻译函数（在 Vue 组件中使用）
 export function useTranslation() {
-  return function t(key: string, params: Record<string, string> = {}): string {
+  return (key: string, params: Record<string, string> = {}): string => {
+    // 显式访问 currentLocale.value 让 Vue 追踪这个依赖
     const locale = currentLocale.value;
     const message = messages[locale][key] || key;
     let result = message;
@@ -637,6 +638,11 @@ export function useTranslation() {
     }
     return result;
   };
+}
+
+// 为了向后兼容，也保持导出 useT
+export function useT() {
+  return useTranslation();
 }
 
 // 保持原有的 t 函数，用于非组件场景

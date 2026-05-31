@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
+const t = useTranslation();
 
 const props = defineProps<{
   isAuthing?: boolean;

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import { useExport } from '@/composables/useExport';
 import type { ChannelConfig } from '@/types';
 
 const { showToast } = useGlobalToast();
+const t = useTranslation();
 
 interface ChannelResult {
   channel: string;

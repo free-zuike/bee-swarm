@@ -6,8 +6,10 @@ import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
-import { setLocale, t, currentLocale } from '@/i18n';
+import { setLocale, currentLocale, useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
+
+const t = useTranslation();
 import {
   getChannelsWithToken,
   saveChannelWithToken,
