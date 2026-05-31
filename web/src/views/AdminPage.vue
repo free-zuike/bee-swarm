@@ -726,13 +726,13 @@ function handleResend(record: PushHistoryRecord) {
       <div v-if="showSettings" class="tab-content">
         <!-- 主题选择面板 -->
         <div class="panel" :class="{ dark: isDark }">
-          <h3>主题设置</h3>
+          <h3>{{ t('theme.settings') }}</h3>
           <div class="theme-options">
             <button
               v-for="theme in [
-                { value: 'light', label: '浅色', icon: '☀️' },
-                { value: 'dark', label: '深色', icon: '🌙' },
-                { value: 'auto', label: '跟随系统', icon: '🌓' },
+                { value: 'light', label: t('theme.light'), icon: '☀️' },
+                { value: 'dark', label: t('theme.dark'), icon: '🌙' },
+                { value: 'auto', label: t('theme.auto'), icon: '🌓' },
               ]"
               :key="theme.value"
               class="theme-option"
@@ -857,14 +857,14 @@ function handleResend(record: PushHistoryRecord) {
             :class="{ active: activeTab === 'webhook', dark: isDark }"
             @click="activeTab = 'webhook'"
           >
-            🔗 Webhook
+            🔗 {{ t('tab.webhook') }}
           </button>
           <button
             class="tab-btn"
             :class="{ active: activeTab === 'health', dark: isDark }"
             @click="activeTab = 'health'"
           >
-            💚 健康检查
+            💚 {{ t('tab.health') }}
           </button>
         </div>
 
