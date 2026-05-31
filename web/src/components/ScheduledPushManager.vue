@@ -84,6 +84,13 @@
               </button>
               <button
                 v-if="push.status === 'pending'"
+                class="action-btn action-edit"
+                @click="openEditModal(push)"
+              >
+                {{ t('scheduled.button.edit') }}
+              </button>
+              <button
+                v-if="push.status === 'pending'"
                 class="action-btn action-cancel"
                 @click="confirmCancelPush(push)"
               >
@@ -108,11 +115,11 @@
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
         <div class="modal-header">
-          <h3>{{ t('scheduled.create') }}</h3>
+          <h3>{{ editingPush ? t('scheduled.edit') : t('scheduled.create') }}</h3>
           <button class="btn-close" @click="closeModal">&times;</button>
         </div>
 
-        <form @submit.prevent="createScheduledPushHandler" class="modal-body">
+        <form @submit.prevent="handleModalSubmit" class="modal-body">
           <div class="form-group">
             <label>{{ t('scheduled.label.taskName') }}</label>
             <input
@@ -454,6 +461,7 @@ import { useGlobalToast } from '@/composables/useToast';
 import {
   getScheduledPushes,
   createScheduledPush,
+  updateScheduledPush,
   cancelScheduledPush,
   deleteScheduledPush,
   getTemplates,
@@ -508,6 +516,7 @@ const showTestConfirm = ref(false);
 const showCancelConfirm = ref(false);
 const actionTarget = ref<ScheduledPush | null>(null);
 const renewPush = ref<ScheduledPush | null>(null);
+const editingPush = ref<ScheduledPush | null>(null);
 const filterStatus = ref<string>('all');
 
 const today = new Date().toISOString().split('T')[0];
@@ -645,6 +654,7 @@ function openCreateModal(): void {
 
 function openRenewModal(push: ScheduledPush): void {
   renewPush.value = push;
+  editingPush.value = null;
   resetForm();
   newPush.value.name = push.title;
   newPush.value.content = push.content || '';
@@ -666,9 +676,44 @@ function openRenewModal(push: ScheduledPush): void {
   showModal.value = true;
 }
 
+function openEditModal(push: ScheduledPush): void {
+  editingPush.value = push;
+  renewPush.value = null;
+  resetForm();
+  newPush.value.name = push.title;
+  newPush.value.content = push.content || '';
+  newPush.value.channels = [...push.channels];
+  if (push.templateId) {
+    newPush.value.templateId = push.templateId;
+  }
+  if (push.scheduleType) {
+    scheduleType.value = push.scheduleType;
+  }
+  if (push.recurringType) {
+    recurringType.value = push.recurringType as
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'yearly';
+  }
+  if (push.selectedWeekDays) {
+    selectedWeekDays.value = [...push.selectedWeekDays];
+  }
+  if (push.selectedMonthDays) {
+    selectedMonthDays.value = [...push.selectedMonthDays];
+  }
+  // 解析 scheduledAt
+  const scheduledDate = new Date(push.scheduledAt);
+  newPush.value.date = scheduledDate.toISOString().split('T')[0];
+  newPush.value.time = scheduledDate.toTimeString().slice(0, 5);
+  showModal.value = true;
+}
+
 function closeModal(): void {
   showModal.value = false;
   renewPush.value = null;
+  editingPush.value = null;
   resetForm();
 }
 
@@ -726,6 +771,63 @@ async function loadTemplates(): Promise<void> {
     templates.value = data.templates || [];
   } catch (error) {
     console.error('Failed to load templates:', error);
+  }
+}
+
+async function handleModalSubmit(): Promise<void> {
+  if (editingPush.value) {
+    await updateScheduledPushHandler();
+  } else {
+    await createScheduledPushHandler();
+  }
+}
+
+async function updateScheduledPushHandler(): Promise<void> {
+  if (!props.accessToken || !editingPush.value) {
+    showToast(t('message.pleaseLoginFirst'), 'error');
+    return;
+  }
+  if (newPush.value.channels.length === 0) {
+    showToast(t('message.pleaseSelectChannel'), 'error');
+    return;
+  }
+  if (!newPush.value.name.trim()) {
+    showToast(t('message.pleaseEnterTaskName'), 'error');
+    return;
+  }
+  if (!newPush.value.content.trim()) {
+    showToast(t('message.pleaseEnterMessageContent'), 'error');
+    return;
+  }
+
+  let scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`);
+  if (isNaN(scheduledTime.getTime())) {
+    showToast(t('message.pleaseSelectValidTime'), 'error');
+    return;
+  }
+
+  creating.value = true;
+  try {
+    await updateScheduledPush(props.accessToken, editingPush.value.id, {
+      title: newPush.value.name,
+      content: newPush.value.content,
+      scheduledAt: scheduledTime.toISOString(),
+      channels: newPush.value.channels,
+      templateId: newPush.value.templateId || undefined,
+      scheduleType: scheduleType.value,
+      recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
+      selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
+      selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
+    });
+
+    showModal.value = false;
+    showToast(t('scheduled.message.updateSuccess'), 'success');
+    await loadScheduledPushes();
+  } catch (error) {
+    console.error('Failed to update scheduled push:', error);
+    showToast(t('scheduled.message.updateFailed'), 'error');
+  } finally {
+    creating.value = false;
   }
 }
 
@@ -1154,6 +1256,15 @@ watch(
 
 .action-delete:hover {
   background: #ff3742;
+}
+
+.action-edit {
+  background: #faad14;
+  color: white;
+}
+
+.action-edit:hover {
+  background: #d99612;
 }
 
 .action-renew {

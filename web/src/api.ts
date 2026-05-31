@@ -574,7 +574,54 @@ export async function getScheduledPushes(
 ): Promise<{ scheduled: ScheduledPush[] }> {
   const url = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
   const cacheKey = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
-  return withCache(cacheKey, () => tokenRequest(url, token), token, { ttl: 2 * 60 * 1000 });
+  return withCache(cacheKey, () => tokenRequest(url, token), token, { ttl: 30 * 1000 });
+}
+
+// 更新定时推送
+export async function updateScheduledPush(
+  token: string,
+  id: string,
+  push: {
+    title?: string;
+    content?: string;
+    channels?: PushChannel[];
+    url?: string;
+    scheduledAt?: string;
+    templateId?: string;
+    scheduleType?: 'once' | 'recurring';
+    recurringType?:
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'interval'
+      | 'cron'
+      | 'intervalMonth'
+      | 'yearly'
+      | 'intervalYear';
+    selectedWeekDays?: number[];
+    selectedMonthDays?: number[];
+    intervalHours?: number;
+    intervalMonths?: number;
+    intervalYears?: number;
+    cronExpression?: string;
+  }
+): Promise<{ success: boolean; scheduled: ScheduledPush }> {
+  const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(
+    `${BASE}/admin/scheduled/${id}`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(push),
+    }
+  );
+  apiCache.invalidate(`${BASE}/admin/scheduled`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=completed`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=failed`, token);
+  return result;
 }
 
 // 创建定时推送

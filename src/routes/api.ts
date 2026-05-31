@@ -1002,6 +1002,35 @@ adminApi.post('/scheduled', async (c) => {
   return c.json({ success: true, scheduled: push });
 });
 
+/** 更新定时推送 */
+adminApi.put('/scheduled/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as {
+    title?: string;
+    content?: string;
+    channels?: PushChannel[];
+    url?: string;
+    scheduledAt?: string;
+    templateId?: string;
+    scheduleType?: 'once' | 'recurring';
+    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron';
+    selectedWeekDays?: number[];
+    selectedMonthDays?: number[];
+    intervalHours?: number;
+    cronExpression?: string;
+  };
+
+  const pushService = new PushService(c.env, username);
+  const updated = await pushService.updateScheduledPush(id, body);
+
+  if (!updated) {
+    return c.json({ error: '定时推送不存在或状态不允许编辑', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, scheduled: updated });
+});
+
 /** 删除定时推送 */
 adminApi.delete('/scheduled/:id', async (c) => {
   const username = c.get('username');

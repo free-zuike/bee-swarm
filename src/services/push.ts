@@ -371,6 +371,34 @@ export class PushService {
     }
   }
 
+  async updateScheduledPush(
+    id: string,
+    updates: Partial<Omit<ScheduledPush, 'id' | 'createdBy' | 'createdAt'>>
+  ): Promise<ScheduledPush | null> {
+    const key = `scheduled:${this.userId}`;
+    try {
+      const stored = await this.env.SUBSCRIPTIONS.get(key);
+      if (!stored) return null;
+
+      const pushes: ScheduledPush[] = JSON.parse(stored);
+      const index = pushes.findIndex((p) => p.id === id);
+      if (index === -1) return null;
+
+      // 只有 pending 状态的任务可以编辑
+      if (pushes[index].status !== 'pending') return null;
+
+      pushes[index] = {
+        ...pushes[index],
+        ...updates,
+      };
+
+      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+      return pushes[index];
+    } catch {
+      return null;
+    }
+  }
+
   async deleteScheduledPush(id: string): Promise<boolean> {
     const key = `scheduled:${this.userId}`;
     try {

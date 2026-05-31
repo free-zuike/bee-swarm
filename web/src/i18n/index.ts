@@ -127,7 +127,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'scheduled.label.fiveTimes': '5次',
     'scheduled.button.test': '测试',
     'scheduled.button.cancelTask': '取消',
+    'scheduled.button.edit': '编辑',
     'scheduled.button.renew': '续订',
+    'scheduled.message.updateSuccess': '定时任务更新成功',
+    'scheduled.message.updateFailed': '定时任务更新失败，请重试',
     'scheduled.confirm.deleteScheduled': '确定要删除定时推送「{title}」吗？',
     'scheduled.confirm.cancelScheduled': '确定要取消定时推送「{title}」吗？',
     'scheduled.confirm.testScheduled': '确定要立即执行推送「{title}」进行测试吗？',
@@ -665,7 +668,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'scheduled.label.fiveTimes': '5 Times',
     'scheduled.button.test': 'Test',
     'scheduled.button.cancelTask': 'Cancel',
+    'scheduled.button.edit': 'Edit',
     'scheduled.button.renew': 'Renew',
+    'scheduled.message.updateSuccess': 'Scheduled push updated successfully',
+    'scheduled.message.updateFailed': 'Failed to update scheduled push, please retry',
     'scheduled.confirm.deleteScheduled':
       'Are you sure you want to delete scheduled push "{title}"?',
     'scheduled.confirm.cancelScheduled':
