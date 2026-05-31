@@ -397,6 +397,27 @@ export class PushService {
     const push = pushes.find((p) => p.id === id);
     if (push) {
       push.status = status;
+      if (status === 'completed') {
+        push.completedAt = new Date().toISOString();
+      }
+      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
+    }
+  }
+
+  async updateScheduledPushAndTime(
+    id: string,
+    status: ScheduledPush['status'],
+    nextScheduledAt: string
+  ): Promise<void> {
+    const key = `scheduled:${this.userId}`;
+    const stored = await this.env.SUBSCRIPTIONS.get(key);
+    if (!stored) return;
+
+    const pushes: ScheduledPush[] = JSON.parse(stored);
+    const push = pushes.find((p) => p.id === id);
+    if (push) {
+      push.status = status;
+      push.scheduledAt = nextScheduledAt;
       await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
     }
   }

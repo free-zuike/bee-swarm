@@ -228,7 +228,9 @@ async function processScheduledPushes(
       const scheduleType = push.scheduleType || 'once';
 
       if (scheduleType === 'recurring') {
-        await pushService.updateScheduledPushStatus(push.id, 'pending');
+        // 计算下次执行时间
+        const nextScheduledAt = calculateNextScheduledAt(push, nowDate);
+        await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
       } else {
         await pushService.updateScheduledPushStatus(push.id, finalStatus);
       }
@@ -240,6 +242,102 @@ async function processScheduledPushes(
   } catch (err) {
     console.error(`[Cron ScheduledPush] Error for ${username}:`, (err as Error).message);
   }
+}
+
+/**
+ * 计算下次执行时间
+ */
+function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
+  const scheduledTime = new Date(push.scheduledAt);
+  const recurringType = push.recurringType || 'daily';
+  const nextTime = new Date(nowDate);
+
+  switch (recurringType) {
+    case 'hourly': {
+      nextTime.setHours(nextTime.getHours() + 1);
+      nextTime.setMinutes(scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'interval': {
+      const intervalHours = push.intervalHours || 2;
+      nextTime.setHours(nextTime.getHours() + intervalHours);
+      nextTime.setMinutes(scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'daily': {
+      nextTime.setDate(nextTime.getDate() + 1);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'weekly': {
+      const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
+      const currentDay = nextTime.getDay();
+      let daysToAdd = 1;
+
+      // 找到下一个符合条件的星期
+      for (let i = 1; i <= 7; i++) {
+        const nextDay = (currentDay + i) % 7;
+        if (selectedWeekDays.includes(nextDay)) {
+          daysToAdd = i;
+          break;
+        }
+      }
+
+      nextTime.setDate(nextTime.getDate() + daysToAdd);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'monthly': {
+      const selectedMonthDays = push.selectedMonthDays || [1, 15];
+      const currentDate = nextTime.getDate();
+      const currentMonth = nextTime.getMonth();
+      const currentYear = nextTime.getFullYear();
+
+      // 找到下一个符合条件的日期
+      let nextDay = null;
+      for (const day of selectedMonthDays) {
+        if (day > currentDate) {
+          nextDay = day;
+          break;
+        }
+      }
+
+      if (nextDay === null) {
+        // 本月没有了，取下个月第一个
+        nextDay = selectedMonthDays[0];
+        nextTime.setMonth(currentMonth + 1);
+      }
+
+      // 处理月末溢出
+      const lastDayOfMonth = new Date(currentYear, nextTime.getMonth() + 1, 0).getDate();
+      if (nextDay > lastDayOfMonth) {
+        nextDay = lastDayOfMonth;
+      }
+
+      nextTime.setDate(nextDay);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'cron':
+    default: {
+      // 对于 cron 或其他类型，默认加一天
+      nextTime.setDate(nextTime.getDate() + 1);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+  }
+
+  // 确保下次执行时间在当前时间之后
+  if (nextTime <= nowDate) {
+    nextTime.setDate(nextTime.getDate() + 1);
+  }
+
+  return nextTime.toISOString();
 }
 
 /**
