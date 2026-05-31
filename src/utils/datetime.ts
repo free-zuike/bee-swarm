@@ -6,26 +6,38 @@
  * 获取指定时区的本地时间（小时和分钟）
  */
 export function getLocalTime(now: Date, timezone: string): { hour: number; minute: number } {
-  const localHourStr = now.toLocaleString('en-US', {
+  // 更可靠的方法：使用 Intl.DateTimeFormat 并提取小时和分钟
+  const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
-    hour: '2-digit',
     hour12: false,
-    hourCycle: 'h23',
-  });
-  const localMinuteStr = now.toLocaleString('en-US', {
-    timeZone: timezone,
+    hour: '2-digit',
     minute: '2-digit',
   });
-  return {
-    hour: parseInt(localHourStr, 10),
-    minute: parseInt(localMinuteStr, 10),
-  };
+
+  const parts = formatter.formatToParts(now);
+  let hour = 0;
+  let minute = 0;
+
+  for (const part of parts) {
+    if (part.type === 'hour') {
+      hour = parseInt(part.value, 10);
+    } else if (part.type === 'minute') {
+      minute = parseInt(part.value, 10);
+    }
+  }
+
+  return { hour, minute };
 }
 
 /**
- * 获取星期几（1-7，周一到周日）
+ * 获取星期几（0-6，周日到周六）
  */
 export function getLocalWeekday(now: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+  });
+
   const dayMap: Record<string, number> = {
     Sun: 0,
     Mon: 1,
@@ -35,9 +47,7 @@ export function getLocalWeekday(now: Date, timezone: string): number {
     Fri: 5,
     Sat: 6,
   };
-  const localDay = now.toLocaleString('en-US', {
-    timeZone: timezone,
-    weekday: 'short',
-  });
+
+  const localDay = formatter.format(now);
   return dayMap[localDay] ?? 0;
 }

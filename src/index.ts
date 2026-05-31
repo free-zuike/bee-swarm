@@ -326,37 +326,54 @@ async function processBackups(
     const endpoints = await getBackupEndpoints(env, username);
 
     for (const endpoint of endpoints) {
-      if (!endpoint.enabled || !endpoint.schedule.enabled) continue;
+      if (!endpoint.enabled || !endpoint.schedule.enabled) {
+        continue;
+      }
 
-      const [startHour, startMinute] = endpoint.schedule.startTime.split(':').map(Number);
+      const startTime = endpoint.schedule.startTime || '02:00';
+      const [startHour, startMinute] = startTime.split(':').map(Number);
       const interval = endpoint.schedule.interval || 24;
       const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
       const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
+
+      // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
+      const timeDiffMinutes = Math.abs((localHour - startHour) * 60 + (localMinute - startMinute));
+      const inTimeWindow = timeDiffMinutes <= 2;
 
       let shouldRun = false;
       if (interval >= 168) {
         const currentDay = getLocalWeekday(now, tz);
         const expectedDay = endpoint.schedule.startDay ?? 0;
-        shouldRun =
-          currentDay === expectedDay && localHour === startHour && localMinute === startMinute;
+        shouldRun = currentDay === expectedDay && inTimeWindow;
       } else if (interval >= 24) {
-        shouldRun = localHour === startHour && localMinute === startMinute;
+        shouldRun = inTimeWindow;
       } else {
         for (let h = startHour; h < 24; h += interval) {
-          if (h === localHour && localMinute === startMinute) {
+          const intervalTimeDiff = Math.abs((h - localHour) * 60 + (startMinute - localMinute));
+          if (intervalTimeDiff <= 2) {
             shouldRun = true;
             break;
           }
         }
       }
 
-      if (!shouldRun) continue;
-
-      const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
-      const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
-      if (lastRunStr && parseInt(lastRunStr, 10) === currentEpochMinute) {
+      if (!shouldRun) {
         continue;
       }
+
+      // 检查最后一次运行时间，防止重复执行
+      const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
+      const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
+      const lastRunEpoch = lastRunStr ? parseInt(lastRunStr, 10) : 0;
+      const hoursSinceLastRun = (currentEpochMinute - lastRunEpoch) / 60;
+
+      // 确保至少间隔 (interval - 1) 小时才再次运行，避免重复
+      if (lastRunStr && hoursSinceLastRun < Math.max(1, interval - 1)) {
+        console.log(`[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`);
+        continue;
+      }
+
+      console.log(`[Cron Backup] Running backup for ${username}/${endpoint.name}`);
 
       const result = await uploadBackupToEndpoint(env, username, endpoint);
       endpoint.lastBackup = {
@@ -366,10 +383,12 @@ async function processBackups(
       };
       await saveBackupEndpoint(env, username, endpoint);
       await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
-        expirationTtl: 24 * 60 * 60,
+        expirationTtl: Math.max(7 * 24 * 60 * 60, (interval + 1) * 60 * 60),
       });
+
+      console.log(`[Cron Backup] ${result.success ? 'Success' : 'Failed'} for ${username}/${endpoint.name}: ${result.message}`);
     }
   } catch (err) {
-    console.error(`[Cron Backup] Error for ${username}:`, (err as Error).message);
+    console.error(`[Cron Backup] Error for ${username}:`, (err as Error).message, (err as Error).stack);
   }
 }
