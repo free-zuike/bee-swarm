@@ -632,10 +632,9 @@ const editingPush = ref<ScheduledPush | null>(null);
 const filterStatus = ref<string>('all');
 const rescheduling = ref(false);
 const reschedulePush = ref<ScheduledPush | null>(null);
+const today = new Date().toISOString().split('T')[0];
 const rescheduleDate = ref(today);
 const rescheduleTime = ref('09:00');
-
-const today = new Date().toISOString().split('T')[0];
 
 const scheduleType = ref<'once' | 'recurring'>('once');
 const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
