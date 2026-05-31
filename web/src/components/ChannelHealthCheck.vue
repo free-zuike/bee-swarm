@@ -67,7 +67,7 @@
                   {{ getStatusText(ch) }}
                 </span>
               </div>
-              <p class="status-message" v-if="ch.message">{{ ch.message }}</p>
+              <p class="status-message" v-if="!ch.healthy && ch.message">{{ ch.message }}</p>
               <p class="status-tested" v-if="ch.testedAt">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"></circle>
