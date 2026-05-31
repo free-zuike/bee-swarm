@@ -5,9 +5,9 @@
         <h2>📝 {{ t('templates.title') }}</h2>
         <div class="header-actions">
           <div v-if="selectedTemplateIds.size > 0" class="selected-actions">
-            <span class="selected-count">{{ selectedTemplateIds.size }} 个已选</span>
-            <button class="btn btn-sm btn-secondary" @click="clearSelection">取消选择</button>
-            <button class="btn btn-sm btn-danger" @click="confirmBatchDelete">批量删除</button>
+            <span class="selected-count">{{ t('label.items_selected', { count: selectedTemplateIds.size }) }}</span>
+            <button class="btn btn-sm btn-secondary" @click="clearSelection">{{ t('label.deselect') }}</button>
+            <button class="btn btn-sm btn-danger" @click="confirmBatchDelete">{{ t('label.batch_delete') }}</button>
           </div>
           <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
             + {{ t('templates.create') }}
@@ -20,11 +20,11 @@
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="搜索模板名称或标题..."
+          :placeholder="t('label.searchTemplatePlaceholder')"
           class="search-input"
         />
         <select v-model="selectedCategory" class="category-select">
-          <option value="">所有分类</option>
+          <option value="">{{ t('label.allCategories') }}</option>
           <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
         </select>
       </div>
@@ -36,7 +36,7 @@
 
       <div v-else-if="filteredTemplates.length === 0" class="empty-state">
         <div class="empty-icon"></div>
-        <p>{{ searchQuery || selectedCategory ? '没有找到匹配的模板' : t('templates.empty') }}</p>
+        <p>{{ searchQuery || selectedCategory ? t('label.noMatchingTemplates') : t('templates.empty') }}</p>
       </div>
 
       <div v-else class="template-list">
@@ -63,11 +63,11 @@
             </div>
             <div class="template-body">
               <div class="field-row">
-                <span class="field-label">标题</span>
+                <span class="field-label">{{ t('label.title') }}</span>
                 <span class="field-value">{{ tpl.title }}</span>
               </div>
               <div class="field-row">
-                <span class="field-label">内容</span>
+                <span class="field-label">{{ t('label.content') }}</span>
                 <span class="field-value field-content">{{
                   tpl.content || t('templates.noContent')
                 }}</span>
@@ -79,9 +79,9 @@
             </div>
           </div>
           <div class="template-actions">
-            <button class="action-btn action-use" @click="useTemplate(tpl)">使用</button>
-            <button class="action-btn action-edit" @click="editTemplate(tpl)">编辑</button>
-            <button class="action-btn action-delete" @click="confirmDelete(tpl)">删除</button>
+            <button class="action-btn action-use" @click="useTemplate(tpl)">{{ t('button.use') }}</button>
+            <button class="action-btn action-edit" @click="editTemplate(tpl)">{{ t('button.edit') }}</button>
+            <button class="action-btn action-delete" @click="confirmDelete(tpl)">{{ t('common.delete') }}</button>
           </div>
         </div>
       </div>
@@ -112,8 +112,8 @@
               required
             />
             <p class="variable-hint">
-              支持变量: <code v-text="'{{date}}'"></code> <code v-text="'{{time}}'"></code>
-              <code v-text="'{{name}}'"></code> 等
+              {{ t('label.supportsVariables') }}: <code v-text="'{{date}}'"></code> <code v-text="'{{time}}'"></code>
+              <code v-text="'{{name}}'"></code> {{ t('label.etc') }}
             </p>
           </div>
           <div class="form-group">
@@ -138,11 +138,11 @@
             </div>
           </div>
           <div class="form-group">
-            <label>分类</label>
+            <label>{{ t('label.category') }}</label>
             <input
               v-model="form.category"
               type="text"
-              placeholder="例如：通知、提醒、告警"
+              :placeholder="t('label.categoryPlaceholder')"
               list="category-list"
             />
             <datalist id="category-list">
@@ -159,17 +159,17 @@
 
           <!-- 变量管理 -->
           <div class="form-group">
-            <label>变量管理</label>
+            <label>{{ t('label.variablesManagement') }}</label>
             <div class="variables-section">
               <div v-if="detectedVariables.length > 0" class="variables-list">
                 <div class="variables-header">
-                  <span>已检测到的变量</span>
+                  <span>{{ t('label.detectedVariables') }}</span>
                   <button
                     type="button"
                     class="btn btn-sm btn-secondary"
                     @click="showPreview = true"
                   >
-                    预览
+                    {{ t('button.preview') }}
                   </button>
                 </div>
                 <div v-for="v in detectedVariables" :key="v" class="variable-item">
@@ -177,13 +177,13 @@
                   <input
                     v-model="variableValues[v]"
                     type="text"
-                    :placeholder="v + ' 的值'"
+                    :placeholder="t('label.valueFor', { variable: v })"
                     class="variable-input"
                   />
                 </div>
               </div>
               <div v-else class="variables-empty">
-                <p>在标题或内容中使用 <code v-text="wrapVar('variable')"></code> 格式定义变量</p>
+                <p>{{ t('label.defineVariables') }} <code v-text="wrapVar('variable')"></code> {{ t('label.format') }}</p>
               </div>
             </div>
           </div>
@@ -193,7 +193,7 @@
               {{ t('common.cancel') }}
             </button>
             <button type="submit" class="btn btn-primary" :disabled="saving">
-              {{ saving ? t('common.saving') || '保存中...' : t('common.save') || '保存' }}
+              {{ saving ? t('label.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -204,24 +204,24 @@
     <div v-if="showPreview" class="modal-overlay" @click.self="showPreview = false">
       <div class="modal modal-large">
         <div class="modal-header">
-          <h3>模板预览</h3>
+          <h3>{{ t('label.templatePreview') }}</h3>
           <button class="btn-close" @click="showPreview = false">&times;</button>
         </div>
         <div class="modal-body">
           <div v-if="previewLoading" class="preview-loading">
             <div class="spinner"></div>
-            <p>生成预览中...</p>
+            <p>{{ t('message.generatingPreview') }}</p>
           </div>
           <template v-else>
             <div class="preview-section">
-              <h4>预览结果</h4>
+              <h4>{{ t('label.previewResult') }}</h4>
               <div class="preview-item">
-                <label>标题:</label>
-                <p class="preview-value">{{ previewResult.title || '（空）' }}</p>
+                <label>{{ t('label.title') }}:</label>
+                <p class="preview-value">{{ previewResult.title || t('label.previewEmpty') }}</p>
               </div>
               <div class="preview-item">
-                <label>内容:</label>
-                <p class="preview-value preview-content">{{ previewResult.content || '（空）' }}</p>
+                <label>{{ t('label.content') }}:</label>
+                <p class="preview-value preview-content">{{ previewResult.content || t('label.previewEmpty') }}</p>
               </div>
               <div v-if="previewResult.url" class="preview-item">
                 <label>URL:</label>
@@ -229,7 +229,7 @@
               </div>
             </div>
             <div class="preview-auto-vars">
-              <h4>自动变量</h4>
+              <h4>{{ t('label.autoVariables') }}</h4>
               <div class="auto-vars-grid">
                 <div v-for="(val, key) in autoVarsDisplay" :key="key" class="auto-var">
                   <code v-text="wrapVar(key)"></code>
@@ -240,7 +240,7 @@
             </div>
           </template>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showPreview = false">关闭</button>
+            <button class="btn btn-secondary" @click="showPreview = false">{{ t('button.close') }}</button>
           </div>
         </div>
       </div>
@@ -273,15 +273,15 @@
     >
       <div class="modal modal-small">
         <div class="modal-header">
-          <h3>确认批量删除</h3>
+          <h3>{{ t('label.batchDeleteConfirm') }}</h3>
           <button class="btn-close" @click="showBatchDeleteConfirm = false">&times;</button>
         </div>
         <div class="modal-body">
-          <p>确定要删除选中的 {{ selectedTemplateIds.size }} 个模板吗？此操作不可撤销。</p>
+          <p>{{ t('message.confirmDeleteItems', { count: selectedTemplateIds.size }) }} {{ t('message.operationIrreversible') }}</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">取消</button>
+            <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">{{ t('button.cancel') }}</button>
             <button class="btn btn-danger" @click="doBatchDelete" :disabled="deleting">
-              {{ deleting ? '删除中...' : '删除' }}
+              {{ deleting ? t('label.deleting') : t('common.delete') }}
             </button>
           </div>
         </div>

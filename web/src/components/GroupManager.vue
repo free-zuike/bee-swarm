@@ -5,10 +5,10 @@
         <h2>📁 {{ t('groups.title') }}</h2>
         <div class="header-actions">
           <button class="btn btn-sm btn-secondary" @click="showFilters = !showFilters">
-            🔍 {{ showFilters ? '收起' : '筛选' }}
+            🔍 {{ showFilters ? t('button.hideFilter') : t('button.filter') }}
           </button>
           <button class="btn btn-sm btn-secondary" @click="toggleSort">
-            {{ sortOrder === 'asc' ? '↑ 名称升序' : '↓ 名称降序' }}
+            {{ sortOrder === 'asc' ? t('label.sortAsc') : t('label.sortDesc') }}
           </button>
           <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
             + {{ t('groups.create') }}
@@ -16,37 +16,36 @@
         </div>
       </div>
 
-      <!-- 筛选面板 -->
       <div v-if="showFilters" class="filter-bar">
         <div class="filter-group">
-          <label>搜索分组</label>
+          <label>{{ t('label.searchGroup') }}</label>
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="输入分组名称..."
+            :placeholder="t('placeholder.searchGroup')"
             class="filter-input"
           />
         </div>
         <div class="filter-group">
-          <label>包含渠道</label>
+          <label>{{ t('label.channel') }}</label>
           <select v-model="filterChannel" class="filter-select">
-            <option value="">全部渠道</option>
+            <option value="">{{ t('label.all_channels') }}</option>
             <option v-for="ch in allChannels" :key="ch.id" :value="ch.id">
-              {{ ch.icon }} {{ ch.name }}
+              {{ ch.icon }} {{ getChannelName(ch.id) }}
             </option>
           </select>
         </div>
-        <button class="btn btn-sm btn-secondary" @click="clearFilters">重置</button>
+        <button class="btn btn-sm btn-secondary" @click="clearFilters">{{ t('label.reset') }}</button>
       </div>
 
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <span>{{ t('common.loading') || '加载中...' }}</span>
+        <span>{{ t('label.loading') }}</span>
       </div>
 
       <div v-else-if="displayGroups.length === 0" class="empty-state">
         <div class="empty-icon"></div>
-        <p>{{ groups.length === 0 ? t('groups.empty') : '没有符合条件的分组' }}</p>
+        <p>{{ groups.length === 0 ? t('groups.empty') : t('label.noMatchingTemplates') }}</p>
       </div>
 
       <div v-else class="group-list">
@@ -64,26 +63,26 @@
             </div>
             <div class="group-body">
               <div class="field-row">
-                <span class="field-label">渠道</span>
-                <span class="field-value">{{ group.channels.length }} 个渠道</span>
+                <span class="field-label">{{ t('label.channel') }}</span>
+                <span class="field-value">{{ t('label.channelCount', { count: group.channels.length }) }}</span>
               </div>
               <div class="field-row">
-                <span class="field-label">创建时间</span>
+                <span class="field-label">{{ t('label.createdAt') }}</span>
                 <span class="field-value">{{ formatTime(group.createdAt) }}</span>
               </div>
             </div>
           </div>
           <div class="group-actions">
-            <button class="action-btn action-use" @click="useGroup(group)">使用</button>
+            <button class="action-btn action-use" @click="useGroup(group)">{{ t('button.use') }}</button>
             <button
               class="action-btn action-test"
               @click="testGroup(group)"
               :disabled="testingGroup === group.id"
             >
-              {{ testingGroup === group.id ? '测试中...' : '测试' }}
+              {{ testingGroup === group.id ? t('label.testing') : t('button.test') }}
             </button>
-            <button class="action-btn action-edit" @click="editGroup(group)">编辑</button>
-            <button class="action-btn action-delete" @click="confirmDelete(group)">删除</button>
+            <button class="action-btn action-edit" @click="editGroup(group)">{{ t('button.edit') }}</button>
+            <button class="action-btn action-delete" @click="confirmDelete(group)">{{ t('button.delete') }}</button>
           </div>
         </div>
       </div>
@@ -121,7 +120,7 @@
                   :disabled="!ch.enabled"
                 />
                 <span class="channel-icon">{{ ch.icon }}</span>
-                <span>{{ ch.name }}</span>
+                <span>{{ getChannelName(ch.id) }}</span>
               </label>
             </div>
           </div>
@@ -134,7 +133,7 @@
               class="btn btn-primary"
               :disabled="saving || form.channels.length === 0"
             >
-              {{ saving ? t('common.saving') || '保存中...' : t('common.save') || '保存' }}
+              {{ saving ? t('common.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -148,29 +147,30 @@
           <button class="btn-close" @click="showDeleteConfirm = false">&times;</button>
         </div>
         <div class="modal-body">
-          <p>{{ t('groups.deleteConfirm', { name: deletingGroup?.name }) }}</p>
+          <p>{{ t('groups.deleteConfirm', { name: deletingGroup?.name || '' }) }}</p>
           <div class="form-actions">
             <button class="btn btn-secondary" @click="showDeleteConfirm = false">
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
-              {{ deleting ? t('common.deleting') || '删除中...' : t('common.delete') }}
+              {{ deleting ? t('common.deleting') : t('common.delete') }}
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 测试推送结果 -->
     <div v-if="testResult" class="modal-overlay" @click.self="testResult = null">
       <div class="modal modal-small">
         <div class="modal-header">
-          <h3>分组推送测试</h3>
+          <h3>{{ t('label.groupTestPush') }}</h3>
           <button class="btn-close" @click="testResult = null">&times;</button>
         </div>
         <div class="modal-body">
           <div class="test-result" :class="{ success: testResult.success }">
-            <p class="test-status">{{ testResult.success ? '✅ 测试成功' : '❌ 测试失败' }}</p>
+            <p class="test-status">
+              {{ testResult.success ? t('message.groupTestSuccess') : t('message.groupTestFailed') }}
+            </p>
             <div
               v-for="r in testResult.results"
               :key="r.channel"
@@ -179,12 +179,12 @@
             >
               <span class="test-channel-icon">{{ getChannelIcon(r.channel) }}</span>
               <span class="test-channel-name">{{ getChannelName(r.channel) }}</span>
-              <span class="test-channel-status">{{ r.success ? '成功' : '失败' }}</span>
+              <span class="test-channel-status">{{ r.success ? t('status.success') : t('status.failed') }}</span>
             </div>
             <p class="test-message">{{ testResult.message }}</p>
           </div>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="testResult = null">关闭</button>
+            <button class="btn btn-secondary" @click="testResult = null">{{ t('button.close') }}</button>
           </div>
         </div>
       </div>
@@ -194,7 +194,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { PushResult } from '@/types';
 import {
@@ -208,6 +208,7 @@ import {
   type ChannelConfig,
 } from '@/api';
 
+const t = useTranslation();
 const { showToast } = useGlobalToast();
 
 const emit = defineEmits<{
@@ -222,6 +223,7 @@ const props = defineProps<{
 const loading = ref(true);
 const saving = ref(false);
 const deleting = ref(false);
+const testingGroup = ref<string | null>(null);
 const showModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showFilters = ref(false);
@@ -231,7 +233,6 @@ const groups = ref<ChannelGroup[]>([]);
 const searchQuery = ref('');
 const filterChannel = ref('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
-const testingGroup = ref<string | null>(null);
 
 interface TestResult {
   success: boolean;
@@ -247,25 +248,13 @@ const form = reactive({
 });
 
 const allChannels = computed(() => {
-  const channelNameMap: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    discord: 'Discord',
-    slack: 'Slack',
-    mail: '邮件',
-    webhook: 'Webhook',
-    bark: 'Bark',
-    pushplus: 'PushPlus',
-  };
   const channelIconMap: Record<string, string> = {
     wework: '💼',
-    dingtalk: '🅰️',
-    feishu: '🪶',
+    dingtalk: '🚀',
+    feishu: '📮',
     telegram: '✈️',
     bark: '📱',
-    ntfy: '📢',
+    ntfy: '🔔',
     email: '📧',
     slack: '💬',
     discord: '🎮',
@@ -274,28 +263,27 @@ const allChannels = computed(() => {
     .filter((c) => c.enabled)
     .map((c) => ({
       id: c.id,
-      name: channelNameMap[c.id] || c.id,
+      name: c.name,
       icon: channelIconMap[c.id] || '📡',
       enabled: true,
     }));
 });
 
 const availableChannels = computed(() => {
-  const channelNameMap: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    discord: 'Discord',
-    slack: 'Slack',
-    mail: '邮件',
-    webhook: 'Webhook',
-    bark: 'Bark',
-    pushplus: 'PushPlus',
+  const channelIconMap: Record<string, string> = {
+    wework: '💼',
+    dingtalk: '🚀',
+    feishu: '📮',
+    telegram: '✈️',
+    bark: '📱',
+    ntfy: '🔔',
+    email: '📧',
+    slack: '💬',
+    discord: '🎮',
   };
   return (props.channels || []).map((c) => ({
     id: c.id,
-    name: channelNameMap[c.id] || c.id,
+    name: c.name,
     icon: c.icon,
     enabled: c.enabled,
   }));
@@ -304,20 +292,17 @@ const availableChannels = computed(() => {
 const displayGroups = computed(() => {
   let filtered = [...groups.value];
 
-  // 搜索过滤
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     filtered = filtered.filter((g) => g.name.toLowerCase().includes(q));
   }
 
-  // 渠道过滤
   if (filterChannel.value) {
     filtered = filtered.filter((g) => g.channels.includes(filterChannel.value as PushChannel));
   }
 
-  // 排序
   filtered.sort((a, b) => {
-    const compare = a.name.localeCompare(b.name, 'zh-CN');
+    const compare = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     return sortOrder.value === 'asc' ? compare : -compare;
   });
 
@@ -327,11 +312,11 @@ const displayGroups = computed(() => {
 function getChannelIcon(ch: string): string {
   const iconMap: Record<string, string> = {
     wework: '💼',
-    dingtalk: '🅰️',
-    feishu: '🪶',
+    dingtalk: '🚀',
+    feishu: '📮',
     telegram: '✈️',
     bark: '📱',
-    ntfy: '📢',
+    ntfy: '🔔',
     email: '📧',
     slack: '💬',
     discord: '🎮',
@@ -340,66 +325,54 @@ function getChannelIcon(ch: string): string {
 }
 
 function getChannelName(ch: string): string {
-  const channelNameMap: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    discord: 'Discord',
-    slack: 'Slack',
-    mail: '邮件',
-    webhook: 'Webhook',
-    bark: 'Bark',
-    pushplus: 'PushPlus',
-  };
-  return channelNameMap[ch] || ch;
+  return t(`channel.${ch}`) || ch;
 }
 
 function formatTime(timeStr: string): string {
   try {
-    return new Date(timeStr).toLocaleString('zh-CN');
+    return new Date(timeStr).toLocaleString(undefined);
   } catch {
     return timeStr;
   }
 }
 
-function toggleSort() {
+function toggleSort(): void {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
 }
 
-function clearFilters() {
+function clearFilters(): void {
   searchQuery.value = '';
   filterChannel.value = '';
 }
 
-function openCreateModal() {
+function openCreateModal(): void {
   form.name = '';
   form.channels = [];
   showModal.value = true;
 }
 
-function closeModal() {
+function closeModal(): void {
   showModal.value = false;
   editingGroup.value = null;
 }
 
-function useGroup(group: ChannelGroup) {
+function useGroup(group: ChannelGroup): void {
   emit('use-group', group.channels);
 }
 
-function editGroup(group: ChannelGroup) {
+function editGroup(group: ChannelGroup): void {
   editingGroup.value = group;
   form.name = group.name;
   form.channels = [...group.channels];
   showModal.value = true;
 }
 
-function confirmDelete(group: ChannelGroup) {
+function confirmDelete(group: ChannelGroup): void {
   deletingGroup.value = group;
   showDeleteConfirm.value = true;
 }
 
-async function doDelete() {
+async function doDelete(): Promise<void> {
   if (!props.accessToken || !deletingGroup.value) return;
   deleting.value = true;
   try {
@@ -407,43 +380,43 @@ async function doDelete() {
     groups.value = groups.value.filter((g) => g.id !== deletingGroup.value!.id);
     showDeleteConfirm.value = false;
     deletingGroup.value = null;
-  } catch (_err) {
-    showToast((_err as Error).message, 'error');
+  } catch (error) {
+    showToast((error as Error).message, 'error');
   } finally {
     deleting.value = false;
   }
 }
 
-async function testGroup(group: ChannelGroup) {
+async function testGroup(group: ChannelGroup): Promise<void> {
   if (!props.accessToken) return;
   testingGroup.value = group.id;
   testResult.value = null;
 
   try {
     const results = await dispatchPush(props.accessToken, {
-      title: `分组测试: ${group.name}`,
-      body: '这是一条测试推送，用于验证分组配置是否正常。',
+      title: `Group Test: ${group.name}`,
+      body: t('message.testMessageBody'),
       channels: group.channels,
     });
 
     const success = results.every((r: PushResult) => r.success);
     testResult.value = {
       success,
-      message: success ? '所有渠道推送成功' : '部分渠道推送失败',
+      message: success ? t('scheduled.message.allSuccess') : t('scheduled.message.someFailed'),
       results,
     };
-  } catch (err: unknown) {
+  } catch (error) {
     testResult.value = {
       success: false,
-      message: (err as Error).message || '推送失败',
-      results: group.channels.map((ch) => ({ channel: ch, success: false, message: '推送失败' })),
+      message: (error as Error).message || t('message.pushFailed'),
+      results: group.channels.map((ch) => ({ channel: ch, success: false, message: t('message.pushFailed') })),
     };
   } finally {
     testingGroup.value = null;
   }
 }
 
-async function saveGroup() {
+async function saveGroup(): Promise<void> {
   if (!props.accessToken || !form.name || form.channels.length === 0) return;
   saving.value = true;
   try {
@@ -464,21 +437,21 @@ async function saveGroup() {
       groups.value.push(result.group);
     }
     closeModal();
-  } catch (err) {
-    showToast((err as Error).message, 'error');
+  } catch (error) {
+    showToast((error as Error).message, 'error');
   } finally {
     saving.value = false;
   }
 }
 
-async function loadGroups() {
+async function loadGroups(): Promise<void> {
   if (!props.accessToken) return;
   loading.value = true;
   try {
     const data = await getChannelGroups(props.accessToken);
     groups.value = data.groups || [];
-  } catch (_err) {
-    console.error('加载分组失败:', _err);
+  } catch (error) {
+    console.error('Failed to load groups:', error);
   } finally {
     loading.value = false;
   }

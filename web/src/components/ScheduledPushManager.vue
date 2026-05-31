@@ -10,7 +10,7 @@
 
       <div v-if="loading && scheduledPushes.length === 0" class="loading-state">
         <div class="spinner"></div>
-        <span>{{ t('common.loading') || '加载中...' }}</span>
+        <span>{{ t('label.loading') }}</span>
       </div>
 
       <div v-else-if="scheduledPushes.length === 0" class="empty-state">
@@ -26,7 +26,7 @@
             :class="['filter-btn', { active: filterStatus === status.value }]"
             @click="filterStatus = status.value"
           >
-            {{ status.label }}
+            {{ t(status.label) }}
             <span class="count">{{ getCountByStatus(status.value) }}</span>
           </button>
         </div>
@@ -37,18 +37,18 @@
               <div class="push-top">
                 <div class="push-name-row">
                   <h3 class="push-name">{{ push.title }}</h3>
-                  <span class="status-badge" :class="push.status">{{
-                    getStatusLabel(push.status)
-                  }}</span>
+                  <span class="status-badge" :class="push.status">
+                    {{ t(getStatusLabel(push.status)) }}
+                  </span>
                 </div>
               </div>
               <div class="push-body">
                 <div class="field-row">
-                  <span class="field-label">执行时间</span>
+                  <span class="field-label">{{ t('scheduled.label.executeTime') }}</span>
                   <span class="field-value">{{ formatDateTime(push.scheduledAt) }}</span>
                 </div>
                 <div class="field-row">
-                  <span class="field-label">渠道</span>
+                  <span class="field-label">{{ t('scheduled.label.channels') }}</span>
                   <span class="field-value channels">
                     <span v-for="ch in push.channels" :key="ch" class="tag tag-channel">{{
                       getChannelName(ch)
@@ -56,11 +56,11 @@
                   </span>
                 </div>
                 <div class="field-row" v-if="push.content">
-                  <span class="field-label">内容</span>
+                  <span class="field-label">{{ t('scheduled.label.content') }}</span>
                   <span class="field-value">{{ push.content }}</span>
                 </div>
                 <div class="field-row" v-if="push.templateId">
-                  <span class="field-label">模板</span>
+                  <span class="field-label">{{ t('scheduled.label.template') }}</span>
                   <span class="field-value">{{ getTemplateName(push.templateId) }}</span>
                 </div>
               </div>
@@ -71,17 +71,17 @@
                 class="action-btn action-test"
                 @click="confirmTestPush(push)"
               >
-                测试
+                {{ t('scheduled.button.test') }}
               </button>
               <button
                 v-if="push.status === 'pending'"
                 class="action-btn action-cancel"
                 @click="confirmCancelPush(push)"
               >
-                取消
+                {{ t('scheduled.button.cancelTask') }}
               </button>
               <button class="action-btn action-delete" @click="confirmDeletePush(push)">
-                删除
+                {{ t('common.delete') }}
               </button>
             </div>
           </div>
@@ -89,7 +89,7 @@
       </div>
     </div>
 
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
         <div class="modal-header">
           <h3>{{ t('scheduled.create') }}</h3>
@@ -98,22 +98,27 @@
 
         <form @submit.prevent="createScheduledPushHandler" class="modal-body">
           <div class="form-group">
-            <label>任务名称</label>
-            <input v-model="newPush.name" type="text" placeholder="例如: 每日早报" required />
+            <label>{{ t('scheduled.label.taskName') }}</label>
+            <input
+              v-model="newPush.name"
+              type="text"
+              :placeholder="t('templates.namePlaceholder')"
+              required
+            />
           </div>
 
           <div class="form-group">
-            <label>消息内容</label>
+            <label>{{ t('scheduled.label.messageContent') }}</label>
             <textarea
               v-model="newPush.content"
-              placeholder="输入推送内容..."
+              :placeholder="t('templates.contentPlaceholder')"
               rows="3"
               required
             ></textarea>
           </div>
 
           <div class="form-group">
-            <label>执行时间</label>
+            <label>{{ t('scheduled.label.executeTime') }}</label>
             <div class="schedule-type-selector">
               <button
                 type="button"
@@ -121,7 +126,7 @@
                 :class="{ active: scheduleType === 'once' }"
                 @click="scheduleType = 'once'"
               >
-                单次执行
+                {{ t('scheduled.label.executeOnce') }}
               </button>
               <button
                 type="button"
@@ -129,7 +134,7 @@
                 :class="{ active: scheduleType === 'recurring' }"
                 @click="scheduleType = 'recurring'"
               >
-                重复执行
+                {{ t('scheduled.label.repeat') }}
               </button>
             </div>
 
@@ -140,13 +145,13 @@
               </div>
               <div class="quick-schedule">
                 <button type="button" class="btn-quick" @click="setQuickSchedule('1h')">
-                  1小时后
+                  {{ t('label.1HourLater') }}
                 </button>
                 <button type="button" class="btn-quick" @click="setQuickSchedule('tomorrow')">
-                  明天9:00
+                  {{ t('label.tomorrow9am') }}
                 </button>
                 <button type="button" class="btn-quick" @click="setQuickSchedule('nextweek')">
-                  下周一
+                  {{ t('label.nextMonday') }}
                 </button>
               </div>
             </div>
@@ -159,7 +164,7 @@
                   :class="{ active: recurringType === 'hourly' }"
                   @click="recurringType = 'hourly'"
                 >
-                  每小时
+                  {{ t('interval.hourly') }}
                 </button>
                 <button
                   type="button"
@@ -167,7 +172,7 @@
                   :class="{ active: recurringType === 'interval' }"
                   @click="recurringType = 'interval'"
                 >
-                  自定义间隔
+                  {{ t('scheduled.label.customInterval') }}
                 </button>
                 <button
                   type="button"
@@ -175,7 +180,7 @@
                   :class="{ active: recurringType === 'daily' }"
                   @click="recurringType = 'daily'"
                 >
-                  每天
+                  {{ t('scheduled.label.daily') }}
                 </button>
                 <button
                   type="button"
@@ -183,7 +188,7 @@
                   :class="{ active: recurringType === 'weekly' }"
                   @click="recurringType = 'weekly'"
                 >
-                  每周
+                  {{ t('scheduled.label.weekly') }}
                 </button>
                 <button
                   type="button"
@@ -191,7 +196,7 @@
                   :class="{ active: recurringType === 'monthly' }"
                   @click="recurringType = 'monthly'"
                 >
-                  每月
+                  {{ t('scheduled.label.monthly') }}
                 </button>
                 <button
                   type="button"
@@ -199,12 +204,12 @@
                   :class="{ active: recurringType === 'cron' }"
                   @click="recurringType = 'cron'"
                 >
-                  Cron 表达式
+                  {{ t('scheduled.label.cronExpression') }}
                 </button>
               </div>
 
               <div v-if="recurringType === 'interval'" class="interval-input">
-                <label class="interval-label">每</label>
+                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
                 <input
                   v-model.number="intervalHours"
                   type="number"
@@ -212,19 +217,19 @@
                   max="168"
                   class="interval-number"
                 />
-                <label class="interval-label">小时执行一次</label>
+                <label class="interval-label">{{ t('scheduled.label.hoursOnce') }}</label>
               </div>
 
               <div
                 v-if="recurringType !== 'hourly' && recurringType !== 'interval'"
                 class="recurring-time"
               >
-                <label class="recurring-time-label">执行时间</label>
+                <label class="recurring-time-label">{{ t('scheduled.label.executeTime') }}</label>
                 <input v-model="newPush.time" type="time" class="recurring-time-input" required />
               </div>
 
               <div v-if="recurringType === 'weekly'" class="weekday-selector">
-                <label class="weekday-label">选择星期</label>
+                <label class="weekday-label">{{ t('scheduled.label.selectWeekday') }}</label>
                 <div class="weekday-options">
                   <button
                     type="button"
@@ -234,13 +239,13 @@
                     :class="{ active: selectedWeekDays.includes(day.value) }"
                     @click="toggleWeekDay(day.value)"
                   >
-                    {{ day.label }}
+                    {{ t(day.label) }}
                   </button>
                 </div>
               </div>
 
               <div v-if="recurringType === 'monthly'" class="monthday-selector">
-                <label class="weekday-label">选择日期</label>
+                <label class="weekday-label">{{ t('scheduled.label.selectDate') }}</label>
                 <div class="monthday-options">
                   <button
                     type="button"
@@ -256,53 +261,53 @@
               </div>
 
               <div v-if="recurringType === 'cron'" class="cron-input">
-                <label class="cron-label">Cron 表达式</label>
+                <label class="cron-label">{{ t('scheduled.label.cronExpression') }}</label>
                 <input
                   v-model="cronExpression"
                   type="text"
-                  placeholder="* * * * *  (分 时 日 月 周)"
+                  :placeholder="t('scheduled.label.cronPlaceholder')"
                   class="cron-input-field"
                 />
                 <div class="cron-help">
-                  <p class="cron-help-title">常用示例：</p>
-                  <code>*/5 * * * *</code> - 每5分钟<br />
-                  <code>0 */2 * * *</code> - 每2小时<br />
-                  <code>0 9 * * 1-5</code> - 工作日9:00<br />
-                  <code>0 0 1 * *</code> - 每月1号0点<br />
-                  <code>0 9,12,18 * * *</code> - 每天9/12/18点
+                  <p class="cron-help-title">{{ t('scheduled.label.commonExamples') }}</p>
+                  <code>{{ t('scheduled.label.every5Min') }}</code><br />
+                  <code>{{ t('scheduled.label.every2Hour') }}</code><br />
+                  <code>{{ t('scheduled.label.weekday9am') }}</code><br />
+                  <code>{{ t('scheduled.label.month1st0am') }}</code><br />
+                  <code>{{ t('scheduled.label.daily91218') }}</code>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="form-group">
-            <label>目标渠道</label>
+            <label>{{ t('scheduled.label.targetChannels') }}</label>
             <div class="channels-grid">
               <label v-for="ch in availableChannels" :key="ch.id" class="channel-checkbox">
                 <input type="checkbox" :value="ch.id" v-model="newPush.channels" />
                 <span class="channel-icon">{{ ch.icon }}</span>
-                <span class="channel-name">{{ ch.name }}</span>
+                <span>{{ getChannelName(ch.id) }}</span>
               </label>
             </div>
           </div>
 
           <div class="form-group">
-            <label>使用模板 (可选)</label>
+            <label>{{ t('scheduled.label.useTemplate') }}</label>
             <select v-model="newPush.templateId" @change="onTemplateChange">
-              <option value="">不使用模板</option>
-              <option v-for="t in templates" :key="t.id" :value="t.id">
-                {{ t.name }} ({{ (t.channels || []).join(', ') }})
+              <option value="">{{ t('scheduled.label.noTemplate') }}</option>
+              <option v-for="template in templates" :key="template.id" :value="template.id">
+                {{ template.name }} ({{ (template.channels || []).join(', ') }})
               </option>
             </select>
           </div>
 
           <div class="form-group">
-            <label>重试次数</label>
+            <label>{{ t('scheduled.label.maxRetries') }}</label>
             <select v-model="newPush.maxRetries">
-              <option :value="0">不重试</option>
-              <option :value="1">1次</option>
-              <option :value="3">3次</option>
-              <option :value="5">5次</option>
+              <option :value="0">{{ t('scheduled.label.noRetry') }}</option>
+              <option :value="1">{{ t('scheduled.label.once') }}</option>
+              <option :value="3">{{ t('scheduled.label.threeTimes') }}</option>
+              <option :value="5">{{ t('scheduled.label.fiveTimes') }}</option>
             </select>
           </div>
 
@@ -311,7 +316,7 @@
               {{ t('common.cancel') }}
             </button>
             <button type="submit" class="btn btn-primary" :disabled="creating">
-              {{ creating ? t('common.saving') || '创建中...' : '创建定时推送' }}
+              {{ creating ? t('common.saving') : t('scheduled.create') }}
             </button>
           </div>
         </form>
@@ -321,38 +326,23 @@
     <div
       v-if="showDeleteConfirm"
       class="modal-overlay"
-      @click.self="
-        showDeleteConfirm = false;
-        actionTarget = null;
-      "
+      @click.self="showDeleteConfirm = false; actionTarget = null"
     >
       <div class="modal modal-small">
         <div class="modal-header">
-          <h3>确认删除</h3>
-          <button
-            class="btn-close"
-            @click="
-              showDeleteConfirm = false;
-              actionTarget = null;
-            "
-          >
+          <h3>{{ t('scheduled.message.deleteConfirm') }}</h3>
+          <button class="btn-close" @click="showDeleteConfirm = false; actionTarget = null">
             &times;
           </button>
         </div>
         <div class="modal-body">
-          <p>确定要删除定时推送「{{ actionTarget?.title }}」吗？</p>
+          <p>{{ t('scheduled.confirm.deleteScheduled', { title: actionTarget?.title || '' }) }}</p>
           <div class="form-actions">
-            <button
-              class="btn btn-secondary"
-              @click="
-                showDeleteConfirm = false;
-                actionTarget = null;
-              "
-            >
+            <button class="btn btn-secondary" @click="showDeleteConfirm = false; actionTarget = null">
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
-              {{ deleting ? '删除中...' : t('common.delete') }}
+              {{ deleting ? t('label.deleting') : t('common.delete') }}
             </button>
           </div>
         </div>
@@ -362,38 +352,23 @@
     <div
       v-if="showCancelConfirm"
       class="modal-overlay"
-      @click.self="
-        showCancelConfirm = false;
-        actionTarget = null;
-      "
+      @click.self="showCancelConfirm = false; actionTarget = null"
     >
       <div class="modal modal-small">
         <div class="modal-header">
-          <h3>确认取消</h3>
-          <button
-            class="btn-close"
-            @click="
-              showCancelConfirm = false;
-              actionTarget = null;
-            "
-          >
+          <h3>{{ t('scheduled.message.cancel') }}</h3>
+          <button class="btn-close" @click="showCancelConfirm = false; actionTarget = null">
             &times;
           </button>
         </div>
         <div class="modal-body">
-          <p>确定要取消定时推送「{{ actionTarget?.title }}」吗？</p>
+          <p>{{ t('scheduled.confirm.cancelScheduled', { title: actionTarget?.title || '' }) }}</p>
           <div class="form-actions">
-            <button
-              class="btn btn-secondary"
-              @click="
-                showCancelConfirm = false;
-                actionTarget = null;
-              "
-            >
+            <button class="btn btn-secondary" @click="showCancelConfirm = false; actionTarget = null">
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-danger" @click="doCancel" :disabled="deleting">
-              {{ deleting ? '取消中...' : '确认取消' }}
+              {{ deleting ? t('scheduled.message.canceling') : t('scheduled.message.cancel') }}
             </button>
           </div>
         </div>
@@ -403,38 +378,23 @@
     <div
       v-if="showTestConfirm"
       class="modal-overlay"
-      @click.self="
-        showTestConfirm = false;
-        actionTarget = null;
-      "
+      @click.self="showTestConfirm = false; actionTarget = null"
     >
       <div class="modal modal-small">
         <div class="modal-header">
-          <h3>确认测试</h3>
-          <button
-            class="btn-close"
-            @click="
-              showTestConfirm = false;
-              actionTarget = null;
-            "
-          >
+          <h3>{{ t('scheduled.message.testConfirm') }}</h3>
+          <button class="btn-close" @click="showTestConfirm = false; actionTarget = null">
             &times;
           </button>
         </div>
         <div class="modal-body">
-          <p>确定要立即执行推送「{{ actionTarget?.title }}」进行测试吗？</p>
+          <p>{{ t('scheduled.confirm.testScheduled', { title: actionTarget?.title || '' }) }}</p>
           <div class="form-actions">
-            <button
-              class="btn btn-secondary"
-              @click="
-                showTestConfirm = false;
-                actionTarget = null;
-              "
-            >
+            <button class="btn btn-secondary" @click="showTestConfirm = false; actionTarget = null">
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-primary" @click="doTest" :disabled="testRunning">
-              {{ testRunning ? '执行中...' : '确认执行' }}
+              {{ testRunning ? t('scheduled.message.testing') : t('scheduled.message.executeNow') }}
             </button>
           </div>
         </div>
@@ -445,7 +405,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { t } from '@/i18n';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
   getScheduledPushes,
@@ -455,6 +415,7 @@ import {
   getTemplates,
 } from '@/api';
 
+const t = useTranslation();
 const { showToast } = useGlobalToast();
 
 interface ScheduledPush {
@@ -464,7 +425,7 @@ interface ScheduledPush {
   scheduledAt: string;
   channels: string[];
   templateId?: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed';
   createdBy?: string;
 }
 
@@ -486,7 +447,7 @@ const deleting = ref(false);
 const testRunning = ref(false);
 const scheduledPushes = ref<ScheduledPush[]>([]);
 const templates = ref<Template[]>([]);
-const showCreateModal = ref(false);
+const showModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showTestConfirm = ref(false);
 const showCancelConfirm = ref(false);
@@ -503,35 +464,35 @@ const intervalHours = ref(2);
 const cronExpression = ref('');
 
 const weekDays = [
-  { value: 1, label: '一' },
-  { value: 2, label: '二' },
-  { value: 3, label: '三' },
-  { value: 4, label: '四' },
-  { value: 5, label: '五' },
-  { value: 6, label: '六' },
-  { value: 0, label: '日' },
+  { value: 1, label: 'label.monday' },
+  { value: 2, label: 'label.tuesday' },
+  { value: 3, label: 'label.wednesday' },
+  { value: 4, label: 'label.thursday' },
+  { value: 5, label: 'label.friday' },
+  { value: 6, label: 'label.saturday' },
+  { value: 0, label: 'label.sunday' },
 ];
 
 const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const statusFilters = [
-  { value: 'all', label: '全部' },
-  { value: 'pending', label: '待执行' },
-  { value: 'processing', label: '执行中' },
-  { value: 'completed', label: '已完成' },
-  { value: 'failed', label: '失败' },
+  { value: 'all', label: 'scheduled.filter.all' },
+  { value: 'pending', label: 'scheduled.filter.pending' },
+  { value: 'running', label: 'scheduled.filter.running' },
+  { value: 'completed', label: 'scheduled.filter.completed' },
+  { value: 'failed', label: 'scheduled.filter.failed' },
 ];
 
 const availableChannels = [
-  { id: 'wework', name: '企业微信', icon: '💼' },
-  { id: 'dingtalk', name: '钉钉', icon: '🚀' },
-  { id: 'feishu', name: '飞书', icon: '📮' },
-  { id: 'telegram', name: 'Telegram', icon: '✈️' },
-  { id: 'bark', name: 'Bark', icon: '📱' },
-  { id: 'ntfy', name: 'Ntfy', icon: '🔔' },
-  { id: 'email', name: '邮件', icon: '' },
-  { id: 'slack', name: 'Slack', icon: '💼' },
-  { id: 'discord', name: 'Discord', icon: '🎮' },
+  { id: 'wework', icon: '💼' },
+  { id: 'dingtalk', icon: '🚀' },
+  { id: 'feishu', icon: '📮' },
+  { id: 'telegram', icon: '✈️' },
+  { id: 'bark', icon: '📱' },
+  { id: 'ntfy', icon: '🔔' },
+  { id: 'email', icon: '📧' },
+  { id: 'slack', icon: '💼' },
+  { id: 'discord', icon: '🎮' },
 ];
 
 const newPush = ref({
@@ -557,21 +518,21 @@ function getCountByStatus(status: string): number {
 }
 
 function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    pending: '待执行',
-    running: '执行中',
-    completed: '已完成',
-    failed: '失败',
-    cancelled: '已取消',
+  const labelMap: Record<string, string> = {
+    pending: 'scheduled.filter.pending',
+    running: 'scheduled.filter.running',
+    completed: 'scheduled.filter.completed',
+    failed: 'scheduled.filter.failed',
+    cancelled: 'scheduled.filter.pending',
   };
-  return labels[status] || status;
+  return labelMap[status] || status;
 }
 
 function formatDateTime(dateStr: string): string {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return '-';
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(undefined, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -581,18 +542,7 @@ function formatDateTime(dateStr: string): string {
 }
 
 function getChannelName(ch: string): string {
-  const channelMap: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    bark: 'Bark',
-    ntfy: 'Ntfy',
-    email: '邮件',
-    slack: 'Slack',
-    discord: 'Discord',
-  };
-  return channelMap[ch] || ch;
+  return t(`channel.${ch}`) || ch;
 }
 
 function getTemplateName(templateId: string): string {
@@ -600,7 +550,7 @@ function getTemplateName(templateId: string): string {
   return template ? template.name : templateId;
 }
 
-function toggleWeekDay(day: number) {
+function toggleWeekDay(day: number): void {
   const idx = selectedWeekDays.value.indexOf(day);
   if (idx === -1) {
     selectedWeekDays.value.push(day);
@@ -609,7 +559,7 @@ function toggleWeekDay(day: number) {
   }
 }
 
-function toggleMonthDay(day: number) {
+function toggleMonthDay(day: number): void {
   const idx = selectedMonthDays.value.indexOf(day);
   if (idx === -1) {
     selectedMonthDays.value.push(day);
@@ -618,7 +568,7 @@ function toggleMonthDay(day: number) {
   }
 }
 
-function resetForm() {
+function resetForm(): void {
   newPush.value = {
     name: '',
     content: '',
@@ -635,17 +585,17 @@ function resetForm() {
   intervalHours.value = 2;
 }
 
-async function openCreateModal() {
+function openCreateModal(): void {
   resetForm();
-  showCreateModal.value = true;
+  showModal.value = true;
 }
 
-function closeModal() {
-  showCreateModal.value = false;
+function closeModal(): void {
+  showModal.value = false;
   resetForm();
 }
 
-function setQuickSchedule(type: string) {
+function setQuickSchedule(type: string): void {
   const now = new Date();
   switch (type) {
     case '1h':
@@ -666,76 +616,71 @@ function setQuickSchedule(type: string) {
   newPush.value.time = now.toTimeString().slice(0, 5);
 }
 
-function onTemplateChange() {
+function onTemplateChange(): void {
   const template = templates.value.find((t) => t.id === newPush.value.templateId);
   if (template) {
     newPush.value.name = template.name;
     newPush.value.content = template.content;
-    // 自动选择模板的渠道
     if (template.channels && template.channels.length > 0) {
       newPush.value.channels = [...template.channels];
     }
   } else {
-    // 取消选择模板时不清空用户已填写的内容，只清空渠道选择
     newPush.value.channels = [];
   }
 }
 
-async function loadScheduledPushes() {
+async function loadScheduledPushes(): Promise<void> {
   if (!props.accessToken) return;
   loading.value = true;
   try {
     const data = await getScheduledPushes(props.accessToken);
     scheduledPushes.value = data.scheduled || [];
   } catch (error) {
-    console.error('加载定时推送失败:', error);
+    console.error('Failed to load scheduled pushes:', error);
   } finally {
     loading.value = false;
   }
 }
 
-async function loadTemplates() {
+async function loadTemplates(): Promise<void> {
   if (!props.accessToken) return;
   try {
     const data = await getTemplates(props.accessToken);
     templates.value = data.templates || [];
   } catch (error) {
-    console.error('加载模板失败:', error);
+    console.error('Failed to load templates:', error);
   }
 }
 
-async function createScheduledPushHandler() {
+async function createScheduledPushHandler(): Promise<void> {
   if (!props.accessToken) {
-    showToast('请先登录', 'error');
+    showToast(t('message.pleaseLoginFirst'), 'error');
     return;
   }
   if (newPush.value.channels.length === 0) {
-    showToast('请至少选择一个渠道', 'error');
+    showToast(t('message.pleaseSelectChannel'), 'error');
     return;
   }
   if (!newPush.value.name.trim()) {
-    showToast('请输入任务名称', 'error');
+    showToast(t('message.pleaseEnterTaskName'), 'error');
     return;
   }
   if (!newPush.value.content.trim()) {
-    showToast('请输入消息内容', 'error');
+    showToast(t('message.pleaseEnterMessageContent'), 'error');
     return;
   }
 
-  // 构建执行时间
   let scheduledTime = new Date(`${newPush.value.date}T${newPush.value.time}`);
   if (isNaN(scheduledTime.getTime())) {
-    showToast('请选择有效的执行时间', 'error');
+    showToast(t('message.pleaseSelectValidTime'), 'error');
     return;
   }
 
-  // 单次执行：如果时间已过，提示用户
   if (scheduleType.value === 'once' && scheduledTime <= new Date()) {
-    showToast('执行时间必须是将来的时间，请选择明天的日期或更晚的时间', 'error');
+    showToast(t('message.timeMustBeFuture'), 'error');
     return;
   }
 
-  // 重复执行：如果时间已过，自动调整为明天的同一时间
   if (scheduleType.value === 'recurring' && scheduledTime <= new Date()) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -761,7 +706,7 @@ async function createScheduledPushHandler() {
         recurringType.value === 'cron' ? cronExpression.value.trim() || undefined : undefined,
     });
 
-    showCreateModal.value = false;
+    showModal.value = false;
     newPush.value = {
       name: '',
       content: '',
@@ -771,30 +716,29 @@ async function createScheduledPushHandler() {
       templateId: '',
       maxRetries: 3,
     };
-    showToast('创建定时推送成功', 'success');
+    showToast(t('message.createScheduledSuccess'), 'success');
     await loadScheduledPushes();
   } catch (error) {
-    console.error('创建定时推送失败:', error);
-    showToast('创建失败，请重试', 'error');
+    console.error('Failed to create scheduled push:', error);
+    showToast(t('message.createFailedRetry'), 'error');
   } finally {
     creating.value = false;
   }
 }
 
-function confirmDeletePush(push: ScheduledPush) {
+function confirmDeletePush(push: ScheduledPush): void {
   actionTarget.value = push;
   showDeleteConfirm.value = true;
 }
 
-async function doDelete() {
+async function doDelete(): Promise<void> {
   if (!props.accessToken || !actionTarget.value) return;
   deleting.value = true;
   try {
     await deleteScheduledPush(props.accessToken, actionTarget.value.id);
     await loadScheduledPushes();
   } catch (error) {
-    console.error('删除定时推送失败:', error);
-    showToast('删除失败，请重试', 'error');
+    console.error('Failed to delete scheduled push:', error);
   } finally {
     deleting.value = false;
     showDeleteConfirm.value = false;
@@ -802,20 +746,19 @@ async function doDelete() {
   }
 }
 
-function confirmCancelPush(push: ScheduledPush) {
+function confirmCancelPush(push: ScheduledPush): void {
   actionTarget.value = push;
   showCancelConfirm.value = true;
 }
 
-async function doCancel() {
+async function doCancel(): Promise<void> {
   if (!props.accessToken || !actionTarget.value) return;
   deleting.value = true;
   try {
     await cancelScheduledPush(props.accessToken, actionTarget.value.id);
     await loadScheduledPushes();
   } catch (error) {
-    console.error('取消定时推送失败:', error);
-    showToast('取消失败，请重试', 'error');
+    console.error('Failed to cancel scheduled push:', error);
   } finally {
     deleting.value = false;
     showCancelConfirm.value = false;
@@ -823,27 +766,27 @@ async function doCancel() {
   }
 }
 
-function confirmTestPush(push: ScheduledPush) {
+function confirmTestPush(push: ScheduledPush): void {
   actionTarget.value = push;
   showTestConfirm.value = true;
 }
 
-async function doTest() {
+async function doTest(): Promise<void> {
   if (!props.accessToken || !actionTarget.value) return;
   testRunning.value = true;
   try {
     await createScheduledPush(props.accessToken, {
-      title: `[测试] ${actionTarget.value.title}`,
+      title: `[Test] ${actionTarget.value.title}`,
       content: actionTarget.value.content,
       scheduledAt: new Date().toISOString(),
       channels: actionTarget.value.channels,
       templateId: actionTarget.value.templateId,
     });
-    showToast('测试推送已创建并立即执行', 'success');
+    showToast(t('scheduled.message.allSuccess'), 'success');
     await loadScheduledPushes();
   } catch (error) {
-    console.error('测试推送失败:', error);
-    showToast('测试推送失败，请重试', 'error');
+    console.error('Failed to test push:', error);
+    showToast(t('scheduled.message.someFailed'), 'error');
   } finally {
     testRunning.value = false;
     showTestConfirm.value = false;
@@ -856,7 +799,6 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
 onMounted(() => {
   loadScheduledPushes();
   loadTemplates();
-  // 每5秒刷新一次定时推送状态
   refreshTimer = setInterval(() => {
     loadScheduledPushes();
   }, 5000);
@@ -1032,7 +974,7 @@ watch(
 
 .field-label {
   color: #999;
-  min-width: 50px;
+  min-width: 80px;
   flex-shrink: 0;
 }
 
@@ -1068,7 +1010,7 @@ watch(
   color: #667eea;
 }
 
-.status-badge.processing {
+.status-badge.running {
   background: #faad1420;
   color: #faad14;
 }
@@ -1143,6 +1085,10 @@ watch(
   max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.modal-small {
+  max-width: 420px;
 }
 
 .modal-header {
@@ -1431,6 +1377,7 @@ watch(
   border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   cursor: pointer;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
@@ -1444,10 +1391,6 @@ watch(
 
 .channel-icon {
   font-size: 18px;
-}
-
-.channel-name {
-  font-size: 14px;
 }
 
 .form-actions {
@@ -1493,9 +1436,18 @@ watch(
   border-color: #667eea;
 }
 
-.btn-small {
-  padding: 6px 14px;
-  font-size: 13px;
+.btn-danger {
+  background: #ff4d4f;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ff7875;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .spinner {
@@ -1615,11 +1567,6 @@ watch(
     border-top: 1px solid #f5f5f5;
     padding: 12px 16px;
     gap: 8px;
-  }
-
-  .push-actions .action-btn {
-    flex: 1;
-    border-radius: 8px;
   }
 
   .push-name {
@@ -1786,10 +1733,6 @@ watch(
 
   .channel-icon {
     font-size: 16px;
-  }
-
-  .channel-name {
-    font-size: 13px;
   }
 
   .channel-checkbox {

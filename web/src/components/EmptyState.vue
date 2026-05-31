@@ -4,6 +4,7 @@
  * 当没有数据时显示友好的提示
  */
 import { computed } from 'vue';
+import { t } from '@/i18n';
 import { themeState } from '@/stores/theme';
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  title: '暂无数据',
+  title: '',
   icon: '📭',
 });
 

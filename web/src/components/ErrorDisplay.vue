@@ -4,6 +4,7 @@
  * 统一展示错误信息，支持重试功能
  */
 import { computed } from 'vue';
+import { t } from '@/i18n';
 import { themeState } from '@/stores/theme';
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  title: '出错了',
+  title: '',
   showRetry: true,
   compact: false,
 });
@@ -34,11 +35,11 @@ function handleRetry() {
   <div v-if="error" class="error-container" :class="{ dark: isDark, compact }">
     <div class="error-icon">⚠️</div>
     <div class="error-content">
-      <h3 class="error-title">{{ title }}</h3>
+      <h3 class="error-title">{{ title || t('label.errorTitle') }}</h3>
       <p class="error-message">{{ error }}</p>
     </div>
     <button v-if="showRetry" class="retry-button" :class="{ dark: isDark }" @click="handleRetry">
-      🔄 重试
+      🔄 {{ t('button.retry') }}
     </button>
   </div>
 </template>
