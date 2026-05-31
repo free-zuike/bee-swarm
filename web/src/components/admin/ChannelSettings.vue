@@ -176,7 +176,7 @@ defineExpose({
         <div class="channel-card-header" @click="toggleChannelExpand(def.id)">
           <div class="channel-card-info">
             <span class="channel-card-icon">{{ def.icon }}</span>
-            <span class="channel-card-name">{{ def.name }}</span>
+            <span class="channel-card-name">{{ t(`channel.${def.id}`) }}</span>
             <span v-if="hasUnsavedChanges(def.id)" class="unsaved-hint"
               >({{ t('label.unsaved') }})</span
             >
@@ -198,13 +198,13 @@ defineExpose({
         <div v-if="expandedChannels.has(def.id)" class="channel-card-body">
           <div v-for="field in def.fields" :key="field.key" class="form-group">
             <label>
-              {{ field.label }}
+              {{ t(`field.${def.id}.${field.key}`) }}
               <span v-if="field.required" class="required-mark">*</span>
             </label>
             <input
               :type="field.type === 'password' ? 'password' : 'text'"
               :value="getSettingValue(def.id, field.key)"
-              :placeholder="field.placeholder || `${t('label.enter')}${field.label}`"
+              :placeholder="t(`placeholder.${def.id}.${field.key}`) || `${t('label.enter')}${t(`field.${def.id}.${field.key}`)}`"
               @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
             />
           </div>
