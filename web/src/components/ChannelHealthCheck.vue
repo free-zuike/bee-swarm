@@ -5,19 +5,19 @@
         <div class="header-left">
           <div class="header-icon">💚</div>
           <div class="header-text">
-            <h2>渠道健康检查</h2>
-            <p class="header-subtitle">实时监控所有推送渠道的运行状态</p>
+            <h2>{{ t('health.title') }}</h2>
+            <p class="header-subtitle">{{ t('health.subtitle') }}</p>
           </div>
         </div>
         <button class="btn btn-primary" @click="checkAllChannels" :disabled="checking">
           <span v-if="checking" class="btn-spinner"></span>
-          {{ checking ? '检查中...' : '批量检查' }}
+          {{ checking ? t('health.checking') : t('health.batchCheck') }}
         </button>
       </div>
 
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <span>加载中...</span>
+        <span>{{ t('label.loading') }}</span>
       </div>
 
       <template v-else>
@@ -26,21 +26,21 @@
             <div class="summary-icon">📊</div>
             <div class="summary-content">
               <div class="summary-value">{{ totalChannels }}</div>
-              <div class="summary-label">总渠道数</div>
+              <div class="summary-label">{{ t('health.totalChannels') }}</div>
             </div>
           </div>
           <div class="summary-card summary-healthy">
             <div class="summary-icon">✅</div>
             <div class="summary-content">
               <div class="summary-value">{{ healthyCount }}</div>
-              <div class="summary-label">健康</div>
+              <div class="summary-label">{{ t('health.healthy') }}</div>
             </div>
           </div>
           <div class="summary-card summary-warning">
             <div class="summary-icon">⚠️</div>
             <div class="summary-content">
               <div class="summary-value">{{ warningCount }}</div>
-              <div class="summary-label">需关注</div>
+              <div class="summary-label">{{ t('health.warning') }}</div>
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@
               :disabled="testingChannel === ch.channel"
             >
               <span v-if="testingChannel === ch.channel" class="btn-spinner-sm"></span>
-              {{ testingChannel === ch.channel ? '测试中...' : '测试' }}
+              {{ testingChannel === ch.channel ? t('health.testing') : t('health.test') }}
             </button>
           </div>
         </div>
@@ -92,23 +92,23 @@
           <div class="test-result-header">
             <div class="result-icon">{{ testResult.healthy ? '✅' : '❌' }}</div>
             <div class="result-header-text">
-              <h4>{{ getChannelName(testResult.channel) }} 测试结果</h4>
-              <p class="result-header-sub">渠道健康检查报告</p>
+              <h4>{{ getChannelName(testResult.channel) }} {{ t('health.testResult') }}</h4>
+              <p class="result-header-sub">{{ t('health.report') }}</p>
             </div>
           </div>
           <div class="result-content">
             <div class="result-row">
-              <span class="result-label">状态</span>
+              <span class="result-label">{{ t('health.status') }}</span>
               <span class="result-value" :class="{ healthy: testResult.healthy }">
-                {{ testResult.healthy ? '渠道正常' : '测试失败' }}
+                {{ testResult.healthy ? t('health.channelNormal') : t('health.testFailed') }}
               </span>
             </div>
             <div class="result-row">
-              <span class="result-label">详情</span>
+              <span class="result-label">{{ t('health.detail') }}</span>
               <span class="result-value">{{ testResult.message }}</span>
             </div>
             <div class="result-row">
-              <span class="result-label">时间</span>
+              <span class="result-label">{{ t('health.time') }}</span>
               <span class="result-value">{{ formatTime(testResult.testedAt) }}</span>
             </div>
           </div>
@@ -120,6 +120,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import { checkAllChannelsHealth, testChannelHealth } from '@/api';
 import type { PushChannel, ChannelHealth } from '@/types';
@@ -162,18 +163,7 @@ function getChannelIcon(channel: string): string {
 }
 
 function getChannelName(channel: string): string {
-  const names: Record<string, string> = {
-    wework: '企业微信',
-    dingtalk: '钉钉',
-    feishu: '飞书',
-    telegram: 'Telegram',
-    bark: 'Bark',
-    ntfy: 'ntfy',
-    email: '邮件',
-    slack: 'Slack',
-    discord: 'Discord',
-  };
-  return names[channel] || channel;
+  return t(`channel.${channel}`) || channel;
 }
 
 function getCardClass(ch: ChannelHealth): string {
@@ -187,13 +177,13 @@ function getStatusClass(ch: ChannelHealth): string {
 }
 
 function getStatusText(ch: ChannelHealth): string {
-  if (ch.healthy) return '健康';
-  return '需关注';
+  if (ch.healthy) return t('health.healthy');
+  return t('health.warning');
 }
 
 function formatTime(time: string): string {
   try {
-    return new Date(time).toLocaleString('zh-CN');
+    return new Date(time).toLocaleString();
   } catch {
     return time;
   }
@@ -205,10 +195,10 @@ async function checkAllChannels() {
     const data = await checkAllChannelsHealth(props.accessToken);
     channelResults.value = data.channels || [];
     if (data.channels.length > 0) {
-      showToast('渠道检查完成', 'success');
+      showToast(t('health.checkComplete'), 'success');
     }
   } catch (err: unknown) {
-    showToast((err as Error).message || '渠道检查失败', 'error');
+    showToast((err as Error).message || t('health.checkFailed'), 'error');
   } finally {
     checking.value = false;
   }
@@ -222,7 +212,6 @@ async function testSingleChannel(channel: PushChannel) {
     const result = await testChannelHealth(props.accessToken, channel);
     testResult.value = result;
 
-    // 更新列表中的状态
     const idx = channelResults.value.findIndex((ch) => ch.channel === channel);
     if (idx >= 0) {
       channelResults.value[idx] = {
@@ -234,12 +223,12 @@ async function testSingleChannel(channel: PushChannel) {
     }
 
     if (result.healthy) {
-      showToast(`${getChannelName(channel)} 测试成功`, 'success');
+      showToast(t('health.testSuccess', { channel: getChannelName(channel) }), 'success');
     } else {
-      showToast(`${getChannelName(channel)} 测试失败: ${result.message}`, 'error');
+      showToast(t('health.testFail', { channel: getChannelName(channel) }) + ': ' + result.message, 'error');
     }
   } catch (err: unknown) {
-    showToast((err as Error).message || '测试失败', 'error');
+    showToast((err as Error).message || t('health.testError'), 'error');
   } finally {
     testingChannel.value = null;
   }

@@ -2,26 +2,26 @@
   <div class="webhook-manager">
     <div class="panel">
       <div class="panel-header">
-        <h2>🔗 Webhook 触发推送</h2>
+        <h2>🔗 {{ t('webhook.title') }}</h2>
       </div>
 
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <span>加载中...</span>
+        <span>{{ t('label.loading') }}</span>
       </div>
 
       <template v-else>
         <div class="webhook-url-section">
-          <h3>Webhook URL</h3>
+          <h3>{{ t('webhook.url') }}</h3>
           <div class="url-display">
             <code class="url-text">{{ webhookUrl }}</code>
-            <button class="btn btn-sm btn-icon" @click="copyWebhookUrl" title="复制 URL"></button>
+            <button class="btn btn-sm btn-icon" @click="copyWebhookUrl" :title="t('webhook.copyUrl')"></button>
           </div>
-          <p class="hint">使用 API Key 作为 Bearer Token 发送 POST 请求到此 URL 来触发推送</p>
+          <p class="hint">{{ t('webhook.hint') }}</p>
         </div>
 
         <div class="example-section">
-          <h3>使用示例</h3>
+          <h3>{{ t('webhook.examples') }}</h3>
 
           <div class="example-tabs">
             <button
@@ -36,14 +36,14 @@
 
           <div class="example-code">
             <pre><code>{{ exampleCode }}</code></pre>
-            <button class="btn btn-sm btn-icon" @click="copyExampleCode" title="复制代码">
+            <button class="btn btn-sm btn-icon" @click="copyExampleCode" :title="t('button.copy_code')">
               📋
             </button>
           </div>
         </div>
 
         <div class="info-section">
-          <h3>请求格式</h3>
+          <h3>{{ t('webhook.requestFormat') }}</h3>
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">Method</span>
@@ -59,37 +59,37 @@
             </div>
           </div>
 
-          <h3 style="margin-top: 16px">请求体</h3>
+          <h3 style="margin-top: 16px">{{ t('webhook.requestBody') }}</h3>
           <div class="schema-table">
             <div class="schema-row header">
-              <span>字段</span>
-              <span>类型</span>
-              <span>必填</span>
-              <span>说明</span>
+              <span>{{ t('webhook.field') }}</span>
+              <span>{{ t('webhook.type') }}</span>
+              <span>{{ t('webhook.required') }}</span>
+              <span>{{ t('webhook.description') }}</span>
             </div>
             <div class="schema-row">
               <code>title</code>
               <span>string</span>
-              <span>是</span>
-              <span>推送标题</span>
+              <span>{{ t('webhook.yes') }}</span>
+              <span>{{ t('webhook.pushTitle') }}</span>
             </div>
             <div class="schema-row">
               <code>content</code>
               <span>string</span>
-              <span>否</span>
-              <span>推送内容</span>
+              <span>{{ t('webhook.no') }}</span>
+              <span>{{ t('webhook.pushContent') }}</span>
             </div>
             <div class="schema-row">
               <code>channels</code>
               <span>string[]</span>
-              <span>否</span>
-              <span>指定推送渠道，不传则推送到所有已启用的渠道</span>
+              <span>{{ t('webhook.no') }}</span>
+              <span>{{ t('webhook.targetChannels') }}</span>
             </div>
             <div class="schema-row">
               <code>url</code>
               <span>string</span>
-              <span>否</span>
-              <span>跳转链接</span>
+              <span>{{ t('webhook.no') }}</span>
+              <span>{{ t('webhook.jumpLink') }}</span>
             </div>
           </div>
         </div>
@@ -100,6 +100,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { t } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import { getWebhookUrl } from '@/api';
 
@@ -122,8 +123,8 @@ const exampleCode = computed(() => {
   -H 'Authorization: Bearer YOUR_API_KEY' \\
   -H 'Content-Type: application/json' \\
   -d '{
-    "title": "部署完成",
-    "content": "v1.2.3 已成功部署到生产环境",
+    "title": "${t('webhook.example.deploymentComplete')}",
+    "content": "${t('webhook.example.version')}",
     "channels": ["wework", "dingtalk"]
   }'`;
     case 'javascript':
@@ -134,8 +135,8 @@ const exampleCode = computed(() => {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    title: '部署完成',
-    content: 'v1.2.3 已成功部署到生产环境',
+    title: '${t('webhook.example.deploymentComplete')}',
+    content: '${t('webhook.example.version')}',
     channels: ['wework', 'dingtalk'],
   })
 }).then(res => res.json())
@@ -150,8 +151,8 @@ response = requests.post(
         'Content-Type': 'application/json',
     },
     json={
-        'title': '部署完成',
-        'content': 'v1.2.3 已成功部署到生产环境',
+        'title': '${t('webhook.example.deploymentComplete')}',
+        'content': '${t('webhook.example.version')}',
         'channels': ['wework', 'dingtalk'],
     }
 )
@@ -166,8 +167,8 @@ async function loadWebhookUrl() {
     const data = await getWebhookUrl(props.accessToken);
     webhookUrl.value = data.webhookUrl;
   } catch (_err) {
-    console.error('获取 Webhook URL 失败:', _err);
-    showToast('获取 Webhook URL 失败', 'error');
+    console.error('Failed to get Webhook URL:', _err);
+    showToast(t('webhook.loadFailed'), 'error');
   }
 }
 
@@ -175,18 +176,18 @@ async function copyWebhookUrl() {
   if (!webhookUrl.value) return;
   try {
     await navigator.clipboard.writeText(webhookUrl.value);
-    showToast('已复制到剪贴板', 'success');
+    showToast(t('webhook.copied'), 'success');
   } catch (_err) {
-    showToast('复制失败', 'error');
+    showToast(t('webhook.copyFailed'), 'error');
   }
 }
 
 async function copyExampleCode() {
   try {
     await navigator.clipboard.writeText(exampleCode.value);
-    showToast('代码已复制', 'success');
+    showToast(t('webhook.codeCopied'), 'success');
   } catch (_err) {
-    showToast('复制失败', 'error');
+    showToast(t('webhook.copyFailed'), 'error');
   }
 }
 
