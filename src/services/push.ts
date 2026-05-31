@@ -80,6 +80,9 @@ export interface ScheduledPush {
   cronExpression?: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   createdBy: string;
+  createdAt?: string;
+  completedAt?: string;
+  results?: ChannelResult[];
 }
 
 type PushParams = {
