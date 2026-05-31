@@ -329,13 +329,17 @@ export interface ScheduledPush {
   /** 调度类型：一次性或重复 */
   scheduleType?: 'once' | 'recurring';
   /** 重复类型 */
-  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron';
+  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear';
   /** 每周选择的星期几（0-6） */
   selectedWeekDays?: number[];
   /** 每月选择的日期（1-31） */
   selectedMonthDays?: number[];
   /** 间隔小时数（仅 interval 类型） */
   intervalHours?: number;
+  /** 间隔月数（仅 intervalMonth 类型） */
+  intervalMonths?: number;
+  /** 间隔年数（仅 intervalYear 类型） */
+  intervalYears?: number;
   /** Cron 表达式（仅 cron 类型） */
   cronExpression?: string;
   /** 任务状态 */

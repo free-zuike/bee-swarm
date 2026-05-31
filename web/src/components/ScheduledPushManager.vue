@@ -37,9 +37,14 @@
               <div class="push-top">
                 <div class="push-name-row">
                   <h3 class="push-name">{{ push.title }}</h3>
-                  <span class="status-badge" :class="push.status">
-                    {{ t(getStatusLabel(push.status)) }}
-                  </span>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <span class="status-badge" :class="push.status" style="margin: 0;">
+                      {{ t(getStatusLabel(push.status)) }}
+                    </span>
+                    <span class="type-badge" :class="push.scheduleType || 'once'">
+                      {{ push.scheduleType === 'recurring' ? t('scheduled.scheduleType.recurring') : t('scheduled.scheduleType.once') }}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div class="push-body">
@@ -201,6 +206,30 @@
                 <button
                   type="button"
                   class="recurring-btn"
+                  :class="{ active: recurringType === 'intervalMonth' }"
+                  @click="recurringType = 'intervalMonth'"
+                >
+                  {{ t('scheduled.label.everyMonths') }}
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'yearly' }"
+                  @click="recurringType = 'yearly'"
+                >
+                  {{ t('scheduled.label.yearly') }}
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'intervalYear' }"
+                  @click="recurringType = 'intervalYear'"
+                >
+                  {{ t('scheduled.label.everyYears') }}
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
                   :class="{ active: recurringType === 'cron' }"
                   @click="recurringType = 'cron'"
                 >
@@ -220,8 +249,32 @@
                 <label class="interval-label">{{ t('scheduled.label.hoursOnce') }}</label>
               </div>
 
+              <div v-if="recurringType === 'intervalMonth'" class="interval-input">
+                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
+                <input
+                  v-model.number="intervalMonths"
+                  type="number"
+                  min="1"
+                  max="120"
+                  class="interval-number"
+                />
+                <label class="interval-label">{{ t('scheduled.label.monthsOnce') }}</label>
+              </div>
+
+              <div v-if="recurringType === 'intervalYear'" class="interval-input">
+                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
+                <input
+                  v-model.number="intervalYears"
+                  type="number"
+                  min="1"
+                  max="100"
+                  class="interval-number"
+                />
+                <label class="interval-label">{{ t('scheduled.label.yearsOnce') }}</label>
+              </div>
+
               <div
-                v-if="recurringType !== 'hourly' && recurringType !== 'interval'"
+                v-if="recurringType !== 'hourly' && recurringType !== 'interval' && recurringType !== 'intervalMonth' && recurringType !== 'intervalYear'"
                 class="recurring-time"
               >
                 <label class="recurring-time-label">{{ t('scheduled.label.executeTime') }}</label>
@@ -427,6 +480,8 @@ interface ScheduledPush {
   templateId?: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   createdBy?: string;
+  scheduleType?: 'once' | 'recurring';
+  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear';
 }
 
 interface Template {
@@ -457,10 +512,12 @@ const filterStatus = ref<string>('all');
 const today = new Date().toISOString().split('T')[0];
 
 const scheduleType = ref<'once' | 'recurring'>('once');
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear'>('daily');
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
 const selectedMonthDays = ref<number[]>([1, 15]);
 const intervalHours = ref(2);
+const intervalMonths = ref(1);
+const intervalYears = ref(1);
 const cronExpression = ref('');
 
 const weekDays = [
@@ -583,6 +640,8 @@ function resetForm(): void {
   selectedWeekDays.value = [1, 2, 3, 4, 5];
   selectedMonthDays.value = [1, 15];
   intervalHours.value = 2;
+  intervalMonths.value = 1;
+  intervalYears.value = 1;
 }
 
 function openCreateModal(): void {
@@ -702,6 +761,8 @@ async function createScheduledPushHandler(): Promise<void> {
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
       intervalHours: recurringType.value === 'interval' ? intervalHours.value : undefined,
+      intervalMonths: recurringType.value === 'intervalMonth' ? intervalMonths.value : undefined,
+      intervalYears: recurringType.value === 'intervalYear' ? intervalYears.value : undefined,
       cronExpression:
         recurringType.value === 'cron' ? cronExpression.value.trim() || undefined : undefined,
     });
@@ -1023,6 +1084,23 @@ watch(
 .status-badge.failed {
   background: #ff4d4f20;
   color: #ff4d4f;
+}
+
+.type-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.type-badge.once {
+  background: #13c2c220;
+  color: #13c2c2;
+}
+
+.type-badge.recurring {
+  background: #722ed120;
+  color: #722ed1;
 }
 
 .action-btn {

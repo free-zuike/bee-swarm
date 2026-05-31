@@ -323,6 +323,26 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       break;
     }
 
+    case 'intervalMonth': {
+      const intervalMonths = push.intervalMonths || 1;
+      nextTime.setMonth(nextTime.getMonth() + intervalMonths);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'yearly': {
+      nextTime.setFullYear(nextTime.getFullYear() + 1);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
+    case 'intervalYear': {
+      const intervalYears = push.intervalYears || 1;
+      nextTime.setFullYear(nextTime.getFullYear() + intervalYears);
+      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+      break;
+    }
+
     case 'cron':
     default: {
       // 对于 cron 或其他类型，默认加一天
