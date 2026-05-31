@@ -239,10 +239,16 @@ const activeFilters = computed(() => {
             {{ t('label.deselect') }}
           </button>
           <div class="export-buttons">
-            <button class="btn btn-sm btn-secondary" @click="handleExportCSV">📊 {{ t('label.export_csv') }}</button>
-            <button class="btn btn-sm btn-secondary" @click="handleExportJSON">📋 {{ t('label.export_json') }}</button>
+            <button class="btn btn-sm btn-secondary" @click="handleExportCSV">
+              📊 {{ t('label.export_csv') }}
+            </button>
+            <button class="btn btn-sm btn-secondary" @click="handleExportJSON">
+              📋 {{ t('label.export_json') }}
+            </button>
           </div>
-          <button class="btn btn-sm btn-danger" @click="emit('clear')">🗑️ {{ t('label.clear_all') }}</button>
+          <button class="btn btn-sm btn-danger" @click="emit('clear')">
+            🗑️ {{ t('label.clear_all') }}
+          </button>
         </div>
       </div>
 
@@ -291,7 +297,9 @@ const activeFilters = computed(() => {
               <option value="failed">{{ t('label.status_all_failed') }}</option>
             </select>
           </div>
-          <button class="btn btn-sm btn-secondary" @click="resetFilters">{{ t('label.reset') }}</button>
+          <button class="btn btn-sm btn-secondary" @click="resetFilters">
+            {{ t('label.reset') }}
+          </button>
         </div>
       </div>
 
@@ -314,7 +322,11 @@ const activeFilters = computed(() => {
               :checked="selectedIds.size === history.length && history.length > 0"
               @change="selectAll"
             />
-            <span>{{ selectedIds.size > 0 ? t('label.items_selected', { count: selectedIds.size }) : t('label.select_all') }}</span>
+            <span>{{
+              selectedIds.size > 0
+                ? t('label.items_selected', { count: selectedIds.size })
+                : t('label.select_all')
+            }}</span>
           </label>
         </div>
 
@@ -341,7 +353,9 @@ const activeFilters = computed(() => {
                     <span class="meta-status" :class="record.status">
                       {{ getStatusLabel(record.status) }}
                     </span>
-                    <span class="meta-avg-latency">⏱️ {{ t('label.avg') }} {{ getAvgLatency(record) }}</span>
+                    <span class="meta-avg-latency"
+                      >⏱️ {{ t('label.avg') }} {{ getAvgLatency(record) }}</span
+                    >
                     <span v-if="getTotalRetries(record) > 0" class="meta-retries">
                       🔄 {{ t('label.retries_count', { count: getTotalRetries(record) }) }}
                     </span>
@@ -446,7 +460,9 @@ const activeFilters = computed(() => {
         <p>{{ t('message.confirm_delete_records', { count: selectedIds.size }) }}</p>
         <p class="modal-hint">{{ t('message.operation_irreversible') }}</p>
         <div class="form-actions">
-          <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">{{ t('button.cancel') }}</button>
+          <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">
+            {{ t('button.cancel') }}
+          </button>
           <button class="btn btn-danger" @click="batchDeleteSelected" :disabled="batchDeleting">
             {{ batchDeleting ? t('button.deleting') : t('button.confirm_delete') }}
           </button>

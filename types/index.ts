@@ -329,7 +329,16 @@ export interface ScheduledPush {
   /** 调度类型：一次性或重复 */
   scheduleType?: 'once' | 'recurring';
   /** 重复类型 */
-  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear';
+  recurringType?:
+    | 'hourly'
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'interval'
+    | 'cron'
+    | 'intervalMonth'
+    | 'yearly'
+    | 'intervalYear';
   /** 每周选择的星期几（0-6） */
   selectedWeekDays?: number[];
   /** 每月选择的日期（1-31） */

@@ -15,7 +15,11 @@
           <h3>{{ t('webhook.url') }}</h3>
           <div class="url-display">
             <code class="url-text">{{ webhookUrl }}</code>
-            <button class="btn btn-sm btn-icon" @click="copyWebhookUrl" :title="t('webhook.copyUrl')"></button>
+            <button
+              class="btn btn-sm btn-icon"
+              @click="copyWebhookUrl"
+              :title="t('webhook.copyUrl')"
+            ></button>
           </div>
           <p class="hint">{{ t('webhook.hint') }}</p>
         </div>
@@ -36,7 +40,11 @@
 
           <div class="example-code">
             <pre><code>{{ exampleCode }}</code></pre>
-            <button class="btn btn-sm btn-icon" @click="copyExampleCode" :title="t('button.copy_code')">
+            <button
+              class="btn btn-sm btn-icon"
+              @click="copyExampleCode"
+              :title="t('button.copy_code')"
+            >
               📋
             </button>
           </div>

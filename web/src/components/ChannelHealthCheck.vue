@@ -67,7 +67,9 @@
                   {{ getStatusText(ch) }}
                 </span>
               </div>
-              <p class="status-message" v-if="!ch.healthy && ch.message">{{ translateBackendMessage(ch.message) }}</p>
+              <p class="status-message" v-if="!ch.healthy && ch.message">
+                {{ translateBackendMessage(ch.message) }}
+              </p>
               <p class="status-tested" v-if="ch.testedAt">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -185,15 +187,15 @@ function getStatusClass(ch: ChannelHealth): string {
 
 function translateBackendMessage(msg: string): string {
   const messageMap: Record<string, string> = {
-    '渠道未配置': 'message.channel_not_configured',
-    '没有已启用的推送渠道': 'message.no_enabled_channel',
+    渠道未配置: 'message.channel_not_configured',
+    没有已启用的推送渠道: 'message.no_enabled_channel',
   };
-  
+
   const key = messageMap[msg];
   if (key) {
     return t(key);
   }
-  
+
   return msg;
 }
 
@@ -246,7 +248,12 @@ async function testSingleChannel(channel: PushChannel) {
     if (result.healthy) {
       showToast(t('health.testSuccess', { channel: getChannelName(channel) }), 'success');
     } else {
-      showToast(t('health.testFail', { channel: getChannelName(channel) }) + ': ' + translateBackendMessage(result.message), 'error');
+      showToast(
+        t('health.testFail', { channel: getChannelName(channel) }) +
+          ': ' +
+          translateBackendMessage(result.message),
+        'error'
+      );
     }
   } catch (err: unknown) {
     showToast((err as Error).message || t('health.testError'), 'error');

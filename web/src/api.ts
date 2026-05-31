@@ -588,7 +588,16 @@ export async function createScheduledPush(
     scheduledAt: string;
     templateId?: string;
     scheduleType?: 'once' | 'recurring';
-    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear';
+    recurringType?:
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'interval'
+      | 'cron'
+      | 'intervalMonth'
+      | 'yearly'
+      | 'intervalYear';
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
     intervalHours?: number;
@@ -597,11 +606,15 @@ export async function createScheduledPush(
     cronExpression?: string;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
-  const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(`${BASE}/admin/scheduled`, token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(push),
-  });
+  const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(
+    `${BASE}/admin/scheduled`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(push),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/scheduled`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
@@ -615,7 +628,11 @@ export async function cancelScheduledPush(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest<{ success: boolean; message: string }>(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/scheduled/${id}`,
+    token,
+    { method: 'DELETE' }
+  );
   apiCache.invalidate(`${BASE}/admin/scheduled`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
@@ -629,7 +646,11 @@ export async function deleteScheduledPush(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest<{ success: boolean; message: string }>(`${BASE}/admin/scheduled/${id}`, token, { method: 'DELETE' });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/scheduled/${id}`,
+    token,
+    { method: 'DELETE' }
+  );
   apiCache.invalidate(`${BASE}/admin/scheduled`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);

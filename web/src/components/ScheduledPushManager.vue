@@ -37,12 +37,16 @@
               <div class="push-top">
                 <div class="push-name-row">
                   <h3 class="push-name">{{ push.title }}</h3>
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                    <span class="status-badge" :class="push.status" style="margin: 0;">
+                  <div style="display: flex; gap: 8px; align-items: center">
+                    <span class="status-badge" :class="push.status" style="margin: 0">
                       {{ t(getStatusLabel(push.status)) }}
                     </span>
                     <span class="type-badge" :class="push.scheduleType || 'once'">
-                      {{ push.scheduleType === 'recurring' ? t('scheduled.scheduleType.recurring') : t('scheduled.scheduleType.once') }}
+                      {{
+                        push.scheduleType === 'recurring'
+                          ? t('scheduled.scheduleType.recurring')
+                          : t('scheduled.scheduleType.once')
+                      }}
                     </span>
                   </div>
                 </div>
@@ -90,7 +94,7 @@
                 class="action-btn action-renew"
                 @click="openRenewModal(push)"
               >
-                {{ t('scheduled.button.renew') || '续订' }}
+                {{ t('scheduled.button.renew') }}
               </button>
               <button class="action-btn action-delete" @click="confirmDeletePush(push)">
                 {{ t('common.delete') }}
@@ -212,10 +216,7 @@
                 </button>
               </div>
 
-              <div
-                v-if="recurringType !== 'hourly'"
-                class="recurring-time"
-              >
+              <div v-if="recurringType !== 'hourly'" class="recurring-time">
                 <label class="recurring-time-label">{{ t('scheduled.label.executeTime') }}</label>
                 <input v-model="newPush.time" type="time" class="recurring-time-input" required />
               </div>
@@ -262,10 +263,14 @@
                 />
                 <div class="cron-help">
                   <p class="cron-help-title">{{ t('scheduled.label.commonExamples') }}</p>
-                  <code>{{ t('scheduled.label.every5Min') }}</code><br />
-                  <code>{{ t('scheduled.label.every2Hour') }}</code><br />
-                  <code>{{ t('scheduled.label.weekday9am') }}</code><br />
-                  <code>{{ t('scheduled.label.month1st0am') }}</code><br />
+                  <code>{{ t('scheduled.label.every5Min') }}</code
+                  ><br />
+                  <code>{{ t('scheduled.label.every2Hour') }}</code
+                  ><br />
+                  <code>{{ t('scheduled.label.weekday9am') }}</code
+                  ><br />
+                  <code>{{ t('scheduled.label.month1st0am') }}</code
+                  ><br />
                   <code>{{ t('scheduled.label.daily91218') }}</code>
                 </div>
               </div>
@@ -288,7 +293,9 @@
             <select v-model="newPush.templateId" @change="onTemplateChange">
               <option value="">{{ t('scheduled.label.noTemplate') }}</option>
               <option v-for="template in templates" :key="template.id" :value="template.id">
-                {{ template.name }} ({{ (template.channels || []).map(ch => getChannelName(ch)).join(', ') }})
+                {{ template.name }} ({{
+                  (template.channels || []).map((ch) => getChannelName(ch)).join(', ')
+                }})
               </option>
             </select>
           </div>
@@ -318,19 +325,34 @@
     <div
       v-if="showDeleteConfirm"
       class="modal-overlay"
-      @click.self="showDeleteConfirm = false; actionTarget = null"
+      @click.self="
+        showDeleteConfirm = false;
+        actionTarget = null;
+      "
     >
       <div class="modal modal-small">
         <div class="modal-header">
           <h3>{{ t('scheduled.message.deleteConfirm') }}</h3>
-          <button class="btn-close" @click="showDeleteConfirm = false; actionTarget = null">
+          <button
+            class="btn-close"
+            @click="
+              showDeleteConfirm = false;
+              actionTarget = null;
+            "
+          >
             &times;
           </button>
         </div>
         <div class="modal-body">
           <p>{{ t('scheduled.confirm.deleteScheduled', { title: actionTarget?.title || '' }) }}</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showDeleteConfirm = false; actionTarget = null">
+            <button
+              class="btn btn-secondary"
+              @click="
+                showDeleteConfirm = false;
+                actionTarget = null;
+              "
+            >
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
@@ -344,19 +366,34 @@
     <div
       v-if="showCancelConfirm"
       class="modal-overlay"
-      @click.self="showCancelConfirm = false; actionTarget = null"
+      @click.self="
+        showCancelConfirm = false;
+        actionTarget = null;
+      "
     >
       <div class="modal modal-small">
         <div class="modal-header">
           <h3>{{ t('scheduled.message.cancel') }}</h3>
-          <button class="btn-close" @click="showCancelConfirm = false; actionTarget = null">
+          <button
+            class="btn-close"
+            @click="
+              showCancelConfirm = false;
+              actionTarget = null;
+            "
+          >
             &times;
           </button>
         </div>
         <div class="modal-body">
           <p>{{ t('scheduled.confirm.cancelScheduled', { title: actionTarget?.title || '' }) }}</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showCancelConfirm = false; actionTarget = null">
+            <button
+              class="btn btn-secondary"
+              @click="
+                showCancelConfirm = false;
+                actionTarget = null;
+              "
+            >
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-danger" @click="doCancel" :disabled="deleting">
@@ -370,19 +407,34 @@
     <div
       v-if="showTestConfirm"
       class="modal-overlay"
-      @click.self="showTestConfirm = false; actionTarget = null"
+      @click.self="
+        showTestConfirm = false;
+        actionTarget = null;
+      "
     >
       <div class="modal modal-small">
         <div class="modal-header">
           <h3>{{ t('scheduled.message.testConfirm') }}</h3>
-          <button class="btn-close" @click="showTestConfirm = false; actionTarget = null">
+          <button
+            class="btn-close"
+            @click="
+              showTestConfirm = false;
+              actionTarget = null;
+            "
+          >
             &times;
           </button>
         </div>
         <div class="modal-body">
           <p>{{ t('scheduled.confirm.testScheduled', { title: actionTarget?.title || '' }) }}</p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showTestConfirm = false; actionTarget = null">
+            <button
+              class="btn btn-secondary"
+              @click="
+                showTestConfirm = false;
+                actionTarget = null;
+              "
+            >
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-primary" @click="doTest" :disabled="testRunning">
@@ -420,7 +472,16 @@ interface ScheduledPush {
   status: 'pending' | 'running' | 'completed' | 'failed';
   createdBy?: string;
   scheduleType?: 'once' | 'recurring';
-  recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron' | 'intervalMonth' | 'yearly' | 'intervalYear';
+  recurringType?:
+    | 'hourly'
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'interval'
+    | 'cron'
+    | 'intervalMonth'
+    | 'yearly'
+    | 'intervalYear';
 }
 
 interface Template {
@@ -445,7 +506,6 @@ const showModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showTestConfirm = ref(false);
 const showCancelConfirm = ref(false);
-const showRenewModal = ref(false);
 const actionTarget = ref<ScheduledPush | null>(null);
 const renewPush = ref<ScheduledPush | null>(null);
 const filterStatus = ref<string>('all');
@@ -596,7 +656,12 @@ function openRenewModal(push: ScheduledPush): void {
     scheduleType.value = push.scheduleType;
   }
   if (push.recurringType) {
-    recurringType.value = push.recurringType as any;
+    recurringType.value = push.recurringType as
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'yearly';
   }
   showModal.value = true;
 }

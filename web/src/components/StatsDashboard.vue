@@ -22,7 +22,9 @@
 
       <div v-else-if="error" class="error-state">
         <p>{{ error }}</p>
-        <button class="btn btn-primary" @click="loadData">{{ t('common.retry') || t('label.retry') }}</button>
+        <button class="btn btn-primary" @click="loadData">
+          {{ t('common.retry') || t('label.retry') }}
+        </button>
       </div>
 
       <div v-else class="stats-content">

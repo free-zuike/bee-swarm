@@ -274,53 +274,67 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
 
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-      const currentDay = nextTime.getDay();
-      let daysToAdd = 1;
+
+      // 确保我们有一个有效的日期作为基础
+      const baseTime = new Date(nowDate);
+      baseTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+
+      // 先检查今天是否符合条件，如果还没到时间就用今天
+      if (baseTime > nowDate && selectedWeekDays.includes(baseTime.getDay())) {
+        return baseTime.toISOString();
+      }
 
       // 找到下一个符合条件的星期
       for (let i = 1; i <= 7; i++) {
-        const nextDay = (currentDay + i) % 7;
-        if (selectedWeekDays.includes(nextDay)) {
-          daysToAdd = i;
-          break;
+        const checkDate = new Date(baseTime);
+        checkDate.setDate(baseTime.getDate() + i);
+        if (selectedWeekDays.includes(checkDate.getDay())) {
+          return checkDate.toISOString();
         }
       }
 
-      nextTime.setDate(nextTime.getDate() + daysToAdd);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      // 默认下一周同一天
+      baseTime.setDate(baseTime.getDate() + 7);
+      return baseTime.toISOString();
     }
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-      const currentDate = nextTime.getDate();
-      const currentMonth = nextTime.getMonth();
-      const currentYear = nextTime.getFullYear();
+
+      // 确保我们有一个有效的日期作为基础
+      const baseTime = new Date(nowDate);
+      baseTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+
+      // 先检查今天是否符合条件，如果还没到时间就用今天
+      if (baseTime > nowDate && selectedMonthDays.includes(baseTime.getDate())) {
+        return baseTime.toISOString();
+      }
 
       // 找到下一个符合条件的日期
-      let nextDay = null;
-      for (const day of selectedMonthDays) {
-        if (day > currentDate) {
-          nextDay = day;
-          break;
+      for (let i = 1; i <= 31; i++) {
+        const checkDate = new Date(baseTime);
+        checkDate.setDate(baseTime.getDate() + i);
+
+        // 处理月末
+        const lastDayOfMonth = new Date(
+          checkDate.getFullYear(),
+          checkDate.getMonth() + 1,
+          0
+        ).getDate();
+
+        for (const day of selectedMonthDays) {
+          // 如果选中的日期超过了本月最后一天，就用最后一天
+          const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
+
+          if (checkDate.getDate() === effectiveDay) {
+            return checkDate.toISOString();
+          }
         }
       }
 
-      if (nextDay === null) {
-        // 本月没有了，取下个月第一个
-        nextDay = selectedMonthDays[0];
-        nextTime.setMonth(currentMonth + 1);
-      }
-
-      // 处理月末溢出
-      const lastDayOfMonth = new Date(currentYear, nextTime.getMonth() + 1, 0).getDate();
-      if (nextDay > lastDayOfMonth) {
-        nextDay = lastDayOfMonth;
-      }
-
-      nextTime.setDate(nextDay);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      // 默认下一个月同一天
+      baseTime.setMonth(baseTime.getMonth() + 1);
+      return baseTime.toISOString();
     }
 
     case 'intervalMonth': {
@@ -378,35 +392,38 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
   const pushHour = scheduledTime.getHours();
   const pushMinute = scheduledTime.getMinutes();
 
+  // 允许 ±2 分钟的时间窗口
+  const timeDiffMinutes = Math.abs((nowHour - pushHour) * 60 + (nowMinute - pushMinute));
+  const isTimeMatch = timeDiffMinutes <= 2;
+
   switch (recurringType) {
     case 'hourly':
-      return nowMinute === pushMinute;
+      return isTimeMatch;
 
     case 'interval': {
       const intervalHours = push.intervalHours || 2;
       const hoursSinceStart = Math.floor(
         (nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60)
       );
-      return (
-        hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && nowMinute === pushMinute
-      );
+      return hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && isTimeMatch;
     }
 
     case 'daily':
-      return nowHour === pushHour && nowMinute === pushMinute;
+      return isTimeMatch;
 
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-      return selectedWeekDays.includes(nowDay) && nowHour === pushHour && nowMinute === pushMinute;
+      return selectedWeekDays.includes(nowDay) && isTimeMatch;
     }
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-      return (
-        selectedMonthDays.includes(nowDateOfMonth) &&
-        nowHour === pushHour &&
-        nowMinute === pushMinute
+      // 处理月末
+      const lastDayOfMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+      const effectiveDays = selectedMonthDays.map((day) =>
+        day > lastDayOfMonth ? lastDayOfMonth : day
       );
+      return effectiveDays.includes(nowDateOfMonth) && isTimeMatch;
     }
 
     case 'cron':
@@ -424,10 +441,10 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
           );
         }
       }
-      return nowHour === pushHour && nowMinute === pushMinute;
+      return isTimeMatch;
 
     default:
-      return nowHour === pushHour && nowMinute === pushMinute;
+      return isTimeMatch;
   }
 }
 
@@ -487,7 +504,9 @@ async function processBackups(
 
       // 确保至少间隔 (interval - 1) 小时才再次运行，避免重复
       if (lastRunStr && hoursSinceLastRun < Math.max(1, interval - 1)) {
-        console.log(`[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`);
+        console.log(
+          `[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`
+        );
         continue;
       }
 
@@ -504,9 +523,15 @@ async function processBackups(
         expirationTtl: Math.max(7 * 24 * 60 * 60, (interval + 1) * 60 * 60),
       });
 
-      console.log(`[Cron Backup] ${result.success ? 'Success' : 'Failed'} for ${username}/${endpoint.name}: ${result.message}`);
+      console.log(
+        `[Cron Backup] ${result.success ? 'Success' : 'Failed'} for ${username}/${endpoint.name}: ${result.message}`
+      );
     }
   } catch (err) {
-    console.error(`[Cron Backup] Error for ${username}:`, (err as Error).message, (err as Error).stack);
+    console.error(
+      `[Cron Backup] Error for ${username}:`,
+      (err as Error).message,
+      (err as Error).stack
+    );
   }
 }

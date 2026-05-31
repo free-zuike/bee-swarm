@@ -35,7 +35,9 @@
             </option>
           </select>
         </div>
-        <button class="btn btn-sm btn-secondary" @click="clearFilters">{{ t('label.reset') }}</button>
+        <button class="btn btn-sm btn-secondary" @click="clearFilters">
+          {{ t('label.reset') }}
+        </button>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -64,7 +66,9 @@
             <div class="group-body">
               <div class="field-row">
                 <span class="field-label">{{ t('label.channel') }}</span>
-                <span class="field-value">{{ t('label.channelCount', { count: group.channels.length }) }}</span>
+                <span class="field-value">{{
+                  t('label.channelCount', { count: group.channels.length })
+                }}</span>
               </div>
               <div class="field-row">
                 <span class="field-label">{{ t('label.createdAt') }}</span>
@@ -73,7 +77,9 @@
             </div>
           </div>
           <div class="group-actions">
-            <button class="action-btn action-use" @click="useGroup(group)">{{ t('button.use') }}</button>
+            <button class="action-btn action-use" @click="useGroup(group)">
+              {{ t('button.use') }}
+            </button>
             <button
               class="action-btn action-test"
               @click="testGroup(group)"
@@ -81,8 +87,12 @@
             >
               {{ testingGroup === group.id ? t('label.testing') : t('button.test') }}
             </button>
-            <button class="action-btn action-edit" @click="editGroup(group)">{{ t('button.edit') }}</button>
-            <button class="action-btn action-delete" @click="confirmDelete(group)">{{ t('button.delete') }}</button>
+            <button class="action-btn action-edit" @click="editGroup(group)">
+              {{ t('button.edit') }}
+            </button>
+            <button class="action-btn action-delete" @click="confirmDelete(group)">
+              {{ t('button.delete') }}
+            </button>
           </div>
         </div>
       </div>
@@ -169,7 +179,9 @@
         <div class="modal-body">
           <div class="test-result" :class="{ success: testResult.success }">
             <p class="test-status">
-              {{ testResult.success ? t('message.groupTestSuccess') : t('message.groupTestFailed') }}
+              {{
+                testResult.success ? t('message.groupTestSuccess') : t('message.groupTestFailed')
+              }}
             </p>
             <div
               v-for="r in testResult.results"
@@ -179,12 +191,16 @@
             >
               <span class="test-channel-icon">{{ getChannelIcon(r.channel) }}</span>
               <span class="test-channel-name">{{ getChannelName(r.channel) }}</span>
-              <span class="test-channel-status">{{ r.success ? t('status.success') : t('status.failed') }}</span>
+              <span class="test-channel-status">{{
+                r.success ? t('status.success') : t('status.failed')
+              }}</span>
             </div>
             <p class="test-message">{{ testResult.message }}</p>
           </div>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="testResult = null">{{ t('button.close') }}</button>
+            <button class="btn btn-secondary" @click="testResult = null">
+              {{ t('button.close') }}
+            </button>
           </div>
         </div>
       </div>
@@ -270,17 +286,6 @@ const allChannels = computed(() => {
 });
 
 const availableChannels = computed(() => {
-  const channelIconMap: Record<string, string> = {
-    wework: '💼',
-    dingtalk: '🚀',
-    feishu: '📮',
-    telegram: '✈️',
-    bark: '📱',
-    ntfy: '🔔',
-    email: '📧',
-    slack: '💬',
-    discord: '🎮',
-  };
   return (props.channels || []).map((c) => ({
     id: c.id,
     name: t(`channel.${c.id}`) || c.id,
@@ -409,7 +414,11 @@ async function testGroup(group: ChannelGroup): Promise<void> {
     testResult.value = {
       success: false,
       message: (error as Error).message || t('message.pushFailed'),
-      results: group.channels.map((ch) => ({ channel: ch, success: false, message: t('message.pushFailed') })),
+      results: group.channels.map((ch) => ({
+        channel: ch,
+        success: false,
+        message: t('message.pushFailed'),
+      })),
     };
   } finally {
     testingGroup.value = null;

@@ -5,9 +5,15 @@
         <h2>📝 {{ t('templates.title') }}</h2>
         <div class="header-actions">
           <div v-if="selectedTemplateIds.size > 0" class="selected-actions">
-            <span class="selected-count">{{ t('label.items_selected', { count: selectedTemplateIds.size }) }}</span>
-            <button class="btn btn-sm btn-secondary" @click="clearSelection">{{ t('label.deselect') }}</button>
-            <button class="btn btn-sm btn-danger" @click="confirmBatchDelete">{{ t('label.batch_delete') }}</button>
+            <span class="selected-count">{{
+              t('label.items_selected', { count: selectedTemplateIds.size })
+            }}</span>
+            <button class="btn btn-sm btn-secondary" @click="clearSelection">
+              {{ t('label.deselect') }}
+            </button>
+            <button class="btn btn-sm btn-danger" @click="confirmBatchDelete">
+              {{ t('label.batch_delete') }}
+            </button>
           </div>
           <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
             + {{ t('templates.create') }}
@@ -30,13 +36,17 @@
       </div>
 
       <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <span>{{ t('label.loading') }}</span>
-    </div>
+        <div class="spinner"></div>
+        <span>{{ t('label.loading') }}</span>
+      </div>
 
       <div v-else-if="filteredTemplates.length === 0" class="empty-state">
         <div class="empty-icon"></div>
-        <p>{{ searchQuery || selectedCategory ? t('label.noMatchingTemplates') : t('templates.empty') }}</p>
+        <p>
+          {{
+            searchQuery || selectedCategory ? t('label.noMatchingTemplates') : t('templates.empty')
+          }}
+        </p>
       </div>
 
       <div v-else class="template-list">
@@ -79,9 +89,15 @@
             </div>
           </div>
           <div class="template-actions">
-            <button class="action-btn action-use" @click="useTemplate(tpl)">{{ t('button.use') }}</button>
-            <button class="action-btn action-edit" @click="editTemplate(tpl)">{{ t('button.edit') }}</button>
-            <button class="action-btn action-delete" @click="confirmDelete(tpl)">{{ t('common.delete') }}</button>
+            <button class="action-btn action-use" @click="useTemplate(tpl)">
+              {{ t('button.use') }}
+            </button>
+            <button class="action-btn action-edit" @click="editTemplate(tpl)">
+              {{ t('button.edit') }}
+            </button>
+            <button class="action-btn action-delete" @click="confirmDelete(tpl)">
+              {{ t('common.delete') }}
+            </button>
           </div>
         </div>
       </div>
@@ -112,8 +128,9 @@
               required
             />
             <p class="variable-hint">
-              {{ t('label.supportsVariables') }}: <code v-text="'{{date}}'"></code> <code v-text="'{{time}}'"></code>
-              <code v-text="'{{name}}'"></code> {{ t('label.etc') }}
+              {{ t('label.supportsVariables') }}: <code v-text="'{{date}}'"></code>
+              <code v-text="'{{time}}'"></code> <code v-text="'{{name}}'"></code>
+              {{ t('label.etc') }}
             </p>
           </div>
           <div class="form-group">
@@ -183,7 +200,10 @@
                 </div>
               </div>
               <div v-else class="variables-empty">
-                <p>{{ t('label.defineVariables') }} <code v-text="wrapVar('variable')"></code> {{ t('label.format') }}</p>
+                <p>
+                  {{ t('label.defineVariables') }} <code v-text="wrapVar('variable')"></code>
+                  {{ t('label.format') }}
+                </p>
               </div>
             </div>
           </div>
@@ -221,7 +241,9 @@
               </div>
               <div class="preview-item">
                 <label>{{ t('label.content') }}:</label>
-                <p class="preview-value preview-content">{{ previewResult.content || t('label.previewEmpty') }}</p>
+                <p class="preview-value preview-content">
+                  {{ previewResult.content || t('label.previewEmpty') }}
+                </p>
               </div>
               <div v-if="previewResult.url" class="preview-item">
                 <label>URL:</label>
@@ -240,7 +262,9 @@
             </div>
           </template>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showPreview = false">{{ t('button.close') }}</button>
+            <button class="btn btn-secondary" @click="showPreview = false">
+              {{ t('button.close') }}
+            </button>
           </div>
         </div>
       </div>
@@ -277,9 +301,14 @@
           <button class="btn-close" @click="showBatchDeleteConfirm = false">&times;</button>
         </div>
         <div class="modal-body">
-          <p>{{ t('message.confirmDeleteItems', { count: selectedTemplateIds.size }) }} {{ t('message.operationIrreversible') }}</p>
+          <p>
+            {{ t('message.confirmDeleteItems', { count: selectedTemplateIds.size }) }}
+            {{ t('message.operationIrreversible') }}
+          </p>
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">{{ t('button.cancel') }}</button>
+            <button class="btn btn-secondary" @click="showBatchDeleteConfirm = false">
+              {{ t('button.cancel') }}
+            </button>
             <button class="btn btn-danger" @click="doBatchDelete" :disabled="deleting">
               {{ deleting ? t('label.deleting') : t('common.delete') }}
             </button>

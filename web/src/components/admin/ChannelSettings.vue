@@ -204,7 +204,10 @@ defineExpose({
             <input
               :type="field.type === 'password' ? 'password' : 'text'"
               :value="getSettingValue(def.id, field.key)"
-              :placeholder="t(`placeholder.${def.id}.${field.key}`) || `${t('label.enter')}${t(`field.${def.id}.${field.key}`)}`"
+              :placeholder="
+                t(`placeholder.${def.id}.${field.key}`) ||
+                `${t('label.enter')}${t(`field.${def.id}.${field.key}`)}`
+              "
               @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
             />
           </div>

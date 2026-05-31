@@ -309,7 +309,10 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
     channelDefinitions.value = data.definitions;
     channelSettingsRef.value?.handleSaveSuccess(channelId, result.message || t('msg.save_success'));
   } catch (err: unknown) {
-    channelSettingsRef.value?.handleSaveError(channelId, getErrorMessage(err, t('message.save_failed')));
+    channelSettingsRef.value?.handleSaveError(
+      channelId,
+      getErrorMessage(err, t('message.save_failed'))
+    );
   }
 }
 
@@ -328,7 +331,11 @@ async function handleTestChannel(channelId: string, _fields: Record<string, stri
       channelResult?.message || result.message || t('message.test_complete')
     );
   } catch (err: unknown) {
-    channelSettingsRef.value?.handleTestResult(channelId, false, getErrorMessage(err, t('message.test_complete')));
+    channelSettingsRef.value?.handleTestResult(
+      channelId,
+      false,
+      getErrorMessage(err, t('message.test_complete'))
+    );
   }
 }
 
