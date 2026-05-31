@@ -67,7 +67,7 @@
                   {{ getStatusText(ch) }}
                 </span>
               </div>
-              <p class="status-message" v-if="!ch.healthy && ch.message">{{ ch.message }}</p>
+              <p class="status-message" v-if="!ch.healthy && ch.message">{{ translateBackendMessage(ch.message) }}</p>
               <p class="status-tested" v-if="ch.testedAt">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -105,7 +105,7 @@
             </div>
             <div class="result-row">
               <span class="result-label">{{ t('health.detail') }}</span>
-              <span class="result-value">{{ testResult.message }}</span>
+              <span class="result-value">{{ translateBackendMessage(testResult.message) }}</span>
             </div>
             <div class="result-row">
               <span class="result-label">{{ t('health.time') }}</span>
@@ -156,6 +156,13 @@ const channelIcons: Record<string, string> = {
   email: '📧',
   slack: '💬',
   discord: '🎮',
+  serverchan: '🔔',
+  pushplus: '➕',
+  webhook: '🔗',
+  gotify: '🔔',
+  line: '💬',
+  teams: '🤝',
+  pushover: '🔔',
 };
 
 function getChannelIcon(channel: string): string {
@@ -174,6 +181,20 @@ function getCardClass(ch: ChannelHealth): string {
 function getStatusClass(ch: ChannelHealth): string {
   if (ch.healthy) return 'healthy';
   return 'warning';
+}
+
+function translateBackendMessage(msg: string): string {
+  const messageMap: Record<string, string> = {
+    '渠道未配置': 'message.channel_not_configured',
+    '没有已启用的推送渠道': 'message.no_enabled_channel',
+  };
+  
+  const key = messageMap[msg];
+  if (key) {
+    return t(key);
+  }
+  
+  return msg;
 }
 
 function getStatusText(ch: ChannelHealth): string {
@@ -225,7 +246,7 @@ async function testSingleChannel(channel: PushChannel) {
     if (result.healthy) {
       showToast(t('health.testSuccess', { channel: getChannelName(channel) }), 'success');
     } else {
-      showToast(t('health.testFail', { channel: getChannelName(channel) }) + ': ' + result.message, 'error');
+      showToast(t('health.testFail', { channel: getChannelName(channel) }) + ': ' + translateBackendMessage(result.message), 'error');
     }
   } catch (err: unknown) {
     showToast((err as Error).message || t('health.testError'), 'error');
