@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { login, register, getToken, refreshToken } from '@/api';
+import { t } from '@/i18n';
 
 export interface AuthState {
   email: string;
@@ -68,7 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
       saveToStorage();
       return true;
     } catch (error: unknown) {
-      authError.value = (error as { message?: string })?.message || '登录失败';
+      authError.value = (error as { message?: string })?.message || t('error.login_failed');
       return false;
     } finally {
       isAuthenticating.value = false;
@@ -83,7 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
       await register(authEmail, authPassword);
       return await doLogin(authEmail, authPassword);
     } catch (error: unknown) {
-      authError.value = (error as { message?: string })?.message || '注册失败';
+      authError.value = (error as { message?: string })?.message || t('error.register_failed');
       return false;
     } finally {
       isAuthenticating.value = false;

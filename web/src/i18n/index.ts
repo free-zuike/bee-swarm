@@ -533,6 +533,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'health.testSuccess': '{channel} 测试成功',
     'health.testFail': '{channel} 测试失败',
     'health.testError': '测试失败',
+    'message.preview_failed': '预览失败',
+    'label.variable_description': '{variable} 变量',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -1058,6 +1060,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'health.testSuccess': '{channel} test successful',
     'health.testFail': '{channel} test failed',
     'health.testError': 'Test failed',
+    'message.preview_failed': 'Preview failed',
+    'label.variable_description': '{variable} variable',
   },
 };
 

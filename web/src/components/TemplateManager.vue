@@ -30,9 +30,9 @@
       </div>
 
       <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <span>{{ t('common.loading') || '加载中...' }}</span>
-      </div>
+      <div class="spinner"></div>
+      <span>{{ t('label.loading') }}</span>
+    </div>
 
       <div v-else-if="filteredTemplates.length === 0" class="empty-state">
         <div class="empty-icon"></div>
@@ -117,7 +117,7 @@
             </p>
           </div>
           <div class="form-group">
-            <label>{{ t('label.content') || '内容' }}</label>
+            <label>{{ t('label.content') }}</label>
             <textarea
               v-model="form.content"
               :placeholder="t('templates.contentPlaceholder')"
@@ -259,7 +259,7 @@
               {{ t('common.cancel') }}
             </button>
             <button class="btn btn-danger" @click="doDelete" :disabled="deleting">
-              {{ deleting ? t('common.deleting') || '删除中...' : t('common.delete') }}
+              {{ deleting ? t('label.deleting') : t('common.delete') }}
             </button>
           </div>
         </div>
@@ -489,9 +489,9 @@ async function doBatchDelete() {
     templates.value = templates.value.filter((t) => !selectedTemplateIds.value.has(t.id));
     selectedTemplateIds.value = new Set();
     showBatchDeleteConfirm.value = false;
-    showToast('批量删除成功', 'success');
+    showToast(t('message.batch_delete_success'), 'success');
   } catch (_err) {
-    showToast((_err as Error).message || '批量删除失败', 'error');
+    showToast((_err as Error).message || t('message.batch_delete_failed'), 'error');
   } finally {
     deleting.value = false;
   }
@@ -525,7 +525,7 @@ async function loadAndPreview() {
     });
     previewResult.value = result;
   } catch (err: unknown) {
-    showToast((err as Error).message || '预览失败', 'error');
+    showToast((err as Error).message || t('message.preview_failed'), 'error');
   } finally {
     previewLoading.value = false;
   }
@@ -544,7 +544,7 @@ async function saveTemplate() {
     const variables = detectedVariables.value.map((key) => ({
       key,
       defaultValue: variableValues[key] || '',
-      description: `${key} 变量`,
+      description: t('label.variable_description', { variable: key }),
     }));
 
     const templateData = {
