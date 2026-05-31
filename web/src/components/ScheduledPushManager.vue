@@ -1022,6 +1022,15 @@ async function createScheduledPushHandler(): Promise<void> {
  */
 function calculateNextValidTime(scheduledTime: Date): Date {
   const now = new Date();
+  
+  // 防御性检查：确保变量已初始化
+  if (!newPush.value || !newPush.value.time) {
+    const next = new Date(now);
+    next.setDate(next.getDate() + 1);
+    next.setHours(9, 0, 0, 0);
+    return next;
+  }
+  
   const [hours, minutes] = newPush.value.time.split(':').map(Number);
   const selectedTime = new Date(scheduledTime);
   selectedTime.setHours(hours, minutes, 0, 0);
@@ -1043,7 +1052,7 @@ function calculateNextValidTime(scheduledTime: Date): Date {
 
     case 'weekly': {
       // 每周执行，找下一个工作日
-      const weekdays = selectedWeekDays.value.length > 0 ? selectedWeekDays.value : [1, 2, 3, 4, 5];
+      const weekdays = selectedWeekDays.value && selectedWeekDays.value.length > 0 ? selectedWeekDays.value : [1, 2, 3, 4, 5];
       const todayDay = now.getDay();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
@@ -1087,7 +1096,7 @@ function calculateNextValidTime(scheduledTime: Date): Date {
 
     case 'monthly': {
       // 每月执行，找下一个有效日期
-      const monthDays = selectedMonthDays.value.length > 0 ? selectedMonthDays.value : [1];
+      const monthDays = selectedMonthDays.value && selectedMonthDays.value.length > 0 ? selectedMonthDays.value : [1];
       const nowDay = now.getDate();
       const nowMonth = now.getMonth();
       const nowYear = now.getFullYear();
