@@ -30,6 +30,18 @@ body {
   overflow-x: hidden;
 }
 
+/* 移动端安全区域适配 */
+body {
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 移动端容器底部padding */
+@media (max-width: 768px) {
+  #app {
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+}
+
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   width: 8px;

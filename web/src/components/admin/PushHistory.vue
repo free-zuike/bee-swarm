@@ -1065,6 +1065,7 @@ const activeFilters = computed(() => {
   align-items: center;
   gap: 16px;
   padding: 16px 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 .page-info {
@@ -1115,6 +1116,10 @@ const activeFilters = computed(() => {
 }
 
 @media (max-width: 768px) {
+  .history-list-container {
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+
   .panel {
     padding: 16px;
   }
