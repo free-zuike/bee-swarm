@@ -384,6 +384,7 @@ export class PushService {
       createdBy: row.user_id,
       createdAt: row.created_at,
       status: row.status,
+      overdueReminderSent: row.overdue_reminder_sent === 1,
     }));
   }
 
@@ -605,5 +606,18 @@ export class PushService {
     }
 
     return overduePushes;
+  }
+  
+  /**
+   * 检查任务是否已发送超时提醒
+   */
+  async hasSentOverdueReminder(taskId: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+    
+    const result = await this.env.DB.prepare(
+      'SELECT overdue_reminder_sent FROM scheduled_pushes WHERE id = ? AND user_id = ?'
+    ).bind(taskId, this.userId).first<{ overdue_reminder_sent: number }>();
+    
+    return result?.overdue_reminder_sent === 1;
   }
 }

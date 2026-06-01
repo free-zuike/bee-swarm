@@ -226,10 +226,20 @@ async function sendOverdueReminder(env: Env, username: string, task: ScheduledPu
 }
 
 /**
- * 标记提醒已发送（暂不实现）
+ * 标记提醒已发送
  */
-async function markReminderSent(_env: Env, _username: string, _taskId: string): Promise<void> {
-  // 暂不实现
+async function markReminderSent(env: Env, username: string, taskId: string): Promise<void> {
+  try {
+    if (env.DB) {
+      await env.DB.prepare(`
+        UPDATE scheduled_pushes 
+        SET overdue_reminder_sent = 1, updated_at = ? 
+        WHERE id = ? AND user_id = ?
+      `).bind(new Date().toISOString(), taskId, username).run();
+    }
+  } catch (err) {
+    console.error(`[markReminderSent] Error:`, (err as Error).message);
+  }
 }
 
 /**

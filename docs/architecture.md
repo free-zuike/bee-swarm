@@ -30,7 +30,7 @@
 ### 技术栈
 - **后端**: Cloudflare Workers + Hono
 - **前端**: Vue 3 + Vite + Vue Router + Pinia
-- **存储**: Cloudflare KV
+- **存储**: Cloudflare D1 (SQLite)
 - **类型**: TypeScript（前后端共享）
 - **测试**: Vitest
 
@@ -68,7 +68,7 @@
         │                     │                     │
         ▼                     ▼                     ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│   KV Storage  │   │   静态资源    │   │  Cron 触发器  │
+│   D1 Database │   │   静态资源    │   │  Cron 触发器  │
 │  (数据存储)   │   │  (前端页面)   │   │  (定时任务)   │
 └───────────────┘   └───────────────┘   └───────────────┘
 ```
@@ -301,54 +301,54 @@ export async function sendXxx(
 
 ## 数据存储
 
-### KV 键命名规范
+### D1 数据库表结构
 
-系统使用 Cloudflare KV 存储所有数据，键名遵循以下规范：
+系统使用 Cloudflare D1 (SQLite) 存储所有数据。主要表包括：
 
-```
-user:{email}                    # 用户基本信息
-user:{email}:ch:{channel}:{key} # 渠道配置
-user:{email}:push:{timestamp}   # 推送历史
-user:{email}:template:{id}      # 推送模板
-user:{email}:group:{id}         # 渠道分组
-user:{email}:scheduled:{id}     # 定时推送任务
-user:{email}:backup:{id}        # 备份端点配置
-token_index:{token}             # Token -> 邮箱 索引
-apikey_index:{apikey}           # API Key -> 邮箱 索引
-backup_last_run:{email}:{id}    # 备份最后执行时间
-scheduled_exec:{email}:{id}     # 定时任务执行标记
-```
+#### 用户表 (users)
+- 存储用户信息、认证信息等
+- 包含索引以提高查询性能
 
-### 用户数据结构
+#### 渠道配置表 (channel_configs)
+- 存储用户的推送渠道配置
+- 按用户隔离
 
-```typescript
-// user:{email}
-{
-  password: string;        // 哈希后的密码
-  token?: string;          // 当前访问令牌
-  refreshToken?: string;   // 刷新令牌
-  expiresAt?: number;      // 过期时间戳
-  apikey?: string;         // API Key
-}
-```
+#### 推送模板表 (push_templates)
+- 存储推送模板
+- 支持变量替换
 
-### 推送历史结构
+#### 定时任务表 (scheduled_pushes)
+- 存储定时推送任务
+- 包含任务状态、下次运行时间、是否已发送超时提醒等字段
 
-```typescript
-// user:{email}:push:{timestamp}
-{
-  id: string;
-  time: string;
-  title: string;
-  body?: string;
-  url?: string;
-  imageUrl?: string;
-  markdown?: boolean;
-  channels: PushChannel[];
-  results: ChannelResult[];
-  status: 'success' | 'partial' | 'failed';
-}
-```
+#### 渠道分组表 (channel_groups)
+- 存储用户的渠道分组配置
+
+#### 推送历史表 (push_history)
+- 记录所有推送历史
+- 包含推送结果和统计信息
+
+#### 审计日志表 (audit_logs)
+- 记录用户操作日志
+- 便于安全审计
+
+#### 指标统计表 (metrics)
+- 存储推送统计数据
+
+#### 定时任务锁表 (scheduled_locks)
+- 防止定时任务重复执行
+
+#### 备份运行记录表 (backup_runs)
+- 记录备份任务的最后执行时间
+
+#### 备份端点配置表 (backup_endpoints)
+- 存储备份端点配置
+
+### 数据安全
+
+- 所有表都有 `user_id` 字段进行用户隔离
+- 重要查询字段都建立了索引
+- 密码使用 PBKDF2 + SHA-256 哈希存储
 
 ---
 

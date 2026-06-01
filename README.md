@@ -13,6 +13,7 @@
 | 状态 | Pinia | 全局状态管理 |
 | 后端 | Hono | 轻量高性能 Web 框架 |
 | 部署 | Cloudflare Workers | 边缘计算，单一部署 |
+| 数据库 | Cloudflare D1 | 轻量 SQLite 数据库 |
 
 ## 📁 项目架构
 
@@ -34,8 +35,9 @@ bee-swarm/
 │   ├── types.ts                  # 后端类型
 │   ├── routes/
 │   │   └── api.ts                # API 路由
-│   └── services/                 # 推送服务（9 个渠道）
+│   └── services/                 # 推送服务（多个渠道）
 │       ├── dispatcher.ts         # 推送调度器
+│       ├── push.ts               # 推送服务
 │       ├── wework.ts             # 企业微信
 │       ├── dingtalk.ts           # 钉钉
 │       ├── feishu.ts             # 飞书
@@ -43,10 +45,12 @@ bee-swarm/
 │       ├── bark.ts               # Bark
 │       ├── ntfy.ts               # ntfy
 │       ├── email.ts              # Email
-│       └── channels/             # 其他渠道（Slack, Discord）
-│           ├── index.ts
-│           ├── slack.ts
-│           └── discord.ts
+│       └── channels/             # 其他渠道
+│
+├── migrations/                   # D1 数据库迁移
+│   ├── 0001_add_kv_replacement_tables.sql
+│   ├── 0002_add_user_refresh_token_fields.sql
+│   └── 0003_add_overdue_reminder_field.sql
 │
 ├── vite.config.ts                # Vite 配置
 ├── wrangler.toml                 # Workers 配置（不含敏感信息）
@@ -76,7 +80,7 @@ bee-swarm/
 
 1. **获取 Cloudflare 凭证**
    - 访问 https://dash.cloudflare.com/profile/api-tokens
-   - 创建 Token，权限：`Account:Cloudflare Workers:Edit`、`Account:Account:Read`
+   - 创建 Token，权限：`Account:Cloudflare Workers:Edit`、`Account:Account:Read`、`Account:D1:Edit`
    - 访问 https://dash.cloudflare.com，复制右侧 **Account ID**
 
 2. **设置 GitHub Secrets**
@@ -94,11 +98,11 @@ bee-swarm/
    ```
 
    Workflow 会自动：
-   - ✅ 创建 KV 命名空间
-   - ✅ 生成随机管理密码
+   - ✅ 创建 D1 数据库
+   - ✅ 执行数据库迁移
    - ✅ 构建并部署
 
-   **查看部署日志获取管理密码：** Actions → Deploy → 点击最新运行记录
+   **查看部署日志获取更多信息：** Actions → Deploy → 点击最新运行记录
 
 ### 方式二：本地开发
 
@@ -106,11 +110,17 @@ bee-swarm/
 # 1. 安装依赖
 npm install
 
-# 2. 配置本地环境
-cp .dev.vars.example .dev.vars
-# 编辑 .dev.vars 填写管理员密码
+# 2. 创建本地 D1 数据库
+npx wrangler d1 create bee-swarm-db --local
 
-# 3. 本地开发
+# 3. 执行数据库迁移
+npx wrangler d1 migrations apply bee-swarm-db --local
+
+# 4. 配置本地环境
+cp .dev.vars.example .dev.vars
+# 编辑 .dev.vars 配置环境变量
+
+# 5. 本地开发
 npm run dev:worker  # 终端 1：Workers 后端
 npm run dev         # 终端 2：Vite 前端
 ```
@@ -123,10 +133,13 @@ npm run dev         # 终端 2：Vite 前端
 # 1. 登录 Cloudflare
 npx wrangler login
 
-# 2. 设置 Secrets
-npx wrangler secret put ADMIN_PASSWORD
+# 2. 创建 D1 数据库
+npx wrangler d1 create bee-swarm-db
 
-# 3. 部署
+# 3. 执行数据库迁移
+npx wrangler d1 migrations apply bee-swarm-db
+
+# 4. 部署
 npm run deploy
 ```
 
@@ -197,3 +210,11 @@ curl -X POST "https://你的域名/api/admin/push?password=密码" \
 - **TypeScript**：前后端类型共享
 - **单一部署**：前端构建产物嵌入 Workers，无需单独部署
 - **安全设计**：敏感信息使用 Secrets，不会泄露
+- **D1 数据库**：使用 SQLite，支持事务和索引，查询性能优秀
+- **完善的密码策略**：要求密码包含大小写字母和数字
+- **超时任务提醒**：定时任务超时时会自动发送提醒
+
+## 📚 更多文档
+
+- [架构设计](./docs/architecture.md)
+- [配置指南](./docs/configuration.md)

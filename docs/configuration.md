@@ -310,6 +310,7 @@ Timezone: Asia/Shanghai
 
 - 用户密码使用 PBKDF2 + SHA-256 哈希，100,000 次迭代
 - 旧版 SHA-256 密码会在首次登录时自动升级为 PBKDF2
+- 密码策略要求：至少 8 位，包含大小写字母和数字
 
 ### API Key 安全
 
@@ -359,10 +360,11 @@ name = "bee-swarm"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# KV 命名空间绑定
-kv_namespaces = [
-  { binding = "SUBSCRIPTIONS", id = "your-kv-namespace-id" }
-]
+# D1 数据库绑定
+[[d1_databases]]
+binding = "DB"
+database_name = "bee-swarm-db"
+database_id = "your-database-id"
 
 # 环境变量（非敏感）
 [vars]
@@ -383,6 +385,25 @@ crons = [
   "*/5 * * * *"  # 每 5 分钟执行一次
 ]
 ```
+
+### D1 数据库设置
+
+1. **创建 D1 数据库**：
+   ```bash
+   npx wrangler d1 create bee-swarm-db
+   ```
+
+2. **执行数据库迁移**：
+   ```bash
+   # 本地测试
+   npx wrangler d1 migrations apply bee-swarm-db --local
+   
+   # 生产环境
+   npx wrangler d1 migrations apply bee-swarm-db
+   ```
+
+3. **更新 wrangler.toml**：
+   - 将上面命令输出的 `database_id` 更新到配置文件中
 
 ### GitHub Actions 部署配置
 
