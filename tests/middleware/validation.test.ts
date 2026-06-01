@@ -7,7 +7,7 @@ describe('Validation schemas', () => {
     it('should validate correct register data', () => {
       const data = {
         email: 'test@example.com',
-        password: 'password123',
+        password: 'Password123',
       };
       
       const result = schemas.register.safeParse(data);

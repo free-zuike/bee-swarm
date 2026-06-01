@@ -1,31 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Env } from '../../src/types';
 
-interface TestEnv extends Env {
-  DB: {
-    prepare: (sql: string) => {
-      bind: (...params: any[]) => {
-        first: () => Promise<any>;
-        all: () => Promise<any>;
-        run: () => Promise<any>;
-      };
+// 模拟 D1 数据库 - 简化版本
+class SimpleMockD1Database {
+  prepare(_sql: string) {
+    return {
+      bind: (..._params: any[]) => ({
+        first: async () => null,
+        all: async () => ({ results: [] }),
+        run: async () => ({ success: true }),
+      }),
     };
-  };
+  }
+}
+
+interface TestEnv extends Env {
+  DB: SimpleMockD1Database;
 }
 
 const createMockEnv = (): TestEnv => {
-  const store = new Map<string, any>();
-
   return {
-    DB: {
-      prepare: vi.fn((sql: string) => ({
-        bind: vi.fn((...params: any[]) => ({
-          first: vi.fn().mockResolvedValue(null),
-          all: vi.fn().mockResolvedValue({ results: [] }),
-          run: vi.fn().mockResolvedValue({ success: true }),
-        })),
-      })),
-    },
+    DB: new SimpleMockD1Database(),
   } as TestEnv;
 };
 
@@ -266,7 +261,7 @@ describe('API Route Handlers', () => {
       const { schemas } = await import('../../src/middleware/validation');
       const result = schemas.register.safeParse({
         email: 'test@example.com',
-        password: 'password123',
+        password: 'Password123',
       });
       expect(result.success).toBe(true);
     });

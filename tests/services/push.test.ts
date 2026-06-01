@@ -9,6 +9,289 @@ import {
 } from '../../src/services/push';
 import type { PushChannel, ChannelConfig } from '../../types';
 
+// 模拟 D1 数据库
+class MockD1Database {
+  private tables: Map<string, Map<string, any>> = new Map();
+  
+  constructor() {
+    // 初始化需要的表
+    this.tables.set('push_templates', new Map());
+    this.tables.set('channel_groups', new Map());
+    this.tables.set('scheduled_pushes', new Map());
+    this.tables.set('push_history', new Map());
+  }
+
+  prepare(sql: string) {
+    return new MockPreparedStatement(sql, this.tables);
+  }
+}
+
+class MockPreparedStatement {
+  private sql: string;
+  private tables: Map<string, Map<string, any>>;
+  private params: any[] = [];
+
+  constructor(sql: string, tables: Map<string, Map<string, any>>) {
+    this.sql = sql;
+    this.tables = tables;
+  }
+
+  bind(...params: any[]) {
+    this.params = params;
+    return this;
+  }
+
+  async first(): Promise<any> {
+    return this._execute('first');
+  }
+
+  async all(): Promise<{ results: any[] }> {
+    const result = await this._execute('all');
+    return { results: result as any[] || [] };
+  }
+
+  async run(): Promise<{ success: boolean, meta?: { changes: number } }> {
+    const result = await this._execute('run');
+    // 检查是否是 DELETE 操作
+    if (this.sql.trim().toUpperCase().startsWith('DELETE')) {
+      const id = this.params[0];
+      const tableName = this.sql.includes('push_templates') ? 'push_templates' 
+        : this.sql.includes('channel_groups') ? 'channel_groups' 
+        : 'scheduled_pushes';
+      const table = this.tables.get(tableName) || new Map();
+      const hadRecord = table.has(id);
+      if (hadRecord) {
+        table.delete(id);
+        this.tables.set(tableName, table);
+      }
+      return { 
+        success: true, 
+        meta: { changes: hadRecord ? 1 : 0 } 
+      };
+    }
+    // 对于 UPDATE，我们假设更新了一条记录
+    if (this.sql.trim().toUpperCase().startsWith('UPDATE')) {
+      return { 
+        success: true, 
+        meta: { changes: 1 } 
+      };
+    }
+    return { success: true };
+  }
+
+  private async _execute(type: string): Promise<any> {
+    const sql = this.sql.trim().toUpperCase();
+    
+    // 处理 SELECT 查询
+    if (sql.startsWith('SELECT')) {
+      return this._handleSelect(sql, type);
+    }
+
+    // 处理 INSERT
+    if (sql.startsWith('INSERT')) {
+      return this._handleInsert(sql);
+    }
+
+    // 处理 UPDATE
+    if (sql.startsWith('UPDATE')) {
+      return this._handleUpdate(sql);
+    }
+
+    // 处理 DELETE
+    if (sql.startsWith('DELETE')) {
+      return this._handleDelete(sql);
+    }
+
+    return type === 'all' ? [] : null;
+  }
+
+  private _handleSelect(sql: string, type: string): any {
+    // 获取过滤条件中的 user_id，应该是第一个参数
+    const userId = this.params[0] as string;
+
+    // 处理 push_templates
+    if (sql.includes('push_templates')) {
+      const table = this.tables.get('push_templates') || new Map();
+      const allResults = Array.from(table.values());
+      
+      // 按 user_id 过滤
+      const filteredResults = allResults.filter(row => 
+        row.user_id === userId || row.user_id === 'test-user'
+      );
+      
+      return type === 'first' ? filteredResults[0] || null : filteredResults;
+    }
+
+    // 处理 channel_groups
+    if (sql.includes('channel_groups')) {
+      const table = this.tables.get('channel_groups') || new Map();
+      const allResults = Array.from(table.values());
+      const filteredResults = allResults.filter(row => 
+        row.user_id === userId || row.user_id === 'test-user'
+      );
+      
+      return type === 'first' ? filteredResults[0] || null : filteredResults;
+    }
+
+    // 处理 scheduled_pushes
+    if (sql.includes('scheduled_pushes')) {
+      const table = this.tables.get('scheduled_pushes') || new Map();
+      const allResults = Array.from(table.values());
+      
+      // 如果有 status 参数，第二个参数应该是 status
+      let filteredResults = allResults;
+      if (this.params.length >= 2) {
+        const status = this.params[1];
+        if (typeof status === 'string') {
+          filteredResults = allResults.filter(row => 
+            (row.user_id === userId || row.user_id === 'test-user') && 
+            (row.status === status || !status)
+          );
+        } else {
+          filteredResults = allResults.filter(row => 
+            row.user_id === userId || row.user_id === 'test-user'
+          );
+        }
+      } else {
+        filteredResults = allResults.filter(row => 
+          row.user_id === userId || row.user_id === 'test-user'
+        );
+      }
+      
+      return type === 'first' ? filteredResults[0] || null : filteredResults;
+    }
+
+    return type === 'all' ? [] : null;
+  }
+
+  private _handleInsert(sql: string): void {
+    if (sql.includes('push_templates')) {
+      const table = this.tables.get('push_templates') || new Map();
+      const id = this.params[0];
+      const row = {
+        id: this.params[0],
+        user_id: this.params[1],
+        name: this.params[2],
+        title: this.params[3],
+        body: this.params[4],
+        channels: this.params[5],
+        url: this.params[6],
+        image_url: this.params[7],
+        markdown: this.params[8],
+        created_at: this.params[9],
+        updated_at: this.params[10],
+      };
+      table.set(id, row);
+      this.tables.set('push_templates', table);
+    }
+
+    if (sql.includes('channel_groups')) {
+      const table = this.tables.get('channel_groups') || new Map();
+      const id = this.params[0];
+      const row = {
+        id: this.params[0],
+        user_id: this.params[1],
+        name: this.params[2],
+        channels: this.params[3],
+        created_at: this.params[4],
+        updated_at: this.params[5],
+      };
+      table.set(id, row);
+      this.tables.set('channel_groups', table);
+    }
+
+    if (sql.includes('scheduled_pushes')) {
+      const table = this.tables.get('scheduled_pushes') || new Map();
+      const id = this.params[0];
+      const row = {
+        id: this.params[0],
+        user_id: this.params[1],
+        template_id: this.params[2],
+        cron: this.params[3],
+        next_run: this.params[4],
+        title: this.params[5],
+        body: this.params[6],
+        url: this.params[7],
+        image_url: this.params[8],
+        markdown: this.params[9],
+        channels: this.params[10],
+        enabled: this.params[11],
+        status: 'pending',
+        created_at: this.params[12],
+        updated_at: this.params[13],
+      };
+      table.set(id, row);
+      this.tables.set('scheduled_pushes', table);
+    }
+  }
+
+  private _handleUpdate(sql: string): void {
+    if (sql.includes('push_templates')) {
+      const table = this.tables.get('push_templates') || new Map();
+      const id = this.params[this.params.length - 1];
+      const row = table.get(id);
+      if (row) {
+        // 更新简单的字段
+        row.updated_at = this.params[0];
+        
+        // 查找 SET 子句中有 name = ?
+        if (this.sql.includes('name =')) {
+          row.name = this.params[1];
+        }
+        if (this.sql.includes('title =')) {
+          row.title = this.params[1];
+        }
+        
+        table.set(id, row);
+        this.tables.set('push_templates', table);
+      }
+    }
+
+    if (sql.includes('channel_groups')) {
+      const table = this.tables.get('channel_groups') || new Map();
+      const id = this.params[this.params.length - 1];
+      const row = table.get(id);
+      if (row) {
+        row.updated_at = this.params[0];
+        if (this.sql.includes('name =')) {
+          row.name = this.params[1];
+        }
+        if (this.sql.includes('channels =')) {
+          row.channels = this.params[1];
+        }
+        table.set(id, row);
+        this.tables.set('channel_groups', table);
+      }
+    }
+
+    if (sql.includes('scheduled_pushes')) {
+      const table = this.tables.get('scheduled_pushes') || new Map();
+      const id = this.params[this.params.length - 1];
+      const row = table.get(id);
+      if (row) {
+        if (this.sql.includes('status =')) {
+          row.status = this.params[0];
+          row.updated_at = this.params[this.params.length - 2];
+        }
+        if (this.sql.includes('overdue_reminder_sent =')) {
+          row.overdue_reminder_sent = this.params[0];
+          row.updated_at = this.params[1];
+        }
+        if (this.sql.includes('enabled =')) {
+          row.enabled = this.params[0];
+          row.updated_at = this.params[this.params.length - 2];
+        }
+        table.set(id, row);
+        this.tables.set('scheduled_pushes', table);
+      }
+    }
+  }
+
+  private _handleDelete(_sql: string): void {
+    // DELETE 操作在 run() 方法中处理
+  }
+}
+
 describe('PushService 模板工具', () => {
   describe('replaceTemplateVariables', () => {
     it('应该正确替换简单变量', () => {
@@ -70,19 +353,12 @@ describe('PushService 模板工具', () => {
 describe('PushService', () => {
   let env: any;
   let pushService: PushService;
+  let mockDb: MockD1Database;
 
   beforeEach(() => {
-    const mockResults: any[] = [];
+    mockDb = new MockD1Database();
     env = {
-      DB: {
-        prepare: vi.fn((sql: string) => ({
-          bind: vi.fn((...params: any[]) => ({
-            first: vi.fn().mockResolvedValue(null),
-            all: vi.fn().mockResolvedValue({ results: mockResults }),
-            run: vi.fn().mockResolvedValue({ success: true }),
-          })),
-        })),
-      },
+      DB: mockDb,
     };
     pushService = new PushService(env, 'test-user');
   });
