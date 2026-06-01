@@ -1,4 +1,5 @@
 import type { Env } from '../types';
+import { getMetrics, upsertMetrics, deleteMetrics } from './d1DataService';
 
 export interface PushMetrics {
   total: number;
@@ -20,12 +21,14 @@ export interface DailyMetrics {
 export class MetricsCollector {
   private env: Env;
   private userId: string;
+  private metricsId: string;
   private sessionMetrics: PushMetrics;
   private startTime: number;
 
   constructor(env: Env, userId: string) {
     this.env = env;
     this.userId = userId;
+    this.metricsId = crypto.randomUUID();
     this.startTime = Date.now();
     this.sessionMetrics = {
       total: 0,
@@ -38,16 +41,15 @@ export class MetricsCollector {
 
   async loadSessionMetrics(): Promise<void> {
     try {
-      const stored = await this.env.SUBSCRIPTIONS.get(`metrics:session:${this.userId}`);
-      if (stored) {
-        const data = JSON.parse(stored);
+      const d1Metrics = await getMetrics(this.env, this.userId);
+      if (d1Metrics) {
+        this.metricsId = d1Metrics.id;
         this.sessionMetrics = {
-          total: data.total || 0,
-          success: data.success || 0,
-          failed: data.failed || 0,
-          byChannel: data.byChannel || {},
-          avgLatency: data.avgLatency || 0,
-          lastPushAt: data.lastPushAt,
+          total: d1Metrics.total,
+          success: d1Metrics.success,
+          failed: d1Metrics.failed,
+          byChannel: d1Metrics.channelStats || {},
+          avgLatency: 0,
         };
       }
     } catch {
@@ -88,31 +90,23 @@ export class MetricsCollector {
     this.sessionMetrics.lastPushAt = new Date().toISOString();
 
     await this.persistMetrics();
-    await this.persistSessionMetrics();
-  }
-
-  private async persistSessionMetrics(): Promise<void> {
-    try {
-      const key = `metrics:session:${this.userId}`;
-      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(this.sessionMetrics), {
-        expirationTtl: 7 * 24 * 3600,
-      });
-    } catch {
-      // Ignore persist errors
-    }
   }
 
   private async persistMetrics(): Promise<void> {
-    const key = `metrics:${this.userId}`;
     try {
-      const existing = await this.env.SUBSCRIPTIONS.get(key);
-      const metrics = existing ? JSON.parse(existing) : {};
-      metrics[this.formatDate()] = {
-        pushes: this.sessionMetrics.total,
+      const now = new Date().toISOString();
+      const d1Metrics = {
+        id: this.metricsId,
+        userId: this.userId,
+        total: this.sessionMetrics.total,
         success: this.sessionMetrics.success,
         failed: this.sessionMetrics.failed,
+        channelStats: this.sessionMetrics.byChannel,
+        dailyStats: {},
+        createdAt: now,
+        updatedAt: now,
       };
-      await this.env.SUBSCRIPTIONS.put(key, JSON.stringify(metrics));
+      await upsertMetrics(this.env, d1Metrics);
     } catch {
       // Ignore persist errors
     }
@@ -127,13 +121,12 @@ export class MetricsCollector {
   }
 
   async getDailyMetrics(days = 7): Promise<DailyMetrics[]> {
-    const key = `metrics:${this.userId}`;
     const result: DailyMetrics[] = [];
 
     try {
-      const stored = await this.env.SUBSCRIPTIONS.get(key);
-      if (stored) {
-        const metrics = JSON.parse(stored);
+      const d1Metrics = await getMetrics(this.env, this.userId);
+      if (d1Metrics && d1Metrics.dailyStats) {
+        const metrics = d1Metrics.dailyStats;
         const today = new Date();
 
         for (let i = 0; i < days; i++) {

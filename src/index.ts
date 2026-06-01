@@ -15,6 +15,7 @@ import { convertTimezone } from './utils/timezone';
 import { escapeRegex } from './utils/regex';
 import { matchCronField } from './utils/cron';
 import { getLocalTime, getLocalWeekday } from './utils/datetime';
+import { getScheduledLock, insertScheduledLock, getBackupRun, upsertBackupRun } from './services/d1DataService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -267,11 +268,10 @@ async function processScheduledPushes(
         continue;
       }
 
-      // 防重复执行
-      const execKey = `scheduled_exec:${username}:${push.id}`;
+      // 防重复执行 - 使用 D1
       const currentMinute = Math.floor(nowDate.getTime() / 60000);
-      const alreadyExecuted = await env.SUBSCRIPTIONS.get(execKey);
-      if (alreadyExecuted && parseInt(alreadyExecuted, 10) === currentMinute) {
+      const existingLock = await getScheduledLock(env, username, push.id);
+      if (existingLock && parseInt(existingLock.executedAt, 10) === currentMinute) {
         continue;
       }
 
@@ -303,8 +303,13 @@ async function processScheduledPushes(
         await pushService.updateScheduledPushStatus(push.id, finalStatus);
       }
 
-      await env.SUBSCRIPTIONS.put(execKey, String(currentMinute), {
-        expirationTtl: 24 * 60 * 60,
+      // 保存执行锁 - 使用 D1
+      await insertScheduledLock(env, {
+        id: crypto.randomUUID(),
+        userId: username,
+        pushId: push.id,
+        executedAt: String(currentMinute),
+        createdAt: nowDate.toISOString(),
       });
     }
   } catch (err) {
@@ -567,15 +572,14 @@ async function processBackups(
         continue;
       }
 
-      // 检查最后一次运行时间，防止重复执行
-      const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
-      const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
-      const lastRunEpoch = lastRunStr ? parseInt(lastRunStr, 10) : 0;
+      // 检查最后一次运行时间，防止重复执行 - 使用 D1
+      const backupRun = await getBackupRun(env, username, endpoint.id);
+      const lastRunEpoch = backupRun ? backupRun.lastRun : 0;
       const hoursSinceLastRun = (currentEpochMinute - lastRunEpoch) / 60;
 
       // 确保至少间隔 interval * 0.8 小时才再次运行，避免重复执行
       const minIntervalHours = Math.max(1, interval * 0.8);
-      if (lastRunStr && hoursSinceLastRun < minIntervalHours) {
+      if (backupRun && hoursSinceLastRun < minIntervalHours) {
         console.log(
           `[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`
         );
@@ -592,9 +596,15 @@ async function processBackups(
       };
       await saveBackupEndpoint(env, username, endpoint);
 
-      // 过期时间设为 (minIntervalHours + 1) 小时，或者7天（取较大值）
-      await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
-        expirationTtl: Math.max(7 * 24 * 60 * 60, (interval + 1) * 60 * 60),
+      // 保存备份运行记录 - 使用 D1
+      const nowStr = new Date().toISOString();
+      await upsertBackupRun(env, {
+        id: backupRun ? backupRun.id : crypto.randomUUID(),
+        userId: username,
+        endpointId: endpoint.id,
+        lastRun: currentEpochMinute,
+        createdAt: backupRun ? backupRun.createdAt : nowStr,
+        updatedAt: nowStr,
       });
 
       console.log(

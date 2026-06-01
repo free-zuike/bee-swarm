@@ -30,8 +30,10 @@ export type {
  * 定义了 Cloudflare Workers 运行时可用的所有资源
  */
 export interface Env {
-  /** KV 命名空间，用于存储用户配置、推送历史、定时任务等所有数据 */
+  /** KV 命名空间，用于存储临时数据和缓存 */
   SUBSCRIPTIONS: KVNamespace;
+  /** D1 数据库，用于存储核心业务数据 */
+  DB: D1Database;
   /** 静态资源 Fetcher，用于提供前端页面 */
   ASSETS: Fetcher;
   /** 允许的跨域来源，逗号分隔 */
