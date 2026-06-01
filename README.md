@@ -66,11 +66,18 @@ bee-swarm/
 | 💬 钉钉 | 群机器人（支持加签） | 免费 |
 | 🪶 飞书 | 群机器人 | 免费 |
 | ✈️ Telegram | Bot API | 免费 |
-| 🐕 Bark | iOS 推送 | 免费 |
+| 📱 Bark | iOS 推送 | 免费 |
 | 📢 ntfy | 开源推送服务 | 免费 |
 | 📧 Email | Resend（100封/天） | 免费 |
 | 💬 Slack | 群机器人 | 免费 |
 | 🎮 Discord | 群机器人 | 免费 |
+| 🔔 Server酱 | 微信推送 | 免费 |
+| ➕ PushPlus | 微信推送 | 免费 |
+| 🔗 通用 Webhook | 自定义 Webhook | 免费 |
+| 🔔 Gotify | 自建推送服务 | 免费 |
+| 💬 LINE Notify | LINE 推送 | 免费 |
+| 🤝 Microsoft Teams | 群机器人 | 免费 |
+| 🔔 Pushover | 全平台推送 | 付费（有试用期） |
 
 ## 🚀 快速开始
 
