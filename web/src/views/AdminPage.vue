@@ -227,6 +227,8 @@ onMounted(async () => {
       // 检查 token 是否过期
       if (authStore.isAuthenticated) {
         try {
+          // 加载用户信息
+          await loadCurrentUser(accessToken.value);
           await loadChannels();
           await loadHistory();
           pageState.value = 'dashboard';
@@ -239,6 +241,8 @@ onMounted(async () => {
       // 尝试刷新 token
       const refreshSuccess = await authStore.doRefreshToken();
       if (refreshSuccess) {
+        // 加载用户信息
+        await loadCurrentUser(accessToken.value);
         await loadChannels();
         await loadHistory();
         pageState.value = 'dashboard';
@@ -270,6 +274,7 @@ watch(activeTab, (newTab, oldTab) => {
 async function doLogin(authEmail: string, authPassword: string) {
   const success = await authStore.doLogin(authEmail, authPassword);
   if (success) {
+    await loadCurrentUser(accessToken.value);
     await loadChannels();
     await loadHistory();
     pageState.value = 'dashboard';
@@ -279,6 +284,7 @@ async function doLogin(authEmail: string, authPassword: string) {
 async function doRegister(authEmail: string, authPassword: string) {
   const success = await authStore.doRegister(authEmail, authPassword);
   if (success) {
+    await loadCurrentUser(accessToken.value);
     await loadChannels();
     await loadHistory();
     pageState.value = 'dashboard';

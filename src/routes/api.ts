@@ -55,17 +55,24 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
     return c.json({ success: false, message: '操作失败，请稍后重试' }, 400);
   }
 
+  // 混合模式：第一个用户或指定邮箱自动成为管理员
+  const userCountResult = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+  const isFirstUser = !userCountResult || userCountResult.count === 0;
+  const isAdminEmail = c.env.ADMIN_EMAIL && email.toLowerCase() === c.env.ADMIN_EMAIL.toLowerCase();
+  
+  const role = isFirstUser || isAdminEmail ? 'admin' : 'user';
+
   const hashed = await hashPassword(password);
-  await userService.createUser(email, hashed);
+  await userService.createUser(email, hashed, role);
 
   try {
     const auditLogger = createAuditLogger(c.env, email);
-    await auditLogger.log('register', {});
+    await auditLogger.log('register', { role });
   } catch {
     // 审计日志失败不影响主流程
   }
 
-  return c.json({ success: true, message: '注册成功' });
+  return c.json({ success: true, message: '注册成功', isAdmin: role === 'admin' });
 });
 
 api.post('/login', validateBody(schemas.login), async (c) => {

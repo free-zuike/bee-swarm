@@ -918,3 +918,128 @@ export async function batchDeleteGroups(
     body: JSON.stringify({ ids }),
   });
 }
+
+// -------------------------------------------
+// 用户管理接口（管理员专用）
+// -------------------------------------------
+
+export type UserRole = 'admin' | 'user' | 'viewer';
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  role: UserRole;
+  disabled: number;
+  disabled_reason?: string;
+  created_at: string;
+}
+
+// 获取当前用户信息
+export async function getCurrentUser(token: string): Promise<UserInfo> {
+  return tokenRequest(`${BASE}/admin/me`, token);
+}
+
+// 获取用户列表
+export async function getUsers(token: string): Promise<{ users: UserInfo[] }> {
+  return tokenRequest(`${BASE}/admin/users`, token);
+}
+
+// 创建用户
+export async function createUser(
+  token: string,
+  data: { email: string; password: string }
+): Promise<UserInfo & { success: boolean; message: string }> {
+  const result = await tokenRequest(`${BASE}/admin/users`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  apiCache.invalidate(`${BASE}/admin/users`, token);
+  return result;
+}
+
+// 更新用户角色
+export async function updateUserRole(
+  token: string,
+  userId: string,
+  role: UserRole
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest(`${BASE}/admin/users/${userId}/role`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  });
+  apiCache.invalidate(`${BASE}/admin/users`, token);
+  apiCache.invalidate(`${BASE}/admin/me`, token);
+  return result;
+}
+
+// 禁用用户
+export async function disableUser(
+  token: string,
+  userId: string,
+  reason?: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest(`${BASE}/admin/users/${userId}/disable`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  apiCache.invalidate(`${BASE}/admin/users`, token);
+  return result;
+}
+
+// 启用用户
+export async function enableUser(
+  token: string,
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest(`${BASE}/admin/users/${userId}/enable`, token, {
+    method: 'POST',
+  });
+  apiCache.invalidate(`${BASE}/admin/users`, token);
+  return result;
+}
+
+// 删除用户
+export async function deleteUser(
+  token: string,
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest(`${BASE}/admin/users/${userId}`, token, {
+    method: 'DELETE',
+  });
+  apiCache.invalidate(`${BASE}/admin/users`, token);
+  return result;
+}
+
+// -------------------------------------------
+// 审计日志接口（管理员专用）
+// -------------------------------------------
+
+export interface AuditLog {
+  id: string;
+  username: string;
+  action: string;
+  metadata?: any;
+  created_at: string;
+}
+
+export async function getAuditLogs(
+  token: string,
+  options?: { action?: string; startDate?: string; endDate?: string }
+): Promise<{ logs: AuditLog[] }> {
+  const params = new URLSearchParams();
+  if (options?.action) params.set('action', options.action);
+  if (options?.startDate) params.set('startDate', options.startDate);
+  if (options?.endDate) params.set('endDate', options.endDate);
+  const query = params.toString();
+  const url = query ? `${BASE}/admin/audit?${query}` : `${BASE}/admin/audit`;
+  return tokenRequest(url, token);
+}
+
+export async function clearAuditLogs(token: string): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/audit`, token, {
+    method: 'DELETE',
+  });
+}

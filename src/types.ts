@@ -38,6 +38,8 @@ export interface Env {
   ALLOWED_ORIGINS?: string;
   /** 日志级别 */
   LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
+  /** 管理员邮箱（可选），指定该邮箱注册自动成为管理员 */
+  ADMIN_EMAIL?: string;
 }
 
 /**
