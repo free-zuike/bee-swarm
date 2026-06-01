@@ -423,7 +423,7 @@ export async function loadUserChannelSettings(
 ): Promise<ChannelSettings> {
   const settings: ChannelSettings = {};
 
-  // 优先从 D1 读取
+  // 从 D1 读取
   try {
     if (env.DB) {
       const result = await env.DB.prepare(
@@ -438,30 +438,10 @@ export async function loadUserChannelSettings(
           }
           settings[`channel:${row.channel_id}:enabled`] = row.enabled ? 'true' : 'false';
         }
-        return settings;
       }
     }
   } catch (err) {
     console.error('[ChannelSettings] D1 read failed:', (err as Error).message);
-  }
-
-  // D1 没有，从 KV 读取
-  const prefix = `user:${username}:ch:`;
-  const list = await env.SUBSCRIPTIONS.list({ prefix });
-
-  if (list.keys.length === 0) return settings;
-
-  // 并行读取所有值，减少 KV 请求次数
-  const readPromises = list.keys.map(async (key) => {
-    const value = await env.SUBSCRIPTIONS.get(key.name);
-    return { key: key.name, value };
-  });
-
-  const results = await Promise.all(readPromises);
-  for (const { key, value } of results) {
-    if (value !== null) {
-      settings[`channel:${key.slice(prefix.length)}`] = value;
-    }
   }
 
   return settings;
@@ -472,36 +452,36 @@ export async function loadUserChannelSettingsBatch(
   env: Env
 ): Promise<Map<string, ChannelSettings>> {
   const results = new Map<string, ChannelSettings>();
-  const keysToFetch: string[] = [];
 
-  for (const username of usernames) {
-    const prefix = `user:${username}:ch:`;
-    keysToFetch.push(prefix);
-  }
-
-  const prefix = 'user:';
-  const list = await env.SUBSCRIPTIONS.list({ prefix });
-  const settings: ChannelSettings = {};
-
-  for (const key of list.keys) {
-    if (!key.name.includes(':ch:')) continue;
-    const value = await env.SUBSCRIPTIONS.get(key.name);
-    if (value !== null) {
-      const channelKey = `channel:${key.name.split(':ch:')[1]}`;
-      settings[channelKey] = value;
+  if (!env.DB) {
+    for (const username of usernames) {
+      results.set(username, {});
     }
+    return results;
   }
 
+  // 从 D1 批量读取
+  const placeholders = usernames.map(() => '?').join(',');
+  const result = await env.DB.prepare(
+    `SELECT user_id, channel_id, config, enabled FROM channel_configs WHERE user_id IN (${placeholders})`
+  ).bind(...usernames).all<{ user_id: string; channel_id: string; config: string; enabled: number }>();
+
+  // 按用户分组
   for (const username of usernames) {
-    const userSettings: ChannelSettings = {};
-    for (const [key, value] of Object.entries(settings)) {
-      if (key.includes(`:${username}:`) || key.includes(`:${username}$`)) {
-        const parts = key.split(':');
-        const channelPart = parts.slice(2).join(':');
-        userSettings[`channel:${channelPart}`] = value;
+    results.set(username, {});
+  }
+
+  if (result.results) {
+    for (const row of result.results) {
+      const settings = results.get(row.user_id);
+      if (!settings) continue;
+
+      const config = JSON.parse(row.config);
+      for (const [key, value] of Object.entries(config)) {
+        settings[`channel:${row.channel_id}:${key}`] = value as string;
       }
+      settings[`channel:${row.channel_id}:enabled`] = row.enabled ? 'true' : 'false';
     }
-    results.set(username, userSettings);
   }
 
   return results;
@@ -513,8 +493,6 @@ export async function saveUserChannelSetting(
   fields: Record<string, string>,
   env: Env
 ): Promise<void> {
-  const prefix = `user:${username}:ch:${channelId}:`;
-
   // Webhook URL 字段 - 需要 SSRF 防护
   const urlFields = ['webhook_url', 'server', 'avatar_url'];
   for (const [fieldKey, value] of Object.entries(fields)) {
@@ -524,47 +502,38 @@ export async function saveUserChannelSetting(
         throw new Error(validationResult.message);
       }
     }
-    if (value) {
-      await env.SUBSCRIPTIONS.put(`${prefix}${fieldKey}`, value);
-    } else {
-      await env.SUBSCRIPTIONS.delete(`${prefix}${fieldKey}`);
-    }
   }
 
-  // 同时保存到 D1
-  try {
-    if (env.DB) {
-      const config: Record<string, string> = {};
-      for (const [fieldKey, value] of Object.entries(fields)) {
-        if (fieldKey !== 'enabled') {
-          config[fieldKey] = value;
-        }
-      }
-      const enabled = fields.enabled === 'true' ? 1 : 0;
-      const now = new Date().toISOString();
-
-      // 先删除旧的
-      await env.DB.prepare(
-        'DELETE FROM channel_configs WHERE user_id = ? AND channel_id = ?'
-      ).bind(username, channelId).run();
-
-      // 再插入新的
-      await env.DB.prepare(`
-        INSERT INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        crypto.randomUUID(),
-        username,
-        channelId,
-        JSON.stringify(config),
-        enabled,
-        now,
-        now
-      ).run();
-    }
-  } catch (err) {
-    console.error('[ChannelSettings] D1 save failed:', (err as Error).message);
+  // 保存到 D1
+  if (!env.DB) {
+    throw new Error('D1 数据库未配置');
   }
+
+  const config: Record<string, string> = {};
+  for (const [fieldKey, value] of Object.entries(fields)) {
+    if (fieldKey !== 'enabled') {
+      config[fieldKey] = value;
+    }
+  }
+  const enabled = fields.enabled === 'true' ? 1 : 0;
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    'DELETE FROM channel_configs WHERE user_id = ? AND channel_id = ?'
+  ).bind(username, channelId).run();
+
+  await env.DB.prepare(`
+    INSERT INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    crypto.randomUUID(),
+    username,
+    channelId,
+    JSON.stringify(config),
+    enabled,
+    now,
+    now
+  ).run();
 }
 
 /**

@@ -77,15 +77,26 @@ export interface BackupResult {
 
 // 获取用户的所有备份端
 export async function getBackupEndpoints(env: Env, username: string): Promise<BackupEndpoint[]> {
-  const kvKey = `user:${username}:backup_endpoints`;
-  const configStr = await env.SUBSCRIPTIONS.get(kvKey);
-  if (!configStr) return [];
-  try {
-    return JSON.parse(configStr);
-  } catch {
-    console.error(`[Backup] Failed to parse endpoints for ${username}`);
-    return [];
-  }
+  if (!env.DB) return [];
+  
+  const result = await env.DB.prepare(
+    'SELECT * FROM backup_endpoints WHERE user_id = ? ORDER BY created_at DESC'
+  ).bind(username).all<any>();
+
+  return (result.results || []).map((row: any) => ({
+    id: row.id,
+    name: row.name || '默认备份',
+    type: row.type as EndpointType,
+    enabled: row.enabled === 1,
+    config: JSON.parse(row.config || '{}'),
+    schedule: {
+      enabled: false,
+      interval: 24,
+      startTime: '02:00',
+    },
+    retention: 30,
+    lastBackup: row.last_backup ? JSON.parse(row.last_backup) : undefined,
+  }));
 }
 
 // 保存用户的所有备份端
@@ -94,8 +105,26 @@ export async function saveBackupEndpoints(
   username: string,
   endpoints: BackupEndpoint[]
 ): Promise<void> {
-  const kvKey = `user:${username}:backup_endpoints`;
-  await env.SUBSCRIPTIONS.put(kvKey, JSON.stringify(endpoints));
+  if (!env.DB) return;
+  
+  // 删除旧的
+  await env.DB.prepare('DELETE FROM backup_endpoints WHERE user_id = ?').bind(username).run();
+  
+  // 插入新的
+  for (const endpoint of endpoints) {
+    await env.DB.prepare(`
+      INSERT INTO backup_endpoints (id, user_id, type, config, enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      endpoint.id,
+      username,
+      endpoint.type,
+      JSON.stringify(endpoint.config),
+      endpoint.enabled ? 1 : 0,
+      new Date().toISOString(),
+      new Date().toISOString()
+    ).run();
+  }
 }
 
 // 获取单个备份端
@@ -114,14 +143,26 @@ export async function saveBackupEndpoint(
   username: string,
   endpoint: BackupEndpoint
 ): Promise<void> {
-  const endpoints = await getBackupEndpoints(env, username);
-  const index = endpoints.findIndex((e) => e.id === endpoint.id);
-  if (index >= 0) {
-    endpoints[index] = endpoint;
-  } else {
-    endpoints.push(endpoint);
-  }
-  await saveBackupEndpoints(env, username, endpoints);
+  if (!env.DB) return;
+  
+  // 先删除旧的
+  await env.DB.prepare(
+    'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
+  ).bind(endpoint.id, username).run();
+  
+  // 插入新的
+  await env.DB.prepare(`
+    INSERT INTO backup_endpoints (id, user_id, type, config, enabled, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    endpoint.id,
+    username,
+    endpoint.type,
+    JSON.stringify(endpoint.config),
+    endpoint.enabled ? 1 : 0,
+    new Date().toISOString(),
+    new Date().toISOString()
+  ).run();
 }
 
 // 删除备份端
@@ -130,11 +171,13 @@ export async function deleteBackupEndpoint(
   username: string,
   endpointId: string
 ): Promise<boolean> {
-  const endpoints = await getBackupEndpoints(env, username);
-  const newEndpoints = endpoints.filter((e) => e.id !== endpointId);
-  if (newEndpoints.length === endpoints.length) return false;
-  await saveBackupEndpoints(env, username, newEndpoints);
-  return true;
+  if (!env.DB) return false;
+  
+  const result = await env.DB.prepare(
+    'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
+  ).bind(endpointId, username).run();
+  
+  return result.success && (result.meta?.changes || 0) > 0;
 }
 
 // 导出所有数据（完整备份，不过滤敏感信息）

@@ -4,8 +4,7 @@
 # 敏感配置通过 wrangler secret 设置：
 #   npx wrangler secret put ADMIN_PASSWORD
 #
-# 管理密码和推送渠道配置在管理后台网页中设置（存储到 KV）
-# 本地开发时，创建 .dev.vars 文件（已加入 .gitignore）
+# 所有业务数据存储在 D1 数据库中
 
 name = "bee-swarm"
 main = "src/index.ts"
@@ -29,15 +28,7 @@ run_worker_first = true
 crons = ["*/5 * * * *"]
 
 # ------------------------------------------
-# KV 命名空间（存储订阅和配置）
-# ------------------------------------------
-[[kv_namespaces]]
-binding = "SUBSCRIPTIONS"
-# CI 自动替换为实际 KV ID，本地开发时需手动设置或使用 wrangler kv:namespace create
-id = "${KV_NAMESPACE_ID}"
-
-# ------------------------------------------
-# D1 数据库（存储核心业务数据）
+# D1 数据库（存储所有业务数据）
 # ------------------------------------------
 [[d1_databases]]
 binding = "DB"

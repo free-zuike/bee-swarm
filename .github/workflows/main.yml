@@ -4,7 +4,7 @@
 # Fork 者只需设置 2 个 Secrets：
 #   - CLOUDFLARE_API_TOKEN
 #   - CLOUDFLARE_ACCOUNT_ID
-# KV 和 D1 自动创建
+# D1 数据库自动创建
 
 name: Deploy to Cloudflare Workers
 
@@ -56,24 +56,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup KV Namespace
-        id: kv
-        run: |
-          KV_LIST=$(curl -s -X GET \
-            "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/storage/kv/namespaces" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            -H "Content-Type: application/json")
-          KV_ID=$(echo $KV_LIST | jq -r '.result[] | select(.title=="bee-swarm-kv") | .id')
-          if [ -z "$KV_ID" ] || [ "$KV_ID" = "null" ]; then
-            KV_CREATE=$(curl -s -X POST \
-              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/storage/kv/namespaces" \
-              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d '{"title":"bee-swarm-kv"}')
-            KV_ID=$(echo $KV_CREATE | jq -r '.result.id')
-          fi
-          echo "kv_id=$KV_ID" >> $GITHUB_OUTPUT
-
       - name: Setup D1 Database
         id: d1
         run: |
@@ -106,9 +88,8 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Update wrangler.toml with IDs
+      - name: Update wrangler.toml with D1 ID
         run: |
-          sed -i "s/\${KV_NAMESPACE_ID}/${{ steps.kv.outputs.kv_id }}/g" wrangler.toml
           sed -i "s/\${D1_DATABASE_ID}/${{ steps.d1.outputs.d1_id }}/g" wrangler.toml
 
       - name: Deploy Worker
