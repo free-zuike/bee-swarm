@@ -657,11 +657,10 @@ export async function restoreBackupFromEndpoint(
   endpoint: BackupEndpoint,
   backupKey: string
 ): Promise<BackupResult> {
-  // 由于 KV 已移除，恢复功能暂不支持
-  // 如需恢复，请联系管理员
+  // 恢复功能暂不支持
   return {
     success: false,
-    message: '恢复功能暂不可用（KV 已移除）'
+    message: '恢复功能暂不可用'
   };
 }
 
@@ -786,7 +785,7 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
     })
   );
 
-  // 顺序更新状态（避免 KV 写入竞争）
+  // 顺序更新状态
   for (const { endpoint, result } of uploadResults) {
     endpoint.lastBackup = {
       time: new Date().toISOString(),

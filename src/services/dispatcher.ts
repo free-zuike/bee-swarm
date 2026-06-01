@@ -1,6 +1,6 @@
 // ============================================
 // 推送调度器
-// 渠道配置按用户隔离，存储在 KV 中
+// 渠道配置按用户隔离，存储在 D1 中
 // ============================================
 import type {
   Env,
@@ -697,8 +697,6 @@ export async function dispatchPushWithOptions(
   } catch {
     // 统计记录失败不影响主流程
   }
-
-  // KV 记录通过 expirationTtl 自动清理（7天），无需手动删除
 
   return results;
 }

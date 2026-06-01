@@ -226,7 +226,7 @@ async function sendOverdueReminder(env: Env, username: string, task: ScheduledPu
 }
 
 /**
- * 标记提醒已发送（由于 KV 已移除，暂不实现）
+ * 标记提醒已发送（暂不实现）
  */
 async function markReminderSent(_env: Env, _username: string, _taskId: string): Promise<void> {
   // 暂不实现
