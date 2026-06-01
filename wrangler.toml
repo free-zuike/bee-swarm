@@ -37,6 +37,15 @@ binding = "SUBSCRIPTIONS"
 id = "${KV_NAMESPACE_ID}"
 
 # ------------------------------------------
+# D1 数据库（存储核心业务数据）
+# ------------------------------------------
+[[d1_databases]]
+binding = "DB"
+# CI 自动替换为实际 D1 数据库 ID
+database_name = "bee-swarm-db"
+database_id = "${D1_DATABASE_ID}"
+
+# ------------------------------------------
 # Workers 日志和监控
 # ------------------------------------------
 [observability]
