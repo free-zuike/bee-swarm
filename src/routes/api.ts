@@ -413,19 +413,19 @@ adminApi.delete('/audit', async (c) => {
 // ============================================
 // 用户管理接口（仅管理员）
 // ============================================
-async function requireAdmin(c: { get: (key: string) => unknown }) {
+function requireAdmin(c: any) {
   const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
   if (userRole !== 'admin') {
-    return { error: c.json({ error: '无权限操作用户管理', code: 'FORBIDDEN' }, 403) };
+    return c.json({ error: '无权限操作用户管理', code: 'FORBIDDEN' }, 403);
   }
-  return { ok: true };
+  return null;
 }
 
 /** 获取用户列表 */
 adminApi.get('/users', async (c) => {
   const env = c.env as Env;
-  const guard = await requireAdmin(c, new UserService(env));
-  if ('error' in guard) return guard.error;
+  const guard = requireAdmin(c);
+  if (guard) return guard;
 
   const svc = new UserService(env);
   const result = await svc['env'].DB.prepare(
@@ -456,8 +456,8 @@ adminApi.get('/me', async (c) => {
 /** 创建用户 */
 adminApi.post('/users', validateBody(schemas.register), async (c) => {
   const env = c.env as Env;
-  const guard = await requireAdmin(c, new UserService(env));
-  if ('error' in guard) return guard.error;
+  const guard = requireAdmin(c);
+  if (guard) return guard;
 
   const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
   const { email, password } = body;
@@ -472,8 +472,11 @@ adminApi.post('/users', validateBody(schemas.register), async (c) => {
   const newUser = await svc.createUser(email, hashed);
 
   try {
-    const auditLogger = createAuditLogger(env, c.get('username'));
-    await auditLogger.log('user_created', { email, role: 'user' });
+    const username = c.get('username') as string;
+    if (username) {
+      const auditLogger = createAuditLogger(env, username);
+      await auditLogger.log('user_created', { email, role: 'user' });
+    }
   } catch {}
 
   return c.json({
@@ -488,10 +491,10 @@ adminApi.post('/users', validateBody(schemas.register), async (c) => {
 /** 更新用户角色 */
 adminApi.put('/users/:id/role', validateBody(schemas.apikey), async (c) => {
   const env = c.env as Env;
-  const guard = await requireAdmin(c, new UserService(env));
-  if ('error' in guard) return guard.error;
+  const guard = requireAdmin(c);
+  if (guard) return guard;
 
-  const userId = c.req.param('id');
+  const userId = c.req.param('id') as string;
   const body = (c as ValidatedContext).validatedBody as { role?: string; refresh?: boolean };
   const { role } = body;
 
@@ -506,16 +509,19 @@ adminApi.put('/users/:id/role', validateBody(schemas.apikey), async (c) => {
   }
 
   // 防止管理员降级自己
-  const currentUserId = c.get('userId') as string;
-  if (currentUserId === userId && role !== 'admin') {
+  const currentUserId = c.get('userId') as string | undefined;
+  if (currentUserId && currentUserId === userId && role !== 'admin') {
     return c.json({ error: '不能修改自己的角色', code: 'SELF_DEMOTE' }, 400);
   }
 
   await svc.updateUser(userId, { role: role as 'admin' | 'user' | 'viewer' });
 
   try {
-    const auditLogger = createAuditLogger(env, c.get('username'));
-    await auditLogger.log('user_role_updated', { targetUserId: userId, newRole: role });
+    const username = c.get('username') as string;
+    if (username) {
+      const auditLogger = createAuditLogger(env, username);
+      await auditLogger.log('user_role_updated', { targetUserId: userId, newRole: role });
+    }
   } catch {}
 
   return c.json({ success: true, message: '角色已更新' });
@@ -524,11 +530,11 @@ adminApi.put('/users/:id/role', validateBody(schemas.apikey), async (c) => {
 /** 禁用用户 */
 adminApi.post('/users/:id/disable', async (c) => {
   const env = c.env as Env;
-  const guard = await requireAdmin(c, new UserService(env));
-  if ('error' in guard) return guard.error;
+  const guard = requireAdmin(c);
+  if (guard) return guard;
 
-  const userId = c.req.param('id');
-  const body = await c.req.json<{ reason?: string }>().catch(() => ({}));
+  const userId = c.req.param('id') as string;
+  const body = await c.req.json<{ reason?: string }>().catch(() => ({ reason: undefined }));
 
   const currentUserId = c.get('userId') as string;
   if (currentUserId === userId) {
@@ -541,14 +547,18 @@ adminApi.post('/users/:id/disable', async (c) => {
     return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
   }
 
+  const reason = body.reason || '';
   await svc.updateUser(userId, {
     disabled: 1,
-    disabled_reason: body.reason || '',
+    disabled_reason: reason,
   });
 
   try {
-    const auditLogger = createAuditLogger(env, c.get('username'));
-    await auditLogger.log('user_disabled', { targetUserId: userId, reason: body.reason });
+    const username = c.get('username') as string;
+    if (username) {
+      const auditLogger = createAuditLogger(env, username);
+      await auditLogger.log('user_disabled', { targetUserId: userId, reason });
+    }
   } catch {}
 
   return c.json({ success: true, message: '用户已禁用' });
@@ -557,10 +567,10 @@ adminApi.post('/users/:id/disable', async (c) => {
 /** 启用用户 */
 adminApi.post('/users/:id/enable', async (c) => {
   const env = c.env as Env;
-  const guard = await requireAdmin(c, new UserService(env));
-  if ('error' in guard) return guard.error;
+  const guard = requireAdmin(c);
+  if (guard) return guard;
 
-  const userId = c.req.param('id');
+  const userId = c.req.param('id') as string;
 
   const svc = new UserService(env);
   const target = await svc.findById(userId);
@@ -571,8 +581,11 @@ adminApi.post('/users/:id/enable', async (c) => {
   await svc.updateUser(userId, { disabled: 0, disabled_reason: '' });
 
   try {
-    const auditLogger = createAuditLogger(env, c.get('username'));
-    await auditLogger.log('user_enabled', { targetUserId: userId });
+    const username = c.get('username') as string;
+    if (username) {
+      const auditLogger = createAuditLogger(env, username);
+      await auditLogger.log('user_enabled', { targetUserId: userId });
+    }
   } catch {}
 
   return c.json({ success: true, message: '用户已启用' });
@@ -581,13 +594,13 @@ adminApi.post('/users/:id/enable', async (c) => {
 /** 删除用户 */
 adminApi.delete('/users/:id', async (c) => {
   const env = c.env as Env;
-  const guard = await requireAdmin(c, new UserService(env));
-  if ('error' in guard) return guard.error;
+  const guard = requireAdmin(c);
+  if (guard) return guard;
 
-  const userId = c.req.param('id');
+  const userId = c.req.param('id') as string;
 
   const currentUserId = c.get('userId') as string;
-  if (currentUserId === userId) {
+  if (currentUserId && currentUserId === userId) {
     return c.json({ error: '不能删除自己', code: 'SELF_DELETE' }, 400);
   }
 
@@ -600,8 +613,11 @@ adminApi.delete('/users/:id', async (c) => {
   await svc.deleteUser(userId);
 
   try {
-    const auditLogger = createAuditLogger(env, c.get('username'));
-    await auditLogger.log('user_deleted', { email: target.email });
+    const username = c.get('username') as string;
+    if (username) {
+      const auditLogger = createAuditLogger(env, username);
+      await auditLogger.log('user_deleted', { email: target.email });
+    }
   } catch {}
 
   return c.json({ success: true, message: '用户已删除' });

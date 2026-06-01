@@ -27,7 +27,12 @@ export type AuditAction =
   | 'scheduled_push_rescheduled'
   | 'backup_created'
   | 'backup_restored'
-  | 'settings_updated';
+  | 'settings_updated'
+  | 'user_created'
+  | 'user_deleted'
+  | 'user_role_updated'
+  | 'user_disabled'
+  | 'user_enabled';
 
 export interface AuditLog {
   id: string;

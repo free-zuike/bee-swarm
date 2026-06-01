@@ -949,11 +949,15 @@ export async function createUser(
   token: string,
   data: { email: string; password: string }
 ): Promise<UserInfo & { success: boolean; message: string }> {
-  const result = await tokenRequest(`${BASE}/admin/users`, token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+  const result = await tokenRequest<UserInfo & { success: boolean; message: string }>(
+    `${BASE}/admin/users`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/users`, token);
   return result;
 }
@@ -964,11 +968,15 @@ export async function updateUserRole(
   userId: string,
   role: UserRole
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest(`${BASE}/admin/users/${userId}/role`, token, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role }),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/users/${userId}/role`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/users`, token);
   apiCache.invalidate(`${BASE}/admin/me`, token);
   return result;
@@ -980,11 +988,15 @@ export async function disableUser(
   userId: string,
   reason?: string
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest(`${BASE}/admin/users/${userId}/disable`, token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reason }),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/users/${userId}/disable`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/users`, token);
   return result;
 }
@@ -994,9 +1006,13 @@ export async function enableUser(
   token: string,
   userId: string
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest(`${BASE}/admin/users/${userId}/enable`, token, {
-    method: 'POST',
-  });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/users/${userId}/enable`,
+    token,
+    {
+      method: 'POST',
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/users`, token);
   return result;
 }
@@ -1006,9 +1022,13 @@ export async function deleteUser(
   token: string,
   userId: string
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest(`${BASE}/admin/users/${userId}`, token, {
-    method: 'DELETE',
-  });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/users/${userId}`,
+    token,
+    {
+      method: 'DELETE',
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/users`, token);
   return result;
 }
