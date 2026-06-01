@@ -238,10 +238,15 @@ adminApi.use('/*', authMiddleware);
 
 adminApi.get('/channels', async (c) => {
   const username = c.get('username');
-  const settings = await loadUserChannelSettings(username, c.env);
-  const channels = getChannelConfigs(settings);
-
-  return c.json({ channels, settings, definitions: CHANNEL_DEFINITIONS });
+  
+  try {
+    const settings = await loadUserChannelSettings(username, c.env);
+    const channels = getChannelConfigs(settings);
+    return c.json({ channels, settings, definitions: CHANNEL_DEFINITIONS });
+  } catch (error) {
+    console.error('[Channels] Error:', error);
+    return c.json({ channels: [], settings: {}, definitions: CHANNEL_DEFINITIONS });
+  }
 });
 
 adminApi.put('/channels/:id', async (c) => {
@@ -593,9 +598,15 @@ adminApi.post('/history/batch-delete-filter', async (c) => {
 /** 获取所有模板 */
 adminApi.get('/templates', async (c) => {
   const username = c.get('username');
-  const pushService = new PushService(c.env, username);
-  const templates = await pushService.getTemplates();
-  return c.json({ templates });
+  
+  try {
+    const pushService = new PushService(c.env, username);
+    const templates = await pushService.getTemplates();
+    return c.json({ templates });
+  } catch (error) {
+    console.error('[Templates] Error:', error);
+    return c.json({ templates: [] });
+  }
 });
 
 /** 创建模板 */
@@ -769,9 +780,15 @@ adminApi.get('/templates/:id/variables', async (c) => {
 /** 获取所有分组 */
 adminApi.get('/groups', async (c) => {
   const username = c.get('username');
-  const pushService = new PushService(c.env, username);
-  const groups = await pushService.getChannelGroups();
-  return c.json({ groups });
+  
+  try {
+    const pushService = new PushService(c.env, username);
+    const groups = await pushService.getChannelGroups();
+    return c.json({ groups });
+  } catch (error) {
+    console.error('[Groups] Error:', error);
+    return c.json({ groups: [] });
+  }
 });
 
 /** 创建分组 */
@@ -861,9 +878,14 @@ adminApi.get('/scheduled', async (c) => {
     | 'failed'
     | undefined;
 
-  const pushService = new PushService(c.env, username);
-  const pushes = await pushService.getScheduledPushes(status);
-  return c.json({ scheduled: pushes });
+  try {
+    const pushService = new PushService(c.env, username);
+    const pushes = await pushService.getScheduledPushes(status);
+    return c.json({ scheduled: pushes });
+  } catch (error) {
+    console.error('[Scheduled] Error:', error);
+    return c.json({ scheduled: [] });
+  }
 });
 
 /** 创建定时推送 */
