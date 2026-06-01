@@ -739,6 +739,30 @@ function handleResend(record: PushHistoryRecord) {
           }}</span>
         </button>
         <button
+          v-if="hasPermission('users:manage')"
+          class="fab-item"
+          @click="
+            activeTab = 'users';
+            showSettings = false;
+            showFabMenu = false;
+          "
+        >
+          <span class="fab-icon">👥</span>
+          <span class="fab-label">{{ t('tab.users') }}</span>
+        </button>
+        <button
+          v-if="hasPermission('users:manage')"
+          class="fab-item"
+          @click="
+            activeTab = 'audit';
+            showSettings = false;
+            showFabMenu = false;
+          "
+        >
+          <span class="fab-icon">📋</span>
+          <span class="fab-label">{{ t('tab.audit') }}</span>
+        </button>
+        <button
           class="fab-item fab-logout"
           @click="
             logout();
@@ -952,6 +976,12 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 渠道健康检查 Tab ==================== -->
         <ChannelHealthCheck v-if="activeTab === 'health'" :access-token="accessToken" />
+
+        <!-- ==================== 用户管理 Tab（从悬浮菜单进入） ==================== -->
+        <UserManagement v-if="activeTab === 'users' && hasPermission('users:manage')" />
+
+        <!-- ==================== 审计日志 Tab（从悬浮菜单进入） ==================== -->
+        <AuditLogs v-if="activeTab === 'audit' && hasPermission('users:manage')" />
       </template>
     </div>
   </div>
@@ -1153,6 +1183,62 @@ function handleResend(record: PushHistoryRecord) {
 .header.dark .header-email {
   color: var(--text-secondary, #999);
   background: var(--bg-secondary, #3c3c3c);
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+  cursor: default;
+  user-select: none;
+}
+
+.role-badge-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.role-badge-text {
+  letter-spacing: 0.3px;
+}
+
+.role-badge-admin {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+}
+
+.role-badge-user {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  box-shadow: 0 2px 8px rgba(17, 153, 142, 0.35);
+}
+
+.role-badge-viewer {
+  background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  box-shadow: 0 2px 8px rgba(252, 74, 26, 0.35);
+}
+
+.role-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.role-badge-admin:hover {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+.role-badge-user:hover {
+  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.5);
+}
+
+.role-badge-viewer:hover {
+  box-shadow: 0 4px 12px rgba(252, 74, 26, 0.5);
 }
 
 .logout {
@@ -1452,6 +1538,16 @@ function handleResend(record: PushHistoryRecord) {
 
   .header-email {
     display: none;
+  }
+
+  .role-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .role-badge-icon {
+    font-size: 12px;
   }
 
   .header-right {
