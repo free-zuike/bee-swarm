@@ -421,9 +421,33 @@ export async function loadUserChannelSettings(
   username: string,
   env: Env
 ): Promise<ChannelSettings> {
+  const settings: ChannelSettings = {};
+
+  // 优先从 D1 读取
+  try {
+    if (env.DB) {
+      const result = await env.DB.prepare(
+        'SELECT channel_id, config, enabled FROM channel_configs WHERE user_id = ?'
+      ).bind(username).all<{ channel_id: string; config: string; enabled: number }>();
+      
+      if (result.results && result.results.length > 0) {
+        for (const row of result.results) {
+          const config = JSON.parse(row.config);
+          for (const [key, value] of Object.entries(config)) {
+            settings[`channel:${row.channel_id}:${key}`] = value as string;
+          }
+          settings[`channel:${row.channel_id}:enabled`] = row.enabled ? 'true' : 'false';
+        }
+        return settings;
+      }
+    }
+  } catch (err) {
+    console.error('[ChannelSettings] D1 read failed:', (err as Error).message);
+  }
+
+  // D1 没有，从 KV 读取
   const prefix = `user:${username}:ch:`;
   const list = await env.SUBSCRIPTIONS.list({ prefix });
-  const settings: ChannelSettings = {};
 
   if (list.keys.length === 0) return settings;
 
@@ -505,6 +529,41 @@ export async function saveUserChannelSetting(
     } else {
       await env.SUBSCRIPTIONS.delete(`${prefix}${fieldKey}`);
     }
+  }
+
+  // 同时保存到 D1
+  try {
+    if (env.DB) {
+      const config: Record<string, string> = {};
+      for (const [fieldKey, value] of Object.entries(fields)) {
+        if (fieldKey !== 'enabled') {
+          config[fieldKey] = value;
+        }
+      }
+      const enabled = fields.enabled === 'true' ? 1 : 0;
+      const now = new Date().toISOString();
+
+      // 先删除旧的
+      await env.DB.prepare(
+        'DELETE FROM channel_configs WHERE user_id = ? AND channel_id = ?'
+      ).bind(username, channelId).run();
+
+      // 再插入新的
+      await env.DB.prepare(`
+        INSERT INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(),
+        username,
+        channelId,
+        JSON.stringify(config),
+        enabled,
+        now,
+        now
+      ).run();
+    }
+  } catch (err) {
+    console.error('[ChannelSettings] D1 save failed:', (err as Error).message);
   }
 }
 
