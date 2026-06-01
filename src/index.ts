@@ -551,8 +551,11 @@ async function processBackups(
       } else if (interval >= 24) {
         shouldRun = inTimeWindow;
       } else {
-        for (let h = startHour; h < 24; h += interval) {
-          const intervalTimeDiff = Math.abs((h - localHour) * 60 + (startMinute - localMinute));
+        // 对于小于24小时的间隔，检查是否在任何一个执行时间点附近
+        // 计算从startHour开始，每interval小时的时间点
+        for (let h = startHour; h < 48; h += interval) {
+          const hour = h % 24;
+          const intervalTimeDiff = Math.abs((hour - localHour) * 60 + (startMinute - localMinute));
           if (intervalTimeDiff <= 2) {
             shouldRun = true;
             break;
@@ -565,13 +568,13 @@ async function processBackups(
       }
 
       // 检查最后一次运行时间，防止重复执行
-      const lastRunKey = `backup_last_run:${username}:${endpoint.id}`;
-      const lastRunStr = await env.SUBSCRIPTIONS.get(lastRunKey);
-      const lastRunEpoch = lastRunStr ? parseInt(lastRunStr, 10) : 0;
+      const backupRun = await getBackupRun(env, username, endpoint.id);
+      const lastRunEpoch = backupRun ? backupRun.lastRun : 0;
       const hoursSinceLastRun = (currentEpochMinute - lastRunEpoch) / 60;
 
-      // 确保至少间隔 (interval - 1) 小时才再次运行，避免重复
-      if (lastRunStr && hoursSinceLastRun < Math.max(1, interval - 1)) {
+      // 确保至少间隔 interval * 0.8 小时才再次运行，避免重复执行
+      const minIntervalHours = Math.max(1, interval * 0.8);
+      if (backupRun && hoursSinceLastRun < minIntervalHours) {
         console.log(
           `[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`
         );
@@ -587,8 +590,16 @@ async function processBackups(
         message: result.message,
       };
       await saveBackupEndpoint(env, username, endpoint);
-      await env.SUBSCRIPTIONS.put(lastRunKey, String(currentEpochMinute), {
-        expirationTtl: Math.max(7 * 24 * 60 * 60, (interval + 1) * 60 * 60),
+
+      // 保存备份运行记录
+      const nowStr = new Date().toISOString();
+      await upsertBackupRun(env, {
+        id: backupRun ? backupRun.id : crypto.randomUUID(),
+        userId: username,
+        endpointId: endpoint.id,
+        lastRun: currentEpochMinute,
+        createdAt: backupRun ? backupRun.createdAt : nowStr,
+        updatedAt: nowStr,
       });
 
       console.log(
