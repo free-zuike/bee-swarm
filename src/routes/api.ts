@@ -339,14 +339,20 @@ adminApi.get('/history', async (c) => {
   const channel = c.req.query('channel');
   const status = c.req.query('status');
   const keyword = c.req.query('keyword');
-  const result = await getPushHistory(username, c.env, {
-    page,
-    pageSize,
-    channel,
-    status,
-    keyword,
-  });
-  return c.json({ history: result.records, total: result.total, hasMore: result.hasMore });
+  
+  try {
+    const result = await getPushHistory(username, c.env, {
+      page,
+      pageSize,
+      channel,
+      status,
+      keyword,
+    });
+    return c.json({ history: result.records, total: result.total, hasMore: result.hasMore });
+  } catch (error) {
+    console.error('[History] Error:', error);
+    return c.json({ history: [], total: 0, hasMore: false });
+  }
 });
 
 // ============================================
@@ -1095,39 +1101,50 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
 /** 获取推送统计 */
 adminApi.get('/stats', async (c) => {
   const username = c.get('username');
-  const pushService = new PushService(c.env, username);
-  const stats = await pushService.getPushStats();
+  
+  try {
+    const pushService = new PushService(c.env, username);
+    const stats = await pushService.getPushStats();
 
-  // 获取推送历史用于渠道使用统计
-  const { records } = await getPushHistory(username, c.env, { pageSize: 1000 });
+    // 获取推送历史用于渠道使用统计
+    const { records } = await getPushHistory(username, c.env, { pageSize: 1000 });
 
-  // 渠道使用统计
-  const channelUsage: Record<
-    string,
-    { count: number; success: number; failed: number; avgLatency: number }
-  > = {};
-  for (const record of records) {
-    for (const result of record.results) {
-      if (!channelUsage[result.channel]) {
-        channelUsage[result.channel] = { count: 0, success: 0, failed: 0, avgLatency: 0 };
-      }
-      channelUsage[result.channel].count++;
-      if (result.success) {
-        channelUsage[result.channel].success++;
-      } else {
-        channelUsage[result.channel].failed++;
-      }
-      if (result.latencyMs !== undefined) {
-        const prev = channelUsage[result.channel];
-        prev.avgLatency = (prev.avgLatency * (prev.count - 1) + result.latencyMs) / prev.count;
+    // 渠道使用统计
+    const channelUsage: Record<
+      string,
+      { count: number; success: number; failed: number; avgLatency: number }
+    > = {};
+    for (const record of records) {
+      for (const result of record.results) {
+        if (!channelUsage[result.channel]) {
+          channelUsage[result.channel] = { count: 0, success: 0, failed: 0, avgLatency: 0 };
+        }
+        channelUsage[result.channel].count++;
+        if (result.success) {
+          channelUsage[result.channel].success++;
+        } else {
+          channelUsage[result.channel].failed++;
+        }
+        if (result.latencyMs !== undefined) {
+          const prev = channelUsage[result.channel];
+          prev.avgLatency = (prev.avgLatency * (prev.count - 1) + result.latencyMs) / prev.count;
+        }
       }
     }
-  }
 
-  return c.json({
-    ...stats,
-    channelUsage,
-  });
+    return c.json({
+      ...stats,
+      channelUsage,
+    });
+  } catch (error) {
+    console.error('[Stats] Error:', error);
+    return c.json({
+      session: { total: 0, success: 0, failed: 0 },
+      trend: { rate: 0, direction: 'stable' as const },
+      recent: [],
+      channelUsage: {},
+    });
+  }
 });
 
 /** 获取会话指标 */
