@@ -19,7 +19,12 @@ export async function authMiddleware(
   if (apiKey) {
     const user = await userService.findByApiKey(apiKey);
     if (user) {
+      if (user.disabled) {
+        return c.json({ error: '账号已被禁用' }, 403);
+      }
       c.set('username', user.email);
+      c.set('userId', user.id);
+      c.set('userRole', user.role || 'user');
       await next();
       return;
     }
@@ -31,7 +36,12 @@ export async function authMiddleware(
   if (token) {
     const user = await userService.findByToken(token);
     if (user && user.token_expires_at && user.token_expires_at > Date.now()) {
+      if (user.disabled) {
+        return c.json({ error: '账号已被禁用' }, 403);
+      }
       c.set('username', user.email);
+      c.set('userId', user.id);
+      c.set('userRole', user.role || 'user');
       await next();
       return;
     } else if (user) {

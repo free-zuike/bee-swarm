@@ -49,5 +49,9 @@ declare module 'hono' {
     env: Env;
     /** 当前认证的用户名 */
     username: string;
+    /** 当前认证的用户ID */
+    userId: string;
+    /** 当前认证的用户角色 */
+    userRole: 'admin' | 'user' | 'viewer';
   }
 }

@@ -1,5 +1,7 @@
 import type { Env } from '../types';
 
+export type UserRole = 'admin' | 'user' | 'viewer';
+
 export interface User {
   id: string;
   email: string;
@@ -10,6 +12,9 @@ export interface User {
   refresh_token_expires_at?: number;
   apikey?: string;
   apikey_expires_at?: number;
+  role?: UserRole;
+  disabled?: number;
+  disabled_reason?: string;
   created_at: string;
   updated_at: string;
 }
@@ -73,14 +78,14 @@ export class UserService {
   }
 
   /** 创建用户 */
-  async createUser(email: string, hashedPassword: string): Promise<User> {
+  async createUser(email: string, hashedPassword: string, role: UserRole = 'user'): Promise<User> {
     this.checkDB();
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+
     await this.env.DB.prepare(
-      'INSERT INTO users (id, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-    ).bind(id, email, hashedPassword, now, now).run();
+      'INSERT INTO users (id, email, password, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, email, hashedPassword, role, now, now).run();
 
     const user = await this.findById(id);
     if (!user) {

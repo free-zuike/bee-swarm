@@ -367,6 +367,10 @@ adminApi.get('/history', async (c) => {
 /** 获取审计日志列表 */
 adminApi.get('/audit', async (c) => {
   const username = c.get('username');
+  const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
+  if (userRole !== 'admin') {
+    return c.json({ error: '无权限访问审计日志', code: 'FORBIDDEN' }, 403);
+  }
   const auditLogger = createAuditLogger(c.env, username);
 
   const limit = parseInt(c.req.query('limit') || '50', 10);
@@ -389,10 +393,211 @@ adminApi.get('/audit', async (c) => {
 /** 清除审计日志 */
 adminApi.delete('/audit', async (c) => {
   const username = c.get('username');
+  const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
+  if (userRole !== 'admin') {
+    return c.json({ error: '无权限清除审计日志', code: 'FORBIDDEN' }, 403);
+  }
   const auditLogger = createAuditLogger(c.env, username);
   await auditLogger.clearLogs();
 
   return c.json({ success: true, message: '审计日志已清除' });
+});
+
+// ============================================
+// 用户管理接口（仅管理员）
+// ============================================
+async function requireAdmin(c: { get: (key: string) => unknown }) {
+  const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
+  if (userRole !== 'admin') {
+    return { error: c.json({ error: '无权限操作用户管理', code: 'FORBIDDEN' }, 403) };
+  }
+  return { ok: true };
+}
+
+/** 获取用户列表 */
+adminApi.get('/users', async (c) => {
+  const env = c.env as Env;
+  const guard = await requireAdmin(c, new UserService(env));
+  if ('error' in guard) return guard.error;
+
+  const svc = new UserService(env);
+  const result = await svc['env'].DB.prepare(
+    'SELECT id, email, role, disabled, disabled_reason, created_at FROM users ORDER BY created_at ASC'
+  ).all<{ id: string; email: string; role: string | null; disabled: number | null; disabled_reason: string | null; created_at: string }>();
+
+  return c.json({ users: result.results || [] });
+});
+
+/** 获取当前用户信息 */
+adminApi.get('/me', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+  return c.json({
+    id: user.id,
+    email: user.email,
+    role: user.role || 'user',
+    disabled: user.disabled || 0,
+    disabled_reason: user.disabled_reason || '',
+  });
+});
+
+/** 创建用户 */
+adminApi.post('/users', validateBody(schemas.register), async (c) => {
+  const env = c.env as Env;
+  const guard = await requireAdmin(c, new UserService(env));
+  if ('error' in guard) return guard.error;
+
+  const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
+  const { email, password } = body;
+
+  const svc = new UserService(env);
+  const existing = await svc.findByEmail(email);
+  if (existing) {
+    return c.json({ error: '用户已存在', code: 'USER_EXISTS' }, 409);
+  }
+
+  const hashed = await hashPassword(password);
+  const newUser = await svc.createUser(email, hashed);
+
+  try {
+    const auditLogger = createAuditLogger(env, c.get('username'));
+    await auditLogger.log('user_created', { email, role: 'user' });
+  } catch {}
+
+  return c.json({
+    id: newUser.id,
+    email: newUser.email,
+    role: newUser.role || 'user',
+    disabled: newUser.disabled || 0,
+    created_at: newUser.created_at,
+  });
+});
+
+/** 更新用户角色 */
+adminApi.put('/users/:id/role', validateBody(schemas.apikey), async (c) => {
+  const env = c.env as Env;
+  const guard = await requireAdmin(c, new UserService(env));
+  if ('error' in guard) return guard.error;
+
+  const userId = c.req.param('id');
+  const body = (c as ValidatedContext).validatedBody as { role?: string; refresh?: boolean };
+  const { role } = body;
+
+  if (!role || !['admin', 'user', 'viewer'].includes(role)) {
+    return c.json({ error: '无效的角色', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const svc = new UserService(env);
+  const target = await svc.findById(userId);
+  if (!target) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  // 防止管理员降级自己
+  const currentUserId = c.get('userId') as string;
+  if (currentUserId === userId && role !== 'admin') {
+    return c.json({ error: '不能修改自己的角色', code: 'SELF_DEMOTE' }, 400);
+  }
+
+  await svc.updateUser(userId, { role: role as 'admin' | 'user' | 'viewer' });
+
+  try {
+    const auditLogger = createAuditLogger(env, c.get('username'));
+    await auditLogger.log('user_role_updated', { targetUserId: userId, newRole: role });
+  } catch {}
+
+  return c.json({ success: true, message: '角色已更新' });
+});
+
+/** 禁用用户 */
+adminApi.post('/users/:id/disable', async (c) => {
+  const env = c.env as Env;
+  const guard = await requireAdmin(c, new UserService(env));
+  if ('error' in guard) return guard.error;
+
+  const userId = c.req.param('id');
+  const body = await c.req.json<{ reason?: string }>().catch(() => ({}));
+
+  const currentUserId = c.get('userId') as string;
+  if (currentUserId === userId) {
+    return c.json({ error: '不能禁用自己', code: 'SELF_DISABLE' }, 400);
+  }
+
+  const svc = new UserService(env);
+  const target = await svc.findById(userId);
+  if (!target) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  await svc.updateUser(userId, {
+    disabled: 1,
+    disabled_reason: body.reason || '',
+  });
+
+  try {
+    const auditLogger = createAuditLogger(env, c.get('username'));
+    await auditLogger.log('user_disabled', { targetUserId: userId, reason: body.reason });
+  } catch {}
+
+  return c.json({ success: true, message: '用户已禁用' });
+});
+
+/** 启用用户 */
+adminApi.post('/users/:id/enable', async (c) => {
+  const env = c.env as Env;
+  const guard = await requireAdmin(c, new UserService(env));
+  if ('error' in guard) return guard.error;
+
+  const userId = c.req.param('id');
+
+  const svc = new UserService(env);
+  const target = await svc.findById(userId);
+  if (!target) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  await svc.updateUser(userId, { disabled: 0, disabled_reason: '' });
+
+  try {
+    const auditLogger = createAuditLogger(env, c.get('username'));
+    await auditLogger.log('user_enabled', { targetUserId: userId });
+  } catch {}
+
+  return c.json({ success: true, message: '用户已启用' });
+});
+
+/** 删除用户 */
+adminApi.delete('/users/:id', async (c) => {
+  const env = c.env as Env;
+  const guard = await requireAdmin(c, new UserService(env));
+  if ('error' in guard) return guard.error;
+
+  const userId = c.req.param('id');
+
+  const currentUserId = c.get('userId') as string;
+  if (currentUserId === userId) {
+    return c.json({ error: '不能删除自己', code: 'SELF_DELETE' }, 400);
+  }
+
+  const svc = new UserService(env);
+  const target = await svc.findById(userId);
+  if (!target) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  await svc.deleteUser(userId);
+
+  try {
+    const auditLogger = createAuditLogger(env, c.get('username'));
+    await auditLogger.log('user_deleted', { email: target.email });
+  } catch {}
+
+  return c.json({ success: true, message: '用户已删除' });
 });
 
 // ============================================
