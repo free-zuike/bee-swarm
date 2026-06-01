@@ -79,18 +79,17 @@ jobs:
           fi
           echo "d1_id=$D1_ID" >> $GITHUB_OUTPUT
 
+      - name: Update wrangler.toml with D1 ID
+        run: |
+          sed -i "s/\${D1_DATABASE_ID}/${{ steps.d1.outputs.d1_id }}/g" wrangler.toml
+
       - name: Run D1 Migrations
         run: |
           echo "运行 D1 数据库迁移..."
-          # 使用 wrangler 执行迁移
           npx wrangler d1 migrations apply bee-swarm-db --remote --database-id=${{ steps.d1.outputs.d1_id }} || echo "迁移可能已存在或需要确认"
 
       - name: Build frontend
         run: npm run build
-
-      - name: Update wrangler.toml with D1 ID
-        run: |
-          sed -i "s/\${D1_DATABASE_ID}/${{ steps.d1.outputs.d1_id }}/g" wrangler.toml
 
       - name: Deploy Worker
         env:

@@ -32,9 +32,9 @@ crons = ["*/5 * * * *"]
 # ------------------------------------------
 [[d1_databases]]
 binding = "DB"
-# CI 自动替换为实际 D1 数据库 ID
 database_name = "bee-swarm-db"
 database_id = "${D1_DATABASE_ID}"
+migrations_dir = "migrations"
 
 # ------------------------------------------
 # Workers 日志和监控
