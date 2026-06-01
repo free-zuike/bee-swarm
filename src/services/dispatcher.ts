@@ -646,7 +646,7 @@ export async function dispatchPushWithOptions(
     return [{ channel: 'wework' as PushChannel, success: false, message: '没有已启用的推送渠道' }];
   }
 
-  const results: ChannelResult[];
+  let results: ChannelResult[];
 
   if (options.concurrent) {
     const promises = enabledChannels.map((ch) =>
@@ -821,7 +821,6 @@ export async function getPushHistory(
 
   const records: PushHistoryRecord[] = (dataResult.results || []).map((row: any) => ({
     id: row.id,
-    time: row.created_at,
     title: row.title,
     body: row.body,
     url: row.url,
@@ -830,6 +829,7 @@ export async function getPushHistory(
     channels: JSON.parse(row.channels || '[]'),
     results: JSON.parse(row.results || '[]'),
     status: row.status,
+    createdAt: row.created_at,
   }));
 
   const hasMore = records.length > pageSize;

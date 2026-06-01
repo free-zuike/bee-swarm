@@ -16,7 +16,6 @@ import {
   deleteBackupEndpoint,
   testBackupEndpoint,
   executeAllBackups,
-  migrateOldS3Config,
   type BackupEndpoint,
   type S3Config,
   type WebDAVConfig,
@@ -27,7 +26,6 @@ export const backupRoutes = new Hono<{ Bindings: Env; Variables: { username: str
 /** 获取所有备份端 */
 backupRoutes.get('/backup-endpoints', async (c) => {
   const username = c.get('username');
-  await migrateOldS3Config(c.env, username);
   const endpoints = await getBackupEndpoints(c.env, username);
 
   const safeEndpoints = endpoints.map((e) => ({
