@@ -24,6 +24,11 @@ import {
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
+import {
+  migrateAllData,
+  verifyMigration,
+  cleanupMigratedKVData,
+} from '../services/migrationService';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -458,6 +463,67 @@ adminApi.delete('/audit', async (c) => {
 // 多备份端接口（已抽离到 routes/admin/backup.ts）
 // ============================================
 adminApi.route('/', backupRoutes);
+
+// ============================================
+// KV 到 D1 在线迁移接口
+// ============================================
+
+/** 执行 KV 到 D1 数据迁移 */
+adminApi.post('/migration/migrate', async (c) => {
+  const username = c.get('username');
+
+  try {
+    const result = await migrateAllData(c.env, username);
+    return c.json({
+      success: true,
+      message: '数据迁移完成',
+      ...result,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: `迁移失败: ${(error as Error).message}`,
+    }, 500);
+  }
+});
+
+/** 验证迁移完整性 */
+adminApi.get('/migration/verify', async (c) => {
+  const username = c.get('username');
+
+  try {
+    const stats = await verifyMigration(c.env, username);
+    return c.json({
+      success: true,
+      stats,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: `验证失败: ${(error as Error).message}`,
+    }, 500);
+  }
+});
+
+/** 清理 KV 中的迁移数据 */
+adminApi.delete('/migration/cleanup', async (c) => {
+  const username = c.get('username');
+
+  try {
+    const result = await cleanupMigratedKVData(c.env, username);
+    return c.json({
+      success: result.success,
+      message: result.success ? 'KV 数据清理完成' : '部分 KV 数据清理失败',
+      cleaned: result.cleaned,
+      errors: result.errors,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: `清理失败: ${(error as Error).message}`,
+    }, 500);
+  }
+});
 
 // ============================================
 // 测试接口（需要认证）
