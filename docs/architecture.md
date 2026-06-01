@@ -17,7 +17,7 @@
 蜂群是一个基于 Cloudflare Workers 构建的多渠道推送通知系统。它采用现代化的技术栈，提供高性能、易扩展的推送服务。
 
 ### 核心特性
-- 支持 9 种推送渠道（企业微信、钉钉、飞书、Telegram、Bark、ntfy、Email、Slack、Discord）
+- 支持 16 种推送渠道（企业微信、钉钉、飞书、Telegram、Bark、ntfy、Email、Slack、Discord、Server酱、PushPlus、通用 Webhook、Gotify、LINE Notify、Microsoft Teams、Pushover）
 - 用户注册、登录、认证系统
 - 推送模板管理
 - 渠道分组
