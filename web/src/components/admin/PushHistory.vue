@@ -127,7 +127,7 @@ function getTotalRetries(record: HistoryRecord): number {
 }
 
 const successRate = computed(() => {
-  if (props.history.length === 0) return 100;
+  if (props.history.length === 0) return 0;
   const successCount = props.history.filter((record: HistoryRecord) =>
     record.results.every((r: ChannelResult) => r.success)
   ).length;

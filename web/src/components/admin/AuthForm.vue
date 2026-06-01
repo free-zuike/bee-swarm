@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useTranslation } from '@/i18n';
+import { useGlobalToast } from '@/composables/useToast';
 const t = useTranslation();
+const { showToast } = useGlobalToast();
 
 const props = defineProps<{
   isAuthing?: boolean;
@@ -13,13 +15,15 @@ const emit = defineEmits<{
   register: [email: string, password: string];
 }>();
 
-const authMode = ref<'login' | 'register'>('login');
+const authMode = ref<'login' | 'register' | 'forgot' | 'reset'>('login');
 const authEmail = ref('');
 const authPassword = ref('');
 const authConfirmPassword = ref('');
+const resetToken = ref('');
 const localError = ref('');
+const isProcessing = ref(false);
 
-function switchMode(mode: 'login' | 'register') {
+function switchMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
   authMode.value = mode;
   localError.value = '';
 }
@@ -50,7 +54,78 @@ function doRegister() {
   emit('register', authEmail.value.trim(), authPassword.value);
 }
 
+async function doForgotPassword() {
+  localError.value = '';
+  if (!authEmail.value.trim()) {
+    localError.value = t('error.required', { field: t('label.email') });
+    return;
+  }
+
+  isProcessing.value = true;
+  try {
+    const { requestPasswordReset } = await import('@/api');
+    const result = await requestPasswordReset(authEmail.value.trim());
+    if (result.success) {
+      showToast(t('message.password_reset_link_sent'), 'success');
+      authMode.value = 'login';
+      authEmail.value = '';
+    } else {
+      localError.value = t('message.user_not_found');
+    }
+  } catch (err) {
+    localError.value = (err as Error).message || t('message.password_reset_failed');
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
+async function doResetPassword() {
+  localError.value = '';
+  if (!authPassword.value) {
+    localError.value = t('error.required', { field: t('label.password') });
+    return;
+  }
+  if (authPassword.value.length < 8) {
+    localError.value = t('error.password_length');
+    return;
+  }
+  if (authPassword.value !== authConfirmPassword.value) {
+    localError.value = t('error.password_match');
+    return;
+  }
+
+  isProcessing.value = true;
+  try {
+    const { resetPassword } = await import('@/api');
+    const result = await resetPassword(resetToken.value, authPassword.value);
+    if (result.success) {
+      showToast(t('message.password_reset_success'), 'success');
+      authMode.value = 'login';
+      authEmail.value = '';
+      authPassword.value = '';
+      authConfirmPassword.value = '';
+      resetToken.value = '';
+    } else {
+      localError.value = t('message.invalid_reset_token');
+    }
+  } catch (err) {
+    localError.value = (err as Error).message || t('message.password_reset_failed');
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
 const displayError = computed(() => props.authError || localError.value);
+
+const isResetMode = computed(() => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (token && authMode.value === 'login') {
+    resetToken.value = token;
+    return true;
+  }
+  return authMode.value === 'reset';
+});
 </script>
 
 <template>
@@ -93,6 +168,61 @@ const displayError = computed(() => props.authError || localError.value);
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isAuthing">
           {{ isAuthing ? t('label.logging_in') : t('button.login') }}
+        </button>
+        <button
+          type="button"
+          class="forgot-password-btn"
+          @click="switchMode('forgot')"
+        >
+          {{ t('button.forgot_password') }}
+        </button>
+      </form>
+
+      <form v-else-if="authMode === 'forgot'" @submit.prevent="doForgotPassword">
+        <input
+          v-model="authEmail"
+          type="text"
+          :placeholder="t('label.email')"
+          autocomplete="email"
+        />
+        <div class="forgot-hint">{{ t('hint.password_reset') }}</div>
+        <div v-if="displayError" class="login-error">{{ displayError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isProcessing">
+          {{ isProcessing ? t('label.processing') : t('button.send_reset_link') }}
+        </button>
+        <button
+          type="button"
+          class="forgot-password-btn"
+          @click="switchMode('login')"
+        >
+          {{ t('button.back_to_login') }}
+        </button>
+      </form>
+
+      <form v-else-if="authMode === 'reset' || isResetMode" @submit.prevent="doResetPassword">
+        <input
+          v-model="authPassword"
+          type="password"
+          :placeholder="t('label.password_placeholder')"
+          autocomplete="new-password"
+        />
+        <input
+          v-model="authConfirmPassword"
+          type="password"
+          :placeholder="t('label.confirm_password')"
+          autocomplete="new-password"
+          @keydown.enter="doResetPassword"
+        />
+        <div v-if="displayError" class="login-error">{{ displayError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isProcessing">
+          {{ isProcessing ? t('label.processing') : t('button.reset_password') }}
+        </button>
+        <button
+          type="button"
+          class="forgot-password-btn"
+          @click="switchMode('login')"
+        >
+          {{ t('button.back_to_login') }}
         </button>
       </form>
 
@@ -246,6 +376,31 @@ const displayError = computed(() => props.authError || localError.value);
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.forgot-password-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  padding: 8px 0;
+  text-decoration: underline;
+}
+
+.forgot-password-btn:hover {
+  color: #5a6fd6;
+}
+
+.forgot-hint {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 6px;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
