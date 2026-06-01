@@ -122,6 +122,11 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
+  async queue(batch: any, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Empty queue handler to prevent missing queue handler error
+    console.log('[Queue] Received message:', batch);
+  },
+
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const now = new Date();
     const currentEpochMinute = Math.floor(now.getTime() / 60000);
