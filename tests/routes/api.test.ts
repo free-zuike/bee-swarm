@@ -2,35 +2,29 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Env } from '../../src/types';
 
 interface TestEnv extends Env {
-  SUBSCRIPTIONS: {
-    get: (key: string) => Promise<string | null>;
-    put: (key: string, value: string, options?: Record<string, unknown>) => Promise<void>;
-    delete: (key: string) => Promise<void>;
-    list: (options?: { prefix?: string; cursor?: string; limit?: number }) => Promise<{
-      keys: Array<{ name: string }>;
-      cursor?: string;
-      list_complete?: boolean;
-    }>;
+  DB: {
+    prepare: (sql: string) => {
+      bind: (...params: any[]) => {
+        first: () => Promise<any>;
+        all: () => Promise<any>;
+        run: () => Promise<any>;
+      };
+    };
   };
 }
 
 const createMockEnv = (): TestEnv => {
-  const store = new Map<string, string>();
+  const store = new Map<string, any>();
 
   return {
-    SUBSCRIPTIONS: {
-      get: vi.fn(async (key: string) => store.get(key) || null),
-      put: vi.fn(async (key: string, value: string) => { store.set(key, value); }),
-      delete: vi.fn(async (key: string) => { store.delete(key); }),
-      list: vi.fn(async (options?: { prefix?: string; cursor?: string; limit?: number }) => {
-        const keys = Array.from(store.keys())
-          .filter(k => !options?.prefix || k.startsWith(options.prefix))
-          .map(name => ({ name }));
-        return {
-          keys: keys.slice(0, options?.limit || 100),
-          list_complete: true,
-        };
-      }),
+    DB: {
+      prepare: vi.fn((sql: string) => ({
+        bind: vi.fn((...params: any[]) => ({
+          first: vi.fn().mockResolvedValue(null),
+          all: vi.fn().mockResolvedValue({ results: [] }),
+          run: vi.fn().mockResolvedValue({ success: true }),
+        })),
+      })),
     },
   } as TestEnv;
 };

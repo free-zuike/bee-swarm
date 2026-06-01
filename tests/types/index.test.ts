@@ -20,19 +20,19 @@ describe('Types', () => {
   });
 
   describe('Env interface', () => {
-    it('should have SUBSCRIPTIONS binding', () => {
+    it('should have DB binding', () => {
       const mockEnv = {
-        SUBSCRIPTIONS: {},
+        DB: {},
         ASSETS: {},
       };
       
-      expect('SUBSCRIPTIONS' in mockEnv).toBe(true);
+      expect('DB' in mockEnv).toBe(true);
       expect('ASSETS' in mockEnv).toBe(true);
     });
 
     it('should allow optional ALLOWED_ORIGINS', () => {
       const mockEnv = {
-        SUBSCRIPTIONS: {},
+        DB: {},
         ASSETS: {},
         ALLOWED_ORIGINS: 'https://example.com',
       };

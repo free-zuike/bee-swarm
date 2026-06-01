@@ -72,17 +72,16 @@ describe('PushService', () => {
   let pushService: PushService;
 
   beforeEach(() => {
-    const kvStore = new Map<string, string>();
+    const mockResults: any[] = [];
     env = {
-      SUBSCRIPTIONS: {
-        get: vi.fn(async (key: string) => kvStore.get(key) || null),
-        put: vi.fn(async (key: string, value: string) => {
-          kvStore.set(key, value);
-        }),
-        delete: vi.fn(async (key: string) => {
-          kvStore.delete(key);
-        }),
-        list: vi.fn(async () => ({ keys: [], list_complete: true })),
+      DB: {
+        prepare: vi.fn((sql: string) => ({
+          bind: vi.fn((...params: any[]) => ({
+            first: vi.fn().mockResolvedValue(null),
+            all: vi.fn().mockResolvedValue({ results: mockResults }),
+            run: vi.fn().mockResolvedValue({ success: true }),
+          })),
+        })),
       },
     };
     pushService = new PushService(env, 'test-user');
