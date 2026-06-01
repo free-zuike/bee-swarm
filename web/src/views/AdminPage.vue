@@ -53,6 +53,8 @@ import GroupManager from '@/components/GroupManager.vue';
 import ScheduledPushManager from '@/components/ScheduledPushManager.vue';
 import WebhookManager from '@/components/WebhookManager.vue';
 import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
+import UserManagement from '@/components/admin/UserManagement.vue';
+import AuditLogs from '@/components/admin/AuditLogs.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
