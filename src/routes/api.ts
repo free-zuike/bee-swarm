@@ -25,11 +25,6 @@ import {
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
-import {
-  migrateAllData,
-  verifyMigration,
-  cleanupMigratedKVData,
-} from '../services/migrationService';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -55,33 +50,7 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   const { email, password } = body;
   const userService = new UserService(c.env);
 
-  let existing = await userService.findByEmail(email);
-  
-  // 如果 D1 中没有，检查 KV 中是否有
-  if (!existing) {
-    const kvData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
-    if (kvData) {
-      try {
-        const kvUser = JSON.parse(kvData);
-        // 迁移到 D1
-        existing = await userService.createUser(email, kvUser.password || '');
-        // 更新 token 信息
-        if (kvUser.token) {
-          await userService.updateUser(existing.id, {
-            token: kvUser.token,
-            token_expires_at: kvUser.expiresAt,
-            refresh_token: kvUser.refreshToken,
-            refresh_token_expires_at: kvUser.refreshExpiresAt,
-            apikey: kvUser.apikey
-          });
-        }
-        return c.json({ success: true, message: '账号已恢复，请登录' });
-      } catch (err) {
-        console.error('[Register] KV migration failed:', (err as Error).message);
-      }
-    }
-  }
-  
+  const existing = await userService.findByEmail(email);
   if (existing) {
     return c.json({ success: false, message: '操作失败，请稍后重试' }, 400);
   }
@@ -104,32 +73,7 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   const { email, password } = body;
   const userService = new UserService(c.env);
 
-  let user = await userService.findByEmail(email);
-  
-  // 如果 D1 中找不到用户，尝试从 KV 迁移
-  if (!user) {
-    const kvData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
-    if (kvData) {
-      try {
-        const kvUser = JSON.parse(kvData);
-        // 迁移到 D1
-        user = await userService.createUser(email, kvUser.password || '');
-        // 更新 token 信息
-        if (kvUser.token) {
-          await userService.updateUser(user.id, {
-            token: kvUser.token,
-            token_expires_at: kvUser.expiresAt,
-            refresh_token: kvUser.refreshToken,
-            refresh_token_expires_at: kvUser.refreshExpiresAt,
-            apikey: kvUser.apikey
-          });
-        }
-      } catch (err) {
-        console.error('[Login] KV migration failed:', (err as Error).message);
-      }
-    }
-  }
-  
+  const user = await userService.findByEmail(email);
   if (!user) {
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
@@ -448,63 +392,6 @@ adminApi.route('/', backupRoutes);
 // ============================================
 // KV 到 D1 在线迁移接口
 // ============================================
-
-/** 执行 KV 到 D1 数据迁移 */
-adminApi.post('/migration/migrate', async (c) => {
-  const username = c.get('username');
-
-  try {
-    const result = await migrateAllData(c.env, username);
-    return c.json({
-      success: true,
-      message: '数据迁移完成',
-      ...result,
-    });
-  } catch (error) {
-    return c.json({
-      success: false,
-      error: `迁移失败: ${(error as Error).message}`,
-    }, 500);
-  }
-});
-
-/** 验证迁移完整性 */
-adminApi.get('/migration/verify', async (c) => {
-  const username = c.get('username');
-
-  try {
-    const stats = await verifyMigration(c.env, username);
-    return c.json({
-      success: true,
-      stats,
-    });
-  } catch (error) {
-    return c.json({
-      success: false,
-      error: `验证失败: ${(error as Error).message}`,
-    }, 500);
-  }
-});
-
-/** 清理 KV 中的迁移数据 */
-adminApi.delete('/migration/cleanup', async (c) => {
-  const username = c.get('username');
-
-  try {
-    const result = await cleanupMigratedKVData(c.env, username);
-    return c.json({
-      success: result.success,
-      message: result.success ? 'KV 数据清理完成' : '部分 KV 数据清理失败',
-      cleaned: result.cleaned,
-      errors: result.errors,
-    });
-  } catch (error) {
-    return c.json({
-      success: false,
-      error: `清理失败: ${(error as Error).message}`,
-    }, 500);
-  }
-});
 
 // ============================================
 // 测试接口（需要认证）

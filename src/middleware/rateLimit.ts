@@ -21,6 +21,9 @@ interface RateLimitEntry {
   resetTime: number;
 }
 
+// 内存存储（Workers 实例间不共享，需注意）
+const memoryStore = new Map<string, RateLimitEntry>();
+
 export function rateLimit(config: RateLimitConfig = {}) {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
   const windowMs = mergedConfig.windowMs!;
@@ -30,20 +33,10 @@ export function rateLimit(config: RateLimitConfig = {}) {
 
   return async function rateLimitMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
     const ip = c.req.header('X-Forwarded-For') || c.req.header('CF-Connecting-IP') || 'unknown';
-
     const key = `rate_limit:${ip}`;
     const now = Date.now();
 
-    let entry: RateLimitEntry | null = null;
-
-    try {
-      const stored = await c.env.SUBSCRIPTIONS.get(key);
-      if (stored) {
-        entry = JSON.parse(stored);
-      }
-    } catch {
-      // KV 读取失败，继续使用内存逻辑
-    }
+    let entry = memoryStore.get(key);
 
     if (!entry || now > entry.resetTime) {
       entry = {
@@ -54,10 +47,16 @@ export function rateLimit(config: RateLimitConfig = {}) {
       entry.count++;
     }
 
-    // 异步保存到 KV（不阻塞请求）
-    c.env.SUBSCRIPTIONS.put(key, JSON.stringify(entry), {
-      expirationTtl: Math.ceil(windowMs / 1000),
-    }).catch(() => {});
+    memoryStore.set(key, entry);
+
+    // 定期清理过期条目
+    if (memoryStore.size > 10000) {
+      for (const [k, v] of memoryStore.entries()) {
+        if (now > v.resetTime) {
+          memoryStore.delete(k);
+        }
+      }
+    }
 
     const remaining = Math.max(0, max - entry.count);
     const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
@@ -82,7 +81,6 @@ export function rateLimit(config: RateLimitConfig = {}) {
 
     await next();
 
-    // 响应头需要在 next() 之后设置（此时 c.res 已生成）
     if (headers && c.res) {
       c.res.headers.set('X-RateLimit-Limit', String(max));
       c.res.headers.set('X-RateLimit-Remaining', String(remaining));

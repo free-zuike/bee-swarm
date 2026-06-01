@@ -646,7 +646,7 @@ export async function dispatchPushWithOptions(
     return [{ channel: 'wework' as PushChannel, success: false, message: '没有已启用的推送渠道' }];
   }
 
-  let results: ChannelResult[];
+  const results: ChannelResult[];
 
   if (options.concurrent) {
     const promises = enabledChannels.map((ch) =>
@@ -661,23 +661,29 @@ export async function dispatchPushWithOptions(
     }
   }
 
-  const recordKey = `user:${username}:push:${Date.now()}`;
-  await env.SUBSCRIPTIONS.put(
-    recordKey,
-    JSON.stringify({
-      id: crypto.randomUUID(),
-      time: new Date().toISOString(),
-      title: payload.title,
-      body: payload.body,
-      url: payload.url,
-      imageUrl: payload.imageUrl,
-      markdown: payload.markdown,
-      channels: enabledChannels.map((c) => c.id),
-      results: results,
-      status: results.every((r) => r.success) ? 'success' : 'partial',
-    }),
-    { expirationTtl: PUSH_CONFIG.historyRetentionSeconds } // 自动过期
-  );
+  // 保存到 D1 推送历史
+  try {
+    if (env.DB) {
+      await env.DB.prepare(`
+        INSERT INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(),
+        username,
+        payload.title,
+        payload.body || '',
+        payload.url || null,
+        payload.imageUrl || null,
+        payload.markdown ? 1 : 0,
+        JSON.stringify(enabledChannels.map((c) => c.id)),
+        JSON.stringify(results),
+        results.every((r) => r.success) ? 'success' : 'partial',
+        new Date().toISOString()
+      ).run();
+    }
+  } catch (err) {
+    console.error('[PushHistory] Failed to save:', (err as Error).message);
+  }
 
   // 记录推送统计数据
   try {
@@ -778,95 +784,67 @@ export async function getPushHistory(
     keyword?: string;
   } = {}
 ): Promise<{ records: PushHistoryRecord[]; total: number; hasMore: boolean }> {
-  const prefix = `user:${username}:push:`;
+  if (!env.DB) {
+    return { records: [], total: 0, hasMore: false };
+  }
+
   const pageSize = options.pageSize || 20;
   const page = options.page || 1;
-  const limit = pageSize + 1;
-  const skip = (page - 1) * pageSize;
+  const offset = (page - 1) * pageSize;
 
-  const hasFilters = options.channel || options.status || options.keyword;
-  let total = 0;
-  let cursor: string | undefined;
-  let listComplete = false;
-  const allKeys: string[] = [];
+  // 构建查询条件
+  let whereClause = 'WHERE user_id = ?';
+  const params: any[] = [username];
 
-  do {
-    const list = await env.SUBSCRIPTIONS.list({ prefix, limit: 100, cursor });
-    const keys = list.keys.map((k) => k.name);
-    allKeys.push(...keys);
-    total += list.keys.length;
-    cursor = (list as { cursor?: string }).cursor;
-    listComplete = list.list_complete ?? false;
-
-    if (total > skip + limit * 2 && !hasFilters) {
-      listComplete = true;
-    }
-  } while (cursor && !listComplete && (hasFilters || total <= skip + limit * 2));
-
-  if (allKeys.length === 0) return { records: [], total: 0, hasMore: false };
-
-  const sortedKeys = allKeys.sort((a, b) => b.localeCompare(a));
-
-  if (hasFilters) {
-    const allRecords = await Promise.all(
-      sortedKeys.map(async (key) => {
-        const data = await env.SUBSCRIPTIONS.get(key);
-        return data ? (JSON.parse(data) as PushHistoryRecord) : null;
-      })
-    );
-
-    const filtered: Array<{ key: string; record: PushHistoryRecord }> = [];
-    for (let i = 0; i < sortedKeys.length; i++) {
-      const record = allRecords[i];
-      if (!record) continue;
-
-      if (options.channel && !record.channels.includes(options.channel)) continue;
-      if (options.status && record.status !== options.status) continue;
-
-      if (options.keyword) {
-        const kw = options.keyword.toLowerCase();
-        const matchTitle = record.title?.toLowerCase().includes(kw);
-        const matchBody = record.body?.toLowerCase().includes(kw);
-        if (!matchTitle && !matchBody) continue;
-      }
-
-      filtered.push({ key: sortedKeys[i], record });
-    }
-
-    total = filtered.length;
-    const pageItems = filtered.slice(skip, skip + pageSize);
-    const records = pageItems.map((item) => item.record);
-    const hasMore = skip + pageSize < total;
-
-    return { records, total, hasMore };
+  if (options.channel) {
+    whereClause += ' AND channels LIKE ?';
+    params.push(`%"${options.channel}"%`);
+  }
+  if (options.status) {
+    whereClause += ' AND status = ?';
+    params.push(options.status);
+  }
+  if (options.keyword) {
+    whereClause += ' AND (title LIKE ? OR body LIKE ?)';
+    params.push(`%${options.keyword}%`, `%${options.keyword}%`);
   }
 
-  const pageKeys = sortedKeys.slice(skip, skip + pageSize);
-  const records: PushHistoryRecord[] = [];
+  // 获取总数
+  const countResult = await env.DB.prepare(
+    `SELECT COUNT(*) as count FROM push_history ${whereClause}`
+  ).bind(...params).first<{ count: number }>();
 
-  for (const key of pageKeys) {
-    const data = await env.SUBSCRIPTIONS.get(key);
-    if (data) {
-      records.push(JSON.parse(data) as PushHistoryRecord);
-    }
-  }
+  // 获取分页数据
+  const dataResult = await env.DB.prepare(
+    `SELECT * FROM push_history ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+  ).bind(...params, pageSize + 1, offset).all<any>();
 
-  const hasMore = sortedKeys.length > skip + pageSize;
+  const records: PushHistoryRecord[] = (dataResult.results || []).map((row: any) => ({
+    id: row.id,
+    time: row.created_at,
+    title: row.title,
+    body: row.body,
+    url: row.url,
+    imageUrl: row.image_url,
+    markdown: row.markdown === 1,
+    channels: JSON.parse(row.channels || '[]'),
+    results: JSON.parse(row.results || '[]'),
+    status: row.status,
+  }));
 
-  return { records, total, hasMore };
+  const hasMore = records.length > pageSize;
+  const limitedRecords = records.slice(0, pageSize);
+
+  return {
+    records: limitedRecords,
+    total: countResult?.count || 0,
+    hasMore
+  };
 }
 
 export async function deletePushHistory(username: string, env: Env): Promise<void> {
-  const prefix = `user:${username}:push:`;
-  let cursor: string | undefined;
-  let listComplete = false;
-  do {
-    const list = await env.SUBSCRIPTIONS.list({ prefix, cursor });
-    const deletePromises = list.keys.map((key) => env.SUBSCRIPTIONS.delete(key.name));
-    await Promise.all(deletePromises);
-    cursor = (list as { cursor?: string }).cursor;
-    listComplete = list.list_complete ?? false;
-  } while (cursor && !listComplete);
+  if (!env.DB) return;
+  await env.DB.prepare('DELETE FROM push_history WHERE user_id = ?').bind(username).run();
 }
 
 export async function batchDeletePushHistory(
@@ -874,18 +852,20 @@ export async function batchDeletePushHistory(
   env: Env,
   ids: string[]
 ): Promise<{ success: boolean; message: string; deletedCount: number }> {
-  if (ids.length === 0) {
-    return { success: false, message: '未选择要删除的记录', deletedCount: 0 };
+  if (!env.DB || ids.length === 0) {
+    return { success: false, message: '没有要删除的记录', deletedCount: 0 };
   }
 
-  const prefix = `user:${username}:push:`;
-  const deletePromises = ids.map(async (id) => {
-    const key = `${prefix}${id}`;
-    await env.SUBSCRIPTIONS.delete(key);
-  });
+  const placeholders = ids.map(() => '?').join(',');
+  const result = await env.DB.prepare(
+    `DELETE FROM push_history WHERE user_id = ? AND id IN (${placeholders})`
+  ).bind(username, ...ids).run();
 
-  await Promise.all(deletePromises);
-  return { success: true, message: `已删除 ${ids.length} 条记录`, deletedCount: ids.length };
+  return {
+    success: true,
+    message: `已删除 ${result.meta?.changes || 0} 条记录`,
+    deletedCount: result.meta?.changes || 0
+  };
 }
 
 export async function batchDeletePushHistoryByFilter(
@@ -893,69 +873,39 @@ export async function batchDeletePushHistoryByFilter(
   env: Env,
   filter: { olderThan?: string; channel?: string; status?: string }
 ): Promise<{ success: boolean; message: string; deletedCount: number }> {
-  const prefix = `user:${username}:push:`;
-  let cursor: string | undefined;
-  let listComplete = false;
-  const keysToDelete: string[] = [];
+  if (!env.DB) {
+    return { success: false, message: 'D1 未配置', deletedCount: 0 };
+  }
 
-  do {
-    const list = await env.SUBSCRIPTIONS.list({ prefix, limit: 100, cursor });
-    const keys = list.keys.map((k) => k.name);
+  let whereClause = 'WHERE user_id = ?';
+  const params: any[] = [username];
 
-    for (const key of keys) {
-      let shouldDelete = true;
+  if (filter.olderThan) {
+    whereClause += ' AND created_at < ?';
+    params.push(filter.olderThan);
+  }
+  if (filter.channel) {
+    whereClause += ' AND channels LIKE ?';
+    params.push(`%"${filter.channel}"%`);
+  }
+  if (filter.status) {
+    whereClause += ' AND status = ?';
+    params.push(filter.status);
+  }
 
-      // 按时间过滤
-      if (filter.olderThan) {
-        const cutoffTime = new Date(filter.olderThan).getTime();
-        const keyParts = key.split(':');
-        const timestamp = parseInt(keyParts[keyParts.length - 1], 10);
-        if (timestamp >= cutoffTime) {
-          shouldDelete = false;
-        }
-      }
+  const result = await env.DB.prepare(
+    `DELETE FROM push_history ${whereClause}`
+  ).bind(...params).run();
 
-      // 按渠道过滤
-      if (shouldDelete && filter.channel) {
-        const data = await env.SUBSCRIPTIONS.get(key);
-        if (data) {
-          const record = JSON.parse(data) as PushHistoryRecord;
-          if (!record.channels.includes(filter.channel)) {
-            shouldDelete = false;
-          }
-        }
-      }
-
-      // 按状态过滤
-      if (shouldDelete && filter.status) {
-        const data = await env.SUBSCRIPTIONS.get(key);
-        if (data) {
-          const record = JSON.parse(data) as PushHistoryRecord;
-          if (record.status !== filter.status) {
-            shouldDelete = false;
-          }
-        }
-      }
-
-      if (shouldDelete) {
-        keysToDelete.push(key);
-      }
-    }
-
-    cursor = (list as { cursor?: string }).cursor;
-    listComplete = list.list_complete ?? false;
-  } while (cursor && !listComplete);
-
-  if (keysToDelete.length === 0) {
+  const deletedCount = result.meta?.changes || 0;
+  if (deletedCount === 0) {
     return { success: false, message: '没有符合条件的记录', deletedCount: 0 };
   }
 
-  const deletePromises = keysToDelete.map((key) => env.SUBSCRIPTIONS.delete(key));
-  await Promise.all(deletePromises);
   return {
     success: true,
-    message: `已删除 ${keysToDelete.length} 条记录`,
-    deletedCount: keysToDelete.length,
+    message: `已删除 ${deletedCount} 条记录`,
+    deletedCount
   };
 }
 

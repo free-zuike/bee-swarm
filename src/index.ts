@@ -127,24 +127,21 @@ export default {
     const currentEpochMinute = Math.floor(now.getTime() / 60000);
 
     try {
-      let cursor: string | undefined;
-      let listComplete = false;
       let processedUsers = 0;
-      const maxUsersPerCron = 500; // 避免处理过多用户超时
+      const maxUsersPerCron = 500;
 
-      do {
-        const list = await env.SUBSCRIPTIONS.list({ prefix: 'user:', cursor, limit: 100 });
+      // 从 D1 获取所有用户
+      if (env.DB) {
+        const result = await env.DB.prepare('SELECT email FROM users').all<{ email: string }>();
+        const users = result.results || [];
 
-        for (const key of list.keys) {
+        for (const row of users) {
           if (processedUsers >= maxUsersPerCron) {
             console.warn(`[Cron] Reached max users limit (${maxUsersPerCron}), stopping early`);
             break;
           }
 
-          const username = key.name.replace('user:', '');
-          if (username.includes(':')) continue;
-
-          // 处理单个用户的所有任务
+          const username = row.email;
           ctx.waitUntil(
             processUserTasks(env, username, now, currentEpochMinute).catch((err) => {
               console.error(`[Cron] Failed to process user ${username}:`, (err as Error).message);
@@ -153,10 +150,7 @@ export default {
 
           processedUsers++;
         }
-
-        cursor = (list as { cursor?: string }).cursor;
-        listComplete = list.list_complete ?? false;
-      } while (cursor && !listComplete && processedUsers < maxUsersPerCron);
+      }
 
       console.log(`[Cron] Completed. Processed ${processedUsers} users`);
     } catch (err) {
@@ -232,20 +226,10 @@ async function sendOverdueReminder(env: Env, username: string, task: ScheduledPu
 }
 
 /**
- * 标记提醒已发送
+ * 标记提醒已发送（由于 KV 已移除，暂不实现）
  */
-async function markReminderSent(env: Env, username: string, taskId: string): Promise<void> {
-  const key = `scheduled:${username}`;
-  const stored = await env.SUBSCRIPTIONS.get(key);
-  if (!stored) return;
-
-  const pushes: ScheduledPush[] = JSON.parse(stored);
-  const push = pushes.find((p) => p.id === taskId);
-
-  if (push) {
-    push.overdueReminderSent = true;
-    await env.SUBSCRIPTIONS.put(key, JSON.stringify(pushes));
-  }
+async function markReminderSent(_env: Env, _username: string, _taskId: string): Promise<void> {
+  // 暂不实现
 }
 
 /**

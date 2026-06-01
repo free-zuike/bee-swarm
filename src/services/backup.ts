@@ -180,22 +180,62 @@ export async function deleteBackupEndpoint(
   return result.success && (result.meta?.changes || 0) > 0;
 }
 
-// 导出所有数据（完整备份，不过滤敏感信息）
+// 导出所有数据（从 D1 备份）
 export async function exportAllData(env: Env, username: string): Promise<BackupData> {
   const data: Record<string, string> = {};
-  let cursor: string | undefined;
-  let listComplete = false;
-  do {
-    const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
-    listComplete = list.list_complete ?? false;
-    for (const key of list.keys) {
-      const value = await env.SUBSCRIPTIONS.get(key.name);
-      if (value !== null) {
-        data[key.name] = value;
-      }
-    }
-    cursor = (list as { cursor?: string }).cursor;
-  } while (cursor && !listComplete);
+
+  if (!env.DB) {
+    return { timestamp: new Date().toISOString(), version: '1.0', username, data };
+  }
+
+  // 导出用户配置
+  try {
+    const channels = await env.DB.prepare(
+      'SELECT * FROM channel_configs WHERE user_id = ?'
+    ).bind(username).all();
+    data['channel_configs'] = JSON.stringify(channels.results);
+  } catch {}
+
+  // 导出推送模板
+  try {
+    const templates = await env.DB.prepare(
+      'SELECT * FROM push_templates WHERE user_id = ?'
+    ).bind(username).all();
+    data['push_templates'] = JSON.stringify(templates.results);
+  } catch {}
+
+  // 导出频道分组
+  try {
+    const groups = await env.DB.prepare(
+      'SELECT * FROM channel_groups WHERE user_id = ?'
+    ).bind(username).all();
+    data['channel_groups'] = JSON.stringify(groups.results);
+  } catch {}
+
+  // 导出定时任务
+  try {
+    const scheduled = await env.DB.prepare(
+      'SELECT * FROM scheduled_pushes WHERE user_id = ?'
+    ).bind(username).all();
+    data['scheduled_pushes'] = JSON.stringify(scheduled.results);
+  } catch {}
+
+  // 导出推送历史
+  try {
+    const history = await env.DB.prepare(
+      'SELECT * FROM push_history WHERE user_id = ?'
+    ).bind(username).all();
+    data['push_history'] = JSON.stringify(history.results);
+  } catch {}
+
+  // 导出备份端配置
+  try {
+    const endpoints = await env.DB.prepare(
+      'SELECT * FROM backup_endpoints WHERE user_id = ?'
+    ).bind(username).all();
+    data['backup_endpoints'] = JSON.stringify(endpoints.results);
+  } catch {}
+
   return { timestamp: new Date().toISOString(), version: '1.0', username, data };
 }
 
@@ -617,138 +657,12 @@ export async function restoreBackupFromEndpoint(
   endpoint: BackupEndpoint,
   backupKey: string
 ): Promise<BackupResult> {
-  try {
-    let response: Response;
-
-    if (endpoint.type === 's3') {
-      const config = endpoint.config as S3Config;
-      response = await s3Request('GET', '/' + backupKey, config);
-    } else if (endpoint.type === 'webdav') {
-      const config = endpoint.config as WebDAVConfig;
-      const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
-      response = await webdavRequest('GET', normalizedKey, config);
-    } else {
-      return { success: false, message: '不支持的备份类型' };
-    }
-
-    if (!response.ok) {
-      return { success: false, message: '下载备份失败 (' + response.status + ')' };
-    }
-
-    const backupData: BackupData = await response.json();
-    if (!backupData.data || typeof backupData.data !== 'object') {
-      return { success: false, message: '备份格式无效' };
-    }
-
-    // 先保存当前备份端配置（防止恢复失败导致配置丢失）
-    const currentEndpointsStr = await env.SUBSCRIPTIONS.get(`user:${username}:backup_endpoints`);
-
-    // 收集所有要删除的旧键
-    const keysToDelete: string[] = [];
-    let cursor: string | undefined;
-    let list_complete = false;
-    do {
-      const list = await env.SUBSCRIPTIONS.list({ prefix: `user:${username}:`, cursor });
-      for (const key of list.keys) {
-        keysToDelete.push(key.name);
-      }
-      cursor = (list as { cursor?: string }).cursor;
-      list_complete = list.list_complete ?? false;
-    } while (cursor && !list_complete);
-
-    // 先将备份数据写入临时键，验证完整性
-    const tempPrefix = `temp_restore:${username}:`;
-    const entries = Object.entries(backupData.data);
-
-    try {
-      // 第一步：写入临时键
-      for (const [key, value] of entries) {
-        const tempKey = tempPrefix + key;
-        await env.SUBSCRIPTIONS.put(tempKey, value);
-      }
-
-      // 第二步：验证临时数据完整性
-      const verifiedCount = await verifyTempRestoreData(env, tempPrefix, entries.length);
-      if (verifiedCount !== entries.length) {
-        // 验证失败，清理临时数据
-        await cleanupTempRestoreData(env, tempPrefix);
-        return {
-          success: false,
-          message: `备份数据验证失败（${verifiedCount}/${entries.length}）`,
-        };
-      }
-
-      // 第三步：删除旧数据
-      for (const key of keysToDelete) {
-        await env.SUBSCRIPTIONS.delete(key);
-      }
-
-      // 第四步：将临时数据移动到正式键
-      for (const [key] of entries) {
-        const tempKey = tempPrefix + key;
-        const value = await env.SUBSCRIPTIONS.get(tempKey);
-        if (value !== null) {
-          await env.SUBSCRIPTIONS.put(key, value);
-          await env.SUBSCRIPTIONS.delete(tempKey);
-        }
-      }
-
-      // 第五步：清理剩余的临时键
-      await cleanupTempRestoreData(env, tempPrefix);
-
-      // 第六步：恢复备份端配置
-      if (currentEndpointsStr) {
-        await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
-      }
-
-      return { success: true, message: '恢复成功', count: entries.length };
-    } catch (err) {
-      await cleanupTempRestoreData(env, tempPrefix);
-      if (currentEndpointsStr) {
-        await env.SUBSCRIPTIONS.put(`user:${username}:backup_endpoints`, currentEndpointsStr);
-      }
-      return {
-        success: false,
-        message: '恢复失败，已回滚',
-        errorMessage: (err as Error).message,
-      };
-    }
-  } catch (err) {
-    return { success: false, message: '恢复失败', errorMessage: (err as Error).message };
-  }
-}
-
-/**
- * 验证临时恢复数据的完整性
- */
-async function verifyTempRestoreData(
-  env: Env,
-  tempPrefix: string,
-  expectedCount: number
-): Promise<number> {
-  let verifiedCount = 0;
-  const list = await env.SUBSCRIPTIONS.list({ prefix: tempPrefix, limit: expectedCount + 10 });
-  for (const key of list.keys) {
-    const value = await env.SUBSCRIPTIONS.get(key.name);
-    if (value !== null) {
-      verifiedCount++;
-    }
-  }
-  return verifiedCount;
-}
-
-/**
- * 清理临时恢复数据
- */
-async function cleanupTempRestoreData(env: Env, tempPrefix: string): Promise<void> {
-  try {
-    const list = await env.SUBSCRIPTIONS.list({ prefix: tempPrefix });
-    for (const key of list.keys) {
-      await env.SUBSCRIPTIONS.delete(key.name);
-    }
-  } catch {
-    // 清理失败不影响主流程
-  }
+  // 由于 KV 已移除，恢复功能暂不支持
+  // 如需恢复，请联系管理员
+  return {
+    success: false,
+    message: '恢复功能暂不可用（KV 已移除）'
+  };
 }
 
 // 下载备份文件
@@ -883,41 +797,4 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
   }
 
   return uploadResults.map((r) => r.result);
-}
-
-// 兼容性：获取旧版 S3 配置并迁移
-export async function migrateOldS3Config(env: Env, username: string): Promise<void> {
-  const oldConfigStr = await env.SUBSCRIPTIONS.get(`user:${username}:s3_config`);
-  if (!oldConfigStr) return;
-
-  try {
-    const oldConfig: S3Config = JSON.parse(oldConfigStr);
-    const endpoints = await getBackupEndpoints(env, username);
-
-    // 如果已经有备份端，不重复迁移
-    if (endpoints.length > 0) return;
-
-    // 创建新的备份端
-    const newEndpoint: BackupEndpoint = {
-      id: crypto.randomUUID(),
-      name: '默认备份',
-      type: 's3',
-      enabled: true,
-      config: oldConfig,
-      schedule: {
-        enabled: false,
-        interval: 24,
-        startTime: '02:00',
-      },
-      retention: 30,
-    };
-
-    endpoints.push(newEndpoint);
-    await saveBackupEndpoints(env, username, endpoints);
-
-    // 删除旧配置
-    await env.SUBSCRIPTIONS.delete(`user:${username}:s3_config`);
-  } catch (e) {
-    console.error('迁移旧配置失败:', e);
-  }
 }
