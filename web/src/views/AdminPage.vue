@@ -8,8 +8,10 @@ import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { setLocale, currentLocale, useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
+import { usePermission } from '@/composables/usePermission';
 
 const t = useTranslation();
+const { isAdmin, hasPermission, loadCurrentUser, currentRole } = usePermission();
 import {
   getChannelsWithToken,
   saveChannelWithToken,
@@ -57,6 +59,19 @@ const themeStore = useThemeStore();
 const authStore = useAuthStore();
 
 const isDark = computed(() => themeStore.isDark);
+
+const roleIcon = computed(() => {
+  switch (currentRole.value) {
+    case 'admin':
+      return '👑';
+    case 'user':
+      return '👤';
+    case 'viewer':
+      return '👁️';
+    default:
+      return '👤';
+  }
+});
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error) return err.message;
@@ -655,6 +670,14 @@ function handleResend(record: PushHistoryRecord) {
       <div class="header-left">
         <h1>{{ t('app.title') }}</h1>
         <span class="header-email">{{ email }}</span>
+        <span
+          class="role-badge"
+          :class="['role-badge-' + currentRole, { dark: isDark }]"
+          :title="t('label.current_role')"
+        >
+          <span class="role-badge-icon">{{ roleIcon }}</span>
+          <span class="role-badge-text">{{ t(`role.${currentRole}`) }}</span>
+        </span>
       </div>
 
       <!-- 右上角头像悬浮按钮 -->
