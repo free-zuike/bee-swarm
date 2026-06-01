@@ -55,7 +55,33 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   const { email, password } = body;
   const userService = new UserService(c.env);
 
-  const existing = await userService.findByEmail(email);
+  let existing = await userService.findByEmail(email);
+  
+  // 如果 D1 中没有，检查 KV 中是否有
+  if (!existing) {
+    const kvData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
+    if (kvData) {
+      try {
+        const kvUser = JSON.parse(kvData);
+        // 迁移到 D1
+        existing = await userService.createUser(email, kvUser.password || '');
+        // 更新 token 信息
+        if (kvUser.token) {
+          await userService.updateUser(existing.id, {
+            token: kvUser.token,
+            token_expires_at: kvUser.expiresAt,
+            refresh_token: kvUser.refreshToken,
+            refresh_token_expires_at: kvUser.refreshExpiresAt,
+            apikey: kvUser.apikey
+          });
+        }
+        return c.json({ success: true, message: '账号已恢复，请登录' });
+      } catch (err) {
+        console.error('[Register] KV migration failed:', (err as Error).message);
+      }
+    }
+  }
+  
   if (existing) {
     return c.json({ success: false, message: '操作失败，请稍后重试' }, 400);
   }
@@ -78,7 +104,32 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   const { email, password } = body;
   const userService = new UserService(c.env);
 
-  const user = await userService.findByEmail(email);
+  let user = await userService.findByEmail(email);
+  
+  // 如果 D1 中找不到用户，尝试从 KV 迁移
+  if (!user) {
+    const kvData = await c.env.SUBSCRIPTIONS.get(`user:${email}`);
+    if (kvData) {
+      try {
+        const kvUser = JSON.parse(kvData);
+        // 迁移到 D1
+        user = await userService.createUser(email, kvUser.password || '');
+        // 更新 token 信息
+        if (kvUser.token) {
+          await userService.updateUser(user.id, {
+            token: kvUser.token,
+            token_expires_at: kvUser.expiresAt,
+            refresh_token: kvUser.refreshToken,
+            refresh_token_expires_at: kvUser.refreshExpiresAt,
+            apikey: kvUser.apikey
+          });
+        }
+      } catch (err) {
+        console.error('[Login] KV migration failed:', (err as Error).message);
+      }
+    }
+  }
+  
   if (!user) {
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
