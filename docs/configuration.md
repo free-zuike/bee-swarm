@@ -460,31 +460,37 @@ npm install
 
 ### 2. 配置 wrangler.toml
 
-编辑 `wrangler.toml`，配置 KV 命名空间等。
+编辑 `wrangler.toml`，配置 D1 数据库等。
 
-### 3. 创建 KV 命名空间
+### 3. 创建 D1 数据库
 
 ```bash
-npx wrangler kv:namespace create "SUBSCRIPTIONS"
+npx wrangler d1 create "bee-swarm-db"
 ```
 
 将输出的 ID 填入 `wrangler.toml`。
 
-### 4. 设置 Secrets
+### 4. 执行数据库迁移
+
+```bash
+npx wrangler d1 migrations apply bee-swarm-db
+```
+
+### 5. 设置 Secrets
 
 ```bash
 # 设置管理员密码
 npx wrangler secret put ADMIN_PASSWORD
 ```
 
-### 5. 部署
+### 6. 部署
 
 ```bash
 # 构建前端并部署
 npm run deploy
 ```
 
-### 6. 首次使用
+### 7. 首次使用
 
 1. 访问部署的 Worker 地址
 2. 注册新用户（或使用管理员密码登录）
@@ -520,12 +526,13 @@ npm run deploy
 2. 检查 wrangler.toml 配置
 3. 查看错误日志
 
-**问题**: KV 操作失败
+**问题**: 数据库操作失败
 
 **解决**:
-1. 确认 KV 命名空间已创建
-2. 检查 wrangler.toml 中的 KV 绑定
+1. 确认 D1 数据库已创建
+2. 检查 wrangler.toml 中的 D1 绑定
 3. 验证 API Token 权限
+4. 确认数据库迁移已执行
 
 ---
 
