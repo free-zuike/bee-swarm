@@ -587,7 +587,7 @@ async function handleAddEndpoint(endpoint: Omit<BackupEndpoint, 'id'>) {
       // 加载备份列表
       const data = await listBackupsFromEndpoint(accessToken.value, result.endpoint.id);
       backupManagerRef.value?.setBackups(data.backups || []);
-      backupManagerRef.value?.handleTestResult(true, t('msg.create_endpoint_success'));
+      backupManagerRef.value?.handleAddResult(result.endpoint, t('msg.create_endpoint_success'));
     }
   } catch (err: unknown) {
     backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.operation_failed')), 'save');
