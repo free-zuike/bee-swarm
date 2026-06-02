@@ -46,23 +46,42 @@ backupRoutes.post('/backup-endpoints', async (c) => {
     return c.json({ error: '请提供名称和类型', code: 'VALIDATION_ERROR' }, 400);
   }
 
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const newEndpoint: BackupEndpoint = {
-    ...body,
-    id: crypto.randomUUID(),
-    enabled: body.enabled ?? true,
-    schedule: body.schedule || { enabled: false, interval: 24, startTime: '02:00' },
-    retention: body.retention || 30,
-  };
+  try {
+    const endpoints = await getBackupEndpoints(c.env, username);
+    const newEndpoint: BackupEndpoint = {
+      ...body,
+      id: crypto.randomUUID(),
+      enabled: body.enabled ?? true,
+      schedule: body.schedule || { enabled: false, interval: 24, startTime: '02:00' },
+      retention: body.retention || 30,
+    };
 
-  endpoints.push(newEndpoint);
-  await saveBackupEndpoints(c.env, username, endpoints);
+    endpoints.push(newEndpoint);
+    await saveBackupEndpoints(c.env, username, endpoints);
 
-  const returnedEndpoint = {
-    ...newEndpoint,
-    config: filterSensitiveConfig(newEndpoint.config as unknown as Record<string, unknown>),
-  };
-  return c.json({ success: true, endpoint: returnedEndpoint });
+    const returnedEndpoint = {
+      ...newEndpoint,
+      config: filterSensitiveConfig(newEndpoint.config as unknown as Record<string, unknown>),
+    };
+    return c.json({ success: true, endpoint: returnedEndpoint });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 创建备份端点失败:', error);
+    
+    // 特殊处理外键约束失败的错误
+    if (error.message.includes('FOREIGN KEY constraint failed') || 
+        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
+      return c.json({ 
+        error: '数据库错误：无法创建备份端点，请尝试重新登录或联系管理员', 
+        code: 'DB_FOREIGN_KEY_ERROR' 
+      }, 500);
+    }
+    
+    return c.json({ 
+      error: '创建备份端点失败：' + error.message, 
+      code: 'INTERNAL_ERROR' 
+    }, 500);
+  }
 });
 
 /** 更新备份端 */
@@ -71,39 +90,58 @@ backupRoutes.put('/backup-endpoints/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json<Partial<BackupEndpoint>>();
 
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const index = endpoints.findIndex((e) => e.id === id);
-  if (index === -1) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  const existingConfig = endpoints[index].config;
-  if (body.config && existingConfig) {
-    const existingS3 = existingConfig as Partial<S3Config>;
-    const existingWebDAV = existingConfig as Partial<WebDAVConfig>;
-    const newConfig = body.config as Partial<S3Config & WebDAVConfig>;
-
-    const hasOriginalSecret = !!existingS3.secretAccessKey;
-    const hasNewSecret = !!newConfig.secretAccessKey;
-    if (hasOriginalSecret && !hasNewSecret) {
-      newConfig.secretAccessKey = existingS3.secretAccessKey;
+  try {
+    const endpoints = await getBackupEndpoints(c.env, username);
+    const index = endpoints.findIndex((e) => e.id === id);
+    if (index === -1) {
+      return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
     }
 
-    const hasOriginalPassword = !!existingWebDAV.password;
-    const hasNewPassword = !!newConfig.password;
-    if (hasOriginalPassword && !hasNewPassword) {
-      newConfig.password = existingWebDAV.password;
+    const existingConfig = endpoints[index].config;
+    if (body.config && existingConfig) {
+      const existingS3 = existingConfig as Partial<S3Config>;
+      const existingWebDAV = existingConfig as Partial<WebDAVConfig>;
+      const newConfig = body.config as Partial<S3Config & WebDAVConfig>;
+
+      const hasOriginalSecret = !!existingS3.secretAccessKey;
+      const hasNewSecret = !!newConfig.secretAccessKey;
+      if (hasOriginalSecret && !hasNewSecret) {
+        newConfig.secretAccessKey = existingS3.secretAccessKey;
+      }
+
+      const hasOriginalPassword = !!existingWebDAV.password;
+      const hasNewPassword = !!newConfig.password;
+      if (hasOriginalPassword && !hasNewPassword) {
+        newConfig.password = existingWebDAV.password;
+      }
     }
+
+    endpoints[index] = { ...endpoints[index], ...body };
+    await saveBackupEndpoints(c.env, username, endpoints);
+
+    const returnedEndpoint = {
+      ...endpoints[index],
+      config: filterSensitiveConfig(endpoints[index].config as unknown as Record<string, unknown>),
+    };
+    return c.json({ success: true, endpoint: returnedEndpoint });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 更新备份端点失败:', error);
+    
+    // 特殊处理外键约束失败的错误
+    if (error.message.includes('FOREIGN KEY constraint failed') || 
+        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
+      return c.json({ 
+        error: '数据库错误：无法更新备份端点，请尝试重新登录或联系管理员', 
+        code: 'DB_FOREIGN_KEY_ERROR' 
+      }, 500);
+    }
+    
+    return c.json({ 
+      error: '更新备份端点失败：' + error.message, 
+      code: 'INTERNAL_ERROR' 
+    }, 500);
   }
-
-  endpoints[index] = { ...endpoints[index], ...body };
-  await saveBackupEndpoints(c.env, username, endpoints);
-
-  const returnedEndpoint = {
-    ...endpoints[index],
-    config: filterSensitiveConfig(endpoints[index].config as unknown as Record<string, unknown>),
-  };
-  return c.json({ success: true, endpoint: returnedEndpoint });
 });
 
 /** 删除备份端 */
@@ -111,11 +149,20 @@ backupRoutes.delete('/backup-endpoints/:id', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
 
-  const success = await deleteBackupEndpoint(c.env, username, id);
-  if (!success) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
+  try {
+    const success = await deleteBackupEndpoint(c.env, username, id);
+    if (!success) {
+      return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
+    }
+    return c.json({ success: true, message: '备份端已删除' });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 删除备份端点失败:', error);
+    return c.json({ 
+      error: '删除备份端点失败：' + error.message, 
+      code: 'INTERNAL_ERROR' 
+    }, 500);
   }
-  return c.json({ success: true, message: '备份端已删除' });
 });
 
 /** 测试备份端连接 */
@@ -253,8 +300,17 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
 /** 手动触发所有启用的备份 */
 backupRoutes.post('/backup-all', async (c) => {
   const username = c.get('username');
-  const results = await executeAllBackups(c.env, username);
-  return c.json({ results });
+  try {
+    const results = await executeAllBackups(c.env, username);
+    return c.json({ results });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 执行所有备份失败:', error);
+    return c.json({ 
+      error: '执行备份失败：' + error.message, 
+      code: 'INTERNAL_ERROR' 
+    }, 500);
+  }
 });
 
 /** 手动触发单个备份端备份 */
@@ -262,21 +318,35 @@ backupRoutes.post('/backup-endpoints/:id/backup', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
 
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find((e) => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
+  try {
+    const endpoints = await getBackupEndpoints(c.env, username);
+    const endpoint = endpoints.find((e) => e.id === id);
+    if (!endpoint) {
+      return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
+    }
+
+    const result = await uploadBackupToEndpoint(c.env, username, endpoint);
+    result.endpointName = endpoint.name;
+
+    try {
+      endpoint.lastBackup = {
+        time: new Date().toISOString(),
+        status: result.success ? 'success' : 'failed',
+        message: result.message,
+      };
+      await saveBackupEndpoint(c.env, username, endpoint);
+    } catch (saveErr) {
+      console.error('[Backup] 保存备份状态失败:', saveErr);
+      // 即使保存失败也返回备份结果
+    }
+
+    return c.json(result);
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 执行备份失败:', error);
+    return c.json({ 
+      success: false, 
+      message: '执行备份失败：' + error.message 
+    }, 500);
   }
-
-  const result = await uploadBackupToEndpoint(c.env, username, endpoint);
-  result.endpointName = endpoint.name;
-
-  endpoint.lastBackup = {
-    time: new Date().toISOString(),
-    status: result.success ? 'success' : 'failed',
-    message: result.message,
-  };
-  await saveBackupEndpoint(c.env, username, endpoint);
-
-  return c.json(result);
 });
