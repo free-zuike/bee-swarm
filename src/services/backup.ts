@@ -119,8 +119,8 @@ export async function saveBackupEndpoints(
   // 插入新的
   for (const endpoint of endpoints) {
     await env.DB.prepare(`
-      INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       endpoint.id,
       username,
@@ -128,6 +128,9 @@ export async function saveBackupEndpoints(
       endpoint.type,
       JSON.stringify(endpoint.config),
       endpoint.enabled ? 1 : 0,
+      JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
+      endpoint.retention || 30,
+      endpoint.lastBackup ? JSON.stringify(endpoint.lastBackup) : null,
       new Date().toISOString(),
       new Date().toISOString()
     ).run();
@@ -159,8 +162,8 @@ export async function saveBackupEndpoint(
   
   // 插入新的
   await env.DB.prepare(`
-    INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     endpoint.id,
     username,
@@ -168,6 +171,9 @@ export async function saveBackupEndpoint(
     endpoint.type,
     JSON.stringify(endpoint.config),
     endpoint.enabled ? 1 : 0,
+    JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
+    endpoint.retention || 30,
+    endpoint.lastBackup ? JSON.stringify(endpoint.lastBackup) : null,
     new Date().toISOString(),
     new Date().toISOString()
   ).run();
