@@ -218,6 +218,12 @@ function cancelAvatarUpload() {
   }
 }
 
+function triggerFileInput() {
+  if (fileInputRef.value) {
+    fileInputRef.value.click();
+  }
+}
+
 async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
@@ -870,7 +876,7 @@ function handleResend(record: PushHistoryRecord) {
             <!-- 文件上传 -->
             <div v-if="hasR2Storage" class="form-group">
               <label>{{ t('label.upload_avatar') }}</label>
-              <div class="upload-area" :class="{ dark: isDark }" @click="() => fileInputRef.value?.click()">
+              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileInput">
                 <input
                   ref="fileInputRef"
                   type="file"
