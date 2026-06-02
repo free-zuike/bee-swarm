@@ -137,30 +137,38 @@ export async function saveBackupEndpoints(
 ): Promise<void> {
   if (!env.DB) return;
   
-  // 先确保用户记录存在
-  await ensureUserExists(env, username);
+  // 临时禁用外键约束
+  await env.DB.prepare('PRAGMA foreign_keys = OFF').run();
   
-  // 删除旧的
-  await env.DB.prepare('DELETE FROM backup_endpoints WHERE user_id = ?').bind(username).run();
-  
-  // 插入新的
-  for (const endpoint of endpoints) {
-    await env.DB.prepare(`
-      INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      endpoint.id,
-      username,
-      endpoint.name || '默认备份',
-      endpoint.type,
-      JSON.stringify(endpoint.config),
-      endpoint.enabled ? 1 : 0,
-      JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
-      endpoint.retention || 30,
-      endpoint.lastBackup ? JSON.stringify(endpoint.lastBackup) : null,
-      new Date().toISOString(),
-      new Date().toISOString()
-    ).run();
+  try {
+    // 先确保用户记录存在
+    await ensureUserExists(env, username);
+    
+    // 删除旧的
+    await env.DB.prepare('DELETE FROM backup_endpoints WHERE user_id = ?').bind(username).run();
+    
+    // 插入新的
+    for (const endpoint of endpoints) {
+      await env.DB.prepare(`
+        INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        endpoint.id,
+        username,
+        endpoint.name || '默认备份',
+        endpoint.type,
+        JSON.stringify(endpoint.config),
+        endpoint.enabled ? 1 : 0,
+        JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
+        endpoint.retention || 30,
+        endpoint.lastBackup ? JSON.stringify(endpoint.lastBackup) : null,
+        new Date().toISOString(),
+        new Date().toISOString()
+      ).run();
+    }
+  } finally {
+    // 重新启用外键约束
+    await env.DB.prepare('PRAGMA foreign_keys = ON').run();
   }
 }
 
@@ -182,31 +190,39 @@ export async function saveBackupEndpoint(
 ): Promise<void> {
   if (!env.DB) return;
   
-  // 先确保用户记录存在
-  await ensureUserExists(env, username);
+  // 临时禁用外键约束
+  await env.DB.prepare('PRAGMA foreign_keys = OFF').run();
   
-  // 先删除旧的
-  await env.DB.prepare(
-    'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
-  ).bind(endpoint.id, username).run();
-  
-  // 插入新的
-  await env.DB.prepare(`
-    INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    endpoint.id,
-    username,
-    endpoint.name || '默认备份',
-    endpoint.type,
-    JSON.stringify(endpoint.config),
-    endpoint.enabled ? 1 : 0,
-    JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
-    endpoint.retention || 30,
-    endpoint.lastBackup ? JSON.stringify(endpoint.lastBackup) : null,
-    new Date().toISOString(),
-    new Date().toISOString()
-  ).run();
+  try {
+    // 先确保用户记录存在
+    await ensureUserExists(env, username);
+    
+    // 先删除旧的
+    await env.DB.prepare(
+      'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
+    ).bind(endpoint.id, username).run();
+    
+    // 插入新的
+    await env.DB.prepare(`
+      INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      endpoint.id,
+      username,
+      endpoint.name || '默认备份',
+      endpoint.type,
+      JSON.stringify(endpoint.config),
+      endpoint.enabled ? 1 : 0,
+      JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
+      endpoint.retention || 30,
+      endpoint.lastBackup ? JSON.stringify(endpoint.lastBackup) : null,
+      new Date().toISOString(),
+      new Date().toISOString()
+    ).run();
+  } finally {
+    // 重新启用外键约束
+    await env.DB.prepare('PRAGMA foreign_keys = ON').run();
+  }
 }
 
 // 删除备份端
