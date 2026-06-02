@@ -30,6 +30,7 @@ import {
   backupAll,
   backupSingleEndpoint,
   updateAvatar,
+  getAvatarStorageStatus,
 } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type {
@@ -179,10 +180,20 @@ async function copyApiKey() {
 // ==================== 头像管理 ====================
 const isUploading = ref(false);
 const avatarFile = ref<File | null>(null);
+const hasR2Storage = ref(true);
 
-function openAvatarModal() {
+async function openAvatarModal() {
   avatarInput.value = userAvatar.value;
   avatarFile.value = null;
+  
+  // 检查 R2 存储是否可用
+  try {
+    const status = await getAvatarStorageStatus(accessToken.value);
+    hasR2Storage.value = status.hasR2;
+  } catch {
+    hasR2Storage.value = false;
+  }
+  
   showAvatarModal.value = true;
 }
 
@@ -835,7 +846,7 @@ function handleResend(record: PushHistoryRecord) {
             </div>
 
             <!-- 文件上传 -->
-            <div class="form-group">
+            <div v-if="hasR2Storage" class="form-group">
               <label>{{ t('label.upload_avatar') }}</label>
               <div class="upload-area" :class="{ dark: isDark }" @click="() => ($refs.fileInput as HTMLInputElement)?.click()">
                 <input
@@ -866,6 +877,15 @@ function handleResend(record: PushHistoryRecord) {
               >
                 {{ isUploading ? t('label.uploading') : t('button.upload') }}
               </button>
+            </div>
+            
+            <!-- R2 未配置提示 -->
+            <div v-else class="form-group">
+              <div class="alert alert-warning">
+                <span>⚠️</span>
+                <span>{{ t('msg.r2_not_configured') }}</span>
+              </div>
+              <p class="text-muted">{{ t('msg.r2_avatar_tip') }}</p>
             </div>
 
             <!-- 头像URL输入 -->

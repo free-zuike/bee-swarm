@@ -550,6 +550,17 @@ adminApi.put('/me/avatar', async (c) => {
   });
 });
 
+/** 检查头像存储服务状态 */
+adminApi.get('/me/avatar/status', async (c) => {
+  const env = c.env as Env;
+  const hasBucket = !!env.BUCKET;
+  return c.json({
+    success: true,
+    hasR2: hasBucket,
+    message: hasBucket ? '头像存储服务可用' : '头像存储服务未配置',
+  });
+});
+
 /** 上传头像文件 */
 adminApi.post('/me/avatar/upload', async (c) => {
   const env = c.env as Env;

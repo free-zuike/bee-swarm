@@ -939,6 +939,13 @@ export async function getCurrentUser(token: string): Promise<UserInfo & { avatar
   return tokenRequest(`${BASE}/admin/me`, token);
 }
 
+// 检查头像存储服务状态
+export async function getAvatarStorageStatus(
+  token: string
+): Promise<{ success: boolean; hasR2: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/me/avatar/status`, token);
+}
+
 // 更新用户头像设置
 export async function updateAvatar(
   token: string,
