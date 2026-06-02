@@ -232,11 +232,14 @@ async function handleSaveAvatar() {
   isSaving.value = true;
   try {
     let avatarUrl = avatarInput.value;
+    let shouldUseAsPopup = useAvatarAsPopup.value;
     
     if (selectedFile.value) {
       const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
       if (uploadResult.success) {
         avatarUrl = uploadResult.avatar_url;
+        // 上传新头像时自动启用作为悬浮窗图标
+        shouldUseAsPopup = 1;
       }
     }
     
@@ -244,7 +247,7 @@ async function handleSaveAvatar() {
     
     const result = await updateAvatar(accessToken.value, {
       avatar_url: avatarToSave,
-      use_avatar_as_popup: useAvatarAsPopup.value,
+      use_avatar_as_popup: shouldUseAsPopup,
     });
     
     if (result.success) {
