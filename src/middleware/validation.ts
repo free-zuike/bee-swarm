@@ -137,4 +137,8 @@ export const schemas = {
   refresh: z.object({
     refreshToken: z.string().min(1, '请提供 refresh token'),
   }),
+
+  userRole: z.object({
+    role: z.enum(['admin', 'user', 'viewer']),
+  }),
 };

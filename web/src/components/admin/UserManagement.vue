@@ -16,23 +16,26 @@
       </div>
 
       <div v-else-if="users.length === 0" class="empty-state">
-        <div class="empty-icon"></div>
+        <div class="empty-icon">👥</div>
         <p>{{ t('users.empty') }}</p>
       </div>
 
       <div v-else class="user-list">
         <div v-for="user in users" :key="user.id" class="user-card">
+          <div class="user-avatar">
+            <span class="avatar-initial">{{ user.email.charAt(0).toUpperCase() }}</span>
+          </div>
           <div class="user-main">
             <div class="user-top">
               <div class="user-name-row">
                 <h3 class="user-name">{{ user.email }}</h3>
                 <div class="user-tags">
-                  <span :class="['tag', 'tag-role', `tag-role-${user.role}`]">
+                  <span :class="['tag', `tag-role-${user.role}`]">
                     {{ getRoleName(user.role) }}
                   </span>
                   <span
                     v-if="user.disabled"
-                    class="tag tag-status tag-status-disabled"
+                    class="tag tag-status-disabled"
                   >
                     {{ t('users.disabled') }}
                   </span>
@@ -40,17 +43,19 @@
               </div>
             </div>
             <div class="user-body">
-              <div class="field-row">
-                <span class="field-label">{{ t('label.email') }}</span>
-                <span class="field-value">{{ user.email }}</span>
-              </div>
-              <div class="field-row">
-                <span class="field-label">{{ t('label.createdAt') }}</span>
-                <span class="field-value">{{ formatTime(user.created_at) }}</span>
-              </div>
-              <div v-if="user.disabled && user.disabled_reason" class="field-row">
-                <span class="field-label">{{ t('users.disabledReason') }}</span>
-                <span class="field-value">{{ user.disabled_reason }}</span>
+              <div class="info-row">
+                <span class="info-item">
+                  <span class="info-label">{{ t('label.email') }}:</span>
+                  <span class="info-value">{{ user.email }}</span>
+                </span>
+                <span class="info-item">
+                  <span class="info-label">{{ t('label.createdAt') }}:</span>
+                  <span class="info-value">{{ formatTime(user.created_at) }}</span>
+                </span>
+                <div v-if="user.disabled && user.disabled_reason" class="info-item">
+                  <span class="info-label">{{ t('users.disabledReason') }}:</span>
+                  <span class="info-value">{{ user.disabled_reason }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -60,6 +65,7 @@
               class="action-btn action-disable"
               @click="openDisableModal(user)"
               :disabled="user.id === currentUserId"
+              :title="user.id === currentUserId ? t('users.cannotDisableSelf') : ''"
             >
               {{ t('users.disable') }}
             </button>
@@ -81,7 +87,8 @@
             <button
               class="action-btn action-delete"
               @click="confirmDelete(user)"
-              :disabled="user.id === currentUserId || saving"
+              :disabled="saving || user.id === currentUserId"
+              :title="user.id === currentUserId ? t('users.cannotDeleteSelf') : ''"
             >
               {{ t('button.delete') }}
             </button>
@@ -442,21 +449,42 @@ onMounted(() => {
 
 .user-card {
   display: flex;
+  align-items: center;
   gap: 16px;
   padding: 20px;
   background: var(--bg-secondary);
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
-  transition: all 0.2s;
+  transition: all 0.25s ease;
 }
 
 .user-card:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+  transform: translateY(-2px);
+}
+
+.user-avatar {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.avatar-initial {
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .user-main {
   flex: 1;
+  min-width: 0;
 }
 
 .user-top {
@@ -511,23 +539,28 @@ onMounted(() => {
 .user-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.field-row {
+.info-row {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
   align-items: center;
-}
-
-.field-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  min-width: 80px;
-}
-
-.field-value {
+  gap: 6px;
   font-size: 14px;
+}
+
+.info-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.info-value {
   color: var(--text-primary);
 }
 

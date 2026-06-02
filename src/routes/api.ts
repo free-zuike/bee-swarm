@@ -503,7 +503,7 @@ adminApi.post('/users', validateBody(schemas.register), async (c) => {
 });
 
 /** 更新用户角色 */
-adminApi.put('/users/:id/role', validateBody(schemas.apikey), async (c) => {
+adminApi.put('/users/:id/role', validateBody(schemas.userRole), async (c) => {
   const env = c.env as Env;
   const guard = requireAdmin(c);
   if (guard) return guard;
@@ -548,7 +548,12 @@ adminApi.post('/users/:id/disable', async (c) => {
   if (guard) return guard;
 
   const userId = c.req.param('id') as string;
-  const body = await c.req.json<{ reason?: string }>().catch(() => ({ reason: undefined }));
+  let body: { reason?: string } = {};
+  try {
+    body = await c.req.json<{ reason?: string }>();
+  } catch {
+    body = { reason: undefined };
+  }
 
   const currentUserId = c.get('userId') as string;
   if (currentUserId === userId) {
@@ -562,10 +567,15 @@ adminApi.post('/users/:id/disable', async (c) => {
   }
 
   const reason = body.reason || '';
-  await svc.updateUser(userId, {
-    disabled: 1,
-    disabled_reason: reason,
-  });
+  
+  try {
+    await svc.updateUser(userId, {
+      disabled: 1,
+      disabled_reason: reason,
+    });
+  } catch {
+    return c.json({ error: '用户表不支持禁用功能，请升级数据库', code: 'DB_NOT_SUPPORTED' }, 400);
+  }
 
   try {
     const username = c.get('username') as string;
