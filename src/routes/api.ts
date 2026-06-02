@@ -612,25 +612,26 @@ adminApi.post('/me/avatar/upload', async (c) => {
       },
     });
 
-    // 生成预览 URL（临时签名 URL）
-    const url = await (env.BUCKET as unknown as {
-      createSignedUrl: (key: string, options: { method: string; expiresIn: number }) => Promise<{ href: string }>;
-    }).createSignedUrl(fileName, {
-      method: 'GET',
-      expiresIn: 60 * 60 * 24 * 365, // 1 年
-    });
+    // 生成预览 URL（使用 R2 的公共访问或返回相对路径）
+    // 注意：createSignedUrl 是实验性功能，可能不可用
+    const avatarUrl = `https://pub-d1ceb918468a49a3892985c21b4b16f2.r2.dev/${fileName}`;
 
     // 更新用户头像 URL
-    await svc.updateUser(user.id, { avatar_url: url.href });
+    await svc.updateUser(user.id, { avatar_url: avatarUrl });
 
     return c.json({
       success: true,
       message: '头像上传成功',
-      avatar_url: url.href,
+      avatar_url: avatarUrl,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Avatar upload error:', err);
-    return c.json({ error: '上传失败', code: 'UPLOAD_ERROR' }, 500);
+    const errorMessage = err instanceof Error ? err.message : '未知错误';
+    return c.json({ 
+      error: '上传失败', 
+      code: 'UPLOAD_ERROR',
+      details: errorMessage 
+    }, 500);
   }
 });
 
