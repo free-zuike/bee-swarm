@@ -131,3 +131,5 @@ export const useAuthStore = defineStore('auth', () => {
     setAuthError,
   };
 });
+
+export const useAuth = useAuthStore;

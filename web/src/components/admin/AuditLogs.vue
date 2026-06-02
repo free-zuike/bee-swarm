@@ -91,11 +91,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { useTranslation } from '@/i18n';
 import { useAuth } from '@/stores/auth';
 import { getAuditLogs, clearAuditLogs } from '@/api';
 
-const { t } = useI18n();
+const t = useTranslation();
 const authStore = useAuth();
 
 const loading = ref(false);

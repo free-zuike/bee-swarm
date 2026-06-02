@@ -197,7 +197,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { useTranslation } from '@/i18n';
 import { useAuth } from '@/stores/auth';
 import { usePermission } from '@/composables/usePermission';
 import {
@@ -210,7 +210,7 @@ import {
   type UserInfo,
 } from '@/api';
 
-const { t } = useI18n();
+const t = useTranslation();
 const authStore = useAuth();
 const { currentUserId } = usePermission();
 
