@@ -179,6 +179,7 @@ async function copyApiKey() {
 
 // ==================== 头像管理 ====================
 const isUploading = ref(false);
+const isSaving = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
 
@@ -225,10 +226,19 @@ async function handleFileUpload(event: Event) {
 }
 
 async function handleSaveAvatar() {
+  console.log('handleSaveAvatar 被调用');
+  if (isSaving.value) {
+    console.log('正在保存中，跳过');
+    return;
+  }
+  
+  isSaving.value = true;
   try {
     let avatarUrl = avatarInput.value;
+    console.log('初始 avatarUrl:', avatarUrl);
     
     if (selectedFile.value) {
+      console.log('开始上传文件:', selectedFile.value);
       const formData = new FormData();
       formData.append('avatar', selectedFile.value);
       
@@ -244,15 +254,21 @@ async function handleSaveAvatar() {
       }
       
       const uploadResult = await uploadResponse.json();
+      console.log('上传结果:', uploadResult);
       if (uploadResult.success) {
         avatarUrl = uploadResult.avatar_url;
       }
     }
     
+    const avatarToSave = avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : null;
+    console.log('准备保存到数据库:', { avatar_url: avatarToSave, use_avatar_as_popup: useAvatarAsPopup.value });
+    
     const result = await updateAvatar(accessToken.value, {
-      avatar_url: avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : null,
+      avatar_url: avatarToSave,
       use_avatar_as_popup: useAvatarAsPopup.value,
     });
+    
+    console.log('updateAvatar 结果:', result);
     if (result.success) {
       userAvatar.value = result.avatar_url;
       useAvatarAsPopup.value = result.use_avatar_as_popup;
@@ -262,7 +278,10 @@ async function handleSaveAvatar() {
       showToast(result.message || t('msg.operation_failed'), 'error');
     }
   } catch (err: unknown) {
+    console.error('handleSaveAvatar 错误:', err);
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
+  } finally {
+    isSaving.value = false;
   }
 }
 
@@ -880,9 +899,10 @@ function handleResend(record: PushHistoryRecord) {
               </button>
               <button 
                 class="btn btn-primary" 
+                :disabled="isSaving"
                 @click="handleSaveAvatar"
               >
-                {{ t('button.save') }}
+                {{ isSaving ? t('label.saving') : t('button.save') }}
               </button>
             </div>
           </div>
