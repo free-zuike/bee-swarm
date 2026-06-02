@@ -247,7 +247,7 @@ async function handleSaveAvatar() {
       }
     }
     
-    const avatarToSave = avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : null;
+    const avatarToSave = avatarUrl || null;
     console.log('准备保存到数据库:', { avatar_url: avatarToSave, use_avatar_as_popup: useAvatarAsPopup.value });
     
     const result = await updateAvatar(accessToken.value, {
