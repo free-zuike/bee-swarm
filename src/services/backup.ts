@@ -5,6 +5,7 @@ import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
 import { convertTimezone } from '../utils/timezone';
 import { R2StorageService } from './r2StorageService';
+import { UserService } from './userService';
 
 // 备份端类型
 export type EndpointType = 's3' | 'webdav' | 'r2';
@@ -81,6 +82,29 @@ export interface BackupResult {
   count?: number;
 }
 
+// 确保用户存在于数据库中
+async function ensureUserExists(env: Env, username: string): Promise<void> {
+  if (!env.DB) return;
+  
+  const userService = new UserService(env);
+  let user = await userService.findByEmail(username);
+  
+  if (!user) {
+    // 如果用户不存在，创建一个空的用户记录
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO users (id, email, password, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(id, username, 'placeholder', now, now).run();
+    } catch (e) {
+      // 忽略重复插入错误
+      console.log('[Backup] 用户记录可能已存在', e);
+    }
+  }
+}
+
 // 获取用户的所有备份端
 export async function getBackupEndpoints(env: Env, username: string): Promise<BackupEndpoint[]> {
   if (!env.DB) return [];
@@ -112,6 +136,9 @@ export async function saveBackupEndpoints(
   endpoints: BackupEndpoint[]
 ): Promise<void> {
   if (!env.DB) return;
+  
+  // 先确保用户记录存在
+  await ensureUserExists(env, username);
   
   // 删除旧的
   await env.DB.prepare('DELETE FROM backup_endpoints WHERE user_id = ?').bind(username).run();
@@ -154,6 +181,9 @@ export async function saveBackupEndpoint(
   endpoint: BackupEndpoint
 ): Promise<void> {
   if (!env.DB) return;
+  
+  // 先确保用户记录存在
+  await ensureUserExists(env, username);
   
   // 先删除旧的
   await env.DB.prepare(
