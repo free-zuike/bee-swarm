@@ -26,6 +26,7 @@ import { QueueService } from '../services/queueService';
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
+import { getBackupEndpoints } from '../services/backup';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -557,7 +558,8 @@ adminApi.get('/me/avatar/status', async (c) => {
   return c.json({
     success: true,
     hasR2: hasBucket,
-    message: hasBucket ? '头像存储服务可用' : '头像存储服务未配置',
+    storageType: hasBucket ? 'r2' : 'base64',
+    message: hasBucket ? '头像存储服务可用' : '头像将使用 base64 存储',
   });
 });
 
@@ -569,11 +571,6 @@ adminApi.post('/me/avatar/upload', async (c) => {
   const user = await svc.findByEmail(username);
   if (!user) {
     return c.json({ error: '用户不存在' }, 404);
-  }
-
-  // 检查 R2 是否可用
-  if (!env.BUCKET) {
-    return c.json({ error: '头像存储服务不可用', code: 'STORAGE_NOT_AVAILABLE' }, 503);
   }
 
   try {
@@ -594,38 +591,43 @@ adminApi.post('/me/avatar/upload', async (c) => {
       return c.json({ error: '图片大小超过限制（最大 2MB）', code: 'VALIDATION_ERROR' }, 400);
     }
 
-    // 生成唯一文件名
-    const ext = file.name.split('.').pop() || 'jpg';
-    const fileName = `avatars/${user.id}-${Date.now()}.${ext}`;
-    
-    // 读取文件内容
-    const bytes = await file.arrayBuffer();
-    
-    // 上传到 R2
-    await env.BUCKET.put(fileName, bytes, {
-      httpMetadata: {
-        contentType: file.type,
-      },
-      customMetadata: {
-        userId: user.id,
-        uploadedAt: new Date().toISOString(),
-      },
-    });
+    let avatarUrl: string;
 
-    // 获取备份端点的 R2 域名配置
-    let r2Domain = env.R2_PUBLIC_DOMAIN || 'pub-d1ceb918468a49a3892985c21b4b16f2.r2.dev';
-    
-    try {
-      const backupSvc = new BackupService(env);
-      const endpoints = await backupSvc.getEndpoints(user.id);
-      if (endpoints.length > 0 && endpoints[0].r2_domain) {
-        r2Domain = endpoints[0].r2_domain;
+    // 如果 R2 可用，上传到 R2
+    if (env.BUCKET) {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `avatars/${user.id}-${Date.now()}.${ext}`;
+      
+      const bytes = await file.arrayBuffer();
+      
+      await env.BUCKET.put(fileName, bytes, {
+        httpMetadata: {
+          contentType: file.type,
+        },
+        customMetadata: {
+          userId: user.id,
+          uploadedAt: new Date().toISOString(),
+        },
+      });
+
+      let r2Domain = env.R2_PUBLIC_DOMAIN || 'pub-d1ceb918468a49a3892985c21b4b16f2.r2.dev';
+      
+      try {
+        const endpoints = await getBackupEndpoints(env, user.email);
+        if (endpoints.length > 0 && (endpoints[0] as any).r2_domain) {
+          r2Domain = (endpoints[0] as any).r2_domain;
+        }
+      } catch {
+        // 忽略备份服务错误
       }
-    } catch {
-      // 忽略备份服务错误
+      
+      avatarUrl = `https://${r2Domain}/${fileName}`;
+    } else {
+      // 没有 R2，使用 base64 存储
+      const bytes = await file.arrayBuffer();
+      const base64 = await arrayBufferToBase64(bytes);
+      avatarUrl = `data:${file.type};base64,${base64}`;
     }
-    
-    const avatarUrl = `https://${r2Domain}/${fileName}`;
 
     // 更新用户头像 URL
     await svc.updateUser(user.id, { avatar_url: avatarUrl });
@@ -645,6 +647,16 @@ adminApi.post('/me/avatar/upload', async (c) => {
     }, 500);
   }
 });
+
+/** 将 ArrayBuffer 转换为 Base64 */
+async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 /** 创建用户 */
 adminApi.post('/users', validateBody(schemas.register), async (c) => {

@@ -44,6 +44,8 @@ export interface Env {
   LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
   /** 管理员邮箱（可选），指定该邮箱注册自动成为管理员 */
   ADMIN_EMAIL?: string;
+  /** R2 公共域名，用于头像等公开资源的访问 */
+  R2_PUBLIC_DOMAIN?: string;
 }
 
 /**
