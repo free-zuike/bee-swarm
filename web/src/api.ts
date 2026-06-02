@@ -1039,10 +1039,10 @@ export async function deleteUser(
 
 export interface AuditLog {
   id: string;
-  username: string;
+  userId: string;
   action: string;
   metadata?: any;
-  created_at: string;
+  timestamp: string;
 }
 
 export async function getAuditLogs(

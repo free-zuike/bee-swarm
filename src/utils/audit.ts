@@ -79,8 +79,9 @@ export class AuditLogger {
   /**
    * 清理审计日志
    */
-  async clearLogs(): Promise<void> {
-    await clearAuditLogs(this.env, this.userId);
+  async clearLogs(options: { allUsers?: boolean } = {}): Promise<void> {
+    const userId = options.allUsers ? null : this.userId;
+    await clearAuditLogs(this.env, userId);
   }
 }
 

@@ -406,7 +406,7 @@ adminApi.delete('/audit', async (c) => {
     return c.json({ error: '无权限清除审计日志', code: 'FORBIDDEN' }, 403);
   }
   const auditLogger = createAuditLogger(c.env, username);
-  await auditLogger.clearLogs();
+  await auditLogger.clearLogs({ allUsers: true });
 
   return c.json({ success: true, message: '审计日志已清除' });
 });

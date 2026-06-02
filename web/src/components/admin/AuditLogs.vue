@@ -52,15 +52,20 @@
 
       <div v-else class="log-list">
         <div v-for="log in logs" :key="log.id" class="log-card">
-          <div class="log-header">
-            <span :class="['log-action', `log-action-${log.action}`]">
-              {{ getActionName(log.action) }}
-            </span>
-            <span class="log-time">{{ formatTime(log.created_at) }}</span>
+          <div class="log-avatar">
+            <span class="avatar-initial">{{ getInitial(log.userId) }}</span>
           </div>
-          <div class="log-user">{{ log.username }}</div>
-          <div v-if="log.metadata" class="log-meta">
-            <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
+          <div class="log-main">
+            <div class="log-header">
+              <span :class="['log-action', `log-action-${log.action}`]">
+                {{ getActionName(log.action) }}
+              </span>
+              <span class="log-user">{{ log.userId }}</span>
+              <span class="log-time">{{ formatTime(log.timestamp) }}</span>
+            </div>
+            <div v-if="log.metadata && Object.keys(log.metadata).length > 0" class="log-meta">
+              <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
+            </div>
           </div>
         </div>
       </div>
@@ -124,6 +129,11 @@ const getActionName = (action: string) => {
     user_enabled: t('audit.userEnabled'),
   };
   return actionNames[action] || action;
+};
+
+const getInitial = (str: string) => {
+  if (!str) return '?';
+  return str.charAt(0).toUpperCase();
 };
 
 const loadLogs = async () => {
@@ -286,30 +296,82 @@ onMounted(() => {
 }
 
 .log-card {
-  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
   background: var(--bg-secondary);
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.log-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--primary-color) 0%, #764ba2 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .log-card:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
+  transform: translateY(-1px);
+}
+
+.log-card:hover::before {
+  opacity: 1;
+}
+
+.log-avatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
+  flex-shrink: 0;
+}
+
+.avatar-initial {
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.log-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .log-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .log-action {
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .log-action-login {
@@ -323,7 +385,7 @@ onMounted(() => {
 }
 
 .log-action-user_created {
-  background: #ddd6fe;
+  background: #ede9fe;
   color: #4f46e5;
 }
 
@@ -334,12 +396,12 @@ onMounted(() => {
 
 .log-action-user_role_updated {
   background: #fef3c7;
-  color: #d97706;
+  color: #b45309;
 }
 
 .log-action-user_disabled {
   background: #fee2e2;
-  color: #dc2626;
+  color: #b91c1c;
 }
 
 .log-action-user_enabled {
@@ -347,23 +409,107 @@ onMounted(() => {
   color: #047857;
 }
 
-.log-time {
-  font-size: 13px;
-  color: var(--text-secondary);
+.log-action-push_sent {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.log-action-push_failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-action-channel_updated {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-channel_deleted {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-action-template_created {
+  background: #ede9fe;
+  color: #4f46e5;
+}
+
+.log-action-template_updated {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-template_deleted {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-action-scheduled_push_created {
+  background: #ede9fe;
+  color: #4f46e5;
+}
+
+.log-action-scheduled_push_cancelled {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.log-action-scheduled_push_rescheduled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-logout {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.log-action-backup_created {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.log-action-backup_restored {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-settings_updated {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .log-user {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.log-user::before {
+  content: '@';
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.log-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .log-meta {
   background: var(--bg-primary);
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-top: 4px;
+  overflow-x: auto;
 }
 
 .log-meta pre {
@@ -372,6 +518,8 @@ onMounted(() => {
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
+  font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  line-height: 1.5;
 }
 
 .modal-overlay {

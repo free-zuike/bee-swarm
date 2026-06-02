@@ -106,13 +106,19 @@ export async function getAuditLogs(
   }
 }
 
-export async function clearAuditLogs(env: Env, userId: string): Promise<void> {
+export async function clearAuditLogs(env: Env, userId: string | null): Promise<void> {
   if (!isD1Enabled(env)) return;
   try {
-    await env
-      .DB!.prepare('DELETE FROM audit_logs WHERE user_id = ?')
-      .bind(userId)
-      .run();
+    if (userId) {
+      await env
+        .DB!.prepare('DELETE FROM audit_logs WHERE user_id = ?')
+        .bind(userId)
+        .run();
+    } else {
+      await env
+        .DB!.prepare('DELETE FROM audit_logs')
+        .run();
+    }
   } catch (error) {
     console.error('[D1] clearAuditLogs error:', error);
   }
