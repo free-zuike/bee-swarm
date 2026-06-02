@@ -557,14 +557,15 @@ async function processBackups(
     const endpoints = await getBackupEndpoints(env, username);
 
     for (const endpoint of endpoints) {
-      if (!endpoint.enabled || !endpoint.schedule.enabled) {
+      if (!endpoint.enabled || !endpoint.schedule?.enabled) {
         continue;
       }
 
-      const startTime = endpoint.schedule.startTime || '02:00';
+      const schedule = endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' };
+      const startTime = schedule.startTime || '02:00';
       const [startHour, startMinute] = startTime.split(':').map(Number);
-      const interval = endpoint.schedule.interval || 24;
-      const tz = convertTimezone(endpoint.schedule.timezone || 'Asia/Shanghai');
+      const interval = schedule.interval || 24;
+      const tz = convertTimezone(schedule.timezone || 'Asia/Shanghai');
       const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
       // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
@@ -574,7 +575,7 @@ async function processBackups(
       let shouldRun = false;
       if (interval >= 168) {
         const currentDay = getLocalWeekday(now, tz);
-        const expectedDay = endpoint.schedule.startDay ?? 0;
+        const expectedDay = schedule.startDay ?? 0;
         shouldRun = currentDay === expectedDay && inTimeWindow;
       } else if (interval >= 24) {
         shouldRun = inTimeWindow;
