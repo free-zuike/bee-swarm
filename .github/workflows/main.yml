@@ -103,7 +103,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "运行 D1 数据库迁移..."
-          npx wrangler d1 migrations apply bee-swarm-db --remote --yes
+          npx wrangler d1 migrations apply bee-swarm-db --remote
 
       - name: Build frontend
         run: npm run build
