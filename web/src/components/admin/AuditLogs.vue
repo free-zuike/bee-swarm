@@ -61,7 +61,7 @@
                 {{ getActionName(log.action) }}
               </span>
               <span class="log-user">{{ log.userId }}</span>
-              <span class="log-time">{{ formatTime(log.timestamp) }}</span>
+              <span class="log-time">{{ formatTime(log.timestamp || log.created_at) }}</span>
             </div>
             <div v-if="log.metadata && Object.keys(log.metadata).length > 0" class="log-meta">
               <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
