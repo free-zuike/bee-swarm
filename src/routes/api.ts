@@ -550,6 +550,77 @@ adminApi.put('/me/avatar', async (c) => {
   });
 });
 
+/** 上传头像文件 */
+adminApi.post('/me/avatar/upload', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  // 检查 R2 是否可用
+  if (!env.AVATAR_BUCKET) {
+    return c.json({ error: '头像存储服务不可用', code: 'STORAGE_NOT_AVAILABLE' }, 503);
+  }
+
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('avatar') as File | null;
+    
+    if (!file) {
+      return c.json({ error: '请选择要上传的文件', code: 'VALIDATION_ERROR' }, 400);
+    }
+
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      return c.json({ error: '无效的图片格式', code: 'VALIDATION_ERROR' }, 400);
+    }
+
+    // 验证文件大小（最大 2MB）
+    if (file.size > 2 * 1024 * 1024) {
+      return c.json({ error: '图片大小超过限制（最大 2MB）', code: 'VALIDATION_ERROR' }, 400);
+    }
+
+    // 生成唯一文件名
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `avatars/${user.id}-${Date.now()}.${ext}`;
+    
+    // 读取文件内容
+    const bytes = await file.arrayBuffer();
+    
+    // 上传到 R2
+    await env.AVATAR_BUCKET.put(fileName, bytes, {
+      httpMetadata: {
+        contentType: file.type,
+      },
+      customMetadata: {
+        userId: user.id,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    // 生成预览 URL（临时签名 URL）
+    const url = await env.AVATAR_BUCKET.createSignedUrl(fileName, {
+      method: 'GET',
+      expiresIn: 60 * 60 * 24 * 365, // 1 年
+    });
+
+    // 更新用户头像 URL
+    await svc.updateUser(user.id, { avatar_url: url.href });
+
+    return c.json({
+      success: true,
+      message: '头像上传成功',
+      avatar_url: url.href,
+    });
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    return c.json({ error: '上传失败', code: 'UPLOAD_ERROR' }, 500);
+  }
+});
+
 /** 创建用户 */
 adminApi.post('/users', validateBody(schemas.register), async (c) => {
   const env = c.env as Env;

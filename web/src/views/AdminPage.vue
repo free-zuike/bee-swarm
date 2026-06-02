@@ -29,6 +29,7 @@ import {
   downloadBackupFromEndpoint,
   backupAll,
   backupSingleEndpoint,
+  updateAvatar,
 } from '@/api';
 import type { BackupEndpoint } from '@/api';
 import type {
@@ -141,6 +142,12 @@ const historyPageSize = 20;
 const apiKey = ref('');
 const { toast, showToast } = useGlobalToast();
 
+// ==================== 头像设置 ====================
+const userAvatar = ref('');
+const useAvatarAsPopup = ref(0);
+const showAvatarModal = ref(false);
+const avatarInput = ref('');
+
 // ==================== 子组件引用 ====================
 const channelSettingsRef = ref<InstanceType<typeof ChannelSettingsPanel> | null>(null);
 const backupManagerRef = ref<InstanceType<typeof BackupManager> | null>(null);
@@ -166,6 +173,136 @@ async function copyApiKey() {
     showToast(t('msg.copied_to_clipboard'), 'success');
   } catch (_err) {
     showToast(t('msg.copy_failed'), 'error');
+  }
+}
+
+// ==================== 头像管理 ====================
+const isUploading = ref(false);
+const avatarFile = ref<File | null>(null);
+
+function openAvatarModal() {
+  avatarInput.value = userAvatar.value;
+  avatarFile.value = null;
+  showAvatarModal.value = true;
+}
+
+function closeAvatarModal() {
+  showAvatarModal.value = false;
+  avatarInput.value = '';
+  avatarFile.value = null;
+}
+
+async function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (file) {
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      showToast(t('msg.invalid_image_format'), 'error');
+      return;
+    }
+    // 验证文件大小（最大 2MB）
+    if (file.size > 2 * 1024 * 1024) {
+      showToast(t('msg.image_too_large'), 'error');
+      return;
+    }
+    avatarFile.value = file;
+    // 预览图片
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      avatarInput.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function handleUploadAvatar() {
+  if (!avatarFile.value) return;
+  
+  isUploading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append('avatar', avatarFile.value);
+    
+    const response = await fetch(`${BASE}/admin/me/avatar/upload`, {
+      method: 'POST',
+      headers: {
+        'X-Token': accessToken.value,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || t('msg.upload_failed'));
+    }
+    
+    const result = await response.json();
+    if (result.success) {
+      userAvatar.value = result.avatar_url;
+      avatarInput.value = result.avatar_url;
+      showToast(t('msg.avatar_uploaded'), 'success');
+    }
+  } catch (err: unknown) {
+    showToast(getErrorMessage(err, t('msg.upload_failed')), 'error');
+  } finally {
+    isUploading.value = false;
+  }
+}
+
+async function handleSaveAvatar() {
+  try {
+    const result = await updateAvatar(accessToken.value, {
+      avatar_url: avatarInput.value || null,
+      use_avatar_as_popup: useAvatarAsPopup.value,
+    });
+    if (result.success) {
+      userAvatar.value = result.avatar_url;
+      useAvatarAsPopup.value = result.use_avatar_as_popup;
+      showToast(t('msg.avatar_updated'), 'success');
+      closeAvatarModal();
+    }
+  } catch (err: unknown) {
+    showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
+  }
+}
+
+function removeAvatar() {
+  avatarInput.value = '';
+  avatarFile.value = null;
+  useAvatarAsPopup.value = 0;
+}
+
+async function deleteAvatar() {
+  try {
+    const result = await updateAvatar(accessToken.value, {
+      avatar_url: null,
+      use_avatar_as_popup: 0,
+    });
+    if (result.success) {
+      userAvatar.value = '';
+      avatarInput.value = '';
+      avatarFile.value = null;
+      useAvatarAsPopup.value = 0;
+      showToast(t('msg.avatar_deleted'), 'success');
+    }
+  } catch (err: unknown) {
+    showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
+  }
+}
+
+async function loadUserAvatar() {
+  try {
+    const { getCurrentUser } = await import('@/api');
+    const user = await getCurrentUser(accessToken.value);
+    if (user.avatar_url) {
+      userAvatar.value = user.avatar_url;
+    }
+    if (user.use_avatar_as_popup !== undefined) {
+      useAvatarAsPopup.value = user.use_avatar_as_popup;
+    }
+  } catch (err) {
+    console.error('加载用户头像失败:', err);
   }
 }
 
@@ -279,6 +416,7 @@ async function doLogin(authEmail: string, authPassword: string) {
     await loadCurrentUser(accessToken.value);
     await loadChannels();
     await loadHistory();
+    await loadUserAvatar();
     pageState.value = 'dashboard';
   }
 }
@@ -289,6 +427,7 @@ async function doRegister(authEmail: string, authPassword: string) {
     await loadCurrentUser(accessToken.value);
     await loadChannels();
     await loadHistory();
+    await loadUserAvatar();
     pageState.value = 'dashboard';
   }
 }
@@ -666,6 +805,104 @@ function handleResend(record: PushHistoryRecord) {
     @register="doRegister"
   />
 
+  <!-- 头像设置弹窗 -->
+  <Teleport to="body">
+    <div v-if="showAvatarModal" class="modal-overlay" @click.self="closeAvatarModal">
+      <div class="modal-content" :class="{ dark: isDark }">
+        <div class="modal-header">
+          <h3>{{ t('label.avatar_settings') }}</h3>
+          <button class="modal-close" @click="closeAvatarModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- 当前头像预览 -->
+          <div class="avatar-preview-section">
+            <div class="avatar-preview">
+              <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
+              <span v-else class="preview-placeholder">{{ roleIcon }}</span>
+            </div>
+          </div>
+
+          <!-- 文件上传 -->
+          <div class="form-group">
+            <label>{{ t('label.upload_avatar') }}</label>
+            <div class="upload-area" :class="{ dark: isDark }" @click="() => ($refs.fileInput as HTMLInputElement)?.click()">
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                class="file-input"
+                @change="handleFileUpload"
+              />
+              <span class="upload-icon">📤</span>
+              <span class="upload-text">{{ avatarFile ? t('label.replace_image') : t('label.click_to_upload') }}</span>
+              <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
+            </div>
+            <button
+              v-if="avatarFile"
+              class="btn btn-sm btn-warning"
+              :class="{ dark: isDark }"
+              @click="avatarFile = null; avatarInput = userAvatar"
+            >
+              {{ t('button.cancel_upload') }}
+            </button>
+            <button
+              v-if="avatarFile"
+              class="btn btn-sm btn-primary"
+              :class="{ dark: isDark }"
+              :disabled="isUploading"
+              @click="handleUploadAvatar"
+            >
+              {{ isUploading ? t('label.uploading') : t('button.upload') }}
+            </button>
+          </div>
+
+          <!-- 头像URL输入 -->
+          <div class="form-group">
+            <label>{{ t('label.avatar_url') }}</label>
+            <input
+              v-model="avatarInput"
+              type="url"
+              class="form-input"
+              :class="{ dark: isDark }"
+              :placeholder="t('placeholder.avatar_url')"
+            />
+          </div>
+
+          <!-- 悬浮窗设置 -->
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                v-model="useAvatarAsPopup"
+                type="checkbox"
+                :true-value="1"
+                :false-value="0"
+              />
+              <span>{{ t('label.use_avatar_as_popup') }}</span>
+            </label>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="modal-actions">
+            <button
+              v-if="userAvatar"
+              class="btn btn-danger"
+              :class="{ dark: isDark }"
+              @click="deleteAvatar"
+            >
+              {{ t('button.delete_avatar') }}
+            </button>
+            <button class="btn btn-secondary" :class="{ dark: isDark }" @click="closeAvatarModal">
+              {{ t('button.cancel') }}
+            </button>
+            <button class="btn btn-primary" @click="handleSaveAvatar">
+              {{ t('button.save') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- 主界面 -->
   <div v-else class="page" :class="{ dark: isDark }">
     <!-- 轻提示 Toast -->
@@ -690,12 +927,13 @@ function handleResend(record: PushHistoryRecord) {
 
       <!-- 右上角头像悬浮按钮 -->
       <button
-        class="fab-toggle"
-        :class="{ dark: isDark, active: showFabMenu }"
-        @click="showFabMenu = !showFabMenu"
-      >
-        👤
-      </button>
+          class="fab-toggle"
+          :class="{ dark: isDark, active: showFabMenu }"
+          @click="showFabMenu = !showFabMenu"
+        >
+          <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" />
+          <span v-else>👤</span>
+        </button>
 
       <!-- 悬浮菜单 -->
       <div
@@ -745,6 +983,16 @@ function handleResend(record: PushHistoryRecord) {
           <span class="fab-label">{{
             showSettings ? t('button.hide_settings') : t('button.settings')
           }}</span>
+        </button>
+        <button
+          class="fab-item"
+          @click="
+            openAvatarModal();
+            showFabMenu = false;
+          "
+        >
+          <span class="fab-icon">🖼️</span>
+          <span class="fab-label">{{ t('button.avatar_settings') }}</span>
         </button>
         <button
           v-if="hasPermission('users:manage')"
@@ -1763,6 +2011,247 @@ function handleResend(record: PushHistoryRecord) {
   font-size: 14px;
   color: var(--text-primary, #333);
   flex: 1;
+}
+
+.fab-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ==================== 弹窗样式 ==================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: var(--bg-panel, white);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content.dark {
+  background: var(--bg-panel, #2d2d2d);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+}
+
+.modal-content.dark .modal-header h3 {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-secondary, #999);
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: var(--bg-secondary, #f0f0f0);
+}
+
+.modal-content.dark .modal-close:hover {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 8px;
+}
+
+.modal-content.dark .form-group label {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #333);
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-input.dark {
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  border-color: var(--border-color, #3c3c3c);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.modal-content.dark .checkbox-label span {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* ==================== 头像预览样式 ==================== */
+.avatar-preview-section {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.avatar-preview {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--bg-secondary, #f5f5f5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content.dark .avatar-preview {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-placeholder {
+  font-size: 40px;
+}
+
+/* ==================== 文件上传区域样式 ==================== */
+.upload-area {
+  border: 2px dashed var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg-secondary, #fafafa);
+}
+
+.upload-area:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.upload-area.dark {
+  background: var(--bg-secondary, #3c3c3c);
+  border-color: var(--border-color, #4c4c4c);
+}
+
+.upload-area.dark:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  display: block;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  margin-bottom: 4px;
+}
+
+.upload-area.dark .upload-text {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.upload-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+.upload-area.dark .upload-hint {
+  color: var(--text-secondary, #888);
+}
+
+/* ==================== 危险按钮样式 ==================== */
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
 }
 
 .fab-menu.dark .fab-label {

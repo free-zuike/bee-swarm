@@ -36,6 +36,8 @@ export interface Env {
   ASSETS: Fetcher;
   /** R2 存储桶，用于存储备份文件和附件（可选） */
   BACKUP_BUCKET?: R2Bucket;
+  /** R2 存储桶，用于存储用户头像（可选） */
+  AVATAR_BUCKET?: R2Bucket;
   /** 推送任务队列，用于异步发送推送通知（可选） */
   PUSH_QUEUE?: Queue;
   /** 允许的跨域来源，逗号分隔 */

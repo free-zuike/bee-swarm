@@ -935,8 +935,20 @@ export interface UserInfo {
 }
 
 // 获取当前用户信息
-export async function getCurrentUser(token: string): Promise<UserInfo> {
+export async function getCurrentUser(token: string): Promise<UserInfo & { avatar_url?: string; use_avatar_as_popup?: number }> {
   return tokenRequest(`${BASE}/admin/me`, token);
+}
+
+// 更新用户头像设置
+export async function updateAvatar(
+  token: string,
+  data: { avatar_url?: string; use_avatar_as_popup?: number }
+): Promise<{ success: boolean; message: string; avatar_url: string; use_avatar_as_popup: number }> {
+  return tokenRequest(`${BASE}/admin/me/avatar`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
 }
 
 // 获取用户列表
