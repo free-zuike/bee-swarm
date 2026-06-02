@@ -352,6 +352,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.avatar_uploaded': '头像上传成功',
     'msg.avatar_updated': '头像设置已更新',
     'msg.avatar_deleted': '头像已删除',
+    'msg.avatar_upload_failed': '头像上传失败，请重试',
     'msg.batch_delete_success': '成功删除 {count} 个备份',
     'msg.batch_delete_partial': '删除完成：{success} 成功，{failed} 失败',
     'msg.test_failed': '测试失败',

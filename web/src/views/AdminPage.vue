@@ -252,6 +252,16 @@ async function handleUploadAvatar() {
 
 async function handleSaveAvatar() {
   try {
+    // 如果有未上传的文件，先上传到 R2
+    if (avatarFile.value) {
+      await handleUploadAvatar();
+      // 如果上传失败，avatarInput 可能还是 base64，这里确保只保存有效的 URL
+      if (!avatarInput.value || avatarInput.value.startsWith('data:')) {
+        showToast(t('msg.avatar_upload_failed'), 'error');
+        return;
+      }
+    }
+
     const result = await updateAvatar(accessToken.value, {
       avatar_url: avatarInput.value || null,
       use_avatar_as_popup: useAvatarAsPopup.value,
