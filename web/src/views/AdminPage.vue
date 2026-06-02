@@ -179,6 +179,11 @@ async function copyApiKey() {
 
 // ==================== 头像管理 ====================
 const isUploading = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+
+function triggerFileUpload() {
+  fileInput.value?.click();
+}
 
 async function openAvatarModal() {
   avatarInput.value = userAvatar.value;
@@ -816,8 +821,9 @@ function handleResend(record: PushHistoryRecord) {
             <!-- 文件上传 -->
             <div class="form-group">
               <label>{{ t('label.upload_avatar') }}</label>
-              <div class="upload-area" :class="{ dark: isDark }">
+              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
                 <input
+                  ref="fileInput"
                   type="file"
                   accept="image/*"
                   class="file-input"
@@ -2162,6 +2168,7 @@ function handleResend(record: PushHistoryRecord) {
 
 /* ==================== 文件上传区域样式 ==================== */
 .upload-area {
+  position: relative;
   border: 2px dashed var(--border-color, #e0e0e0);
   border-radius: 8px;
   padding: 24px;
@@ -2187,7 +2194,13 @@ function handleResend(record: PushHistoryRecord) {
 }
 
 .file-input {
-  display: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .upload-icon {
