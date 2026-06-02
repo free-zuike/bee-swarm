@@ -82,53 +82,20 @@ jobs:
       - name: Setup Queues
         id: queues
         run: |
-          echo "检查并创建 Queues 队列..."
+          echo "检查 Queues 队列是否存在..."
           
-          # 尝试创建队列，忽略错误
+          # 尝试列出队列
           set +e  # 临时禁用错误退出
-          
-          # 首先尝试列出队列
-          npx wrangler queues list 2>/dev/null
-          
-          # 尝试创建队列
-          npx wrangler queues create push-queue 2>&1
-          QUEUES_EXIT=$?
-          
+          npx wrangler queues list 2>&1
           set -e  # 重新启用错误退出
           
-          if [ $QUEUES_EXIT -eq 0 ]; then
-            echo "✅ Queues 队列创建成功: push-queue"
-            echo "queues_ready=true" >> $GITHUB_OUTPUT
-          else
-            echo "ℹ️  Queues 队列可能已存在或需要先在 Cloudflare 控制台启用 Queues 服务"
-            echo "queues_ready=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # 无论队列是否创建成功，部署都会继续进行
-          # Queues 功能是可选的，不影响核心功能
+          # 队列应该已经存在 (bee-swarm-push-queue)
+          echo "✅ 期望的队列: bee-swarm-push-queue"
+          echo "queues_ready=true" >> $GITHUB_OUTPUT
 
       - name: Update wrangler.toml with D1 ID
         run: |
           sed -i "s/\${D1_DATABASE_ID}/${{ steps.d1.outputs.d1_id }}/g" wrangler.toml
-
-      - name: Enable Queues in config if ready
-        if: steps.queues.outputs.queues_ready == 'true'
-        run: |
-          # 取消注释 Queues 配置
-          echo "启用 Queues 配置..."
-          sed -i '/# \[\[queues.producers\]\]/{n;n;n;n;n;n;n;n;s/# //}' wrangler.toml
-          sed -i 's/# \[\[queues.producers\]\]/[[queues.producers]]/' wrangler.toml
-          sed -i 's/# queue = "push-queue"/queue = "push-queue"/' wrangler.toml
-          sed -i 's/# binding = "PUSH_QUEUE"/binding = "PUSH_QUEUE"/' wrangler.toml
-          sed -i 's/# \[\[queues.consumers\]\]/[[queues.consumers]]/' wrangler.toml
-          sed -i 's/# max_batch_size = 10/max_batch_size = 10/' wrangler.toml
-          sed -i 's/# max_retries = 3/max_retries = 3/' wrangler.toml
-          
-          echo "✅ Queues 配置已启用"
-          
-          # 显示更新后的配置
-          echo "--- wrangler.toml Queues 配置 ---"
-          grep -A 8 -B 2 "queues.producers" wrangler.toml || true
 
       - name: Run D1 Migrations
         run: |
