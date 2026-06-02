@@ -37,17 +37,12 @@ database_id = "${D1_DATABASE_ID}"
 migrations_dir = "migrations"
 
 # ------------------------------------------
-# R2 存储（存储备份文件、附件等）
+# R2 存储（存储备份文件、头像等）
+# 使用单个存储桶，通过文件夹路径区分不同类型的文件
 # ------------------------------------------
-# 注意：bucket_name 需要在 wrangler.toml 中设置为有效的值，
-# 或者在部署时使用 --var R2_BUCKET_NAME=your-bucket-name 覆盖
 [[r2_buckets]]
-binding = "BACKUP_BUCKET"
-bucket_name = "bee-swarm-backups"
-
-[[r2_buckets]]
-binding = "AVATAR_BUCKET"
-bucket_name = "bee-swarm-avatars"
+binding = "BUCKET"
+bucket_name = "bee-swarm-storage"
 
 # ------------------------------------------
 # Queues 队列（异步任务处理）

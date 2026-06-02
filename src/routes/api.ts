@@ -561,7 +561,7 @@ adminApi.post('/me/avatar/upload', async (c) => {
   }
 
   // 检查 R2 是否可用
-  if (!env.AVATAR_BUCKET) {
+  if (!env.BUCKET) {
     return c.json({ error: '头像存储服务不可用', code: 'STORAGE_NOT_AVAILABLE' }, 503);
   }
 
@@ -591,7 +591,7 @@ adminApi.post('/me/avatar/upload', async (c) => {
     const bytes = await file.arrayBuffer();
     
     // 上传到 R2
-    await env.AVATAR_BUCKET.put(fileName, bytes, {
+    await env.BUCKET.put(fileName, bytes, {
       httpMetadata: {
         contentType: file.type,
       },
@@ -602,7 +602,7 @@ adminApi.post('/me/avatar/upload', async (c) => {
     });
 
     // 生成预览 URL（临时签名 URL）
-    const url = await (env.AVATAR_BUCKET as unknown as {
+    const url = await (env.BUCKET as unknown as {
       createSignedUrl: (key: string, options: { method: string; expiresIn: number }) => Promise<{ href: string }>;
     }).createSignedUrl(fileName, {
       method: 'GET',

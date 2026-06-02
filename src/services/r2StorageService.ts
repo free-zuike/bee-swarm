@@ -22,7 +22,7 @@ export class R2StorageService {
   private bucket: R2Bucket | undefined;
 
   constructor(env: Env) {
-    this.bucket = env.BACKUP_BUCKET;
+    this.bucket = env.BUCKET;
   }
 
   /**
