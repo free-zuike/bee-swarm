@@ -294,8 +294,8 @@ async function loadUserAvatar() {
     if (user.use_avatar_as_popup !== undefined) {
       useAvatarAsPopup.value = user.use_avatar_as_popup;
     }
-  } catch (err) {
-    console.error('加载用户头像失败:', err);
+  } catch {
+    // ignore
   }
 }
 
@@ -363,6 +363,7 @@ onMounted(async () => {
           await loadCurrentUser(accessToken.value);
           await loadChannels();
           await loadHistory();
+          await loadUserAvatar();
           pageState.value = 'dashboard';
           return;
         } catch {
@@ -377,6 +378,7 @@ onMounted(async () => {
         await loadCurrentUser(accessToken.value);
         await loadChannels();
         await loadHistory();
+        await loadUserAvatar();
         pageState.value = 'dashboard';
         return;
       }
