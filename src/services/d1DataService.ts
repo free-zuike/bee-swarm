@@ -17,6 +17,7 @@ export type AuditAction =
   | 'register'
   | 'push_sent'
   | 'push_failed'
+  | 'push_queued'
   | 'channel_updated'
   | 'channel_deleted'
   | 'template_created'
