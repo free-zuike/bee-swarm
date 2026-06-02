@@ -428,11 +428,25 @@ adminApi.get('/users', async (c) => {
   if (guard) return guard;
 
   const svc = new UserService(env);
-  const result = await svc['env'].DB.prepare(
-    'SELECT id, email, role, disabled, disabled_reason, created_at FROM users ORDER BY created_at ASC'
-  ).all<{ id: string; email: string; role: string | null; disabled: number | null; disabled_reason: string | null; created_at: string }>();
+  let users: Array<{ id: string; email: string; role: string | null; disabled: number | null; disabled_reason: string | null; created_at: string }> = [];
+  
+  try {
+    const result = await svc['env'].DB.prepare(
+      'SELECT id, email, role, disabled, disabled_reason, created_at FROM users ORDER BY created_at ASC'
+    ).all<{ id: string; email: string; role: string | null; disabled: number | null; disabled_reason: string | null; created_at: string }>();
+    users = result.results || [];
+  } catch {
+    const result = await svc['env'].DB.prepare(
+      'SELECT id, email, role, created_at FROM users ORDER BY created_at ASC'
+    ).all<{ id: string; email: string; role: string | null; created_at: string }>();
+    users = (result.results || []).map(u => ({
+      ...u,
+      disabled: 0,
+      disabled_reason: ''
+    }));
+  }
 
-  return c.json({ users: result.results || [] });
+  return c.json({ users });
 });
 
 /** 获取当前用户信息 */

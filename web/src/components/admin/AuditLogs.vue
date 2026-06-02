@@ -107,7 +107,9 @@ const filterEndDate = ref('');
 const showClearModal = ref(false);
 
 const formatTime = (timeStr: string) => {
+  if (!timeStr) return '';
   const date = new Date(timeStr);
+  if (isNaN(date.getTime())) return timeStr;
   return date.toLocaleString();
 };
 
