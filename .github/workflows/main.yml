@@ -88,6 +88,21 @@ jobs:
           echo "运行 D1 数据库迁移..."
           npx wrangler d1 migrations apply bee-swarm-db --remote --database-id=${{ steps.d1.outputs.d1_id }} || echo "迁移可能已存在或需要确认"
 
+      - name: Setup Queues
+        id: queues
+        run: |
+          # 检查 Queues 队列是否存在
+          echo "检查 Queues 队列是否存在..."
+          
+          # 先尝试使用 wrangler queues list 命令
+          # 如果队列不存在，创建它
+          if ! npx wrangler queues list 2>/dev/null | grep -q "push-queue"; then
+            echo "创建 Queues 队列..."
+            npx wrangler queues create push-queue 2>/dev/null || echo "Queues 创建可能已存在或需要先启用 Queues 服务"
+          else
+            echo "✅ Queues 队列已存在: push-queue"
+          fi
+
       - name: Build frontend
         run: npm run build
 
