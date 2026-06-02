@@ -431,7 +431,7 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border: 3px solid var(--border-color);
-  border-top-color: var(--primary-color);
+  border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -476,7 +476,7 @@ onMounted(() => {
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -617,7 +617,7 @@ onMounted(() => {
 }
 
 .action-edit {
-  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
 }
 
@@ -748,7 +748,7 @@ onMounted(() => {
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -768,7 +768,7 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: #667eea;
   color: white;
 }
 

@@ -254,7 +254,7 @@ onMounted(() => {
 .filter-input:focus,
 .filter-select:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -273,7 +273,7 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border: 3px solid var(--border-color);
-  border-top-color: var(--primary-color);
+  border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -315,13 +315,13 @@ onMounted(() => {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, var(--primary-color) 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
   opacity: 0;
   transition: opacity 0.25s ease;
 }
 
 .log-card:hover {
-  border-color: var(--primary-color);
+  border-color: #667eea;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
   transform: translateY(-1px);
 }
@@ -335,7 +335,7 @@ onMounted(() => {
   height: 44px;
   min-width: 44px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -599,7 +599,7 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: #667eea;
   color: white;
 }
 
