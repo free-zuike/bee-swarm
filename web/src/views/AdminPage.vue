@@ -805,106 +805,105 @@ function handleResend(record: PushHistoryRecord) {
     @register="doRegister"
   />
 
-  <!-- 头像设置弹窗 -->
-  <Teleport to="body">
-    <div v-if="showAvatarModal" class="modal-overlay" @click.self="closeAvatarModal">
-      <div class="modal-content" :class="{ dark: isDark }">
-        <div class="modal-header">
-          <h3>{{ t('label.avatar_settings') }}</h3>
-          <button class="modal-close" @click="closeAvatarModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <!-- 当前头像预览 -->
-          <div class="avatar-preview-section">
-            <div class="avatar-preview">
-              <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
-              <span v-else class="preview-placeholder">{{ roleIcon }}</span>
+  <!-- 主界面 -->
+  <div v-else class="page" :class="{ dark: isDark }">
+    <!-- 头像设置弹窗 -->
+    <Teleport to="body">
+      <div v-if="showAvatarModal" class="modal-overlay" @click.self="closeAvatarModal">
+        <div class="modal-content" :class="{ dark: isDark }">
+          <div class="modal-header">
+            <h3>{{ t('label.avatar_settings') }}</h3>
+            <button class="modal-close" @click="closeAvatarModal">✕</button>
+          </div>
+          <div class="modal-body">
+            <!-- 当前头像预览 -->
+            <div class="avatar-preview-section">
+              <div class="avatar-preview">
+                <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
+                <span v-else class="preview-placeholder">{{ roleIcon }}</span>
+              </div>
             </div>
-          </div>
 
-          <!-- 文件上传 -->
-          <div class="form-group">
-            <label>{{ t('label.upload_avatar') }}</label>
-            <div class="upload-area" :class="{ dark: isDark }" @click="() => ($refs.fileInput as HTMLInputElement)?.click()">
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/*"
-                class="file-input"
-                @change="handleFileUpload"
-              />
-              <span class="upload-icon">📤</span>
-              <span class="upload-text">{{ avatarFile ? t('label.replace_image') : t('label.click_to_upload') }}</span>
-              <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
+            <!-- 文件上传 -->
+            <div class="form-group">
+              <label>{{ t('label.upload_avatar') }}</label>
+              <div class="upload-area" :class="{ dark: isDark }" @click="() => ($refs.fileInput as HTMLInputElement)?.click()">
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept="image/*"
+                  class="file-input"
+                  @change="handleFileUpload"
+                />
+                <span class="upload-icon">📤</span>
+                <span class="upload-text">{{ avatarFile ? t('label.replace_image') : t('label.click_to_upload') }}</span>
+                <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
+              </div>
+              <button
+                v-if="avatarFile"
+                class="btn btn-sm btn-warning"
+                :class="{ dark: isDark }"
+                @click="avatarFile = null; avatarInput = userAvatar"
+              >
+                {{ t('button.cancel_upload') }}
+              </button>
+              <button
+                v-if="avatarFile"
+                class="btn btn-sm btn-primary"
+                :class="{ dark: isDark }"
+                :disabled="isUploading"
+                @click="handleUploadAvatar"
+              >
+                {{ isUploading ? t('label.uploading') : t('button.upload') }}
+              </button>
             </div>
-            <button
-              v-if="avatarFile"
-              class="btn btn-sm btn-warning"
-              :class="{ dark: isDark }"
-              @click="avatarFile = null; avatarInput = userAvatar"
-            >
-              {{ t('button.cancel_upload') }}
-            </button>
-            <button
-              v-if="avatarFile"
-              class="btn btn-sm btn-primary"
-              :class="{ dark: isDark }"
-              :disabled="isUploading"
-              @click="handleUploadAvatar"
-            >
-              {{ isUploading ? t('label.uploading') : t('button.upload') }}
-            </button>
-          </div>
 
-          <!-- 头像URL输入 -->
-          <div class="form-group">
-            <label>{{ t('label.avatar_url') }}</label>
-            <input
-              v-model="avatarInput"
-              type="url"
-              class="form-input"
-              :class="{ dark: isDark }"
-              :placeholder="t('placeholder.avatar_url')"
-            />
-          </div>
-
-          <!-- 悬浮窗设置 -->
-          <div class="form-group">
-            <label class="checkbox-label">
+            <!-- 头像URL输入 -->
+            <div class="form-group">
+              <label>{{ t('label.avatar_url') }}</label>
               <input
-                v-model="useAvatarAsPopup"
-                type="checkbox"
-                :true-value="1"
-                :false-value="0"
+                v-model="avatarInput"
+                type="url"
+                class="form-input"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.avatar_url')"
               />
-              <span>{{ t('label.use_avatar_as_popup') }}</span>
-            </label>
-          </div>
+            </div>
 
-          <!-- 操作按钮 -->
-          <div class="modal-actions">
-            <button
-              v-if="userAvatar"
-              class="btn btn-danger"
-              :class="{ dark: isDark }"
-              @click="deleteAvatar"
-            >
-              {{ t('button.delete_avatar') }}
-            </button>
-            <button class="btn btn-secondary" :class="{ dark: isDark }" @click="closeAvatarModal">
-              {{ t('button.cancel') }}
-            </button>
-            <button class="btn btn-primary" @click="handleSaveAvatar">
-              {{ t('button.save') }}
-            </button>
+            <!-- 悬浮窗设置 -->
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input
+                  v-model="useAvatarAsPopup"
+                  type="checkbox"
+                  :true-value="1"
+                  :false-value="0"
+                />
+                <span>{{ t('label.use_avatar_as_popup') }}</span>
+              </label>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="modal-actions">
+              <button
+                v-if="userAvatar"
+                class="btn btn-danger"
+                :class="{ dark: isDark }"
+                @click="deleteAvatar"
+              >
+                {{ t('button.delete_avatar') }}
+              </button>
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="closeAvatarModal">
+                {{ t('button.cancel') }}
+              </button>
+              <button class="btn btn-primary" @click="handleSaveAvatar">
+                {{ t('button.save') }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </Teleport>
-
-  <!-- 主界面 -->
-  <div v-else class="page" :class="{ dark: isDark }">
+    </Teleport>
     <!-- 轻提示 Toast -->
     <transition name="toast">
       <div v-if="toast" class="toast" :class="toast.type">
