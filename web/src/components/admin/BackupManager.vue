@@ -125,6 +125,7 @@ const editingEndpoint = reactive<Partial<BackupEndpoint>>({
     timezone: 'Asia/Shanghai',
   },
   retention: 30,
+  r2_domain: '',
 });
 
 const isCreatingNew = ref(false);
@@ -182,6 +183,7 @@ function copyEndpointToEditing(endpoint: BackupEndpoint) {
   }
   editingEndpoint.schedule = { ...endpoint.schedule };
   editingEndpoint.retention = endpoint.retention;
+  editingEndpoint.r2_domain = endpoint.r2_domain || '';
 }
 
 function startCreateEndpoint() {
@@ -199,6 +201,7 @@ function startCreateEndpoint() {
     timezone: 'Asia/Shanghai',
   };
   editingEndpoint.retention = 30;
+  editingEndpoint.r2_domain = '';
 }
 
 function cancelCreateEndpoint() {
@@ -224,6 +227,7 @@ async function saveEndpoint() {
     config: { ...editingEndpoint.config },
     schedule: { ...editingEndpoint.schedule },
     retention: editingEndpoint.retention || 30,
+    r2_domain: editingEndpoint.r2_domain || null,
   };
 
   if (endpointData.config) {

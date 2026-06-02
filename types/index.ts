@@ -220,6 +220,8 @@ export interface BackupEndpoint {
   enabled: boolean;
   /** 具体配置（S3、WebDAV 或 R2） */
   config: S3Config | WebDAVConfig | R2Config;
+  /** R2 公共域名（用于头像等公开资源访问） */
+  r2_domain?: string;
   /** 自动备份计划 */
   schedule: {
     /** 是否启用自动备份 */
