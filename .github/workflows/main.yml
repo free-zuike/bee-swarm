@@ -105,6 +105,12 @@ jobs:
           echo "=== 检查数据库状态 ==="
           npx wrangler d1 execute bee-swarm-db --remote --command="SELECT name FROM sqlite_master WHERE type='table';" || echo "数据库可能为空"
           
+          echo "=== 检查 scheduled_pushes 表结构 ==="
+          npx wrangler d1 execute bee-swarm-db --remote --command="PRAGMA table_info(scheduled_pushes);" || echo "表不存在"
+          
+          echo "=== 检查 d1_migrations 表内容 ==="
+          npx wrangler d1 execute bee-swarm-db --remote --command="SELECT * FROM d1_migrations;" || echo "迁移表为空或不存在"
+          
           echo "=== 列出已应用的迁移 ==="
           npx wrangler d1 migrations list bee-swarm-db --remote || echo "无法列出迁移"
           
