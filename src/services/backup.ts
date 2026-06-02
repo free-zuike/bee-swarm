@@ -40,6 +40,7 @@ export interface BackupEndpoint {
   type: EndpointType;
   enabled: boolean;
   config: S3Config | WebDAVConfig | R2Config;
+  r2_domain?: string;
   schedule?: {
     enabled: boolean;
     interval: number;
@@ -88,6 +89,7 @@ export async function getBackupEndpoints(env: Env, username: string): Promise<Ba
       type: row.type as EndpointType,
       enabled: row.enabled === 1,
       config: JSON.parse(row.config || '{}'),
+      r2_domain: row.r2_domain,
       schedule: row.schedule ? JSON.parse(row.schedule) : { enabled: false, interval: 24, startTime: '02:00' },
       retention: row.retention || 30,
       lastBackup: row.last_backup ? JSON.parse(row.last_backup) : undefined,
@@ -143,14 +145,15 @@ async function saveSingleEndpoint(
   const now = new Date().toISOString();
   
   const stmt = env.DB.prepare(`
-    INSERT INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO backup_endpoints (id, user_id, name, type, config, r2_domain, enabled, schedule, retention, last_backup, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     endpoint.id,
     username,
     endpoint.name || '默认备份',
     endpoint.type,
     JSON.stringify(endpoint.config),
+    endpoint.r2_domain || null,
     endpoint.enabled ? 1 : 0,
     JSON.stringify(endpoint.schedule || { enabled: false, interval: 24, startTime: '02:00' }),
     endpoint.retention || 30,

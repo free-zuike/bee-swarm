@@ -554,13 +554,25 @@ adminApi.put('/me/avatar', async (c) => {
 /** 检查头像存储服务状态 */
 adminApi.get('/me/avatar/status', async (c) => {
   const env = c.env as Env;
-  const hasBucket = !!env.BUCKET;
-  return c.json({
-    success: true,
-    hasR2: hasBucket,
-    storageType: hasBucket ? 'r2' : 'base64',
-    message: hasBucket ? '头像存储服务可用' : '头像将使用 base64 存储',
-  });
+  const username = c.get('username');
+  try {
+    const endpoints = await getBackupEndpoints(env, username);
+    const r2Endpoint = endpoints.find(e => e.type === 'r2' && e.r2_domain);
+    const hasUserR2 = !!r2Endpoint;
+    return c.json({
+      success: true,
+      hasR2: hasUserR2,
+      storageType: hasUserR2 ? 'r2' : 'base64',
+      message: hasUserR2 ? '头像存储服务可用' : '头像将使用 base64 存储',
+    });
+  } catch {
+    return c.json({
+      success: true,
+      hasR2: false,
+      storageType: 'base64',
+      message: '头像将使用 base64 存储',
+    });
+  }
 });
 
 /** 上传头像文件 */
@@ -593,8 +605,12 @@ adminApi.post('/me/avatar/upload', async (c) => {
 
     let avatarUrl: string;
 
-    // 如果 R2 可用，上传到 R2
-    if (env.BUCKET) {
+    // 检查用户是否配置了 R2 备份端点（有 r2_domain 配置的）
+    const endpoints = await getBackupEndpoints(env, username);
+    const r2Endpoint = endpoints.find(e => e.type === 'r2' && e.r2_domain);
+    
+    if (r2Endpoint && env.BUCKET) {
+      // 有 R2 备份端点配置，上传到 R2
       const ext = file.name.split('.').pop() || 'jpg';
       const fileName = `avatars/${user.id}-${Date.now()}.${ext}`;
       
@@ -609,21 +625,10 @@ adminApi.post('/me/avatar/upload', async (c) => {
           uploadedAt: new Date().toISOString(),
         },
       });
-
-      let r2Domain = env.R2_PUBLIC_DOMAIN || 'pub-d1ceb918468a49a3892985c21b4b16f2.r2.dev';
       
-      try {
-        const endpoints = await getBackupEndpoints(env, user.email);
-        if (endpoints.length > 0 && (endpoints[0] as any).r2_domain) {
-          r2Domain = (endpoints[0] as any).r2_domain;
-        }
-      } catch {
-        // 忽略备份服务错误
-      }
-      
-      avatarUrl = `https://${r2Domain}/${fileName}`;
+      avatarUrl = `https://${r2Endpoint.r2_domain}/${fileName}`;
     } else {
-      // 没有 R2，使用 base64 存储
+      // 没有 R2 备份端点，使用 base64 存储
       const bytes = await file.arrayBuffer();
       const base64 = await arrayBufferToBase64(bytes);
       avatarUrl = `data:${file.type};base64,${base64}`;
