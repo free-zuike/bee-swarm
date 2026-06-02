@@ -15,6 +15,8 @@ export interface User {
   role?: UserRole;
   disabled?: number;
   disabled_reason?: string;
+  avatar_url?: string;
+  use_avatar_as_popup?: number;
   created_at: string;
   updated_at: string;
 }

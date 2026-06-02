@@ -508,6 +508,45 @@ adminApi.get('/me', async (c) => {
     role: user.role || 'user',
     disabled: user.disabled || 0,
     disabled_reason: user.disabled_reason || '',
+    avatar_url: user.avatar_url || '',
+    use_avatar_as_popup: user.use_avatar_as_popup || 0,
+  });
+});
+
+/** 设置用户头像 */
+adminApi.put('/me/avatar', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const body = await c.req.json<{ avatar_url?: string; use_avatar_as_popup?: number }>();
+  
+  const updates: Record<string, unknown> = {};
+  if (body.avatar_url !== undefined) {
+    updates.avatar_url = body.avatar_url;
+  }
+  if (body.use_avatar_as_popup !== undefined) {
+    updates.use_avatar_as_popup = body.use_avatar_as_popup;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return c.json({ error: '没有提供需要更新的字段', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const updated = await svc.updateUser(user.id, updates);
+  if (!updated) {
+    return c.json({ error: '更新失败' }, 500);
+  }
+
+  return c.json({
+    success: true,
+    message: '头像设置已更新',
+    avatar_url: updated.avatar_url || '',
+    use_avatar_as_popup: updated.use_avatar_as_popup || 0,
   });
 });
 
