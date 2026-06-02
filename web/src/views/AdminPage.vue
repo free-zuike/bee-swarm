@@ -179,6 +179,7 @@ async function copyApiKey() {
 
 // ==================== 头像管理 ====================
 const isUploading = ref(false);
+const isSavingAvatar = ref(false);
 const avatarFile = ref<File | null>(null);
 const hasR2Storage = ref(true);
 
@@ -201,6 +202,21 @@ function closeAvatarModal() {
   showAvatarModal.value = false;
   avatarInput.value = '';
   avatarFile.value = null;
+  // 重置 file input，允许用户重新选择相同文件
+  const fileInput = $refs.fileInput as HTMLInputElement;
+  if (fileInput) {
+    fileInput.value = '';
+  }
+}
+
+function cancelAvatarUpload() {
+  avatarFile.value = null;
+  avatarInput.value = userAvatar.value;
+  // 重置 file input，允许用户重新选择相同文件
+  const fileInput = $refs.fileInput as HTMLInputElement;
+  if (fileInput) {
+    fileInput.value = '';
+  }
 }
 
 async function handleFileUpload(event: Event) {
@@ -262,6 +278,9 @@ async function handleUploadAvatar() {
 }
 
 async function handleSaveAvatar() {
+  if (isSavingAvatar.value) return;
+  
+  isSavingAvatar.value = true;
   try {
     // 如果有未上传的文件，先上传到 R2
     if (avatarFile.value) {
@@ -282,9 +301,13 @@ async function handleSaveAvatar() {
       useAvatarAsPopup.value = result.use_avatar_as_popup;
       showToast(t('msg.avatar_updated'), 'success');
       closeAvatarModal();
+    } else {
+      showToast(result.message || t('msg.operation_failed'), 'error');
     }
   } catch (err: unknown) {
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
+  } finally {
+    isSavingAvatar.value = false;
   }
 }
 
@@ -864,7 +887,7 @@ function handleResend(record: PushHistoryRecord) {
                 v-if="avatarFile"
                 class="btn btn-sm btn-warning"
                 :class="{ dark: isDark }"
-                @click="avatarFile = null; avatarInput = userAvatar"
+                @click="cancelAvatarUpload"
               >
                 {{ t('button.cancel_upload') }}
               </button>
@@ -926,8 +949,12 @@ function handleResend(record: PushHistoryRecord) {
               <button class="btn btn-secondary" :class="{ dark: isDark }" @click="closeAvatarModal">
                 {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="handleSaveAvatar">
-                {{ t('button.save') }}
+              <button 
+                class="btn btn-primary" 
+                :disabled="isSavingAvatar"
+                @click="handleSaveAvatar"
+              >
+                {{ isSavingAvatar ? t('label.saving') : t('button.save') }}
               </button>
             </div>
           </div>
