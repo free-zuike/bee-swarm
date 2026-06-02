@@ -178,6 +178,8 @@ async function copyApiKey() {
 }
 
 // ==================== 头像管理 ====================
+const isUploading = ref(false);
+
 async function openAvatarModal() {
   avatarInput.value = userAvatar.value;
   showAvatarModal.value = true;
@@ -188,10 +190,59 @@ function closeAvatarModal() {
   avatarInput.value = '';
 }
 
+async function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+  
+  if (!file.type.startsWith('image/')) {
+    showToast(t('msg.invalid_image_format'), 'error');
+    return;
+  }
+  
+  if (file.size > 2 * 1024 * 1024) {
+    showToast(t('msg.image_too_large'), 'error');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    avatarInput.value = e.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+  
+  target.value = '';
+}
+
 async function handleSaveAvatar() {
   try {
+    let avatarUrl = avatarInput.value;
+    
+    if (avatarInput.value && avatarInput.value.startsWith('data:')) {
+      const response = await fetch(avatarInput.value);
+      const blob = await response.blob();
+      const formData = new FormData();
+      formData.append('avatar', blob, 'avatar.png');
+      
+      const uploadResponse = await fetch(`${BASE}/admin/me/avatar/upload`, {
+        method: 'POST',
+        headers: { 'X-Token': accessToken.value },
+        body: formData,
+      });
+      
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        throw new Error(error.message || t('msg.upload_failed'));
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      if (uploadResult.success) {
+        avatarUrl = uploadResult.avatar_url;
+      }
+    }
+    
     const result = await updateAvatar(accessToken.value, {
-      avatar_url: avatarInput.value || null,
+      avatar_url: avatarUrl || null,
       use_avatar_as_popup: useAvatarAsPopup.value,
     });
     if (result.success) {
@@ -209,7 +260,6 @@ async function handleSaveAvatar() {
 
 function removeAvatar() {
   avatarInput.value = '';
-  avatarFile.value = null;
   useAvatarAsPopup.value = 0;
 }
 
@@ -222,7 +272,6 @@ async function deleteAvatar() {
     if (result.success) {
       userAvatar.value = '';
       avatarInput.value = '';
-      avatarFile.value = null;
       useAvatarAsPopup.value = 0;
       showToast(t('msg.avatar_deleted'), 'success');
     }
@@ -761,6 +810,22 @@ function handleResend(record: PushHistoryRecord) {
               <div class="avatar-preview">
                 <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
                 <span v-else class="preview-placeholder">{{ roleIcon }}</span>
+              </div>
+            </div>
+
+            <!-- 文件上传 -->
+            <div class="form-group">
+              <label>{{ t('label.upload_avatar') }}</label>
+              <div class="upload-area" :class="{ dark: isDark }">
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="file-input"
+                  @change="handleFileUpload"
+                />
+                <span class="upload-icon">📤</span>
+                <span class="upload-text">{{ t('label.click_to_upload') }}</span>
+                <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
               </div>
             </div>
 
