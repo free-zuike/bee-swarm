@@ -45,6 +45,10 @@ migrations_dir = "migrations"
 binding = "BACKUP_BUCKET"
 bucket_name = "bee-swarm-backups"
 
+[[r2_buckets]]
+binding = "AVATAR_BUCKET"
+bucket_name = "bee-swarm-avatars"
+
 # ------------------------------------------
 # Queues 队列（异步任务处理）
 # ------------------------------------------
