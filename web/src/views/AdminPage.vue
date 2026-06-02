@@ -182,6 +182,7 @@ const isUploading = ref(false);
 const isSavingAvatar = ref(false);
 const avatarFile = ref<File | null>(null);
 const hasR2Storage = ref(true);
+const fileInputRef = ref<HTMLInputElement | null>(null);
 
 async function openAvatarModal() {
   avatarInput.value = userAvatar.value;
@@ -203,9 +204,8 @@ function closeAvatarModal() {
   avatarInput.value = '';
   avatarFile.value = null;
   // 重置 file input，允许用户重新选择相同文件
-  const fileInput = $refs.fileInput as HTMLInputElement;
-  if (fileInput) {
-    fileInput.value = '';
+  if (fileInputRef.value) {
+    fileInputRef.value.value = '';
   }
 }
 
@@ -213,9 +213,8 @@ function cancelAvatarUpload() {
   avatarFile.value = null;
   avatarInput.value = userAvatar.value;
   // 重置 file input，允许用户重新选择相同文件
-  const fileInput = $refs.fileInput as HTMLInputElement;
-  if (fileInput) {
-    fileInput.value = '';
+  if (fileInputRef.value) {
+    fileInputRef.value.value = '';
   }
 }
 
@@ -871,9 +870,9 @@ function handleResend(record: PushHistoryRecord) {
             <!-- 文件上传 -->
             <div v-if="hasR2Storage" class="form-group">
               <label>{{ t('label.upload_avatar') }}</label>
-              <div class="upload-area" :class="{ dark: isDark }" @click="() => ($refs.fileInput as HTMLInputElement)?.click()">
+              <div class="upload-area" :class="{ dark: isDark }" @click="() => fileInputRef.value?.click()">
                 <input
-                  ref="fileInput"
+                  ref="fileInputRef"
                   type="file"
                   accept="image/*"
                   class="file-input"
