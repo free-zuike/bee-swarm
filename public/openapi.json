@@ -928,13 +928,13 @@
           "name": {"type": "string"},
           "type": {
             "type": "string",
-            "enum": ["s3", "webdav"],
-            "description": "备份端类型"
+            "enum": ["s3", "webdav", "r2"],
+            "description": "备份端类型：s3（AWS S3 兼容）、webdav（WebDAV）、r2（Cloudflare R2）"
           },
           "enabled": {"type": "boolean"},
           "config": {
             "type": "object",
-            "description": "配置信息（S3 或 WebDAV）"
+            "description": "配置信息（S3、WebDAV 或 R2）"
           },
           "schedule": {
             "type": "object",

@@ -19,6 +19,7 @@ import {
   type BackupEndpoint,
   type S3Config,
   type WebDAVConfig,
+  type R2Config,
 } from '../../services/backup';
 
 export const backupRoutes = new Hono<{ Bindings: Env; Variables: { username: string } }>();
@@ -157,7 +158,7 @@ backupRoutes.post('/backup-endpoints/:id/test', async (c) => {
     }
   }
 
-  const result = await testBackupEndpoint(endpoint);
+  const result = await testBackupEndpoint(endpoint, c.env);
   return c.json(result);
 });
 

@@ -159,7 +159,7 @@ export type ChannelSettings = Record<string, string>;
 /**
  * 备份端点类型
  */
-export type EndpointType = 's3' | 'webdav';
+export type EndpointType = 's3' | 'webdav' | 'r2';
 
 /**
  * S3 兼容存储配置
@@ -196,6 +196,14 @@ export interface WebDAVConfig {
 }
 
 /**
+ * R2 存储配置
+ */
+export interface R2Config {
+  /** 存储路径 */
+  path: string;
+}
+
+/**
  * 备份端点配置
  * 定义一个备份目标的完整配置
  */
@@ -208,8 +216,8 @@ export interface BackupEndpoint {
   type: EndpointType;
   /** 是否启用 */
   enabled: boolean;
-  /** 具体配置（S3 或 WebDAV） */
-  config: S3Config | WebDAVConfig;
+  /** 具体配置（S3、WebDAV 或 R2） */
+  config: S3Config | WebDAVConfig | R2Config;
   /** 自动备份计划 */
   schedule: {
     /** 是否启用自动备份 */

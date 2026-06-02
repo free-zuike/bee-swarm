@@ -1,12 +1,13 @@
 // ============================================
-// 多备份端备份服务（支持 S3/WebDAV）
+// 多备份端备份服务（支持 S3/WebDAV/R2）
 // ============================================
 import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
 import { convertTimezone } from '../utils/timezone';
+import { R2StorageService } from './r2StorageService';
 
 // 备份端类型
-export type EndpointType = 's3' | 'webdav';
+export type EndpointType = 's3' | 'webdav' | 'r2';
 
 // S3 配置
 export interface S3Config {
@@ -24,6 +25,11 @@ export interface WebDAVConfig {
   url: string;
   username: string;
   password: string;
+  path: string;
+}
+
+// R2 配置
+export interface R2Config {
   path: string;
 }
 
@@ -396,6 +402,24 @@ export async function uploadBackupToEndpoint(
 
       // 清理旧备份
       await cleanupOldBackupsWebDAV(config, root, username, endpoint.retention);
+    } else if (endpoint.type === 'r2') {
+      const r2Service = new R2StorageService(env);
+      if (!r2Service.isAvailable()) {
+        return {
+          success: false,
+          message: 'R2 存储未配置',
+          endpointId: endpoint.id,
+        };
+      }
+
+      const config = endpoint.config as R2Config;
+      const root = config.path ? config.path.replace(/\/+$/, '') : 'backups';
+      const key = `${root}/${username}/${filename}`;
+
+      await r2Service.uploadBackup(key, JSON.stringify(backupData, null, 2), 'application/json');
+
+      // 清理旧备份
+      await cleanupOldBackupsR2(r2Service, root, username, endpoint.retention);
     }
 
     return { success: true, message: '备份成功', endpointId: endpoint.id };
@@ -517,6 +541,33 @@ async function cleanupOldBackupsWebDAV(
     }
   } catch (e) {
     console.error('清理 WebDAV 旧备份失败:', e);
+  }
+}
+
+// 清理 R2 旧备份
+async function cleanupOldBackupsR2(
+  r2Service: R2StorageService,
+  root: string,
+  username: string,
+  retention: number
+): Promise<void> {
+  try {
+    const prefix = `${root}/${username}/`;
+    const backups = await r2Service.listBackups(prefix);
+
+    if (backups.length <= retention) return;
+
+    backups.sort((a, b) => {
+      const dateA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+      const dateB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    for (let i = retention; i < backups.length; i++) {
+      await r2Service.deleteBackup(backups[i].key);
+    }
+  } catch (e) {
+    console.error('清理 R2 旧备份失败:', e);
   }
 }
 
@@ -643,6 +694,22 @@ export async function listBackupsFromEndpoint(
       }
 
       return backups.sort((a, b) => b.key.localeCompare(a.key));
+    } else if (endpoint.type === 'r2') {
+      const r2Service = new R2StorageService(env);
+      if (!r2Service.isAvailable()) {
+        throw new Error('R2 存储未配置');
+      }
+
+      const config = endpoint.config as R2Config;
+      const root = config.path ? config.path.replace(/\/+$/, '') : 'backups';
+      const prefix = `${root}/${username}/`;
+
+      const backups = await r2Service.listBackups(prefix);
+      return backups.map(b => ({
+        key: b.key,
+        size: b.size || 0,
+        lastModified: b.uploadedAt || '',
+      })).sort((a, b) => b.key.localeCompare(a.key));
     }
     return [];
   } catch {
@@ -680,6 +747,27 @@ export async function downloadBackupFromEndpoint(
     const config = endpoint.config as WebDAVConfig;
     const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
     response = await webdavRequest('GET', normalizedKey, config);
+  } else if (endpoint.type === 'r2') {
+    const r2Service = new R2StorageService(env);
+    if (!r2Service.isAvailable()) {
+      return new Response(JSON.stringify({ error: 'R2 存储未配置' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const content = await r2Service.downloadBackup(backupKey);
+    if (content === null) {
+      return new Response(JSON.stringify({ error: '备份文件不存在' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(content, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } else {
     return new Response(JSON.stringify({ error: '不支持的备份类型' }), {
       status: 400,
@@ -698,30 +786,41 @@ export async function deleteBackupFromEndpoint(
   backupKey: string
 ): Promise<BackupResult> {
   try {
-    let response: Response;
-
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
-      response = await s3Request('DELETE', '/' + backupKey, config);
+      const response = await s3Request('DELETE', '/' + backupKey, config);
+      if (response.status !== 204 && !response.ok) {
+        return { success: false, message: '删除备份失败', statusCode: response.status };
+      }
+      return { success: true, message: '删除备份成功' };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const normalizedKey = backupKey.startsWith('/') ? backupKey : '/' + backupKey;
-      response = await webdavRequest('DELETE', normalizedKey, config);
+      const response = await webdavRequest('DELETE', normalizedKey, config);
+      if (response.status !== 204 && !response.ok) {
+        return { success: false, message: '删除备份失败', statusCode: response.status };
+      }
+      return { success: true, message: '删除备份成功' };
+    } else if (endpoint.type === 'r2') {
+      const r2Service = new R2StorageService(env);
+      if (!r2Service.isAvailable()) {
+        return { success: false, message: 'R2 存储未配置' };
+      }
+      await r2Service.deleteBackup(backupKey);
+      return { success: true, message: '删除备份成功' };
     } else {
       return { success: false, message: '不支持的备份类型' };
     }
-
-    if (response.status !== 204 && !response.ok) {
-      return { success: false, message: '删除备份失败', statusCode: response.status };
-    }
-    return { success: true, message: '删除备份成功' };
   } catch (err) {
     return { success: false, message: '删除失败', errorMessage: (err as Error).message };
   }
 }
 
 // 测试备份端连接
-export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{
+export async function testBackupEndpoint(
+  endpoint: BackupEndpoint,
+  env?: Env
+): Promise<{
   success: boolean;
   message: string;
   statusCode?: number | null;
@@ -754,6 +853,15 @@ export async function testBackupEndpoint(endpoint: BackupEndpoint): Promise<{
         return { success: false, message: '连接失败', statusCode: response.status };
       }
       return { success: true, message: 'WebDAV 连接成功', statusCode: null };
+    } else if (endpoint.type === 'r2') {
+      if (!env) {
+        return { success: false, message: '测试 R2 连接需要环境变量', statusCode: null };
+      }
+      const r2Service = new R2StorageService(env);
+      if (!r2Service.isAvailable()) {
+        return { success: false, message: 'R2 存储未配置', statusCode: null };
+      }
+      return { success: true, message: 'R2 连接成功', statusCode: null };
     }
 
     return { success: false, message: '不支持的备份类型', statusCode: null };

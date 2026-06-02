@@ -363,6 +363,18 @@ function getEndpointStatusClass(endpoint: BackupEndpoint): string {
   return endpoint.lastBackup.status === 'success' ? 'status-success' : 'status-error';
 }
 
+function getEndpointIcon(type: string): string {
+  switch (type) {
+    case 's3':
+      return '🪣';
+    case 'r2':
+      return '☁️';
+    case 'webdav':
+    default:
+      return '📁';
+  }
+}
+
 function formatLastBackupTime(endpoint: BackupEndpoint): string {
   if (!endpoint.lastBackup?.time) return t('msg.never');
   const date = new Date(endpoint.lastBackup.time);
@@ -451,6 +463,8 @@ function handleTestResult(success: boolean, result: string | TestResult) {
       displayText = t('msg.s3_connection_success');
     } else if (msgKey === 'msg.webdav_connection_success') {
       displayText = t('msg.webdav_connection_success');
+    } else if (msgKey === 'msg.r2_connection_success') {
+      displayText = t('msg.r2_connection_success');
     } else if (msgKey === 'msg.too_many_requests') {
       displayText = t('msg.too_many_requests', { status: result.statusCode });
     } else if (msgKey === 'msg.connection_failed') {
@@ -622,7 +636,7 @@ defineExpose({
             @click="selectEndpoint(endpoint.id)"
           >
             <div class="endpoint-icon">
-              {{ endpoint.type === 's3' ? '🪣' : '📁' }}
+              {{ getEndpointIcon(endpoint.type) }}
             </div>
             <div class="endpoint-info">
               <div class="endpoint-header">
@@ -671,6 +685,7 @@ defineExpose({
                 <select v-model="editingEndpoint.type">
                   <option value="s3">{{ t('label.s3_compatible') }}</option>
                   <option value="webdav">WebDAV</option>
+                  <option value="r2">Cloudflare R2</option>
                 </select>
               </div>
             </div>
@@ -769,6 +784,20 @@ defineExpose({
                     isCreatingNew ? t('placeholder.password') : t('placeholder.configured')
                   "
                 />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="editingEndpoint.type === 'r2'" class="form-section">
+            <h4>Cloudflare R2 {{ t('label.config') }}</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label>{{ t('label.storage_path') }}</label>
+                <input
+                  v-model="editingEndpoint.config.path"
+                  :placeholder="t('placeholder.r2_path')"
+                />
+                <span class="input-hint">{{ t('hint.r2_path_desc') }}</span>
               </div>
             </div>
           </div>

@@ -41,9 +41,9 @@ migrations_dir = "migrations"
 # ------------------------------------------
 # 注意：bucket_name 需要在 wrangler.toml 中设置为有效的值，
 # 或者在部署时使用 --var R2_BUCKET_NAME=your-bucket-name 覆盖
-# [[r2_buckets]]
-# binding = "BACKUP_BUCKET"
-# bucket_name = "bee-swarm-backups"
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "bee-swarm-backups"
 
 # ------------------------------------------
 # Queues 队列（异步任务处理）
