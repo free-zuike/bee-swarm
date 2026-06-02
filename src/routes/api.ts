@@ -22,6 +22,7 @@ import {
   batchDeletePushHistory,
   batchDeletePushHistoryByFilter,
 } from '../services/dispatcher';
+import { QueueService } from '../services/queueService';
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
@@ -310,8 +311,49 @@ adminApi.put('/channels/:id', async (c) => {
 
 adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const username = c.get('username');
-  const body = (c as ValidatedContext).validatedBody as PushRequest;
+  const body = (c as ValidatedContext).validatedBody as PushRequest & { async?: boolean };
+  
+  // 检查是否使用队列异步推送
+  const useQueue = body.async === true;
+  
+  if (useQueue) {
+    const queueService = new QueueService(c.env);
+    if (!queueService.isAvailable()) {
+      return c.json({
+        success: false,
+        message: '队列服务不可用，请使用同步模式或配置队列',
+        code: 'QUEUE_NOT_AVAILABLE'
+      }, 503);
+    }
 
+    const requestId = crypto.randomUUID();
+    await queueService.sendPushTask({
+      requestId,
+      userId: username,
+      payload: body,
+      createdAt: new Date().toISOString(),
+    });
+
+    // 记录异步推送日志
+    try {
+      const auditLogger = createAuditLogger(c.env, username);
+      await auditLogger.log('push_queued', {
+        channels: body.channels,
+        requestId,
+      });
+    } catch {
+      // 审计日志失败不影响主流程
+    }
+
+    return c.json({
+      success: true,
+      message: '推送已加入队列',
+      requestId,
+      async: true,
+    });
+  }
+
+  // 同步推送（原有逻辑）
   const results = await dispatchPush(body, body.channels, username, c.env);
 
   const successCount = results.filter((r) => r.success).length;
@@ -340,6 +382,7 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
     success: failedCount === 0,
     message: `推送完成: ${successCount} 成功, ${failedCount} 失败`,
     results,
+    async: false,
   });
 });
 

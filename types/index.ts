@@ -54,6 +54,8 @@ export interface PushRequest extends PushPayload {
   scheduledAt?: string;
   /** 使用的模板 ID */
   templateId?: string;
+  /** 是否使用队列异步推送 */
+  async?: boolean;
 }
 
 /**
