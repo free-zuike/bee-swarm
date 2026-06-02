@@ -48,14 +48,15 @@ migrations_dir = "migrations"
 # ------------------------------------------
 # Queues 队列（异步任务处理）
 # ------------------------------------------
-[[queues.producers]]
-queue = "push-queue"
-binding = "PUSH_QUEUE"
+# 注意：先在 Cloudflare 控制台创建 "push-queue" 队列后，取消下面的注释
+# [[queues.producers]]
+# queue = "push-queue"
+# binding = "PUSH_QUEUE"
 
-[[queues.consumers]]
-queue = "push-queue"
-max_batch_size = 10
-max_retries = 3
+# [[queues.consumers]]
+# queue = "push-queue"
+# max_batch_size = 10
+# max_retries = 3
 
 # ------------------------------------------
 # 环境变量配置
