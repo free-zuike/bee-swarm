@@ -227,35 +227,26 @@ async function handleFileUpload(event: Event) {
 }
 
 async function handleSaveAvatar() {
-  console.log('handleSaveAvatar 被调用');
-  if (isSaving.value) {
-    console.log('正在保存中，跳过');
-    return;
-  }
+  if (isSaving.value) return;
   
   isSaving.value = true;
   try {
     let avatarUrl = avatarInput.value;
-    console.log('初始 avatarUrl:', avatarUrl);
     
     if (selectedFile.value) {
-      console.log('开始上传文件:', selectedFile.value);
       const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
-      console.log('上传结果:', uploadResult);
       if (uploadResult.success) {
         avatarUrl = uploadResult.avatar_url;
       }
     }
     
     const avatarToSave = avatarUrl || null;
-    console.log('准备保存到数据库:', { avatar_url: avatarToSave, use_avatar_as_popup: useAvatarAsPopup.value });
     
     const result = await updateAvatar(accessToken.value, {
       avatar_url: avatarToSave,
       use_avatar_as_popup: useAvatarAsPopup.value,
     });
     
-    console.log('updateAvatar 结果:', result);
     if (result.success) {
       userAvatar.value = result.avatar_url;
       useAvatarAsPopup.value = result.use_avatar_as_popup;
@@ -265,7 +256,6 @@ async function handleSaveAvatar() {
       showToast(result.message || t('msg.operation_failed'), 'error');
     }
   } catch (err: unknown) {
-    console.error('handleSaveAvatar 错误:', err);
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
   } finally {
     isSaving.value = false;
@@ -300,9 +290,7 @@ async function loadUserAvatar() {
   try {
     const { getCurrentUser } = await import('@/api');
     const user = await getCurrentUser(accessToken.value);
-    if (user.avatar_url) {
-      userAvatar.value = user.avatar_url;
-    }
+    userAvatar.value = user.avatar_url || '';
     if (user.use_avatar_as_popup !== undefined) {
       useAvatarAsPopup.value = user.use_avatar_as_popup;
     }
