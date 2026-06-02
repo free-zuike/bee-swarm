@@ -5,6 +5,16 @@
 import type { Env } from '../types';
 
 /**
+ * 备份文件信息
+ */
+export interface BackupFileInfo {
+  key: string;
+  size?: number;
+  uploadedAt?: string;
+  contentType?: string;
+}
+
+/**
  * R2 存储服务类
  * 提供备份文件的上传、下载和删除功能
  */
@@ -79,25 +89,38 @@ export class R2StorageService {
    * 列出备份文件
    * @param prefix 路径前缀
    */
-  async listBackups(prefix: string = ''): Promise<string[]> {
+  async listBackups(prefix: string = ''): Promise<BackupFileInfo[]> {
     if (!this.bucket) {
       return [];
     }
 
     const list = await this.bucket.list({ prefix });
-    return list.objects.map(obj => obj.key);
+    return list.objects.map(obj => ({
+      key: obj.key,
+      size: obj.size,
+      uploadedAt: obj.uploaded?.toISOString(),
+    }));
   }
 
   /**
    * 获取备份文件信息
    * @param key 文件名/路径
    */
-  async getBackupInfo(key: string): Promise<R2ObjectMetadata | null> {
+  async getBackupInfo(key: string): Promise<BackupFileInfo | null> {
     if (!this.bucket) {
       return null;
     }
 
     const object = await this.bucket.head(key);
-    return object?.httpMetadata ?? null;
+    if (!object) {
+      return null;
+    }
+
+    return {
+      key: object.key,
+      size: object.size,
+      uploadedAt: object.uploaded?.toISOString(),
+      contentType: object.httpMetadata?.contentType,
+    };
   }
 }

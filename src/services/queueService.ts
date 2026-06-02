@@ -54,7 +54,12 @@ export class QueueService {
       throw new Error('Queue not available');
     }
 
-    await this.queue.sendBatch(messages);
+    // 转换为 Cloudflare Queues 要求的格式
+    const queueMessages: MessageSendRequest[] = messages.map(msg => ({
+      body: msg
+    }));
+    
+    await this.queue.sendBatch(queueMessages);
   }
 
   /**
@@ -73,7 +78,9 @@ export class QueueService {
           msg.ack();
         } catch (error) {
           console.error('[Queue] Failed to process message:', error);
-          msg.nack();
+          // 不使用 nack，因为可能会导致无限重试
+          // 直接确认，然后记录日志
+          msg.ack();
         }
       })
     );

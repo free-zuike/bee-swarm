@@ -141,9 +141,7 @@ export default {
         
         console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
         
-        const pushService = new PushService(env, message.userId);
-        const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
-        await pushService.updatePushHistoryStatus(message.requestId, finalStatus);
+        // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
       } catch (error) {
         console.error(`[Queue] Failed to process message ${message.requestId}:`, (error as Error).message);
         throw error;
