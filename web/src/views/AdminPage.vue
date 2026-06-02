@@ -180,6 +180,7 @@ async function copyApiKey() {
 // ==================== 头像管理 ====================
 const isUploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFile = ref<File | null>(null);
 
 function triggerFileUpload() {
   fileInput.value?.click();
@@ -187,12 +188,14 @@ function triggerFileUpload() {
 
 async function openAvatarModal() {
   avatarInput.value = userAvatar.value;
+  selectedFile.value = null;
   showAvatarModal.value = true;
 }
 
 function closeAvatarModal() {
   showAvatarModal.value = false;
   avatarInput.value = '';
+  selectedFile.value = null;
 }
 
 async function handleFileUpload(event: Event) {
@@ -210,6 +213,8 @@ async function handleFileUpload(event: Event) {
     return;
   }
   
+  selectedFile.value = file;
+  
   const reader = new FileReader();
   reader.onload = (e) => {
     avatarInput.value = e.target?.result as string;
@@ -223,11 +228,9 @@ async function handleSaveAvatar() {
   try {
     let avatarUrl = avatarInput.value;
     
-    if (avatarInput.value && avatarInput.value.startsWith('data:')) {
-      const response = await fetch(avatarInput.value);
-      const blob = await response.blob();
+    if (selectedFile.value) {
       const formData = new FormData();
-      formData.append('avatar', blob, 'avatar.png');
+      formData.append('avatar', selectedFile.value);
       
       const uploadResponse = await fetch(`${BASE}/admin/me/avatar/upload`, {
         method: 'POST',
@@ -247,7 +250,7 @@ async function handleSaveAvatar() {
     }
     
     const result = await updateAvatar(accessToken.value, {
-      avatar_url: avatarUrl || null,
+      avatar_url: avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : null,
       use_avatar_as_popup: useAvatarAsPopup.value,
     });
     if (result.success) {
@@ -265,6 +268,7 @@ async function handleSaveAvatar() {
 
 function removeAvatar() {
   avatarInput.value = '';
+  selectedFile.value = null;
   useAvatarAsPopup.value = 0;
 }
 
@@ -277,6 +281,7 @@ async function deleteAvatar() {
     if (result.success) {
       userAvatar.value = '';
       avatarInput.value = '';
+      selectedFile.value = null;
       useAvatarAsPopup.value = 0;
       showToast(t('msg.avatar_deleted'), 'success');
     }
