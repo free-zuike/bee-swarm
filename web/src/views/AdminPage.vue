@@ -178,125 +178,18 @@ async function copyApiKey() {
 }
 
 // ==================== 头像管理 ====================
-const isUploading = ref(false);
-const isSavingAvatar = ref(false);
-const avatarFile = ref<File | null>(null);
-const hasR2Storage = ref(true);
-const fileInputRef = ref<HTMLInputElement | null>(null);
-
 async function openAvatarModal() {
   avatarInput.value = userAvatar.value;
-  avatarFile.value = null;
-  
-  // 检查 R2 存储是否可用
-  try {
-    const status = await getAvatarStorageStatus(accessToken.value);
-    hasR2Storage.value = status.hasR2;
-  } catch {
-    hasR2Storage.value = false;
-  }
-  
   showAvatarModal.value = true;
 }
 
 function closeAvatarModal() {
   showAvatarModal.value = false;
   avatarInput.value = '';
-  avatarFile.value = null;
-  // 重置 file input，允许用户重新选择相同文件
-  if (fileInputRef.value) {
-    fileInputRef.value.value = '';
-  }
-}
-
-function cancelAvatarUpload() {
-  avatarFile.value = null;
-  avatarInput.value = userAvatar.value;
-  // 重置 file input，允许用户重新选择相同文件
-  if (fileInputRef.value) {
-    fileInputRef.value.value = '';
-  }
-}
-
-function triggerFileInput() {
-  if (fileInputRef.value) {
-    fileInputRef.value.click();
-  }
-}
-
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (file) {
-    // 验证文件类型
-    if (!file.type.startsWith('image/')) {
-      showToast(t('msg.invalid_image_format'), 'error');
-      return;
-    }
-    // 验证文件大小（最大 2MB）
-    if (file.size > 2 * 1024 * 1024) {
-      showToast(t('msg.image_too_large'), 'error');
-      return;
-    }
-    avatarFile.value = file;
-    // 预览图片
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      avatarInput.value = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  }
-}
-
-async function handleUploadAvatar() {
-  if (!avatarFile.value) return;
-  
-  isUploading.value = true;
-  try {
-    const formData = new FormData();
-    formData.append('avatar', avatarFile.value);
-    
-    const response = await fetch(`${BASE}/admin/me/avatar/upload`, {
-      method: 'POST',
-      headers: {
-        'X-Token': accessToken.value,
-      },
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || t('msg.upload_failed'));
-    }
-    
-    const result = await response.json();
-    if (result.success) {
-      userAvatar.value = result.avatar_url;
-      avatarInput.value = result.avatar_url;
-      showToast(t('msg.avatar_uploaded'), 'success');
-    }
-  } catch (err: unknown) {
-    showToast(getErrorMessage(err, t('msg.upload_failed')), 'error');
-  } finally {
-    isUploading.value = false;
-  }
 }
 
 async function handleSaveAvatar() {
-  if (isSavingAvatar.value) return;
-  
-  isSavingAvatar.value = true;
   try {
-    // 如果有未上传的文件，先上传到 R2
-    if (avatarFile.value) {
-      await handleUploadAvatar();
-      // 如果上传失败，avatarInput 可能还是 base64，这里确保只保存有效的 URL
-      if (!avatarInput.value || avatarInput.value.startsWith('data:')) {
-        showToast(t('msg.avatar_upload_failed'), 'error');
-        return;
-      }
-    }
-
     const result = await updateAvatar(accessToken.value, {
       avatar_url: avatarInput.value || null,
       use_avatar_as_popup: useAvatarAsPopup.value,
@@ -311,8 +204,6 @@ async function handleSaveAvatar() {
     }
   } catch (err: unknown) {
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
-  } finally {
-    isSavingAvatar.value = false;
   }
 }
 
@@ -873,49 +764,6 @@ function handleResend(record: PushHistoryRecord) {
               </div>
             </div>
 
-            <!-- 文件上传 -->
-            <div v-if="hasR2Storage" class="form-group">
-              <label>{{ t('label.upload_avatar') }}</label>
-              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileInput">
-                <input
-                  ref="fileInputRef"
-                  type="file"
-                  accept="image/*"
-                  class="file-input"
-                  @change="handleFileUpload"
-                />
-                <span class="upload-icon">📤</span>
-                <span class="upload-text">{{ avatarFile ? t('label.replace_image') : t('label.click_to_upload') }}</span>
-                <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
-              </div>
-              <button
-                v-if="avatarFile"
-                class="btn btn-sm btn-warning"
-                :class="{ dark: isDark }"
-                @click="cancelAvatarUpload"
-              >
-                {{ t('button.cancel_upload') }}
-              </button>
-              <button
-                v-if="avatarFile"
-                class="btn btn-sm btn-primary"
-                :class="{ dark: isDark }"
-                :disabled="isUploading"
-                @click="handleUploadAvatar"
-              >
-                {{ isUploading ? t('label.uploading') : t('button.upload') }}
-              </button>
-            </div>
-            
-            <!-- R2 未配置提示 -->
-            <div v-else class="form-group">
-              <div class="alert alert-warning">
-                <span>⚠️</span>
-                <span>{{ t('msg.r2_not_configured') }}</span>
-              </div>
-              <p class="text-muted">{{ t('msg.r2_avatar_tip') }}</p>
-            </div>
-
             <!-- 头像URL输入 -->
             <div class="form-group">
               <label>{{ t('label.avatar_url') }}</label>
@@ -956,10 +804,9 @@ function handleResend(record: PushHistoryRecord) {
               </button>
               <button 
                 class="btn btn-primary" 
-                :disabled="isSavingAvatar"
                 @click="handleSaveAvatar"
               >
-                {{ isSavingAvatar ? t('label.saving') : t('button.save') }}
+                {{ t('button.save') }}
               </button>
             </div>
           </div>
