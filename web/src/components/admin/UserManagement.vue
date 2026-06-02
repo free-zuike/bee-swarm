@@ -247,7 +247,7 @@ const getRoleName = (role: UserInfo['role']) => {
 const loadUsers = async () => {
   loading.value = true;
   try {
-    const data = await getUsers(authStore.token);
+    const data = await getUsers(authStore.accessToken);
     users.value = data.users;
   } catch (err: unknown) {
     console.error('加载用户列表失败:', err);
@@ -269,7 +269,7 @@ const createUser = async () => {
   if (!createForm.value.email || !createForm.value.password) return;
   saving.value = true;
   try {
-    await apiCreateUser(authStore.token, createForm.value);
+    await apiCreateUser(authStore.accessToken, createForm.value);
     await loadUsers();
     closeCreateModal();
   } catch (err: unknown) {
@@ -294,7 +294,7 @@ const updateRole = async () => {
   if (!selectedUser.value) return;
   saving.value = true;
   try {
-    await updateUserRole(authStore.token, selectedUser.value.id, selectedRole.value);
+    await updateUserRole(authStore.accessToken, selectedUser.value.id, selectedRole.value);
     await loadUsers();
     closeRoleModal();
   } catch (err: unknown) {
@@ -320,7 +320,7 @@ const disableUser = async () => {
   if (!selectedUser.value) return;
   saving.value = true;
   try {
-    await apiDisableUser(authStore.token, selectedUser.value.id, disableReason.value || undefined);
+    await apiDisableUser(authStore.accessToken, selectedUser.value.id, disableReason.value || undefined);
     await loadUsers();
     closeDisableModal();
   } catch (err: unknown) {
@@ -333,7 +333,7 @@ const disableUser = async () => {
 const enableUser = async (userId: string) => {
   saving.value = true;
   try {
-    await apiEnableUser(authStore.token, userId);
+    await apiEnableUser(authStore.accessToken, userId);
     await loadUsers();
   } catch (err: unknown) {
     console.error('启用用户失败:', err);
@@ -356,7 +356,7 @@ const deleteUser = async () => {
   if (!selectedUser.value) return;
   saving.value = true;
   try {
-    await apiDeleteUser(authStore.token, selectedUser.value.id);
+    await apiDeleteUser(authStore.accessToken, selectedUser.value.id);
     await loadUsers();
     closeDeleteModal();
   } catch (err: unknown) {

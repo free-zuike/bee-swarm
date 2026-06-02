@@ -127,7 +127,7 @@ const getActionName = (action: string) => {
 const loadLogs = async () => {
   loading.value = true;
   try {
-    const data = await getAuditLogs(authStore.token, {
+    const data = await getAuditLogs(authStore.accessToken, {
       action: filterAction.value || undefined,
       startDate: filterStartDate.value || undefined,
       endDate: filterEndDate.value || undefined,
@@ -158,7 +158,7 @@ const closeClearModal = () => {
 const clearLogs = async () => {
   saving.value = true;
   try {
-    await clearAuditLogs(authStore.token);
+    await clearAuditLogs(authStore.accessToken);
     await loadLogs();
     closeClearModal();
   } catch (err: unknown) {
