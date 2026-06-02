@@ -3,10 +3,27 @@
 -- 此迁移用于修复已存在的数据库表结构
 -- ============================================
 
--- 注意：SQLite 不支持 ALTER TABLE ADD COLUMN IF NOT EXISTS
--- 所以我们使用一个安全的方法来处理这种情况
+-- 首先修复 d1_migrations 表（如果存在但结构不正确）
+-- 创建临时表来保存现有数据
+CREATE TABLE IF NOT EXISTS d1_migrations_temp AS SELECT * FROM d1_migrations;
 
--- 1. 修复 scheduled_pushes 表
+-- 删除旧表并创建新表
+DROP TABLE IF EXISTS d1_migrations;
+CREATE TABLE d1_migrations (
+  version TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL
+);
+
+-- 尝试插入临时数据（如果有）
+INSERT OR IGNORE INTO d1_migrations (version, created_at) 
+SELECT * FROM d1_migrations_temp;
+
+DROP TABLE IF EXISTS d1_migrations_temp;
+
+-- ============================================
+-- 修复 scheduled_pushes 表
+-- ============================================
+
 -- 检查是否缺少 next_run 字段
 CREATE TABLE IF NOT EXISTS scheduled_pushes_new (
   id TEXT PRIMARY KEY,
@@ -56,7 +73,10 @@ ALTER TABLE scheduled_pushes_new RENAME TO scheduled_pushes;
 CREATE INDEX IF NOT EXISTS idx_scheduled_pushes_user_id ON scheduled_pushes(user_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_pushes_next_run ON scheduled_pushes(next_run);
 
--- 2. 修复 users 表
+-- ============================================
+-- 修复 users 表
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS users_new (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -106,7 +126,10 @@ CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_disabled ON users(disabled);
 
--- 3. 修复 backup_endpoints 表
+-- ============================================
+-- 修复 backup_endpoints 表
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS backup_endpoints_new (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -141,11 +164,9 @@ ALTER TABLE backup_endpoints_new RENAME TO backup_endpoints;
 
 CREATE INDEX IF NOT EXISTS idx_backup_endpoints_user_id ON backup_endpoints(user_id);
 
--- 4. 更新 d1_migrations 表，标记之前的迁移已应用
-CREATE TABLE IF NOT EXISTS d1_migrations (
-  version TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL
-);
+-- ============================================
+-- 更新 d1_migrations 表，标记之前的迁移已应用
+-- ============================================
 
 INSERT OR IGNORE INTO d1_migrations (version, created_at) VALUES ('0001_initial_tables.sql', datetime('now'));
 INSERT OR IGNORE INTO d1_migrations (version, created_at) VALUES ('0002_add_user_refresh_token_fields.sql', datetime('now'));
