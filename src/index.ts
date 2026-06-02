@@ -16,6 +16,7 @@ import { escapeRegex } from './utils/regex';
 import { matchCronField } from './utils/cron';
 import { getLocalTime, getLocalWeekday } from './utils/datetime';
 import { getScheduledLock, insertScheduledLock, getBackupRun, upsertBackupRun } from './services/d1DataService';
+import { QueueService, type PushQueueMessage } from './services/queueService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -122,9 +123,34 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  async queue(batch: any, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Empty queue handler to prevent missing queue handler error
-    console.log('[Queue] Received message:', batch);
+  async queue(batch: MessageBatch<PushQueueMessage>, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log(`[Queue] Processing ${batch.messages.length} messages`);
+    
+    const queueService = new QueueService(env);
+    
+    await queueService.processBatch(batch, async (message: PushQueueMessage) => {
+      console.log(`[Queue] Processing push request: ${message.requestId}`);
+      
+      try {
+        const results = await dispatchPushWithOptions(
+          message.payload,
+          message.payload.channels || [],
+          message.userId,
+          env
+        );
+        
+        console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
+        
+        const pushService = new PushService(env, message.userId);
+        const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
+        await pushService.updatePushHistoryStatus(message.requestId, finalStatus);
+      } catch (error) {
+        console.error(`[Queue] Failed to process message ${message.requestId}:`, (error as Error).message);
+        throw error;
+      }
+    });
+    
+    console.log(`[Queue] Batch processing complete`);
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {

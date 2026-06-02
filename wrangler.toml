@@ -37,6 +37,25 @@ database_id = "${D1_DATABASE_ID}"
 migrations_dir = "migrations"
 
 # ------------------------------------------
+# R2 存储（存储备份文件、附件等）
+# ------------------------------------------
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "${R2_BUCKET_NAME}"
+
+# ------------------------------------------
+# Queues 队列（异步任务处理）
+# ------------------------------------------
+[[queues.producers]]
+queue = "push-queue"
+binding = "PUSH_QUEUE"
+
+[[queues.consumers]]
+queue = "push-queue"
+max_batch_size = 10
+max_retries = 3
+
+# ------------------------------------------
 # 环境变量配置
 # ------------------------------------------
 [vars]
