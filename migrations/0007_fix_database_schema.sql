@@ -3,28 +3,16 @@
 -- 此迁移用于修复已存在的数据库表结构
 -- ============================================
 
--- 首先修复 d1_migrations 表（如果存在但结构不正确）
--- 创建临时表来保存现有数据
-CREATE TABLE IF NOT EXISTS d1_migrations_temp AS SELECT * FROM d1_migrations;
-
--- 删除旧表并创建新表
-DROP TABLE IF EXISTS d1_migrations;
-CREATE TABLE d1_migrations (
-  version TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL
-);
-
--- 尝试插入临时数据（如果有）
-INSERT OR IGNORE INTO d1_migrations (version, created_at) 
-SELECT * FROM d1_migrations_temp;
-
+-- 首先删除可能存在的临时表
 DROP TABLE IF EXISTS d1_migrations_temp;
+DROP TABLE IF EXISTS scheduled_pushes_new;
+DROP TABLE IF EXISTS users_new;
+DROP TABLE IF EXISTS backup_endpoints_new;
 
 -- ============================================
 -- 修复 scheduled_pushes 表
 -- ============================================
 
--- 检查是否缺少 next_run 字段
 CREATE TABLE IF NOT EXISTS scheduled_pushes_new (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -45,24 +33,13 @@ CREATE TABLE IF NOT EXISTS scheduled_pushes_new (
 );
 
 -- 复制数据（如果原表存在）
-INSERT OR IGNORE INTO scheduled_pushes_new 
-SELECT 
-  id, 
-  user_id, 
-  template_id, 
-  cron, 
-  COALESCE(next_run, 0), 
-  title, 
-  body, 
-  url, 
-  image_url, 
-  markdown, 
-  channels, 
-  COALESCE(enabled, 1), 
-  COALESCE(overdue_reminder_sent, 0), 
-  COALESCE(status, 'pending'), 
-  created_at, 
-  updated_at 
+INSERT INTO scheduled_pushes_new (
+  id, user_id, template_id, cron, next_run, title, body, url, image_url, 
+  markdown, channels, enabled, overdue_reminder_sent, status, created_at, updated_at
+) SELECT 
+  id, user_id, template_id, cron, COALESCE(next_run, 0), title, body, url, image_url, 
+  markdown, channels, COALESCE(enabled, 1), COALESCE(overdue_reminder_sent, 0), 
+  COALESCE(status, 'pending'), created_at, updated_at 
 FROM scheduled_pushes;
 
 -- 删除旧表并重命名新表
@@ -96,24 +73,15 @@ CREATE TABLE IF NOT EXISTS users_new (
   updated_at TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO users_new 
-SELECT 
-  id, 
-  email, 
-  password, 
-  token, 
-  token_expires_at, 
-  apikey, 
-  apikey_expires_at, 
-  refresh_token, 
-  refresh_token_expires_at, 
-  COALESCE(role, 'user'), 
-  COALESCE(disabled, 0), 
-  disabled_reason, 
-  avatar_url, 
-  COALESCE(use_avatar_as_popup, 0), 
-  created_at, 
-  updated_at 
+INSERT INTO users_new (
+  id, email, password, token, token_expires_at, apikey, apikey_expires_at, 
+  refresh_token, refresh_token_expires_at, role, disabled, disabled_reason, 
+  avatar_url, use_avatar_as_popup, created_at, updated_at
+) SELECT 
+  id, email, password, token, token_expires_at, apikey, apikey_expires_at, 
+  refresh_token, refresh_token_expires_at, COALESCE(role, 'user'), 
+  COALESCE(disabled, 0), disabled_reason, avatar_url, 
+  COALESCE(use_avatar_as_popup, 0), created_at, updated_at 
 FROM users;
 
 DROP TABLE IF EXISTS users;
@@ -144,19 +112,13 @@ CREATE TABLE IF NOT EXISTS backup_endpoints_new (
   updated_at TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO backup_endpoints_new 
-SELECT 
-  id, 
-  user_id, 
-  type, 
-  config, 
-  COALESCE(enabled, 0), 
-  COALESCE(name, '默认备份'), 
+INSERT INTO backup_endpoints_new (
+  id, user_id, type, config, enabled, name, schedule, retention, 
+  last_backup, created_at, updated_at
+) SELECT 
+  id, user_id, type, config, COALESCE(enabled, 0), COALESCE(name, '默认备份'), 
   COALESCE(schedule, '{"enabled":false,"interval":24,"startTime":"02:00"}'), 
-  COALESCE(retention, 30), 
-  last_backup, 
-  created_at, 
-  updated_at 
+  COALESCE(retention, 30), last_backup, created_at, updated_at 
 FROM backup_endpoints;
 
 DROP TABLE IF EXISTS backup_endpoints;
@@ -165,7 +127,18 @@ ALTER TABLE backup_endpoints_new RENAME TO backup_endpoints;
 CREATE INDEX IF NOT EXISTS idx_backup_endpoints_user_id ON backup_endpoints(user_id);
 
 -- ============================================
--- 更新 d1_migrations 表，标记之前的迁移已应用
+-- 修复 d1_migrations 表（安全地重新创建）
+-- ============================================
+
+-- 删除旧表并创建新表（不尝试恢复旧数据，避免列不匹配问题）
+DROP TABLE IF EXISTS d1_migrations;
+CREATE TABLE IF NOT EXISTS d1_migrations (
+  version TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL
+);
+
+-- ============================================
+-- 标记之前的迁移已应用
 -- ============================================
 
 INSERT OR IGNORE INTO d1_migrations (version, created_at) VALUES ('0001_initial_tables.sql', datetime('now'));
