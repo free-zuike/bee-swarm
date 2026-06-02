@@ -958,6 +958,26 @@ export async function updateAvatar(
   });
 }
 
+export async function uploadAvatar(
+  token: string,
+  file: File
+): Promise<{ success: boolean; message: string; avatar_url: string }> {
+  const formData = new FormData();
+  formData.append('avatar', file);
+  
+  const res = await fetch(`${BASE}/admin/me/avatar/upload`, {
+    method: 'POST',
+    headers: { 'X-Token': token },
+    body: formData,
+  });
+  
+  if (!res.ok) {
+    throw await handleResponseError(res);
+  }
+  
+  return res.json();
+}
+
 // 获取用户列表
 export async function getUsers(token: string): Promise<{ users: UserInfo[] }> {
   return tokenRequest(`${BASE}/admin/users`, token);

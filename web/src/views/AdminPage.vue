@@ -30,6 +30,7 @@ import {
   backupAll,
   backupSingleEndpoint,
   updateAvatar,
+  uploadAvatar,
   getAvatarStorageStatus,
 } from '@/api';
 import type { BackupEndpoint } from '@/api';
@@ -239,21 +240,7 @@ async function handleSaveAvatar() {
     
     if (selectedFile.value) {
       console.log('开始上传文件:', selectedFile.value);
-      const formData = new FormData();
-      formData.append('avatar', selectedFile.value);
-      
-      const uploadResponse = await fetch(`${BASE}/admin/me/avatar/upload`, {
-        method: 'POST',
-        headers: { 'X-Token': accessToken.value },
-        body: formData,
-      });
-      
-      if (!uploadResponse.ok) {
-        const error = await uploadResponse.json();
-        throw new Error(error.message || t('msg.upload_failed'));
-      }
-      
-      const uploadResult = await uploadResponse.json();
+      const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
       console.log('上传结果:', uploadResult);
       if (uploadResult.success) {
         avatarUrl = uploadResult.avatar_url;
