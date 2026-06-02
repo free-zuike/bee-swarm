@@ -392,6 +392,7 @@ adminApi.get('/audit', async (c) => {
     action,
     startDate,
     endDate,
+    allUsers: true,
   });
 
   return c.json({ logs });

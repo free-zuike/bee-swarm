@@ -62,9 +62,11 @@ export class AuditLogger {
       action?: AuditAction;
       startDate?: string;
       endDate?: string;
+      allUsers?: boolean;
     } = {}
   ): Promise<AuditLogEntry[]> {
-    const logs = await getAuditLogs(this.env, this.userId, options);
+    const userId = options.allUsers ? null : this.userId;
+    const logs = await getAuditLogs(this.env, userId, options);
     return logs.map(log => ({
       id: log.id,
       userId: log.userId,

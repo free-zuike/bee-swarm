@@ -58,28 +58,34 @@ export async function insertAuditLog(env: Env, log: AuditLog): Promise<void> {
 
 export async function getAuditLogs(
   env: Env,
-  userId: string,
+  userId: string | null,
   options: { limit?: number; offset?: number; action?: AuditAction; startDate?: string; endDate?: string } = {}
 ): Promise<AuditLog[]> {
   if (!isD1Enabled(env)) return [];
   try {
     const limit = options.limit || 50;
     const offset = options.offset || 0;
-    let query = 'SELECT * FROM audit_logs WHERE user_id = ?';
-    const bindings: any[] = [userId];
+    let query = 'SELECT * FROM audit_logs';
+    const bindings: any[] = [];
+
+    if (userId) {
+      query += ' WHERE user_id = ?';
+      bindings.push(userId);
+    }
 
     if (options.action) {
-      query += ' AND action = ?';
+      query += userId ? ' AND action = ?' : ' WHERE action = ?';
       bindings.push(options.action);
     }
 
     if (options.startDate) {
-      query += ' AND created_at >= ?';
+      query += (userId || options.action) ? ' AND created_at >= ?' : ' WHERE created_at >= ?';
       bindings.push(options.startDate);
     }
 
     if (options.endDate) {
-      query += ' AND created_at <= ?';
+      const hasWhere = userId || options.action || options.startDate;
+      query += hasWhere ? ' AND created_at <= ?' : ' WHERE created_at <= ?';
       bindings.push(options.endDate);
     }
 

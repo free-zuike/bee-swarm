@@ -442,44 +442,67 @@ onMounted(() => {
 }
 
 .user-list {
-  padding: 24px;
+  padding: 20px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .user-card {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 20px;
+  padding: 24px;
   background: var(--bg-secondary);
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
-  transition: all 0.25s ease;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--primary-color) 0%, #764ba2 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.user-card:hover::before {
+  opacity: 1;
 }
 
 .user-card:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
   transform: translateY(-2px);
 }
 
 .user-avatar {
   flex-shrink: 0;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.user-card:hover .user-avatar {
+  transform: scale(1.05);
 }
 
 .avatar-initial {
   color: white;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .user-main {
@@ -510,30 +533,37 @@ onMounted(() => {
 }
 
 .tag {
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 5px 14px;
+  border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
 }
 
 .tag-role-admin {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
 .tag-role-user {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
 }
 
 .tag-role-viewer {
-  background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
 }
 
 .tag-status-disabled {
-  background: #fee2e2;
-  color: #dc2626;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
 }
 
 .user-body {
@@ -568,49 +598,73 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-left: 16px;
+  padding-left: 20px;
   border-left: 1px solid var(--border-color);
 }
 
 .action-btn {
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
   font-size: 13px;
-  font-weight: 500;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-primary);
+  font-weight: 600;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  min-width: 90px;
+  text-align: center;
 }
 
 .action-btn:hover {
-  background: var(--bg-primary);
+  transform: translateX(4px);
+  color: var(--text-primary);
 }
 
 .action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
+}
+
+.action-edit {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  color: white;
 }
 
 .action-edit:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  color: white;
+}
+
+.action-disable {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
 }
 
 .action-disable:hover {
-  border-color: #f59e0b;
-  color: #f59e0b;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  color: white;
+}
+
+.action-enable {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
 }
 
 .action-enable:hover {
-  border-color: #10b981;
-  color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  color: white;
+}
+
+.action-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
 }
 
 .action-delete:hover {
-  border-color: #ef4444;
-  color: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  color: white;
 }
 
 .modal-overlay {
