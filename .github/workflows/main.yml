@@ -65,28 +65,18 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json")
           D1_ID=$(echo $D1_LIST | jq -r '.result[] | select(.name=="bee-swarm-db") | .uuid')
-          
-          # 如果数据库存在，删除它（解决迁移状态不一致问题）
-          if [ ! -z "$D1_ID" ] && [ "$D1_ID" != "null" ]; then
-            echo "⚠️ 删除现有的数据库: $D1_ID"
-            curl -s -X DELETE \
-              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/d1/database/$D1_ID" \
+          if [ -z "$D1_ID" ] || [ "$D1_ID" = "null" ]; then
+            # 创建 D1 数据库
+            D1_CREATE=$(curl -s -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/d1/database" \
               -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-              -H "Content-Type: application/json"
-            sleep 5  # 等待数据库删除完成
-            D1_ID=""
+              -H "Content-Type: application/json" \
+              -d '{"name":"bee-swarm-db"}')
+            D1_ID=$(echo $D1_CREATE | jq -r '.result.uuid')
+            echo "✅ D1 数据库已创建: $D1_ID"
+          else
+            echo "✅ D1 数据库已存在: $D1_ID"
           fi
-          
-          # 创建新的 D1 数据库
-          echo "✅ 创建新的 D1 数据库..."
-          D1_CREATE=$(curl -s -X POST \
-            "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/d1/database" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"name":"bee-swarm-db"}')
-          D1_ID=$(echo $D1_CREATE | jq -r '.result.uuid')
-          echo "✅ D1 数据库已创建: $D1_ID"
-          
           echo "d1_id=$D1_ID" >> $GITHUB_OUTPUT
 
       - name: Setup Queues
