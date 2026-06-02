@@ -106,11 +106,11 @@ export async function saveBackupEndpoints(
 ): Promise<void> {
   if (!env.DB) return;
   
+  // 确保用户存在，这里如果失败会抛出错误，阻止后续操作
+  await ensureUserExists(env, username);
+  
   try {
-    // 第一步：确保用户存在
-    await ensureUserExists(env, username);
-    
-    // 第二步：在一个事务中删除并重新插入
+    // 在一个事务中删除并重新插入
     const stmt = env.DB.prepare(
       'DELETE FROM backup_endpoints WHERE user_id = ?'
     ).bind(username);
@@ -121,8 +121,16 @@ export async function saveBackupEndpoints(
       await saveSingleEndpoint(env, username, endpoint);
     }
   } catch (e) {
-    console.error('[Backup] 保存备份端点失败', e);
-    throw e;
+    const error = e as Error;
+    console.error('[Backup] 保存备份端点失败:', error);
+    
+    // 如果是外键约束失败，说明用户记录可能在检查后被删除了
+    if (error.message.includes('FOREIGN KEY constraint failed') || 
+        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
+      throw new Error(`保存备份端点失败：用户记录不存在或已被删除。请重新登录后重试。`);
+    }
+    
+    throw error;
   }
 }
 
@@ -164,18 +172,32 @@ async function ensureUserExists(env: Env, username: string): Promise<void> {
       'SELECT id FROM users WHERE email = ?'
     ).bind(username).first<any>();
     
-    if (!check) {
-      // 用户不存在，创建
-      const id = crypto.randomUUID();
-      const now = new Date().toISOString();
-      await env.DB.prepare(`
-        INSERT INTO users (id, email, password, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).bind(id, username, 'placeholder', now, now).run();
+    if (check) {
+      // 用户已存在，直接返回
+      return;
     }
+    
+    // 用户不存在，创建
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await env.DB.prepare(`
+      INSERT INTO users (id, email, password, created_at, updated_at, role, disabled)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(id, username, 'placeholder', now, now, 'user', 0).run();
+    
+    console.log('[Backup] 用户不存在，已自动创建:', username);
   } catch (e) {
-    // 如果用户已存在（约束冲突），忽略错误
-    console.log('[Backup] 用户可能已存在', e);
+    const error = e as Error;
+    // 唯一约束冲突（用户已存在）是预期情况，忽略
+    if (error.message.includes('UNIQUE constraint failed') || 
+        error.message.includes('SQLITE_CONSTRAINT_UNIQUE')) {
+      console.log('[Backup] 用户已存在，跳过创建:', username);
+      return;
+    }
+    
+    // 其他错误，比如外键约束、数据库连接问题等，需要抛出
+    console.error('[Backup] 创建用户失败:', error);
+    throw new Error(`无法确保用户存在: ${error.message}`);
   }
 }
 
@@ -197,15 +219,28 @@ export async function saveBackupEndpoint(
 ): Promise<void> {
   if (!env.DB) return;
   
-  // 确保用户存在
+  // 确保用户存在，这里如果失败会抛出错误，阻止后续操作
   await ensureUserExists(env, username);
   
-  // 先删除旧的，再插入新的
-  await env.DB.prepare(
-    'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
-  ).bind(endpoint.id, username).run();
-  
-  await saveSingleEndpoint(env, username, endpoint);
+  try {
+    // 先删除旧的，再插入新的
+    await env.DB.prepare(
+      'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
+    ).bind(endpoint.id, username).run();
+    
+    await saveSingleEndpoint(env, username, endpoint);
+  } catch (e) {
+    const error = e as Error;
+    console.error('[Backup] 添加或更新备份端点失败:', error);
+    
+    // 如果是外键约束失败，说明用户记录可能在检查后被删除了
+    if (error.message.includes('FOREIGN KEY constraint failed') || 
+        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
+      throw new Error(`保存备份端点失败：用户记录不存在或已被删除。请重新登录后重试。`);
+    }
+    
+    throw error;
+  }
 }
 
 // 删除备份端
