@@ -800,6 +800,16 @@ defineExpose({
                 <span class="input-hint">{{ t('hint.r2_path_desc') }}</span>
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>{{ t('label.r2_public_domain') }}</label>
+                <input
+                  v-model="editingEndpoint.r2_domain"
+                  :placeholder="t('placeholder.r2_public_domain')"
+                />
+                <span class="input-hint">{{ t('hint.r2_public_domain_desc') }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="form-section">

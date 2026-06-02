@@ -612,9 +612,20 @@ adminApi.post('/me/avatar/upload', async (c) => {
       },
     });
 
-    // 生成预览 URL（使用 R2 的公共访问或返回相对路径）
-    // 注意：createSignedUrl 是实验性功能，可能不可用
-    const avatarUrl = `https://pub-d1ceb918468a49a3892985c21b4b16f2.r2.dev/${fileName}`;
+    // 获取备份端点的 R2 域名配置
+    let r2Domain = env.R2_PUBLIC_DOMAIN || 'pub-d1ceb918468a49a3892985c21b4b16f2.r2.dev';
+    
+    try {
+      const backupSvc = new BackupService(env);
+      const endpoints = await backupSvc.getEndpoints(user.id);
+      if (endpoints.length > 0 && endpoints[0].r2_domain) {
+        r2Domain = endpoints[0].r2_domain;
+      }
+    } catch {
+      // 忽略备份服务错误
+    }
+    
+    const avatarUrl = `https://${r2Domain}/${fileName}`;
 
     // 更新用户头像 URL
     await svc.updateUser(user.id, { avatar_url: avatarUrl });
