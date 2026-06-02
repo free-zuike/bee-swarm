@@ -193,15 +193,18 @@ backupRoutes.post('/backup-endpoints/:id/test', async (c) => {
       return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
     }
 
-    const s3Config = endpoint.config as Partial<S3Config>;
-    const webdavConfig = endpoint.config as Partial<WebDAVConfig>;
-    const hasSecret = !!s3Config.secretAccessKey || !!webdavConfig.password;
+    // R2 通过 Workers 绑定访问，不需要密钥配置
+    if (endpoint.type !== 'r2') {
+      const s3Config = endpoint.config as Partial<S3Config>;
+      const webdavConfig = endpoint.config as Partial<WebDAVConfig>;
+      const hasSecret = !!s3Config.secretAccessKey || !!webdavConfig.password;
 
-    if (!hasSecret) {
-      return c.json({
-        success: false,
-        message: '密钥未配置，请先编辑并保存密钥后重试',
-      });
+      if (!hasSecret) {
+        return c.json({
+          success: false,
+          message: '密钥未配置，请先编辑并保存密钥后重试',
+        });
+      }
     }
   }
 
