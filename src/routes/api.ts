@@ -602,7 +602,9 @@ adminApi.post('/me/avatar/upload', async (c) => {
     });
 
     // 生成预览 URL（临时签名 URL）
-    const url = await env.AVATAR_BUCKET.createSignedUrl(fileName, {
+    const url = await (env.AVATAR_BUCKET as unknown as {
+      createSignedUrl: (key: string, options: { method: string; expiresIn: number }) => Promise<{ href: string }>;
+    }).createSignedUrl(fileName, {
       method: 'GET',
       expiresIn: 60 * 60 * 24 * 365, // 1 年
     });
