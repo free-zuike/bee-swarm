@@ -756,7 +756,7 @@ defineExpose({
             </div>
           </div>
 
-          <div v-else class="form-section">
+          <div v-else-if="editingEndpoint.type === 'webdav'" class="form-section">
             <h4>{{ t('label.webdav_config') }}</h4>
             <div class="form-row">
               <div class="form-group">
