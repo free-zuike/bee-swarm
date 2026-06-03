@@ -15,15 +15,16 @@ const emit = defineEmits<{
   register: [email: string, password: string];
 }>();
 
-const authMode = ref<'login' | 'register' | 'forgot' | 'reset'>('login');
+const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset'>('login');
 const authEmail = ref('');
 const authPassword = ref('');
 const authConfirmPassword = ref('');
 const resetToken = ref('');
 const localError = ref('');
 const isProcessing = ref(false);
+const resetEmail = ref('');
 
-function switchMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
+function switchMode(mode: 'login' | 'register' | 'forgot' | 'enterToken' | 'reset') {
   authMode.value = mode;
   localError.value = '';
 }
@@ -66,11 +67,35 @@ async function doForgotPassword() {
     const { requestPasswordReset } = await import('@/api');
     const result = await requestPasswordReset(authEmail.value.trim());
     if (result.success) {
-      showToast(t('message.password_reset_link_sent'), 'success');
-      authMode.value = 'login';
+      resetEmail.value = authEmail.value.trim();
       authEmail.value = '';
+      authMode.value = 'enterToken';
+      showToast('请查看服务器控制台获取重置令牌（测试模式）', 'success');
     } else {
       localError.value = t('message.user_not_found');
+    }
+  } catch (err) {
+    localError.value = (err as Error).message || t('message.password_reset_failed');
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
+async function verifyAndReset() {
+  localError.value = '';
+  if (!resetToken.value.trim()) {
+    localError.value = '请输入重置令牌';
+    return;
+  }
+  
+  isProcessing.value = true;
+  try {
+    const { verifyResetToken } = await import('@/api');
+    const result = await verifyResetToken(resetToken.value.trim());
+    if (result.valid) {
+      authMode.value = 'reset';
+    } else {
+      localError.value = t('message.invalid_reset_token');
     }
   } catch (err) {
     localError.value = (err as Error).message || t('message.password_reset_failed');
@@ -188,6 +213,24 @@ const isResetMode = computed(() => {
         </button>
         <button type="button" class="forgot-password-btn" @click="switchMode('login')">
           {{ t('button.back_to_login') }}
+        </button>
+      </form>
+
+      <form v-else-if="authMode === 'enterToken'" @submit.prevent="verifyAndReset">
+        <input
+          v-model="resetToken"
+          type="text"
+          placeholder="请输入重置令牌"
+        />
+        <div class="forgot-hint">
+          请输入从服务器控制台获取的令牌，或访问 ?token=xxx 的重置链接
+        </div>
+        <div v-if="displayError" class="login-error">{{ displayError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isProcessing">
+          {{ isProcessing ? t('label.processing') : '验证令牌' }}
+        </button>
+        <button type="button" class="forgot-password-btn" @click="switchMode('forgot')">
+          重新输入邮箱
         </button>
       </form>
 
