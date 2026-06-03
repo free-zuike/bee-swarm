@@ -1,12 +1,15 @@
 import type { Env } from '../types';
-import { insertAuditLog, getAuditLogs, clearAuditLogs, AuditAction } from '../services/d1DataService';
+import {
+  insertAuditLog,
+  getAuditLogs,
+  clearAuditLogs,
+  AuditAction,
+} from '../services/d1DataService';
 
 /**
  * 审计日志类型
  */
-export type {
-  AuditAction
-} from '../services/d1DataService';
+export type { AuditAction } from '../services/d1DataService';
 
 /**
  * 审计日志条目
@@ -67,7 +70,7 @@ export class AuditLogger {
   ): Promise<AuditLogEntry[]> {
     const userId = options.allUsers ? null : this.userId;
     const logs = await getAuditLogs(this.env, userId, options);
-    return logs.map(log => ({
+    return logs.map((log) => ({
       id: log.id,
       userId: log.userId,
       action: log.action,

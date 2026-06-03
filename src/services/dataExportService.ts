@@ -159,12 +159,19 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   }
 
   // 导出渠道配置
-  const channelConfigs = await env.DB.prepare(
-    'SELECT * FROM channel_configs WHERE user_id = ?'
-  ).bind(userId).all<{ id: string; channel_id: string; config: string; enabled: number; created_at: string; updated_at: string }>();
-  
+  const channelConfigs = await env.DB.prepare('SELECT * FROM channel_configs WHERE user_id = ?')
+    .bind(userId)
+    .all<{
+      id: string;
+      channel_id: string;
+      config: string;
+      enabled: number;
+      created_at: string;
+      updated_at: string;
+    }>();
+
   if (channelConfigs.results?.length) {
-    result.tables.channelConfigs = channelConfigs.results.map(r => ({
+    result.tables.channelConfigs = channelConfigs.results.map((r) => ({
       id: r.id,
       channelId: r.channel_id,
       config: JSON.parse(r.config),
@@ -176,12 +183,23 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   }
 
   // 导出推送模板
-  const pushTemplates = await env.DB.prepare(
-    'SELECT * FROM push_templates WHERE user_id = ?'
-  ).bind(userId).all<{ id: string; name: string; title?: string; body?: string; url?: string; image_url?: string; markdown?: string; channels?: string; created_at: string; updated_at: string }>();
-  
+  const pushTemplates = await env.DB.prepare('SELECT * FROM push_templates WHERE user_id = ?')
+    .bind(userId)
+    .all<{
+      id: string;
+      name: string;
+      title?: string;
+      body?: string;
+      url?: string;
+      image_url?: string;
+      markdown?: string;
+      channels?: string;
+      created_at: string;
+      updated_at: string;
+    }>();
+
   if (pushTemplates.results?.length) {
-    result.tables.pushTemplates = pushTemplates.results.map(r => ({
+    result.tables.pushTemplates = pushTemplates.results.map((r) => ({
       id: r.id,
       name: r.name,
       title: r.title,
@@ -197,29 +215,29 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   }
 
   // 导出定时推送任务
-  const scheduledPushes = await env.DB.prepare(
-    'SELECT * FROM scheduled_pushes WHERE user_id = ?'
-  ).bind(userId).all<{
-    id: string;
-    template_id?: string;
-    cron?: string;
-    next_run?: number;
-    title?: string;
-    body?: string;
-    url?: string;
-    image_url?: string;
-    markdown?: string;
-    channels?: string;
-    enabled: number;
-    status?: string;
-    recurring_type?: string;
-    overdue_reminder_sent?: number;
-    created_at: string;
-    updated_at: string;
-  }>();
-  
+  const scheduledPushes = await env.DB.prepare('SELECT * FROM scheduled_pushes WHERE user_id = ?')
+    .bind(userId)
+    .all<{
+      id: string;
+      template_id?: string;
+      cron?: string;
+      next_run?: number;
+      title?: string;
+      body?: string;
+      url?: string;
+      image_url?: string;
+      markdown?: string;
+      channels?: string;
+      enabled: number;
+      status?: string;
+      recurring_type?: string;
+      overdue_reminder_sent?: number;
+      created_at: string;
+      updated_at: string;
+    }>();
+
   if (scheduledPushes.results?.length) {
-    result.tables.scheduledPushes = scheduledPushes.results.map(r => ({
+    result.tables.scheduledPushes = scheduledPushes.results.map((r) => ({
       id: r.id,
       templateId: r.template_id,
       cron: r.cron,
@@ -241,12 +259,12 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   }
 
   // 导出渠道分组
-  const channelGroups = await env.DB.prepare(
-    'SELECT * FROM channel_groups WHERE user_id = ?'
-  ).bind(userId).all<{ id: string; name: string; channels: string; created_at: string; updated_at: string }>();
-  
+  const channelGroups = await env.DB.prepare('SELECT * FROM channel_groups WHERE user_id = ?')
+    .bind(userId)
+    .all<{ id: string; name: string; channels: string; created_at: string; updated_at: string }>();
+
   if (channelGroups.results?.length) {
-    result.tables.channelGroups = channelGroups.results.map(r => ({
+    result.tables.channelGroups = channelGroups.results.map((r) => ({
       id: r.id,
       name: r.name,
       channels: JSON.parse(r.channels),
@@ -259,25 +277,27 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   // 导出推送历史（最多 1000 条）
   const pushHistory = await env.DB.prepare(
     'SELECT * FROM push_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 1000'
-  ).bind(userId).all<{
-    id: string;
-    channel_id: string;
-    channel_type?: string;
-    channel_name?: string;
-    title?: string;
-    content?: string;
-    url?: string;
-    image_url?: string;
-    markdown?: string;
-    success: number;
-    error?: string;
-    latency_ms?: number;
-    timestamp: string;
-    created_at: string;
-  }>();
-  
+  )
+    .bind(userId)
+    .all<{
+      id: string;
+      channel_id: string;
+      channel_type?: string;
+      channel_name?: string;
+      title?: string;
+      content?: string;
+      url?: string;
+      image_url?: string;
+      markdown?: string;
+      success: number;
+      error?: string;
+      latency_ms?: number;
+      timestamp: string;
+      created_at: string;
+    }>();
+
   if (pushHistory.results?.length) {
-    result.tables.pushHistory = pushHistory.results.map(r => ({
+    result.tables.pushHistory = pushHistory.results.map((r) => ({
       id: r.id,
       channelId: r.channel_id,
       channelType: r.channel_type,
@@ -299,10 +319,12 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   // 导出审计日志（最多 1000 条）
   const auditLogs = await env.DB.prepare(
     'SELECT * FROM audit_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 1000'
-  ).bind(userId).all<{ id: string; action: string; data?: string; created_at: string }>();
-  
+  )
+    .bind(userId)
+    .all<{ id: string; action: string; data?: string; created_at: string }>();
+
   if (auditLogs.results?.length) {
-    result.tables.auditLogs = auditLogs.results.map(r => ({
+    result.tables.auditLogs = auditLogs.results.map((r) => ({
       id: r.id,
       action: r.action,
       data: r.data ? JSON.parse(r.data) : undefined,
@@ -312,10 +334,18 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   }
 
   // 导出指标统计
-  const metrics = await env.DB.prepare(
-    'SELECT * FROM metrics WHERE user_id = ?'
-  ).bind(userId).first<{ total: number; success: number; failed: number; channel_stats?: string; daily_stats?: string; created_at: string; updated_at: string }>();
-  
+  const metrics = await env.DB.prepare('SELECT * FROM metrics WHERE user_id = ?')
+    .bind(userId)
+    .first<{
+      total: number;
+      success: number;
+      failed: number;
+      channel_stats?: string;
+      daily_stats?: string;
+      created_at: string;
+      updated_at: string;
+    }>();
+
   if (metrics) {
     result.tables.metrics = {
       total: metrics.total,
@@ -332,10 +362,21 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   // 导出备份端点配置（不包含敏感信息）
   const backupEndpoints = await env.DB.prepare(
     'SELECT id, name, type, enabled, schedule, retention, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
-  ).bind(userId).all<{ id: string; name: string; type: string; enabled: number; schedule?: string; retention?: number; created_at: string; updated_at: string }>();
-  
+  )
+    .bind(userId)
+    .all<{
+      id: string;
+      name: string;
+      type: string;
+      enabled: number;
+      schedule?: string;
+      retention?: number;
+      created_at: string;
+      updated_at: string;
+    }>();
+
   if (backupEndpoints.results?.length) {
-    result.tables.backupEndpoints = backupEndpoints.results.map(r => ({
+    result.tables.backupEndpoints = backupEndpoints.results.map((r) => ({
       id: r.id,
       name: r.name,
       type: r.type,
@@ -359,8 +400,8 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
  * 导入用户数据（覆盖式导入）
  */
 export async function importUserData(
-  env: Env, 
-  userId: string, 
+  env: Env,
+  userId: string,
   data: UserDataExport,
   options: {
     skipTables?: string[];
@@ -400,12 +441,22 @@ export async function importUserData(
     // 导入渠道配置
     if (!skipTables.includes('channelConfigs') && tables.channelConfigs?.length) {
       for (const item of tables.channelConfigs) {
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.channelId, JSON.stringify(item.config), item.enabled ? 1 : 0, item.createdAt, item.updatedAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.channelId,
+            JSON.stringify(item.config),
+            item.enabled ? 1 : 0,
+            item.createdAt,
+            item.updatedAt
+          )
+          .run();
       }
       imported.channelConfigs = tables.channelConfigs.length;
     }
@@ -413,13 +464,26 @@ export async function importUserData(
     // 导入推送模板
     if (!skipTables.includes('pushTemplates') && tables.pushTemplates?.length) {
       for (const item of tables.pushTemplates) {
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.name, item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null,
-          item.channels ? JSON.stringify(item.channels) : null, item.createdAt, item.updatedAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.name,
+            item.title || null,
+            item.body || null,
+            item.url || null,
+            item.imageUrl || null,
+            item.markdown || null,
+            item.channels ? JSON.stringify(item.channels) : null,
+            item.createdAt,
+            item.updatedAt
+          )
+          .run();
       }
       imported.pushTemplates = tables.pushTemplates.length;
     }
@@ -428,15 +492,32 @@ export async function importUserData(
     if (!skipTables.includes('scheduledPushes') && tables.scheduledPushes?.length) {
       for (const item of tables.scheduledPushes) {
         const nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, overdue_reminder_sent, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.templateId || null, item.cron || null, nextRun,
-          item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null,
-          item.channels ? JSON.stringify(item.channels) : null, item.enabled ? 1 : 0, item.status || 'pending',
-          item.recurringType || null, item.overdueReminderSent ? 1 : 0, item.createdAt, item.updatedAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.templateId || null,
+            item.cron || null,
+            nextRun,
+            item.title || null,
+            item.body || null,
+            item.url || null,
+            item.imageUrl || null,
+            item.markdown || null,
+            item.channels ? JSON.stringify(item.channels) : null,
+            item.enabled ? 1 : 0,
+            item.status || 'pending',
+            item.recurringType || null,
+            item.overdueReminderSent ? 1 : 0,
+            item.createdAt,
+            item.updatedAt
+          )
+          .run();
       }
       imported.scheduledPushes = tables.scheduledPushes.length;
     }
@@ -444,12 +525,21 @@ export async function importUserData(
     // 导入渠道分组
     if (!skipTables.includes('channelGroups') && tables.channelGroups?.length) {
       for (const item of tables.channelGroups) {
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO channel_groups (id, user_id, name, channels, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.name, JSON.stringify(item.channels), item.createdAt, item.updatedAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.name,
+            JSON.stringify(item.channels),
+            item.createdAt,
+            item.updatedAt
+          )
+          .run();
       }
       imported.channelGroups = tables.channelGroups.length;
     }
@@ -457,14 +547,30 @@ export async function importUserData(
     // 导入推送历史（可选，因为可能数据量很大）
     if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
       for (const item of tables.pushHistory) {
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO push_history (id, user_id, channel_id, channel_type, channel_name, title, content, url, image_url, markdown, success, error, latency_ms, timestamp, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.channelId, item.channelType || null, item.channelName || null, item.title || null,
-          item.content || null, item.url || null, item.imageUrl || null, item.markdown || null,
-          item.success ? 1 : 0, item.error || null, item.latencyMs || null, item.timestamp, item.createdAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.channelId,
+            item.channelType || null,
+            item.channelName || null,
+            item.title || null,
+            item.content || null,
+            item.url || null,
+            item.imageUrl || null,
+            item.markdown || null,
+            item.success ? 1 : 0,
+            item.error || null,
+            item.latencyMs || null,
+            item.timestamp,
+            item.createdAt
+          )
+          .run();
       }
       imported.pushHistory = tables.pushHistory.length;
     }
@@ -472,41 +578,68 @@ export async function importUserData(
     // 导入审计日志
     if (!skipTables.includes('auditLogs') && tables.auditLogs?.length) {
       for (const item of tables.auditLogs) {
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO audit_logs (id, user_id, action, data, created_at)
           VALUES (?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.action, item.data ? JSON.stringify(item.data) : null, item.createdAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.action,
+            item.data ? JSON.stringify(item.data) : null,
+            item.createdAt
+          )
+          .run();
       }
       imported.auditLogs = tables.auditLogs.length;
     }
 
     // 导入指标统计
     if (!skipTables.includes('metrics') && tables.metrics) {
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT OR REPLACE INTO metrics (id, user_id, total, success, failed, channel_stats, daily_stats, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        crypto.randomUUID(), userId, tables.metrics.total, tables.metrics.success, tables.metrics.failed,
-        tables.metrics.channelStats ? JSON.stringify(tables.metrics.channelStats) : null,
-        tables.metrics.dailyStats ? JSON.stringify(tables.metrics.dailyStats) : null,
-        tables.metrics.createdAt, tables.metrics.updatedAt
-      ).run();
+      `
+      )
+        .bind(
+          crypto.randomUUID(),
+          userId,
+          tables.metrics.total,
+          tables.metrics.success,
+          tables.metrics.failed,
+          tables.metrics.channelStats ? JSON.stringify(tables.metrics.channelStats) : null,
+          tables.metrics.dailyStats ? JSON.stringify(tables.metrics.dailyStats) : null,
+          tables.metrics.createdAt,
+          tables.metrics.updatedAt
+        )
+        .run();
       imported.metrics = 1;
     }
 
     // 导入备份端点（仅在合并模式下）
     if (!skipTables.includes('backupEndpoints') && tables.backupEndpoints?.length) {
       for (const item of tables.backupEndpoints) {
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, enabled, schedule, retention, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, userId, item.name, item.type, item.enabled ? 1 : 0,
-          item.schedule ? JSON.stringify(item.schedule) : null, item.retention || null,
-          item.createdAt, item.updatedAt
-        ).run();
+        `
+        )
+          .bind(
+            item.id,
+            userId,
+            item.name,
+            item.type,
+            item.enabled ? 1 : 0,
+            item.schedule ? JSON.stringify(item.schedule) : null,
+            item.retention || null,
+            item.createdAt,
+            item.updatedAt
+          )
+          .run();
       }
       imported.backupEndpoints = tables.backupEndpoints.length;
     }
@@ -524,7 +657,11 @@ export async function importUserData(
 /**
  * 验证备份数据完整性
  */
-export function validateBackupData(data: any): { valid: boolean; errors: string[]; warnings: string[] } {
+export function validateBackupData(data: any): {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+} {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -547,7 +684,7 @@ export function validateBackupData(data: any): { valid: boolean; errors: string[
 
     // 检查必需的表
     const tables = data.tables || {};
-    const hasData = Object.values(tables).some(v => Array.isArray(v) ? v.length > 0 : !!v);
+    const hasData = Object.values(tables).some((v) => (Array.isArray(v) ? v.length > 0 : !!v));
     if (!hasData) {
       warnings.push('No data found in backup');
     }
@@ -561,7 +698,6 @@ export function validateBackupData(data: any): { valid: boolean; errors: string[
     if (tables.auditLogs && tables.auditLogs.length > 1000) {
       warnings.push('Audit logs have more than 1000 entries, import may be slow');
     }
-
   } catch (error) {
     errors.push(`Validation error: ${(error as Error).message}`);
   }
@@ -583,7 +719,7 @@ export function computeDataHash(data: any): string {
     let hash = 0;
     for (let i = 0; i < sortedData.length; i++) {
       const char = sortedData.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // 转换为 32 位整数
     }
     return Math.abs(hash).toString(16);
@@ -612,24 +748,28 @@ export async function createBackupRecord(
     try {
       // 检查备份记录表是否存在，如果不存在则创建
       await ensureBackupRecordsTable(env);
-      
-      await env.DB.prepare(`
+
+      await env.DB.prepare(
+        `
         INSERT OR REPLACE INTO backup_records (id, user_id, endpoint_id, endpoint_name, storage_path, status, size_bytes, data_hash, error_message, table_counts, created_at, completed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        fullRecord.id,
-        fullRecord.userId,
-        fullRecord.endpointId || null,
-        fullRecord.endpointName || null,
-        fullRecord.storagePath || null,
-        fullRecord.status,
-        fullRecord.sizeBytes || null,
-        fullRecord.dataHash || null,
-        fullRecord.errorMessage || null,
-        fullRecord.tableCounts ? JSON.stringify(fullRecord.tableCounts) : null,
-        fullRecord.createdAt,
-        fullRecord.completedAt || null,
-      ).run();
+      `
+      )
+        .bind(
+          fullRecord.id,
+          fullRecord.userId,
+          fullRecord.endpointId || null,
+          fullRecord.endpointName || null,
+          fullRecord.storagePath || null,
+          fullRecord.status,
+          fullRecord.sizeBytes || null,
+          fullRecord.dataHash || null,
+          fullRecord.errorMessage || null,
+          fullRecord.tableCounts ? JSON.stringify(fullRecord.tableCounts) : null,
+          fullRecord.createdAt,
+          fullRecord.completedAt || null
+        )
+        .run();
     } catch (error) {
       console.warn('[BackupRecord] Failed to write to D1:', error);
     }
@@ -657,21 +797,25 @@ export async function updateBackupRecordStatus(
   if (env.DB) {
     try {
       await ensureBackupRecordsTable(env);
-      
-      await env.DB.prepare(`
+
+      await env.DB.prepare(
+        `
         UPDATE backup_records 
         SET status = ?, size_bytes = ?, data_hash = ?, storage_path = ?, error_message = ?, completed_at = ?
         WHERE id = ? AND user_id = ?
-      `).bind(
-        status,
-        options.sizeBytes || null,
-        options.dataHash || null,
-        options.storagePath || null,
-        options.errorMessage || null,
-        options.completedAt || new Date().toISOString(),
-        id,
-        userId,
-      ).run();
+      `
+      )
+        .bind(
+          status,
+          options.sizeBytes || null,
+          options.dataHash || null,
+          options.storagePath || null,
+          options.errorMessage || null,
+          options.completedAt || new Date().toISOString(),
+          id,
+          userId
+        )
+        .run();
     } catch (error) {
       console.warn('[BackupRecord] Failed to update status:', error);
     }
@@ -692,28 +836,32 @@ export async function getBackupRecords(
 
   try {
     await ensureBackupRecordsTable(env);
-    
-    const result = await env.DB.prepare(`
+
+    const result = await env.DB.prepare(
+      `
       SELECT * FROM backup_records 
       WHERE user_id = ? 
       ORDER BY created_at DESC 
       LIMIT ?
-    `).bind(userId, limit).all<{
-      id: string;
-      user_id: string;
-      endpoint_id?: string;
-      endpoint_name?: string;
-      storage_path?: string;
-      status: string;
-      size_bytes?: number;
-      data_hash?: string;
-      error_message?: string;
-      table_counts?: string;
-      created_at: string;
-      completed_at?: string;
-    }>();
+    `
+    )
+      .bind(userId, limit)
+      .all<{
+        id: string;
+        user_id: string;
+        endpoint_id?: string;
+        endpoint_name?: string;
+        storage_path?: string;
+        status: string;
+        size_bytes?: number;
+        data_hash?: string;
+        error_message?: string;
+        table_counts?: string;
+        created_at: string;
+        completed_at?: string;
+      }>();
 
-    return (result.results || []).map(r => ({
+    return (result.results || []).map((r) => ({
       id: r.id,
       userId: r.user_id,
       endpointId: r.endpoint_id,
@@ -736,22 +884,22 @@ export async function getBackupRecords(
 /**
  * 删除备份记录
  */
-export async function deleteBackupRecord(
-  env: Env,
-  id: string,
-  userId: string
-): Promise<boolean> {
+export async function deleteBackupRecord(env: Env, id: string, userId: string): Promise<boolean> {
   if (!env.DB) {
     return false;
   }
 
   try {
     await ensureBackupRecordsTable(env);
-    
-    const result = await env.DB.prepare(`
+
+    const result = await env.DB.prepare(
+      `
       DELETE FROM backup_records 
       WHERE id = ? AND user_id = ?
-    `).bind(id, userId).run();
+    `
+    )
+      .bind(id, userId)
+      .run();
 
     return (result.meta?.changes || 0) > 0;
   } catch (error) {
@@ -765,7 +913,8 @@ export async function deleteBackupRecord(
  */
 async function ensureBackupRecordsTable(env: Env): Promise<void> {
   try {
-    await env.DB.prepare(`
+    await env.DB.prepare(
+      `
       CREATE TABLE IF NOT EXISTS backup_records (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -780,17 +929,21 @@ async function ensureBackupRecordsTable(env: Env): Promise<void> {
         created_at TEXT NOT NULL,
         completed_at TEXT
       )
-    `).run();
+    `
+    ).run();
 
-    await env.DB.prepare(`
+    await env.DB.prepare(
+      `
       CREATE INDEX IF NOT EXISTS idx_backup_records_user ON backup_records(user_id)
-    `).run();
+    `
+    ).run();
 
-    await env.DB.prepare(`
+    await env.DB.prepare(
+      `
       CREATE INDEX IF NOT EXISTS idx_backup_records_created ON backup_records(created_at)
-    `).run();
+    `
+    ).run();
   } catch (error) {
     // 表可能已经存在，忽略错误
   }
 }
-

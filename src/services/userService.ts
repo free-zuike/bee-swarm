@@ -37,45 +37,45 @@ export class UserService {
   /** 通过邮箱查找用户 */
   async findByEmail(email: string): Promise<User | null> {
     this.checkDB();
-    const result = await this.env.DB.prepare(
-      'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    const result = await this.env.DB.prepare('SELECT * FROM users WHERE email = ?')
+      .bind(email)
+      .first<User>();
     return result || null;
   }
 
   /** 通过ID查找用户 */
   async findById(id: string): Promise<User | null> {
     this.checkDB();
-    const result = await this.env.DB.prepare(
-      'SELECT * FROM users WHERE id = ?'
-    ).bind(id).first<User>();
+    const result = await this.env.DB.prepare('SELECT * FROM users WHERE id = ?')
+      .bind(id)
+      .first<User>();
     return result || null;
   }
 
   /** 通过Token查找用户 */
   async findByToken(token: string): Promise<User | null> {
     this.checkDB();
-    const result = await this.env.DB.prepare(
-      'SELECT * FROM users WHERE token = ?'
-    ).bind(token).first<User>();
+    const result = await this.env.DB.prepare('SELECT * FROM users WHERE token = ?')
+      .bind(token)
+      .first<User>();
     return result || null;
   }
 
   /** 通过RefreshToken查找用户 */
   async findByRefreshToken(refreshToken: string): Promise<User | null> {
     this.checkDB();
-    const result = await this.env.DB.prepare(
-      'SELECT * FROM users WHERE refresh_token = ?'
-    ).bind(refreshToken).first<User>();
+    const result = await this.env.DB.prepare('SELECT * FROM users WHERE refresh_token = ?')
+      .bind(refreshToken)
+      .first<User>();
     return result || null;
   }
 
   /** 通过API Key查找用户 */
   async findByApiKey(apikey: string): Promise<User | null> {
     this.checkDB();
-    const result = await this.env.DB.prepare(
-      'SELECT * FROM users WHERE apikey = ?'
-    ).bind(apikey).first<User>();
+    const result = await this.env.DB.prepare('SELECT * FROM users WHERE apikey = ?')
+      .bind(apikey)
+      .first<User>();
     return result || null;
   }
 
@@ -87,7 +87,9 @@ export class UserService {
 
     await this.env.DB.prepare(
       'INSERT INTO users (id, email, password, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(id, email, hashedPassword, role, now, now).run();
+    )
+      .bind(id, email, hashedPassword, role, now, now)
+      .run();
 
     const user = await this.findById(id);
     if (!user) {
@@ -97,7 +99,10 @@ export class UserService {
   }
 
   /** 更新用户 */
-  async updateUser(id: string, updates: Partial<Omit<User, 'id' | 'email' | 'created_at'>>): Promise<User | null> {
+  async updateUser(
+    id: string,
+    updates: Partial<Omit<User, 'id' | 'email' | 'created_at'>>
+  ): Promise<User | null> {
     this.checkDB();
     const now = new Date().toISOString();
     const fields = Object.keys(updates);
@@ -105,12 +110,12 @@ export class UserService {
       return this.findById(id);
     }
 
-    const setClause = fields.map(f => `${f} = ?`).join(', ');
+    const setClause = fields.map((f) => `${f} = ?`).join(', ');
     const values = [...Object.values(updates), now, id];
 
-    await this.env.DB.prepare(
-      `UPDATE users SET ${setClause}, updated_at = ? WHERE id = ?`
-    ).bind(...values).run();
+    await this.env.DB.prepare(`UPDATE users SET ${setClause}, updated_at = ? WHERE id = ?`)
+      .bind(...values)
+      .run();
 
     return this.findById(id);
   }
@@ -118,9 +123,7 @@ export class UserService {
   /** 删除用户（慎用） */
   async deleteUser(id: string): Promise<boolean> {
     this.checkDB();
-    const result = await this.env.DB.prepare(
-      'DELETE FROM users WHERE id = ?'
-    ).bind(id).run();
+    const result = await this.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
     return result.success && (result.meta?.changes || 0) > 0;
   }
 }

@@ -105,7 +105,7 @@ const initCharts = () => {
     successRateChart = echarts.init(successRateRef.value);
     updateSuccessRateChart();
   }
-  
+
   if (latencyRef.value) {
     latencyChart = echarts.init(latencyRef.value);
     updateLatencyChart();
@@ -114,10 +114,10 @@ const initCharts = () => {
 
 const updateSuccessRateChart = () => {
   if (!successRateChart) return;
-  
+
   const isDark = themeStore.isDark;
   const value = props.metrics.successRate;
-  
+
   const option: echarts.EChartsOption = {
     series: [
       {
@@ -162,21 +162,21 @@ const updateSuccessRateChart = () => {
       },
     ],
   };
-  
+
   successRateChart.setOption(option);
 };
 
 const updateLatencyChart = () => {
   if (!latencyChart) return;
-  
+
   const isDark = themeStore.isDark;
   const latency = props.metrics.avgLatency;
   const maxLatency = 5000;
-  
+
   let color = '#52c41a';
   if (latency > 500) color = '#faad14';
   if (latency > 2000) color = '#ff4d4f';
-  
+
   const option: echarts.EChartsOption = {
     series: [
       {
@@ -211,7 +211,7 @@ const updateLatencyChart = () => {
       },
     ],
   };
-  
+
   latencyChart.setOption(option);
 };
 
@@ -223,7 +223,7 @@ const handleResize = () => {
 onMounted(() => {
   initCharts();
   window.addEventListener('resize', handleResize);
-  
+
   watch(
     () => themeStore.isDark,
     () => {

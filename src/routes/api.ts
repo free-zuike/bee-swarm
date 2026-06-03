@@ -58,10 +58,12 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   }
 
   // 混合模式：第一个用户或指定邮箱自动成为管理员
-  const userCountResult = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+  const userCountResult = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{
+    count: number;
+  }>();
   const isFirstUser = !userCountResult || userCountResult.count === 0;
   const isAdminEmail = c.env.ADMIN_EMAIL && email.toLowerCase() === c.env.ADMIN_EMAIL.toLowerCase();
-  
+
   const role = isFirstUser || isAdminEmail ? 'admin' : 'user';
 
   const hashed = await hashPassword(password);
@@ -198,7 +200,7 @@ api.post('/token', validateBody(schemas.token), async (c) => {
     token,
     token_expires_at: expiresAt,
     refresh_token: refreshToken,
-    refresh_token_expires_at: refreshExpiresAt
+    refresh_token_expires_at: refreshExpiresAt,
   });
 
   return c.json({ token, refreshToken, expiresAt });
@@ -232,7 +234,7 @@ api.post('/refresh', validateBody(schemas.refresh), async (c) => {
     token,
     token_expires_at: expiresAt,
     refresh_token: newRefreshToken,
-    refresh_token_expires_at: newRefreshExpiresAt
+    refresh_token_expires_at: newRefreshExpiresAt,
   });
 
   return c.json({ token, refreshToken: newRefreshToken, expiresAt });
@@ -247,7 +249,7 @@ adminApi.use('/*', authMiddleware);
 
 adminApi.get('/channels', async (c) => {
   const username = c.get('username');
-  
+
   try {
     const settings = await loadUserChannelSettings(username, c.env);
     const channels = getChannelConfigs(settings);
@@ -316,18 +318,21 @@ adminApi.put('/channels/:id', async (c) => {
 adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const username = c.get('username');
   const body = (c as ValidatedContext).validatedBody as PushRequest & { async?: boolean };
-  
+
   // 检查是否使用队列异步推送
   const useQueue = body.async === true;
-  
+
   if (useQueue) {
     const queueService = new QueueService(c.env);
     if (!queueService.isAvailable()) {
-      return c.json({
-        success: false,
-        message: '队列服务不可用，请使用同步模式或配置队列',
-        code: 'QUEUE_NOT_AVAILABLE'
-      }, 503);
+      return c.json(
+        {
+          success: false,
+          message: '队列服务不可用，请使用同步模式或配置队列',
+          code: 'QUEUE_NOT_AVAILABLE',
+        },
+        503
+      );
     }
 
     const requestId = crypto.randomUUID();
@@ -398,7 +403,7 @@ adminApi.get('/history', async (c) => {
   const channel = c.req.query('channel');
   const status = c.req.query('status');
   const keyword = c.req.query('keyword');
-  
+
   try {
     const result = await getPushHistory(username, c.env, {
       page,
@@ -476,21 +481,35 @@ adminApi.get('/users', async (c) => {
   if (guard) return guard;
 
   const svc = new UserService(env);
-  let users: Array<{ id: string; email: string; role: string | null; disabled: number | null; disabled_reason: string | null; created_at: string }> = [];
-  
+  let users: Array<{
+    id: string;
+    email: string;
+    role: string | null;
+    disabled: number | null;
+    disabled_reason: string | null;
+    created_at: string;
+  }> = [];
+
   try {
     const result = await svc['env'].DB.prepare(
       'SELECT id, email, role, disabled, disabled_reason, created_at FROM users ORDER BY created_at ASC'
-    ).all<{ id: string; email: string; role: string | null; disabled: number | null; disabled_reason: string | null; created_at: string }>();
+    ).all<{
+      id: string;
+      email: string;
+      role: string | null;
+      disabled: number | null;
+      disabled_reason: string | null;
+      created_at: string;
+    }>();
     users = result.results || [];
   } catch {
     const result = await svc['env'].DB.prepare(
       'SELECT id, email, role, created_at FROM users ORDER BY created_at ASC'
     ).all<{ id: string; email: string; role: string | null; created_at: string }>();
-    users = (result.results || []).map(u => ({
+    users = (result.results || []).map((u) => ({
       ...u,
       disabled: 0,
-      disabled_reason: ''
+      disabled_reason: '',
     }));
   }
 
@@ -528,7 +547,7 @@ adminApi.put('/me/avatar', async (c) => {
   }
 
   const body = await c.req.json<{ avatar_url?: string; use_avatar_as_popup?: number }>();
-  
+
   const updates: Record<string, unknown> = {};
   if (body.avatar_url !== undefined) {
     updates.avatar_url = body.avatar_url;
@@ -560,7 +579,7 @@ adminApi.get('/me/avatar/status', async (c) => {
   const username = c.get('username');
   try {
     const endpoints = await getBackupEndpoints(env, username);
-    const r2Endpoint = endpoints.find(e => e.type === 'r2' && e.r2_domain);
+    const r2Endpoint = endpoints.find((e) => e.type === 'r2' && e.r2_domain);
     const hasUserR2 = !!r2Endpoint;
     return c.json({
       success: true,
@@ -591,7 +610,7 @@ adminApi.post('/me/avatar/upload', async (c) => {
   try {
     const formData = await c.req.formData();
     const file = formData.get('avatar') as File | null;
-    
+
     if (!file) {
       return c.json({ error: '请选择要上传的文件', code: 'VALIDATION_ERROR' }, 400);
     }
@@ -610,15 +629,15 @@ adminApi.post('/me/avatar/upload', async (c) => {
 
     // 检查用户是否配置了 R2 备份端点（有 r2_domain 配置的）
     const endpoints = await getBackupEndpoints(env, username);
-    const r2Endpoint = endpoints.find(e => e.type === 'r2' && e.r2_domain);
-    
+    const r2Endpoint = endpoints.find((e) => e.type === 'r2' && e.r2_domain);
+
     if (r2Endpoint && env.BUCKET) {
       // 有 R2 备份端点配置，上传到 R2
       const ext = file.name.split('.').pop() || 'jpg';
       const fileName = `avatars/${user.id}-${Date.now()}.${ext}`;
-      
+
       const bytes = await file.arrayBuffer();
-      
+
       await env.BUCKET.put(fileName, bytes, {
         httpMetadata: {
           contentType: file.type,
@@ -628,7 +647,7 @@ adminApi.post('/me/avatar/upload', async (c) => {
           uploadedAt: new Date().toISOString(),
         },
       });
-      
+
       avatarUrl = `https://${r2Endpoint.r2_domain}/${fileName}`;
     } else {
       // 没有 R2 备份端点，使用 base64 存储
@@ -648,11 +667,14 @@ adminApi.post('/me/avatar/upload', async (c) => {
   } catch (err: unknown) {
     console.error('Avatar upload error:', err);
     const errorMessage = err instanceof Error ? err.message : '未知错误';
-    return c.json({ 
-      error: '上传失败', 
-      code: 'UPLOAD_ERROR',
-      details: errorMessage 
-    }, 500);
+    return c.json(
+      {
+        error: '上传失败',
+        code: 'UPLOAD_ERROR',
+        details: errorMessage,
+      },
+      500
+    );
   }
 });
 
@@ -766,7 +788,7 @@ adminApi.post('/users/:id/disable', async (c) => {
   }
 
   const reason = body.reason || '';
-  
+
   try {
     await svc.updateUser(userId, {
       disabled: 1,
@@ -1045,7 +1067,7 @@ adminApi.post('/history/batch-delete-filter', async (c) => {
 /** 获取所有模板 */
 adminApi.get('/templates', async (c) => {
   const username = c.get('username');
-  
+
   try {
     const pushService = new PushService(c.env, username);
     const templates = await pushService.getTemplates();
@@ -1227,7 +1249,7 @@ adminApi.get('/templates/:id/variables', async (c) => {
 /** 获取所有分组 */
 adminApi.get('/groups', async (c) => {
   const username = c.get('username');
-  
+
   try {
     const pushService = new PushService(c.env, username);
     const groups = await pushService.getChannelGroups();
@@ -1570,7 +1592,7 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
 /** 获取推送统计 */
 adminApi.get('/stats', async (c) => {
   const username = c.get('username');
-  
+
   try {
     const pushService = new PushService(c.env, username);
     const stats = await pushService.getPushStats();

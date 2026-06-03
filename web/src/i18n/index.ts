@@ -357,7 +357,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.avatar_deleted': '头像已删除',
     'msg.avatar_upload_failed': '头像上传失败，请重试',
     'msg.r2_not_configured': 'R2 存储未配置',
-    'msg.r2_avatar_tip': '您可以通过输入头像 URL 来设置头像，或联系管理员配置 R2 存储以启用文件上传功能',
+    'msg.r2_avatar_tip':
+      '您可以通过输入头像 URL 来设置头像，或联系管理员配置 R2 存储以启用文件上传功能',
     'msg.batch_delete_success': '成功删除 {count} 个备份',
     'msg.batch_delete_partial': '删除完成：{success} 成功，{failed} 失败',
     'msg.test_failed': '测试失败',
@@ -843,14 +844,16 @@ const messages: Record<Locale, LocaleMessages> = {
     'users.disableUserConfirm': 'Are you sure you want to disable user {email}?',
     'users.disableReason': 'Disable Reason',
     'users.deleteUser': 'Delete User',
-    'users.deleteUserConfirm': 'Are you sure you want to delete user {email}? This action cannot be undone.',
+    'users.deleteUserConfirm':
+      'Are you sure you want to delete user {email}? This action cannot be undone.',
     'audit.title': 'Audit Log',
     'audit.action': 'Action',
     'audit.startDate': 'Start Date',
     'audit.endDate': 'End Date',
     'audit.clearAll': 'Clear All',
     'audit.clearAllConfirm': 'Clear All Audit Logs',
-    'audit.clearAllWarning': 'Are you sure you want to clear all audit logs? This action cannot be undone.',
+    'audit.clearAllWarning':
+      'Are you sure you want to clear all audit logs? This action cannot be undone.',
     'audit.empty': 'No audit logs yet',
     'audit.login': 'Login',
     'audit.register': 'Register',
@@ -973,7 +976,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.r2_path_desc': 'Path prefix in R2 bucket, defaults to backups',
     'label.r2_public_domain': 'R2 Public Domain',
     'placeholder.r2_public_domain': 'e.g., pub-xxx.r2.dev',
-    'hint.r2_public_domain_desc': 'Public domain for avatars and other public resources, leave empty for default',
+    'hint.r2_public_domain_desc':
+      'Public domain for avatars and other public resources, leave empty for default',
     'msg.too_many_requests': 'Too many requests (429), please try again later',
     'msg.connection_failed': 'Connection failed ({status})',
     'msg.unsupported_backup_type': 'Unsupported backup type',
@@ -988,7 +992,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.avatar_deleted': 'Avatar deleted',
     'msg.avatar_upload_failed': 'Avatar upload failed, please retry',
     'msg.r2_not_configured': 'R2 storage not configured',
-    'msg.r2_avatar_tip': 'You can set your avatar by entering an avatar URL, or contact admin to configure R2 storage for file upload feature',
+    'msg.r2_avatar_tip':
+      'You can set your avatar by entering an avatar URL, or contact admin to configure R2 storage for file upload feature',
     'msg.batch_delete_success': 'Successfully deleted {count} backup(s)',
     'msg.batch_delete_partial': 'Delete complete: {success} success, {failed} failed',
     'msg.test_failed': 'Test failed',

@@ -36,7 +36,7 @@ export class LazyLoader {
     }
 
     const images = document.querySelectorAll('img[data-src]');
-    
+
     this.observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -68,7 +68,7 @@ export class LazyLoader {
     if (!src) return;
 
     const tempImg = new Image();
-    
+
     tempImg.onload = () => {
       img.src = src;
       img.classList.remove(this.options.loadingClass);
@@ -154,9 +154,9 @@ export function debounce<T extends (...args: any[]) => any>(
 
   return function (this: any, ...args: Parameters<T>) {
     const context = this;
-    
+
     if (timeout) clearTimeout(timeout);
-    
+
     timeout = setTimeout(() => {
       func.apply(context, args);
     }, wait);
@@ -174,7 +174,7 @@ export function throttle<T extends (...args: any[]) => any>(
 
   return function (this: any, ...args: Parameters<T>) {
     const context = this;
-    
+
     if (!inThrottle) {
       func.apply(context, args);
       inThrottle = true;
@@ -214,7 +214,7 @@ export class PerformanceMonitor {
       } else if (startMark) {
         performance.measure(name, startMark);
       }
-      
+
       const entries = performance.getEntriesByName(name);
       if (entries.length > 0) {
         const duration = entries[entries.length - 1].duration;
@@ -224,7 +224,7 @@ export class PerformanceMonitor {
     } catch (error) {
       console.error('Performance measure error:', error);
     }
-    
+
     return 0;
   }
 
@@ -275,7 +275,7 @@ export class PerformanceMonitor {
    */
   report(endpoint?: string): void {
     const metrics = this.getMetrics();
-    
+
     if (endpoint) {
       fetch(endpoint, {
         method: 'POST',
@@ -542,7 +542,7 @@ export class PWAInstallPrompt {
     try {
       await this.deferredPrompt.prompt();
       const { outcome } = await this.deferredPrompt.userChoice;
-      
+
       if (outcome === 'accepted') {
         console.log('User accepted the install prompt');
       } else {

@@ -33,20 +33,12 @@
         <div class="charts-row">
           <div class="section chart-section">
             <h3>{{ t('dashboard.recentActivity') }}</h3>
-            <PushTrendChart 
-              :data="trendChartData" 
-              :title="''"
-              height="350px"
-            />
+            <PushTrendChart :data="trendChartData" :title="''" height="350px" />
           </div>
 
           <div class="section chart-section">
             <h3>{{ t('label.success_rate') }}</h3>
-            <SuccessRateChart 
-              :data="successRateChartData"
-              :title="''"
-              height="350px"
-            />
+            <SuccessRateChart :data="successRateChartData" :title="''" height="350px" />
           </div>
         </div>
 
@@ -56,11 +48,7 @@
             class="section chart-section"
           >
             <h3>{{ t('label.channel_ratio') }}</h3>
-            <ChannelDistributionChart 
-              :data="channelChartData"
-              :title="''"
-              height="350px"
-            />
+            <ChannelDistributionChart :data="channelChartData" :title="''" height="350px" />
           </div>
 
           <div
@@ -68,11 +56,7 @@
             class="section chart-section"
           >
             <h3>{{ t('label.latency_distribution') }}</h3>
-            <LatencyDistributionChart 
-              :data="latencyChartData"
-              :title="''"
-              height="350px"
-            />
+            <LatencyDistributionChart :data="latencyChartData" :title="''" height="350px" />
           </div>
         </div>
 
@@ -193,8 +177,9 @@ function getChannelName(channelId: string): string {
 
 const performanceMetrics = computed(() => {
   const total = stats.value.session.total;
-  const successRate = total > 0 ? Number(((stats.value.session.success / total) * 100).toFixed(1)) : 0;
-  
+  const successRate =
+    total > 0 ? Number(((stats.value.session.success / total) * 100).toFixed(1)) : 0;
+
   let totalLatency = 0;
   let channelCount = 0;
   Object.values(stats.value.channelUsage).forEach((data) => {
@@ -202,7 +187,7 @@ const performanceMetrics = computed(() => {
     channelCount += data.count;
   });
   const avgLatency = channelCount > 0 ? Math.round(totalLatency / channelCount) : 0;
-  
+
   return {
     successRate,
     avgLatency,
@@ -247,7 +232,7 @@ const latencyChartData = computed(() => {
 async function loadData() {
   loading.value = true;
   error.value = '';
-  
+
   try {
     const response = await getPushStats(props.accessToken, parseInt(timeRange.value));
     if (response.success && response.data) {
@@ -288,9 +273,12 @@ onUnmounted(() => {
   stopAutoRefresh();
 });
 
-watch(() => props.accessToken, () => {
-  loadData();
-});
+watch(
+  () => props.accessToken,
+  () => {
+    loadData();
+  }
+);
 </script>
 
 <style scoped>
@@ -531,17 +519,17 @@ watch(() => props.accessToken, () => {
   .stats-dashboard {
     padding: 8px;
   }
-  
+
   .panel-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .charts-row {
     grid-template-columns: 1fr;
   }
-  
+
   .channel-stats-grid {
     grid-template-columns: 1fr;
   }

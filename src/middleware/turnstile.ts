@@ -43,7 +43,7 @@ async function verifyTurnstile(
   const formData = new FormData();
   formData.append('secret', secretKey);
   formData.append('response', token);
-  
+
   if (remoteIp) {
     formData.append('remoteip', remoteIp);
   }
@@ -80,7 +80,7 @@ export function turnstileMiddleware(options?: TurnstileOptions) {
     }
 
     let token: string | undefined;
-    
+
     // 尝试从请求体获取
     if (c.req.header('Content-Type')?.includes('application/json')) {
       try {
@@ -90,12 +90,14 @@ export function turnstileMiddleware(options?: TurnstileOptions) {
         // JSON 解析失败，继续检查
       }
     }
-    
+
     // 尝试从 FormData 获取
     if (!token) {
       try {
         const formData = await c.req.formData();
-        token = (formData.get('turnstileToken') || formData.get('cf-turnstile-response')) as string | undefined;
+        token = (formData.get('turnstileToken') || formData.get('cf-turnstile-response')) as
+          | string
+          | undefined;
       } catch {
         // FormData 解析失败
       }
@@ -108,26 +110,32 @@ export function turnstileMiddleware(options?: TurnstileOptions) {
 
     // 没有提供 Token
     if (!token) {
-      return c.json({
-        error: config.errorMessage,
-        code: 'MISSING_TURNSTILE_TOKEN',
-        needsVerification: true,
-      }, 400);
+      return c.json(
+        {
+          error: config.errorMessage,
+          code: 'MISSING_TURNSTILE_TOKEN',
+          needsVerification: true,
+        },
+        400
+      );
     }
 
     // 获取客户端 IP
     const clientIp = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
-    
+
     // 验证 Token
     const result = await verifyTurnstile(token, c.env.TURNSTILE_SECRET_KEY, clientIp);
-    
+
     if (!result.success) {
       console.warn('[Turnstile] Verification failed:', result['error-codes']);
-      return c.json({
-        error: config.errorMessage,
-        code: 'INVALID_TURNSTILE_TOKEN',
-        needsVerification: true,
-      }, 400);
+      return c.json(
+        {
+          error: config.errorMessage,
+          code: 'INVALID_TURNSTILE_TOKEN',
+          needsVerification: true,
+        },
+        400
+      );
     }
 
     // 验证成功，继续
@@ -152,7 +160,7 @@ export function optionalTurnstile(options?: TurnstileOptions) {
     }
 
     let token: string | undefined;
-    
+
     // 尝试获取 Token（同上）
     if (c.req.header('Content-Type')?.includes('application/json')) {
       try {
@@ -160,14 +168,16 @@ export function optionalTurnstile(options?: TurnstileOptions) {
         token = body.turnstileToken || body.cfTurnstileResponse;
       } catch {}
     }
-    
+
     if (!token) {
       try {
         const formData = await c.req.formData();
-        token = (formData.get('turnstileToken') || formData.get('cf-turnstile-response')) as string | undefined;
+        token = (formData.get('turnstileToken') || formData.get('cf-turnstile-response')) as
+          | string
+          | undefined;
       } catch {}
     }
-    
+
     if (!token) {
       token = c.req.header('X-Turnstile-Token') || c.req.header('Cf-Turnstile-Response');
     }
@@ -176,14 +186,17 @@ export function optionalTurnstile(options?: TurnstileOptions) {
     if (token) {
       const clientIp = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
       const result = await verifyTurnstile(token, c.env.TURNSTILE_SECRET_KEY, clientIp);
-      
+
       if (!result.success) {
         console.warn('[Turnstile] Optional verification failed:', result['error-codes']);
-        return c.json({
-          error: '验证失败，请重试',
-          code: 'INVALID_TURNSTILE_TOKEN',
-          needsVerification: true,
-        }, 400);
+        return c.json(
+          {
+            error: '验证失败，请重试',
+            code: 'INVALID_TURNSTILE_TOKEN',
+            needsVerification: true,
+          },
+          400
+        );
       }
     }
 

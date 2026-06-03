@@ -167,10 +167,7 @@ export class TemplateEngine {
   /**
    * 分析模板变量
    */
-  analyzeTemplate(template: {
-    title: string;
-    content: string;
-  }): {
+  analyzeTemplate(template: { title: string; content: string }): {
     variables: string[];
     variableMeta: TemplateVariable[];
     usedPredefined: string[];
@@ -306,7 +303,9 @@ export class TemplateEngine {
       title: this.replaceVariables(template.title, variables, true),
       content: this.replaceVariables(template.content, variables, true),
       url: template.url ? this.replaceVariables(template.url, variables, true) : undefined,
-      imageUrl: template.imageUrl ? this.replaceVariables(template.imageUrl, variables, true) : undefined,
+      imageUrl: template.imageUrl
+        ? this.replaceVariables(template.imageUrl, variables, true)
+        : undefined,
       variables: stringVariables,
     };
   }
@@ -358,10 +357,7 @@ export function getDefaultCategories(): TemplateCategory[] {
   return [...PREDEFINED_CATEGORIES];
 }
 
-export function getDefaultVariableTemplates(): Record<
-  string,
-  { title: string; content: string }
-> {
+export function getDefaultVariableTemplates(): Record<string, { title: string; content: string }> {
   return {
     alert: {
       title: '⚠️ 系统告警 - {{datetime}}',

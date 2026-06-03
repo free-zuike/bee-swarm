@@ -3,7 +3,8 @@
 // ============================================
 import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
-import { convertTimezone } from '../utils/timezone';
+import { encryptData, decryptData, generateSecureFilename } from '../utils/crypto';
+import { UserService } from './userService';
 import { R2StorageService } from './r2StorageService';
 import { 
   exportUserData, 
@@ -13,8 +14,7 @@ import {
   createBackupRecord,
   updateBackupRecordStatus,
   getBackupRecords,
-  deleteBackupRecord,
-  type UserDataExport
+  deleteBackupRecord
 } from './dataExportService';
 
 // 备份端类型
@@ -88,11 +88,13 @@ export interface BackupResult {
 // 获取用户的所有备份端
 export async function getBackupEndpoints(env: Env, username: string): Promise<BackupEndpoint[]> {
   if (!env.DB) return [];
-  
+
   try {
     const result = await env.DB.prepare(
       'SELECT * FROM backup_endpoints WHERE user_id = ? ORDER BY created_at DESC'
-    ).bind(username).all<any>();
+    )
+      .bind(username)
+      .all<any>();
 
     return (result.results || []).map((row: any) => ({
       id: row.id,
@@ -101,7 +103,9 @@ export async function getBackupEndpoints(env: Env, username: string): Promise<Ba
       enabled: row.enabled === 1,
       config: JSON.parse(row.config || '{}'),
       r2_domain: row.r2_domain,
-      schedule: row.schedule ? JSON.parse(row.schedule) : { enabled: false, interval: 24, startTime: '02:00' },
+      schedule: row.schedule
+        ? JSON.parse(row.schedule)
+        : { enabled: false, interval: 24, startTime: '02:00' },
       retention: row.retention || 30,
       lastBackup: row.last_backup ? JSON.parse(row.last_backup) : undefined,
     }));
@@ -118,31 +122,31 @@ export async function saveBackupEndpoints(
   endpoints: BackupEndpoint[]
 ): Promise<void> {
   if (!env.DB) return;
-  
+
   // 确保用户存在，这里如果失败会抛出错误，阻止后续操作
   await ensureUserExists(env, username);
-  
+
   try {
     // 在一个事务中删除并重新插入
-    const stmt = env.DB.prepare(
-      'DELETE FROM backup_endpoints WHERE user_id = ?'
-    ).bind(username);
-    
+    const stmt = env.DB.prepare('DELETE FROM backup_endpoints WHERE user_id = ?').bind(username);
+
     await stmt.run();
-    
+
     for (const endpoint of endpoints) {
       await saveSingleEndpoint(env, username, endpoint);
     }
   } catch (e) {
     const error = e as Error;
     console.error('[Backup] 保存备份端点失败:', error);
-    
+
     // 如果是外键约束失败，说明用户记录可能在检查后被删除了
-    if (error.message.includes('FOREIGN KEY constraint failed') || 
-        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
+    if (
+      error.message.includes('FOREIGN KEY constraint failed') ||
+      error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')
+    ) {
       throw new Error(`保存备份端点失败：用户记录不存在或已被删除。请重新登录后重试。`);
     }
-    
+
     throw error;
   }
 }
@@ -154,11 +158,13 @@ async function saveSingleEndpoint(
   endpoint: BackupEndpoint
 ): Promise<void> {
   const now = new Date().toISOString();
-  
-  const stmt = env.DB.prepare(`
+
+  const stmt = env.DB.prepare(
+    `
     INSERT INTO backup_endpoints (id, user_id, name, type, config, r2_domain, enabled, schedule, retention, last_backup, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
+  `
+  ).bind(
     endpoint.id,
     username,
     endpoint.name || '默认备份',
@@ -172,43 +178,49 @@ async function saveSingleEndpoint(
     now,
     now
   );
-  
+
   await stmt.run();
 }
 
 // 确保用户存在于数据库中
 async function ensureUserExists(env: Env, username: string): Promise<void> {
   if (!env.DB) return;
-  
+
   try {
     // 先检查用户是否存在
-    const check = await env.DB.prepare(
-      'SELECT id FROM users WHERE email = ?'
-    ).bind(username).first<any>();
-    
+    const check = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind(username)
+      .first<any>();
+
     if (check) {
       // 用户已存在，直接返回
       return;
     }
-    
+
     // 用户不存在，创建
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await env.DB.prepare(`
+    await env.DB.prepare(
+      `
       INSERT INTO users (id, email, password, created_at, updated_at, role, disabled)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, username, 'placeholder', now, now, 'user', 0).run();
-    
+    `
+    )
+      .bind(id, username, 'placeholder', now, now, 'user', 0)
+      .run();
+
     console.log('[Backup] 用户不存在，已自动创建:', username);
   } catch (e) {
     const error = e as Error;
     // 唯一约束冲突（用户已存在）是预期情况，忽略
-    if (error.message.includes('UNIQUE constraint failed') || 
-        error.message.includes('SQLITE_CONSTRAINT_UNIQUE')) {
+    if (
+      error.message.includes('UNIQUE constraint failed') ||
+      error.message.includes('SQLITE_CONSTRAINT_UNIQUE')
+    ) {
       console.log('[Backup] 用户已存在，跳过创建:', username);
       return;
     }
-    
+
     // 其他错误，比如外键约束、数据库连接问题等，需要抛出
     console.error('[Backup] 创建用户失败:', error);
     throw new Error(`无法确保用户存在: ${error.message}`);
@@ -232,27 +244,29 @@ export async function saveBackupEndpoint(
   endpoint: BackupEndpoint
 ): Promise<void> {
   if (!env.DB) return;
-  
+
   // 确保用户存在，这里如果失败会抛出错误，阻止后续操作
   await ensureUserExists(env, username);
-  
+
   try {
     // 先删除旧的，再插入新的
-    await env.DB.prepare(
-      'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
-    ).bind(endpoint.id, username).run();
-    
+    await env.DB.prepare('DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?')
+      .bind(endpoint.id, username)
+      .run();
+
     await saveSingleEndpoint(env, username, endpoint);
   } catch (e) {
     const error = e as Error;
     console.error('[Backup] 添加或更新备份端点失败:', error);
-    
+
     // 如果是外键约束失败，说明用户记录可能在检查后被删除了
-    if (error.message.includes('FOREIGN KEY constraint failed') || 
-        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
+    if (
+      error.message.includes('FOREIGN KEY constraint failed') ||
+      error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')
+    ) {
       throw new Error(`保存备份端点失败：用户记录不存在或已被删除。请重新登录后重试。`);
     }
-    
+
     throw error;
   }
 }
@@ -264,11 +278,11 @@ export async function deleteBackupEndpoint(
   endpointId: string
 ): Promise<boolean> {
   if (!env.DB) return false;
-  
-  const result = await env.DB.prepare(
-    'DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?'
-  ).bind(endpointId, username).run();
-  
+
+  const result = await env.DB.prepare('DELETE FROM backup_endpoints WHERE id = ? AND user_id = ?')
+    .bind(endpointId, username)
+    .run();
+
   return result.success && (result.meta?.changes || 0) > 0;
 }
 
@@ -292,10 +306,27 @@ export async function uploadBackupToEndpoint(
       status: 'pending',
     });
 
+    // 获取用户信息用于加密
+    const userService = new UserService(env);
+    const user = await userService.findByEmail(username);
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not found',
+        endpointId: endpoint.id,
+      };
+    }
+
     // 导出用户数据（如果没有提供数据）
-    const backupData = data || await exportUserData(env, username);
-    const filename = `backup-${Date.now()}.json`;
-    const jsonContent = JSON.stringify(backupData, null, 2);
+    const backupData = data || (await exportUserData(env, username));
+    const filename = generateSecureFilename(); // 使用安全的随机文件名
+    let jsonContent = JSON.stringify(backupData, null, 2);
+
+    // 加密备份内容
+    const encryptionSecret = user.password; // 使用用户密码哈希作为密钥材料
+    const encryptionSalt = user.id; // 使用用户ID作为盐
+    jsonContent = await encryptData(jsonContent, encryptionSecret, encryptionSalt);
+
     const dataHash = computeDataHash(backupData);
 
     // 更新备份记录为进行中
@@ -353,8 +384,12 @@ export async function uploadBackupToEndpoint(
       try {
         await webdavRequest('MKCOL', `${config.url.replace(/\/$/, '')}/${root}/`, config);
         await webdavRequest('MKCOL', `${config.url.replace(/\/$/, '')}/${root}/backups/`, config);
-        await webdavRequest('MKCOL', `${config.url.replace(/\/$/, '')}/${root}/backups/${username}/`, config);
-      } catch (e) {
+        await webdavRequest(
+          'MKCOL',
+          `${config.url.replace(/\/$/, '')}/${root}/backups/${username}/`,
+          config
+        );
+      } catch (_) {
         // 目录可能已经存在，忽略错误
       }
 
@@ -704,11 +739,13 @@ export async function listBackupsFromEndpoint(
     const prefix = `${root}/${username}/`;
 
     const backups = await r2Service.listBackups(prefix);
-    return backups.map(b => ({
-      key: b.key,
-      size: b.size || 0,
-      lastModified: b.uploadedAt || '',
-    })).sort((a, b) => b.key.localeCompare(a.key));
+    return backups
+      .map((b) => ({
+        key: b.key,
+        size: b.size || 0,
+        lastModified: b.uploadedAt || '',
+      }))
+      .sort((a, b) => b.key.localeCompare(a.key));
   }
   return [];
 }
@@ -904,10 +941,10 @@ export async function testBackupEndpoint(
 // 执行所有启用的备份（并发上传，顺序更新状态）
 export async function executeAllBackups(env: Env, username: string): Promise<BackupResult[]> {
   const endpoints = await getBackupEndpoints(env, username);
-  const enabledEndpoints = endpoints.filter(e => e.enabled);
+  const enabledEndpoints = endpoints.filter((e) => e.enabled);
 
   // 并发执行所有备份
-  const promises = enabledEndpoints.map(async endpoint => {
+  const promises = enabledEndpoints.map(async (endpoint) => {
     const result = await uploadBackupToEndpoint(env, username, endpoint);
     result.endpointName = endpoint.name;
     endpoint.lastBackup = {
@@ -971,13 +1008,31 @@ export async function restoreFromEndpoint(
   options?: { skipTables?: string[]; mergeMode?: 'overwrite' | 'merge' }
 ) {
   try {
+    // 获取用户信息用于解密
+    const userService = new UserService(env);
+    const user = await userService.findByEmail(username);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
     // 下载备份文件
     const response = await downloadBackupFromEndpoint(env, username, endpoint, backupKey);
     if (!response.ok) {
       throw new Error(`Failed to download backup: ${response.status}`);
     }
 
-    const content = await response.text();
+    let content = await response.text();
+
+    // 尝试解密备份内容
+    try {
+      const encryptionSecret = user.password;
+      const encryptionSalt = user.id;
+      content = await decryptData(content, encryptionSecret, encryptionSalt);
+    } catch (decryptError) {
+      // 解密失败，可能是旧的未加密备份，直接使用原始内容
+      console.warn('[Backup] Decryption failed, trying raw content:', decryptError);
+    }
+
     const data = JSON.parse(content);
 
     // 导入数据

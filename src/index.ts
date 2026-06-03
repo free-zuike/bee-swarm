@@ -17,7 +17,12 @@ import { convertTimezone } from './utils/timezone';
 import { escapeRegex } from './utils/regex';
 import { matchCronField } from './utils/cron';
 import { getLocalTime, getLocalWeekday } from './utils/datetime';
-import { getScheduledLock, insertScheduledLock, getBackupRun, upsertBackupRun } from './services/d1DataService';
+import {
+  getScheduledLock,
+  insertScheduledLock,
+  getBackupRun,
+  upsertBackupRun,
+} from './services/d1DataService';
 import { QueueService, type PushQueueMessage } from './services/queueService';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -139,14 +144,18 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  async queue(batch: MessageBatch<PushQueueMessage>, env: Env, ctx: ExecutionContext): Promise<void> {
+  async queue(
+    batch: MessageBatch<PushQueueMessage>,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
     console.log(`[Queue] Processing ${batch.messages.length} messages`);
-    
+
     const queueService = new QueueService(env);
-    
+
     await queueService.processBatch(batch, async (message: PushQueueMessage) => {
       console.log(`[Queue] Processing push request: ${message.requestId}`);
-      
+
       try {
         const results = await dispatchPushWithOptions(
           message.payload,
@@ -154,16 +163,19 @@ export default {
           message.userId,
           env
         );
-        
+
         console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
-        
+
         // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
       } catch (error) {
-        console.error(`[Queue] Failed to process message ${message.requestId}:`, (error as Error).message);
+        console.error(
+          `[Queue] Failed to process message ${message.requestId}:`,
+          (error as Error).message
+        );
         throw error;
       }
     });
-    
+
     console.log(`[Queue] Batch processing complete`);
   },
 
@@ -276,11 +288,15 @@ async function sendOverdueReminder(env: Env, username: string, task: ScheduledPu
 async function markReminderSent(env: Env, username: string, taskId: string): Promise<void> {
   try {
     if (env.DB) {
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         UPDATE scheduled_pushes 
         SET overdue_reminder_sent = 1, updated_at = ? 
         WHERE id = ? AND user_id = ?
-      `).bind(new Date().toISOString(), taskId, username).run();
+      `
+      )
+        .bind(new Date().toISOString(), taskId, username)
+        .run();
     }
   } catch (err) {
     console.error(`[markReminderSent] Error:`, (err as Error).message);
@@ -573,9 +589,13 @@ async function processBackups(
     const endpoints = await getBackupEndpoints(env, username);
 
     // 调试日志：检查备份端点
-    console.log(`[Cron Backup] Checking backups for ${username}, found ${endpoints.length} endpoints`);
+    console.log(
+      `[Cron Backup] Checking backups for ${username}, found ${endpoints.length} endpoints`
+    );
     for (const ep of endpoints) {
-      console.log(`[Cron Backup]   - ${ep.name}: enabled=${ep.enabled}, schedule.enabled=${ep.schedule?.enabled}, interval=${ep.schedule?.interval || 24}h`);
+      console.log(
+        `[Cron Backup]   - ${ep.name}: enabled=${ep.enabled}, schedule.enabled=${ep.schedule?.enabled}, interval=${ep.schedule?.interval || 24}h`
+      );
     }
 
     for (const endpoint of endpoints) {
@@ -591,7 +611,9 @@ async function processBackups(
       const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
       // 调试日志：检查时间条件
-      console.log(`[Cron Backup] ${endpoint.name}: local=${localHour}:${localMinute}, expected=${startHour}:${startMinute}, interval=${interval}h`);
+      console.log(
+        `[Cron Backup] ${endpoint.name}: local=${localHour}:${localMinute}, expected=${startHour}:${startMinute}, interval=${interval}h`
+      );
 
       // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
       const timeDiffMinutes = Math.abs((localHour - startHour) * 60 + (localMinute - startMinute));
@@ -618,7 +640,9 @@ async function processBackups(
       }
 
       if (!shouldRun) {
-        console.log(`[Cron Backup] Skipping ${endpoint.name}: not in time window (timeDiff=${timeDiffMinutes}min)`);
+        console.log(
+          `[Cron Backup] Skipping ${endpoint.name}: not in time window (timeDiff=${timeDiffMinutes}min)`
+        );
         continue;
       }
 

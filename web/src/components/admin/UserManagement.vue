@@ -33,10 +33,7 @@
                   <span :class="['tag', `tag-role-${user.role}`]">
                     {{ getRoleName(user.role) }}
                   </span>
-                  <span
-                    v-if="user.disabled"
-                    class="tag tag-status-disabled"
-                  >
+                  <span v-if="user.disabled" class="tag tag-status-disabled">
                     {{ t('users.disabled') }}
                   </span>
                 </div>
@@ -77,11 +74,7 @@
             >
               {{ t('users.enable') }}
             </button>
-            <button
-              class="action-btn action-edit"
-              @click="openRoleModal(user)"
-              :disabled="saving"
-            >
+            <button class="action-btn action-edit" @click="openRoleModal(user)" :disabled="saving">
               {{ t('users.changeRole') }}
             </button>
             <button
@@ -111,7 +104,11 @@
           </div>
           <div class="form-group">
             <label>{{ t('label.password') }}</label>
-            <input v-model="createForm.password" type="password" :placeholder="t('placeholder.password')" />
+            <input
+              v-model="createForm.password"
+              type="password"
+              :placeholder="t('placeholder.password')"
+            />
           </div>
         </div>
         <div class="modal-footer">
@@ -327,7 +324,11 @@ const disableUser = async () => {
   if (!selectedUser.value) return;
   saving.value = true;
   try {
-    await apiDisableUser(authStore.accessToken, selectedUser.value.id, disableReason.value || undefined);
+    await apiDisableUser(
+      authStore.accessToken,
+      selectedUser.value.id,
+      disableReason.value || undefined
+    );
     await loadUsers();
     closeDisableModal();
   } catch (err: unknown) {

@@ -80,7 +80,10 @@ class ChannelHealthChecker {
   /**
    * 创建渠道实例
    */
-  private createChannelInstance(channel: PushChannel, config: Record<string, string>): BaseChannel | null {
+  private createChannelInstance(
+    channel: PushChannel,
+    config: Record<string, string>
+  ): BaseChannel | null {
     try {
       switch (channel) {
         case 'wework':
@@ -125,7 +128,10 @@ class ChannelHealthChecker {
   /**
    * 检查单个渠道健康状态
    */
-  async checkChannel(channel: PushChannel, config: Record<string, string>): Promise<ChannelHealthStatus> {
+  async checkChannel(
+    channel: PushChannel,
+    config: Record<string, string>
+  ): Promise<ChannelHealthStatus> {
     const startTime = Date.now();
     const existing = this.healthData.get(channel);
 
@@ -170,7 +176,6 @@ class ChannelHealthChecker {
       const successfulChecks = Math.round(status.successRate * (status.totalChecks - 1));
       const newSuccesses = result.healthy ? 1 : 0;
       status.successRate = (successfulChecks + newSuccesses) / status.totalChecks;
-
     } catch (error) {
       status.lastFailureTime = new Date().toISOString();
       status.consecutiveFailures++;
@@ -198,7 +203,7 @@ class ChannelHealthChecker {
       });
 
     const allResults = await Promise.allSettled(checkPromises);
-    
+
     for (const result of allResults) {
       if (result.status === 'fulfilled') {
         results.push(result.value);
@@ -206,11 +211,10 @@ class ChannelHealthChecker {
     }
 
     const duration = Date.now() - startTime;
-    const healthy = results.filter(r => r.healthy).length;
+    const healthy = results.filter((r) => r.healthy).length;
     const unhealthy = results.length - healthy;
-    const avgSuccessRate = results.length > 0 
-      ? results.reduce((sum, r) => sum + r.successRate, 0) / results.length 
-      : 0;
+    const avgSuccessRate =
+      results.length > 0 ? results.reduce((sum, r) => sum + r.successRate, 0) / results.length : 0;
 
     return {
       checkedAt: new Date().toISOString(),
@@ -260,10 +264,7 @@ class ChannelHealthChecker {
     if (!status) return false;
 
     // 如果之前被禁用，现在连续成功超过阈值则重新启用
-    return (
-      status.consecutiveFailures === 0 &&
-      status.successRate >= this.thresholds.minSuccessRate
-    );
+    return status.consecutiveFailures === 0 && status.successRate >= this.thresholds.minSuccessRate;
   }
 
   /**
@@ -289,10 +290,10 @@ class ChannelHealthChecker {
    */
   getBestChannels(count: number = 3): PushChannel[] {
     return Array.from(this.healthData.values())
-      .filter(status => status.healthy)
+      .filter((status) => status.healthy)
       .sort((a, b) => b.successRate - a.successRate)
       .slice(0, count)
-      .map(status => status.channel);
+      .map((status) => status.channel);
   }
 
   /**
@@ -316,11 +317,12 @@ class ChannelHealthChecker {
     recommendations: string[];
   } {
     const allStatus = this.getAllHealthStatus();
-    const healthy = allStatus.filter(s => s.healthy);
-    const unhealthy = allStatus.filter(s => !s.healthy);
-    const avgSuccessRate = allStatus.length > 0 
-      ? allStatus.reduce((sum, s) => sum + s.successRate, 0) / allStatus.length 
-      : 0;
+    const healthy = allStatus.filter((s) => s.healthy);
+    const unhealthy = allStatus.filter((s) => !s.healthy);
+    const avgSuccessRate =
+      allStatus.length > 0
+        ? allStatus.reduce((sum, s) => sum + s.successRate, 0) / allStatus.length
+        : 0;
 
     const recommendations: string[] = [];
 
@@ -356,7 +358,11 @@ class ChannelHealthChecker {
   }
 }
 
-export function createHealthChecker(env: Env, userId: string, thresholds?: Partial<HealthThreshold>): ChannelHealthChecker {
+export function createHealthChecker(
+  env: Env,
+  userId: string,
+  thresholds?: Partial<HealthThreshold>
+): ChannelHealthChecker {
   return new ChannelHealthChecker(env, userId, thresholds);
 }
 
@@ -392,7 +398,7 @@ export class SmartChannelSelector {
       }
 
       const healthStatus = this.checker.getHealthStatus(channel);
-      
+
       if (!healthStatus) {
         // 未检查过的渠道，默认使用
         selected.push(channel);
@@ -400,26 +406,26 @@ export class SmartChannelSelector {
       }
 
       if (!healthStatus.healthy) {
-        skipped.push({ 
-          channel, 
-          reason: `健康检查失败: ${healthStatus.lastError || '未知错误'}` 
+        skipped.push({
+          channel,
+          reason: `健康检查失败: ${healthStatus.lastError || '未知错误'}`,
         });
         continue;
       }
 
       if (this.checker.shouldDisable(channel)) {
-        skipped.push({ 
-          channel, 
-          reason: `连续失败 ${healthStatus.consecutiveFailures} 次，成功率 ${(healthStatus.successRate * 100).toFixed(1)}%` 
+        skipped.push({
+          channel,
+          reason: `连续失败 ${healthStatus.consecutiveFailures} 次，成功率 ${(healthStatus.successRate * 100).toFixed(1)}%`,
         });
         continue;
       }
 
       // 检查延迟
       if (healthStatus.averageLatency > DEFAULT_THRESHOLDS.maxLatency) {
-        skipped.push({ 
-          channel, 
-          reason: `延迟过高: ${healthStatus.averageLatency}ms` 
+        skipped.push({
+          channel,
+          reason: `延迟过高: ${healthStatus.averageLatency}ms`,
         });
         continue;
       }

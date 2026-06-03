@@ -60,7 +60,13 @@ export async function insertAuditLog(env: Env, log: AuditLog): Promise<void> {
 export async function getAuditLogs(
   env: Env,
   userId: string | null,
-  options: { limit?: number; offset?: number; action?: AuditAction; startDate?: string; endDate?: string } = {}
+  options: {
+    limit?: number;
+    offset?: number;
+    action?: AuditAction;
+    startDate?: string;
+    endDate?: string;
+  } = {}
 ): Promise<AuditLog[]> {
   if (!isD1Enabled(env)) return [];
   try {
@@ -80,7 +86,7 @@ export async function getAuditLogs(
     }
 
     if (options.startDate) {
-      query += (userId || options.action) ? ' AND created_at >= ?' : ' WHERE created_at >= ?';
+      query += userId || options.action ? ' AND created_at >= ?' : ' WHERE created_at >= ?';
       bindings.push(options.startDate);
     }
 
@@ -93,7 +99,10 @@ export async function getAuditLogs(
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
-    const result = await env.DB!.prepare(query).bind(...bindings).all();
+    const result = await env
+      .DB!.prepare(query)
+      .bind(...bindings)
+      .all();
     return (result.results || []).map((row: any) => ({
       id: row.id,
       userId: row.user_id,
@@ -111,14 +120,9 @@ export async function clearAuditLogs(env: Env, userId: string | null): Promise<v
   if (!isD1Enabled(env)) return;
   try {
     if (userId) {
-      await env
-        .DB!.prepare('DELETE FROM audit_logs WHERE user_id = ?')
-        .bind(userId)
-        .run();
+      await env.DB!.prepare('DELETE FROM audit_logs WHERE user_id = ?').bind(userId).run();
     } else {
-      await env
-        .DB!.prepare('DELETE FROM audit_logs')
-        .run();
+      await env.DB!.prepare('DELETE FROM audit_logs').run();
     }
   } catch (error) {
     console.error('[D1] clearAuditLogs error:', error);
@@ -197,10 +201,7 @@ export async function upsertMetrics(env: Env, metrics: Metrics): Promise<void> {
 export async function deleteMetrics(env: Env, userId: string): Promise<void> {
   if (!isD1Enabled(env)) return;
   try {
-    await env
-      .DB!.prepare('DELETE FROM metrics WHERE user_id = ?')
-      .bind(userId)
-      .run();
+    await env.DB!.prepare('DELETE FROM metrics WHERE user_id = ?').bind(userId).run();
   } catch (error) {
     console.error('[D1] deleteMetrics error:', error);
   }

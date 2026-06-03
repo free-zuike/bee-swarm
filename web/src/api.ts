@@ -190,7 +190,10 @@ export async function refreshToken(refreshToken: string): Promise<{
 // 管理接口（Token 认证版本）
 // -------------------------------------------
 
-export async function getChannelsWithToken(token: string, forceRefresh = false): Promise<{
+export async function getChannelsWithToken(
+  token: string,
+  forceRefresh = false
+): Promise<{
   channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
   settings: ChannelSettings;
   definitions: Array<{
@@ -207,7 +210,10 @@ export async function getChannelsWithToken(token: string, forceRefresh = false):
   }>;
 }> {
   const url = `${BASE}/admin/channels`;
-  return withCache(url, () => tokenRequest(url, token), token, { ttl: 10 * 60 * 1000, forceRefresh });
+  return withCache(url, () => tokenRequest(url, token), token, {
+    ttl: 10 * 60 * 1000,
+    forceRefresh,
+  });
 }
 
 export async function saveChannelWithToken(
@@ -935,7 +941,9 @@ export interface UserInfo {
 }
 
 // 获取当前用户信息
-export async function getCurrentUser(token: string): Promise<UserInfo & { avatar_url?: string; use_avatar_as_popup?: number }> {
+export async function getCurrentUser(
+  token: string
+): Promise<UserInfo & { avatar_url?: string; use_avatar_as_popup?: number }> {
   return tokenRequest(`${BASE}/admin/me`, token);
 }
 
@@ -964,17 +972,17 @@ export async function uploadAvatar(
 ): Promise<{ success: boolean; message: string; avatar_url: string }> {
   const formData = new FormData();
   formData.append('avatar', file);
-  
+
   const res = await fetch(`${BASE}/admin/me/avatar/upload`, {
     method: 'POST',
     headers: { 'X-Token': token },
     body: formData,
   });
-  
+
   if (!res.ok) {
     throw await handleResponseError(res);
   }
-  
+
   return res.json();
 }
 
@@ -1097,7 +1105,9 @@ export async function getAuditLogs(
   return tokenRequest(url, token);
 }
 
-export async function clearAuditLogs(token: string): Promise<{ success: boolean; message: string }> {
+export async function clearAuditLogs(
+  token: string
+): Promise<{ success: boolean; message: string }> {
   return tokenRequest(`${BASE}/admin/audit`, token, {
     method: 'DELETE',
   });

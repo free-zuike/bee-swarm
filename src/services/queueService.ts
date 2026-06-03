@@ -55,10 +55,10 @@ export class QueueService {
     }
 
     // 转换为 Cloudflare Queues 要求的格式
-    const queueMessages: MessageSendRequest[] = messages.map(msg => ({
-      body: msg
+    const queueMessages: MessageSendRequest[] = messages.map((msg) => ({
+      body: msg,
     }));
-    
+
     await this.queue.sendBatch(queueMessages);
   }
 
@@ -85,7 +85,7 @@ export class QueueService {
       })
     );
 
-    const failedCount = results.filter(r => r.status === 'rejected').length;
+    const failedCount = results.filter((r) => r.status === 'rejected').length;
     if (failedCount > 0) {
       console.warn(`[Queue] Processed ${batch.messages.length} messages, ${failedCount} failed`);
     }

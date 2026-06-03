@@ -73,20 +73,28 @@ backupRoutes.post('/backup-endpoints', async (c) => {
   } catch (err) {
     const error = err as Error;
     console.error('[Backup] 创建备份端点失败:', error);
-    
+
     // 特殊处理外键约束失败的错误
-    if (error.message.includes('FOREIGN KEY constraint failed') || 
-        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
-      return c.json({ 
-        error: '数据库错误：无法创建备份端点，请尝试重新登录或联系管理员', 
-        code: 'DB_FOREIGN_KEY_ERROR' 
-      }, 500);
+    if (
+      error.message.includes('FOREIGN KEY constraint failed') ||
+      error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')
+    ) {
+      return c.json(
+        {
+          error: '数据库错误：无法创建备份端点，请尝试重新登录或联系管理员',
+          code: 'DB_FOREIGN_KEY_ERROR',
+        },
+        500
+      );
     }
-    
-    return c.json({ 
-      error: '创建备份端点失败：' + error.message, 
-      code: 'INTERNAL_ERROR' 
-    }, 500);
+
+    return c.json(
+      {
+        error: '创建备份端点失败：' + error.message,
+        code: 'INTERNAL_ERROR',
+      },
+      500
+    );
   }
 });
 
@@ -133,20 +141,28 @@ backupRoutes.put('/backup-endpoints/:id', async (c) => {
   } catch (err) {
     const error = err as Error;
     console.error('[Backup] 更新备份端点失败:', error);
-    
+
     // 特殊处理外键约束失败的错误
-    if (error.message.includes('FOREIGN KEY constraint failed') || 
-        error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')) {
-      return c.json({ 
-        error: '数据库错误：无法更新备份端点，请尝试重新登录或联系管理员', 
-        code: 'DB_FOREIGN_KEY_ERROR' 
-      }, 500);
+    if (
+      error.message.includes('FOREIGN KEY constraint failed') ||
+      error.message.includes('SQLITE_CONSTRAINT_FOREIGNKEY')
+    ) {
+      return c.json(
+        {
+          error: '数据库错误：无法更新备份端点，请尝试重新登录或联系管理员',
+          code: 'DB_FOREIGN_KEY_ERROR',
+        },
+        500
+      );
     }
-    
-    return c.json({ 
-      error: '更新备份端点失败：' + error.message, 
-      code: 'INTERNAL_ERROR' 
-    }, 500);
+
+    return c.json(
+      {
+        error: '更新备份端点失败：' + error.message,
+        code: 'INTERNAL_ERROR',
+      },
+      500
+    );
   }
 });
 
@@ -164,10 +180,13 @@ backupRoutes.delete('/backup-endpoints/:id', async (c) => {
   } catch (err) {
     const error = err as Error;
     console.error('[Backup] 删除备份端点失败:', error);
-    return c.json({ 
-      error: '删除备份端点失败：' + error.message, 
-      code: 'INTERNAL_ERROR' 
-    }, 500);
+    return c.json(
+      {
+        error: '删除备份端点失败：' + error.message,
+        code: 'INTERNAL_ERROR',
+      },
+      500
+    );
   }
 });
 
@@ -289,6 +308,17 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
 
+  // 动态导入以避免循环依赖
+  const { UserService } = await import('../../services/userService');
+  const { decryptData } = await import('../../utils/crypto');
+
+  // 获取用户信息用于解密
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
   const response = await downloadBackupFromEndpoint(c.env, username, endpoint, key);
 
   if (!response.ok) {
@@ -298,9 +328,20 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
     );
   }
 
-  const data = await response.arrayBuffer();
+  let content = await response.text();
+
+  // 尝试解密备份内容
+  try {
+    const encryptionSecret = user.password;
+    const encryptionSalt = user.id;
+    content = await decryptData(content, encryptionSecret, encryptionSalt);
+  } catch (decryptError) {
+    // 解密失败，可能是旧的未加密备份，直接使用原始内容
+    console.warn('[Backup] Decryption failed, using raw content:', decryptError);
+  }
+
   const filename = key.split('/').pop() || 'backup.json';
-  return c.body(data, 200, {
+  return c.body(content, 200, {
     'Content-Type': 'application/json',
     'Content-Disposition': `attachment; filename="${filename}"`,
   });
@@ -315,10 +356,13 @@ backupRoutes.post('/backup-all', async (c) => {
   } catch (err) {
     const error = err as Error;
     console.error('[Backup] 执行所有备份失败:', error);
-    return c.json({ 
-      error: '执行备份失败：' + error.message, 
-      code: 'INTERNAL_ERROR' 
-    }, 500);
+    return c.json(
+      {
+        error: '执行备份失败：' + error.message,
+        code: 'INTERNAL_ERROR',
+      },
+      500
+    );
   }
 });
 
@@ -353,10 +397,13 @@ backupRoutes.post('/backup-endpoints/:id/backup', async (c) => {
   } catch (err) {
     const error = err as Error;
     console.error('[Backup] 执行备份失败:', error);
-    return c.json({ 
-      success: false, 
-      message: '执行备份失败：' + error.message 
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        message: '执行备份失败：' + error.message,
+      },
+      500
+    );
   }
 });
 
@@ -367,11 +414,11 @@ backupRoutes.post('/backup-endpoints/:id/backup', async (c) => {
 /** 导出用户数据 */
 backupRoutes.get('/export', async (c) => {
   const username = c.get('username');
-  
+
   try {
     const data = await exportData(c.env, username);
     const filename = `backup-${username}-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     return c.json(data, 200, {
       'Content-Type': 'application/json',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -386,14 +433,14 @@ backupRoutes.get('/export', async (c) => {
 /** 导入用户数据 */
 backupRoutes.post('/import', async (c) => {
   const username = c.get('username');
-  
+
   try {
     const body = await c.req.json();
     const options = {
       skipTables: body.skipTables || [],
       mergeMode: body.mergeMode || 'overwrite',
     };
-    
+
     const result = await importData(c.env, username, body.data, options);
     return c.json(result);
   } catch (err) {
@@ -414,7 +461,7 @@ backupRoutes.post('/validate', async (c) => {
 backupRoutes.get('/history', async (c) => {
   const username = c.get('username');
   const limit = parseInt(c.req.query('limit') || '50', 10);
-  
+
   try {
     const history = await getBackupHistory(c.env, username, limit);
     return c.json({ history });
@@ -429,7 +476,7 @@ backupRoutes.get('/history', async (c) => {
 backupRoutes.delete('/history/:id', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
-  
+
   try {
     const success = await deleteBackupRecordItem(c.env, id, username);
     return c.json({ success });
@@ -445,27 +492,24 @@ backupRoutes.post('/backup-endpoints/:id/restore', async (c) => {
   const username = c.get('username');
   const id = c.req.param('id');
   const { backupKey, skipTables, mergeMode } = await c.req.json();
-  
+
   if (!backupKey) {
     return c.json({ error: '请提供备份文件 key' }, 400);
   }
-  
+
   try {
     const endpoints = await getBackupEndpoints(c.env, username);
     const endpoint = endpoints.find((e) => e.id === id);
-    
+
     if (!endpoint) {
       return c.json({ error: '备份端不存在' }, 404);
     }
-    
-    const result = await restoreFromEndpoint(
-      c.env, 
-      username, 
-      endpoint, 
-      backupKey, 
-      { skipTables, mergeMode }
-    );
-    
+
+    const result = await restoreFromEndpoint(c.env, username, endpoint, backupKey, {
+      skipTables,
+      mergeMode,
+    });
+
     return c.json(result);
   } catch (err) {
     const error = err as Error;

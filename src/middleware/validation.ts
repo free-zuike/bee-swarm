@@ -105,7 +105,8 @@ export function validateQuery<T>(schema: ZodSchema<T>) {
 export const schemas = {
   register: z.object({
     email: z.string().email('请输入有效的邮箱地址'),
-    password: z.string()
+    password: z
+      .string()
       .min(8, '密码长度至少 8 位')
       .regex(/[a-z]/, '密码至少包含一个小写字母')
       .regex(/[A-Z]/, '密码至少包含一个大写字母')

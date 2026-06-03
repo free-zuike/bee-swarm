@@ -50,10 +50,7 @@ export function cacheMiddleware(options?: Partial<CacheOptions>) {
     const method = request.method;
 
     // 只缓存 GET 和 HEAD 请求
-    if (
-      (config.cacheGet && method !== 'GET') ||
-      (config.cacheHead && method !== 'HEAD')
-    ) {
+    if ((config.cacheGet && method !== 'GET') || (config.cacheHead && method !== 'HEAD')) {
       return next();
     }
 
@@ -67,10 +64,10 @@ export function cacheMiddleware(options?: Partial<CacheOptions>) {
     // 管理 API 不缓存
     if (url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api')) {
       // 但可以缓存一些只读 API
-      if (method === 'GET' && (
-        url.pathname.includes('/channels') || 
-        url.pathname.includes('/health')
-      )) {
+      if (
+        method === 'GET' &&
+        (url.pathname.includes('/channels') || url.pathname.includes('/health'))
+      ) {
         // 只读 API 可以缓存
       } else {
         return next();
@@ -95,12 +92,12 @@ export function cacheMiddleware(options?: Partial<CacheOptions>) {
       // 复制响应用于缓存
       const responseToCache = response.clone();
       const cacheHeaders = new Headers(responseToCache.headers);
-      
+
       // 设置缓存控制头
       if (config.ttl) {
         cacheHeaders.set('Cache-Control', `public, max-age=${config.ttl}`);
       }
-      
+
       // 缓存响应
       await cache.put(
         request,

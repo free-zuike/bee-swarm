@@ -36,18 +36,18 @@ const themeStore = useThemeStore();
 
 const initChart = () => {
   if (!chartRef.value) return;
-  
+
   chartInstance = echarts.init(chartRef.value);
   updateChart();
 };
 
 const updateChart = () => {
   if (!chartInstance || !props.data.length) return;
-  
+
   const isDark = themeStore.isDark;
   const textColor = isDark ? '#e0e0e0' : '#1a1a2e';
   const backgroundColor = isDark ? '#2d2d2d' : '#ffffff';
-  
+
   const option: echarts.EChartsOption = {
     title: {
       text: props.title || t('label.latency_distribution'),
@@ -120,7 +120,7 @@ const updateChart = () => {
         name: 'P50',
         type: 'bar',
         data: props.data.map((d) => d.p50),
-        itemStyle: { 
+        itemStyle: {
           color: '#52c41a',
           borderRadius: [4, 4, 0, 0],
         },
@@ -129,7 +129,7 @@ const updateChart = () => {
         name: 'P95',
         type: 'bar',
         data: props.data.map((d) => d.p95),
-        itemStyle: { 
+        itemStyle: {
           color: '#faad14',
           borderRadius: [4, 4, 0, 0],
         },
@@ -138,14 +138,14 @@ const updateChart = () => {
         name: 'P99',
         type: 'bar',
         data: props.data.map((d) => d.p99),
-        itemStyle: { 
+        itemStyle: {
           color: '#ff4d4f',
           borderRadius: [4, 4, 0, 0],
         },
       },
     ],
   };
-  
+
   chartInstance.setOption(option);
 };
 
@@ -156,7 +156,7 @@ const handleResize = () => {
 onMounted(() => {
   initChart();
   window.addEventListener('resize', handleResize);
-  
+
   watch(
     () => themeStore.isDark,
     () => {

@@ -169,11 +169,7 @@ const isResetMode = computed(() => {
         <button class="btn btn-primary" type="submit" :disabled="isAuthing">
           {{ isAuthing ? t('label.logging_in') : t('button.login') }}
         </button>
-        <button
-          type="button"
-          class="forgot-password-btn"
-          @click="switchMode('forgot')"
-        >
+        <button type="button" class="forgot-password-btn" @click="switchMode('forgot')">
           {{ t('button.forgot_password') }}
         </button>
       </form>
@@ -190,11 +186,7 @@ const isResetMode = computed(() => {
         <button class="btn btn-primary" type="submit" :disabled="isProcessing">
           {{ isProcessing ? t('label.processing') : t('button.send_reset_link') }}
         </button>
-        <button
-          type="button"
-          class="forgot-password-btn"
-          @click="switchMode('login')"
-        >
+        <button type="button" class="forgot-password-btn" @click="switchMode('login')">
           {{ t('button.back_to_login') }}
         </button>
       </form>
@@ -217,11 +209,7 @@ const isResetMode = computed(() => {
         <button class="btn btn-primary" type="submit" :disabled="isProcessing">
           {{ isProcessing ? t('label.processing') : t('button.reset_password') }}
         </button>
-        <button
-          type="button"
-          class="forgot-password-btn"
-          @click="switchMode('login')"
-        >
+        <button type="button" class="forgot-password-btn" @click="switchMode('login')">
           {{ t('button.back_to_login') }}
         </button>
       </form>

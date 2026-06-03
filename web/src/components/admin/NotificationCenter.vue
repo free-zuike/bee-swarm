@@ -6,23 +6,19 @@
           <div class="panel-header">
             <h3>通知中心</h3>
             <div class="header-actions">
-              <button 
-                v-if="notifications.length > 0"
-                class="btn-text"
-                @click="markAllAsRead"
-              >
+              <button v-if="notifications.length > 0" class="btn-text" @click="markAllAsRead">
                 全部已读
               </button>
               <button class="btn-close" @click="close">✕</button>
             </div>
           </div>
-          
+
           <div class="panel-body">
             <div v-if="notifications.length === 0" class="empty-state">
               <span class="empty-icon">🔔</span>
               <p>暂无新通知</p>
             </div>
-            
+
             <div v-else class="notification-list">
               <TransitionGroup name="fade">
                 <div
@@ -39,7 +35,7 @@
                     <div class="notification-message">{{ notification.message }}</div>
                     <div class="notification-time">{{ formatTime(notification.timestamp) }}</div>
                   </div>
-                  <button 
+                  <button
                     v-if="!notification.read"
                     class="btn-mark-read"
                     @click.stop="markAsRead(notification.id)"
@@ -95,7 +91,7 @@ const getIcon = (type: string): string => {
 const formatTime = (timestamp: number): string => {
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   if (diff < 60000) return '刚刚';
   if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
@@ -123,7 +119,7 @@ const handleNotificationClick = (notification: Notification) => {
   if (!notification.read) {
     markAsRead(notification.id);
   }
-  
+
   if (notification.action) {
     notification.action();
     close();
@@ -137,9 +133,9 @@ const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | '
     timestamp: Date.now(),
     read: false,
   };
-  
+
   notifications.value.unshift(newNotification);
-  
+
   if (notifications.value.length > 50) {
     notifications.value.pop();
   }

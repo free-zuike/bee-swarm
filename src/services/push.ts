@@ -118,13 +118,15 @@ export class PushService {
    */
   private async getTemplateById(id: string): Promise<PushTemplate | null> {
     if (!this.env.DB) return null;
-    
+
     const result = await this.env.DB.prepare(
       'SELECT * FROM push_templates WHERE id = ? AND user_id = ?'
-    ).bind(id, this.userId).first<any>();
+    )
+      .bind(id, this.userId)
+      .first<any>();
 
     if (!result) return null;
-    
+
     return {
       id: result.id,
       name: result.name,
@@ -144,13 +146,15 @@ export class PushService {
    */
   private async getChannelGroupById(id: string): Promise<ChannelGroup | null> {
     if (!this.env.DB) return null;
-    
+
     const result = await this.env.DB.prepare(
       'SELECT * FROM channel_groups WHERE id = ? AND user_id = ?'
-    ).bind(id, this.userId).first<any>();
+    )
+      .bind(id, this.userId)
+      .first<any>();
 
     if (!result) return null;
-    
+
     return {
       id: result.id,
       name: result.name,
@@ -164,13 +168,15 @@ export class PushService {
    */
   private async getScheduledPushById(id: string): Promise<ScheduledPush | null> {
     if (!this.env.DB) return null;
-    
+
     const result = await this.env.DB.prepare(
       'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
-    ).bind(id, this.userId).first<any>();
+    )
+      .bind(id, this.userId)
+      .first<any>();
 
     if (!result) return null;
-    
+
     return {
       id: result.id,
       templateId: result.template_id,
@@ -242,13 +248,15 @@ export class PushService {
    */
   async getTemplates(options?: { limit?: number; offset?: number }): Promise<PushTemplate[]> {
     if (!this.env.DB) return [];
-    
+
     const limit = options?.limit || 100; // 默认最多返回 100 条
     const offset = options?.offset || 0;
-    
+
     const result = await this.env.DB.prepare(
       'SELECT * FROM push_templates WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    ).bind(this.userId, limit, offset).all<any>();
+    )
+      .bind(this.userId, limit, offset)
+      .all<any>();
 
     return (result.results || []).map((row: any) => ({
       id: row.id,
@@ -268,26 +276,30 @@ export class PushService {
     template: Omit<PushTemplate, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<PushTemplate> {
     if (!this.env.DB) throw new Error('D1 数据库未配置');
-    
+
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await this.env.DB.prepare(`
+    await this.env.DB.prepare(
+      `
       INSERT INTO push_templates (id, user_id, name, title, body, channels, url, image_url, markdown, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      id,
-      this.userId,
-      template.name,
-      template.title,
-      template.content || '',
-      template.channels ? JSON.stringify(template.channels) : null,
-      template.url || null,
-      template.imageUrl || null,
-      template.useMarkdown ? 1 : 0,
-      now,
-      now
-    ).run();
+    `
+    )
+      .bind(
+        id,
+        this.userId,
+        template.name,
+        template.title,
+        template.content || '',
+        template.channels ? JSON.stringify(template.channels) : null,
+        template.url || null,
+        template.imageUrl || null,
+        template.useMarkdown ? 1 : 0,
+        now,
+        now
+      )
+      .run();
 
     return {
       ...template,
@@ -302,9 +314,9 @@ export class PushService {
    */
   async updateTemplate(id: string, updates: Partial<PushTemplate>): Promise<PushTemplate | null> {
     if (!this.env.DB) return null;
-    
+
     const now = new Date().toISOString();
-    
+
     const fields: string[] = ['updated_at = ?'];
     const values: any[] = [now];
 
@@ -341,7 +353,9 @@ export class PushService {
 
     await this.env.DB.prepare(
       `UPDATE push_templates SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`
-    ).bind(...values).run();
+    )
+      .bind(...values)
+      .run();
 
     // 优化：直接查询单个记录，而不是整个列表
     return await this.getTemplateById(id);
@@ -349,11 +363,13 @@ export class PushService {
 
   async deleteTemplate(id: string): Promise<boolean> {
     if (!this.env.DB) return false;
-    
+
     const result = await this.env.DB.prepare(
       'DELETE FROM push_templates WHERE id = ? AND user_id = ?'
-    ).bind(id, this.userId).run();
-    
+    )
+      .bind(id, this.userId)
+      .run();
+
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
@@ -362,13 +378,15 @@ export class PushService {
    */
   async getChannelGroups(options?: { limit?: number; offset?: number }): Promise<ChannelGroup[]> {
     if (!this.env.DB) return [];
-    
+
     const limit = options?.limit || 100; // 默认最多返回 100 条
     const offset = options?.offset || 0;
-    
+
     const result = await this.env.DB.prepare(
       'SELECT * FROM channel_groups WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    ).bind(this.userId, limit, offset).all<any>();
+    )
+      .bind(this.userId, limit, offset)
+      .all<any>();
 
     return (result.results || []).map((row: any) => ({
       id: row.id,
@@ -380,21 +398,18 @@ export class PushService {
 
   async saveChannelGroup(group: Omit<ChannelGroup, 'id' | 'createdAt'>): Promise<ChannelGroup> {
     if (!this.env.DB) throw new Error('D1 数据库未配置');
-    
+
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await this.env.DB.prepare(`
+    await this.env.DB.prepare(
+      `
       INSERT INTO channel_groups (id, user_id, name, channels, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(
-      id,
-      this.userId,
-      group.name,
-      JSON.stringify(group.channels),
-      now,
-      now
-    ).run();
+    `
+    )
+      .bind(id, this.userId, group.name, JSON.stringify(group.channels), now, now)
+      .run();
 
     return {
       ...group,
@@ -405,11 +420,13 @@ export class PushService {
 
   async deleteChannelGroup(id: string): Promise<boolean> {
     if (!this.env.DB) return false;
-    
+
     const result = await this.env.DB.prepare(
       'DELETE FROM channel_groups WHERE id = ? AND user_id = ?'
-    ).bind(id, this.userId).run();
-    
+    )
+      .bind(id, this.userId)
+      .run();
+
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
@@ -421,9 +438,9 @@ export class PushService {
     updates: { name?: string; channels?: PushChannel[] }
   ): Promise<ChannelGroup | null> {
     if (!this.env.DB) return null;
-    
+
     const now = new Date().toISOString();
-    
+
     const fields: string[] = ['updated_at = ?'];
     const values: any[] = [now];
 
@@ -440,7 +457,9 @@ export class PushService {
 
     await this.env.DB.prepare(
       `UPDATE channel_groups SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`
-    ).bind(...values).run();
+    )
+      .bind(...values)
+      .run();
 
     // 优化：直接查询单个记录，而不是整个列表
     return await this.getChannelGroupById(id);
@@ -454,22 +473,24 @@ export class PushService {
     options?: { limit?: number; offset?: number }
   ): Promise<ScheduledPush[]> {
     if (!this.env.DB) return [];
-    
+
     const limit = options?.limit || 100; // 默认最多返回 100 条
     const offset = options?.offset || 0;
-    
+
     let sql = 'SELECT * FROM scheduled_pushes WHERE user_id = ?';
     const params: any[] = [this.userId];
-    
+
     if (status) {
       sql += ' AND status = ?';
       params.push(status);
     }
-    
+
     sql += ' ORDER BY next_run ASC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const result = await this.env.DB.prepare(sql).bind(...params).all<any>();
+    const result = await this.env.DB.prepare(sql)
+      .bind(...params)
+      .all<any>();
 
     return (result.results || []).map((row: any) => ({
       id: row.id,
@@ -492,30 +513,34 @@ export class PushService {
     push: Omit<ScheduledPush, 'id' | 'status' | 'createdBy'>
   ): Promise<ScheduledPush> {
     if (!this.env.DB) throw new Error('D1 数据库未配置');
-    
+
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const nextRun = new Date(push.scheduledAt).getTime();
 
-    await this.env.DB.prepare(`
+    await this.env.DB.prepare(
+      `
       INSERT INTO scheduled_pushes (
         id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, created_at, updated_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      id,
-      this.userId,
-      push.templateId || null,
-      push.cronExpression || '* * * * *',
-      nextRun,
-      push.title,
-      push.content || '',
-      push.url || null,
-      JSON.stringify(push.channels),
-      push.scheduleType === 'recurring' ? 1 : 0,
-      now,
-      now
-    ).run();
+    `
+    )
+      .bind(
+        id,
+        this.userId,
+        push.templateId || null,
+        push.cronExpression || '* * * * *',
+        nextRun,
+        push.title,
+        push.content || '',
+        push.url || null,
+        JSON.stringify(push.channels),
+        push.scheduleType === 'recurring' ? 1 : 0,
+        now,
+        now
+      )
+      .run();
 
     return {
       ...push,
@@ -533,7 +558,7 @@ export class PushService {
     updates: Partial<Omit<ScheduledPush, 'id' | 'createdBy' | 'createdAt'>>
   ): Promise<ScheduledPush | null> {
     if (!this.env.DB) return null;
-    
+
     const now = new Date().toISOString();
     const fields: string[] = ['updated_at = ?'];
     const values: any[] = [now];
@@ -563,7 +588,9 @@ export class PushService {
 
     await this.env.DB.prepare(
       `UPDATE scheduled_pushes SET ${fields.join(', ')} WHERE id = ? AND user_id = ? AND status = 'pending'`
-    ).bind(...values).run();
+    )
+      .bind(...values)
+      .run();
 
     // 优化：直接查询单个记录，而不是整个列表
     return await this.getScheduledPushById(id);
@@ -571,21 +598,25 @@ export class PushService {
 
   async deleteScheduledPush(id: string): Promise<boolean> {
     if (!this.env.DB) return false;
-    
+
     const result = await this.env.DB.prepare(
       'DELETE FROM scheduled_pushes WHERE id = ? AND user_id = ?'
-    ).bind(id, this.userId).run();
-    
+    )
+      .bind(id, this.userId)
+      .run();
+
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
   async cancelScheduledPush(id: string): Promise<boolean> {
     if (!this.env.DB) return false;
-    
+
     const result = await this.env.DB.prepare(
       "UPDATE scheduled_pushes SET status = 'failed', updated_at = ? WHERE id = ? AND user_id = ? AND status = 'pending'"
-    ).bind(new Date().toISOString(), id, this.userId).run();
-    
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
@@ -593,40 +624,48 @@ export class PushService {
     ids: string[]
   ): Promise<{ cancelled: number; notFound: number }> {
     if (!this.env.DB || ids.length === 0) return { cancelled: 0, notFound: ids.length };
-    
+
     const placeholders = ids.map(() => '?').join(',');
     const result = await this.env.DB.prepare(
       `UPDATE scheduled_pushes SET status = 'failed', updated_at = ? WHERE id IN (${placeholders}) AND user_id = ? AND status = 'pending'`
-    ).bind(new Date().toISOString(), ...ids, this.userId).run();
-    
+    )
+      .bind(new Date().toISOString(), ...ids, this.userId)
+      .run();
+
     return {
       cancelled: result.meta?.changes || 0,
-      notFound: ids.length - (result.meta?.changes || 0)
+      notFound: ids.length - (result.meta?.changes || 0),
     };
   }
 
   async batchEnableScheduledPushes(ids: string[]): Promise<{ enabled: number; notFound: number }> {
     if (!this.env.DB || ids.length === 0) return { enabled: 0, notFound: ids.length };
-    
+
     const placeholders = ids.map(() => '?').join(',');
     const result = await this.env.DB.prepare(
       `UPDATE scheduled_pushes SET status = 'pending', updated_at = ? WHERE id IN (${placeholders}) AND user_id = ? AND status = 'failed'`
-    ).bind(new Date().toISOString(), ...ids, this.userId).run();
-    
+    )
+      .bind(new Date().toISOString(), ...ids, this.userId)
+      .run();
+
     return {
       enabled: result.meta?.changes || 0,
-      notFound: ids.length - (result.meta?.changes || 0)
+      notFound: ids.length - (result.meta?.changes || 0),
     };
   }
 
   async updateScheduledPushStatus(id: string, status: ScheduledPush['status']): Promise<void> {
     if (!this.env.DB) return;
-    
+
     const completedAt = status === 'completed' ? new Date().toISOString() : null;
-    
-    await this.env.DB.prepare(`
+
+    await this.env.DB.prepare(
+      `
       UPDATE scheduled_pushes SET status = ?, updated_at = ? WHERE id = ? AND user_id = ?
-    `).bind(status, new Date().toISOString(), id, this.userId).run();
+    `
+    )
+      .bind(status, new Date().toISOString(), id, this.userId)
+      .run();
   }
 
   async updateScheduledPushAndTime(
@@ -635,18 +674,26 @@ export class PushService {
     nextScheduledAt: string
   ): Promise<void> {
     if (!this.env.DB) return;
-    
-    await this.env.DB.prepare(`
+
+    await this.env.DB.prepare(
+      `
       UPDATE scheduled_pushes SET status = ?, next_run = ?, updated_at = ? WHERE id = ? AND user_id = ?
-    `).bind(status, new Date(nextScheduledAt).getTime(), new Date().toISOString(), id, this.userId).run();
+    `
+    )
+      .bind(status, new Date(nextScheduledAt).getTime(), new Date().toISOString(), id, this.userId)
+      .run();
   }
 
   async markPushAsOverdue(id: string): Promise<void> {
     if (!this.env.DB) return;
-    
-    await this.env.DB.prepare(`
+
+    await this.env.DB.prepare(
+      `
       UPDATE scheduled_pushes SET status = 'overdue', updated_at = ? WHERE id = ? AND user_id = ? AND status = 'pending'
-    `).bind(new Date().toISOString(), id, this.userId).run();
+    `
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
   }
 
   async getOverdueTasks(): Promise<ScheduledPush[]> {
@@ -658,10 +705,14 @@ export class PushService {
    */
   async rescheduleOverdueTask(id: string, newScheduledAt: string): Promise<ScheduledPush | null> {
     if (!this.env.DB) return null;
-    
-    await this.env.DB.prepare(`
+
+    await this.env.DB.prepare(
+      `
       UPDATE scheduled_pushes SET status = 'pending', next_run = ?, updated_at = ? WHERE id = ? AND user_id = ?
-    `).bind(new Date(newScheduledAt).getTime(), new Date().toISOString(), id, this.userId).run();
+    `
+    )
+      .bind(new Date(newScheduledAt).getTime(), new Date().toISOString(), id, this.userId)
+      .run();
 
     // 优化：直接查询单个记录，而不是整个列表
     return await this.getScheduledPushById(id);
@@ -717,17 +768,19 @@ export class PushService {
 
     return overduePushes;
   }
-  
+
   /**
    * 检查任务是否已发送超时提醒
    */
   async hasSentOverdueReminder(taskId: string): Promise<boolean> {
     if (!this.env.DB) return false;
-    
+
     const result = await this.env.DB.prepare(
       'SELECT overdue_reminder_sent FROM scheduled_pushes WHERE id = ? AND user_id = ?'
-    ).bind(taskId, this.userId).first<{ overdue_reminder_sent: number }>();
-    
+    )
+      .bind(taskId, this.userId)
+      .first<{ overdue_reminder_sent: number }>();
+
     return result?.overdue_reminder_sent === 1;
   }
 }

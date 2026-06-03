@@ -204,36 +204,36 @@ async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (!file) return;
-  
+
   if (!file.type.startsWith('image/')) {
     showToast(t('msg.invalid_image_format'), 'error');
     return;
   }
-  
+
   if (file.size > 2 * 1024 * 1024) {
     showToast(t('msg.image_too_large'), 'error');
     return;
   }
-  
+
   selectedFile.value = file;
-  
+
   const reader = new FileReader();
   reader.onload = (e) => {
     avatarInput.value = e.target?.result as string;
   };
   reader.readAsDataURL(file);
-  
+
   target.value = '';
 }
 
 async function handleSaveAvatar() {
   if (isSaving.value) return;
-  
+
   isSaving.value = true;
   try {
     let avatarUrl = avatarInput.value;
     let shouldUseAsPopup = useAvatarAsPopup.value;
-    
+
     if (selectedFile.value) {
       const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
       if (uploadResult.success) {
@@ -242,14 +242,14 @@ async function handleSaveAvatar() {
         shouldUseAsPopup = 1;
       }
     }
-    
+
     const avatarToSave = avatarUrl || null;
-    
+
     const result = await updateAvatar(accessToken.value, {
       avatar_url: avatarToSave,
       use_avatar_as_popup: shouldUseAsPopup,
     });
-    
+
     if (result.success) {
       userAvatar.value = result.avatar_url;
       useAvatarAsPopup.value = result.use_avatar_as_popup;
@@ -463,7 +463,7 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
   try {
     const result = await saveChannelWithToken(accessToken.value, channelId, fields);
     channels.value = result.channels;
-    
+
     // 重新加载设置以确保同步 - 强制刷新获取最新数据
     try {
       const data = await getChannelsWithToken(accessToken.value, true);
@@ -473,7 +473,7 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
       console.error('[Channel] Failed to refresh settings:', refreshErr);
       // 不显示错误，因为保存本身成功了
     }
-    
+
     channelSettingsRef.value?.handleSaveSuccess(channelId, result.message || t('msg.save_success'));
   } catch (err: unknown) {
     channelSettingsRef.value?.handleSaveError(
@@ -884,11 +884,7 @@ function handleResend(record: PushHistoryRecord) {
               <button class="btn btn-secondary" :class="{ dark: isDark }" @click="closeAvatarModal">
                 {{ t('button.cancel') }}
               </button>
-              <button 
-                class="btn btn-primary" 
-                :disabled="isSaving"
-                @click="handleSaveAvatar"
-              >
+              <button class="btn btn-primary" :disabled="isSaving" @click="handleSaveAvatar">
                 {{ isSaving ? t('label.saving') : t('button.save') }}
               </button>
             </div>
@@ -918,13 +914,13 @@ function handleResend(record: PushHistoryRecord) {
 
       <!-- 右上角头像悬浮按钮 -->
       <button
-          class="fab-toggle"
-          :class="{ dark: isDark, active: showFabMenu }"
-          @click="showFabMenu = !showFabMenu"
-        >
-          <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" />
-          <span v-else>👤</span>
-        </button>
+        class="fab-toggle"
+        :class="{ dark: isDark, active: showFabMenu }"
+        @click="showFabMenu = !showFabMenu"
+      >
+        <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" />
+        <span v-else>👤</span>
+      </button>
 
       <!-- 悬浮菜单 -->
       <div
@@ -2123,7 +2119,7 @@ function handleResend(record: PushHistoryRecord) {
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 18px;
   height: 18px;
   cursor: pointer;

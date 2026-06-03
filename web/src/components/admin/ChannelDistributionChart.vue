@@ -46,17 +46,17 @@ const defaultColors = [
 
 const initChart = () => {
   if (!chartRef.value) return;
-  
+
   chartInstance = echarts.init(chartRef.value);
   updateChart();
 };
 
 const updateChart = () => {
   if (!chartInstance || !props.data.length) return;
-  
+
   const isDark = themeStore.isDark;
   const textColor = isDark ? '#e0e0e0' : '#1a1a2e';
-  
+
   const option: echarts.EChartsOption = {
     title: {
       text: props.title || t('label.channel_ratio'),
@@ -79,7 +79,9 @@ const updateChart = () => {
       top: 'center',
       textStyle: { color: textColor },
       formatter: (name: string) => {
-        const item = props.data.find((d) => `${d.icon || ''} ${d.name}` === name || d.name === name);
+        const item = props.data.find(
+          (d) => `${d.icon || ''} ${d.name}` === name || d.name === name
+        );
         return `${name}: ${item?.value || 0}`;
       },
     },
@@ -119,7 +121,7 @@ const updateChart = () => {
       },
     ],
   };
-  
+
   chartInstance.setOption(option);
 };
 
@@ -130,7 +132,7 @@ const handleResize = () => {
 onMounted(() => {
   initChart();
   window.addEventListener('resize', handleResize);
-  
+
   watch(
     () => themeStore.isDark,
     () => {

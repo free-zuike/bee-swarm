@@ -38,13 +38,17 @@ export class R2StorageService {
    * @param content 文件内容
    * @param contentType MIME 类型
    */
-  async uploadBackup(key: string, content: string | Uint8Array, contentType: string = 'application/json'): Promise<void> {
+  async uploadBackup(
+    key: string,
+    content: string | Uint8Array,
+    contentType: string = 'application/json'
+  ): Promise<void> {
     if (!this.bucket) {
       throw new Error('R2 bucket not available');
     }
 
     const body = typeof content === 'string' ? new TextEncoder().encode(content) : content;
-    
+
     await this.bucket.put(key, body, {
       httpMetadata: {
         contentType,
@@ -95,7 +99,7 @@ export class R2StorageService {
     }
 
     const list = await this.bucket.list({ prefix });
-    return list.objects.map(obj => ({
+    return list.objects.map((obj) => ({
       key: obj.key,
       size: obj.size,
       uploadedAt: obj.uploaded?.toISOString(),

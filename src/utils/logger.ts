@@ -98,11 +98,16 @@ class StructuredLogger {
 
   private parseLogLevel(level?: string): LogLevel {
     switch (level) {
-      case 'debug': return LogLevel.DEBUG;
-      case 'info': return LogLevel.INFO;
-      case 'warn': return LogLevel.WARN;
-      case 'error': return LogLevel.ERROR;
-      default: return LogLevel.INFO;
+      case 'debug':
+        return LogLevel.DEBUG;
+      case 'info':
+        return LogLevel.INFO;
+      case 'warn':
+        return LogLevel.WARN;
+      case 'error':
+        return LogLevel.ERROR;
+      default:
+        return LogLevel.INFO;
     }
   }
 
@@ -115,14 +120,14 @@ class StructuredLogger {
 
   private colorize(text: string, level: LogLevel): string {
     if (!this.enableColors) return text;
-    
+
     const colors: Record<LogLevel, string> = {
       [LogLevel.DEBUG]: '\x1b[36m', // 青色
-      [LogLevel.INFO]: '\x1b[32m',  // 绿色
-      [LogLevel.WARN]: '\x1b[33m',  // 黄色
+      [LogLevel.INFO]: '\x1b[32m', // 绿色
+      [LogLevel.WARN]: '\x1b[33m', // 黄色
       [LogLevel.ERROR]: '\x1b[31m', // 红色
     };
-    
+
     const reset = '\x1b[0m';
     return `${colors[level]}${text}${reset}`;
   }
@@ -137,20 +142,20 @@ class StructuredLogger {
     const category = entry.category.toUpperCase();
     const requestId = entry.requestId ? `[${entry.requestId}]` : '';
     const userId = entry.userId ? `[${entry.userId}]` : '';
-    
+
     let message = `${timestamp} ${level} ${category} ${requestId}${userId} ${entry.message}`;
-    
+
     if (entry.metadata && Object.keys(entry.metadata).length > 0) {
       message += `\n  Metadata: ${JSON.stringify(entry.metadata, null, 2)}`;
     }
-    
+
     if (entry.error) {
       message += `\n  Error: ${entry.error.type} - ${entry.error.message}`;
       if (entry.error.stack) {
         message += `\n  Stack: ${entry.error.stack}`;
       }
     }
-    
+
     if (entry.performance) {
       const perf = entry.performance;
       if (perf.duration !== undefined) {
@@ -160,27 +165,27 @@ class StructuredLogger {
         message += `\n  Memory: ${(perf.memory / 1024 / 1024).toFixed(2)}MB`;
       }
     }
-    
+
     return message;
   }
 
   private checkAlert(entry: LogEntry): void {
     if (entry.level !== LogLevel.ERROR) return;
-    
+
     const key = entry.error?.type || 'UNKNOWN';
     const now = Date.now();
-    
+
     // 重置计数器如果在告警窗口外
     const lastTime = this.lastErrorTime.get(key) || 0;
     if (now - lastTime > this.alertWindow) {
       this.errorCount.set(key, 0);
     }
-    
+
     // 增加计数
     const count = (this.errorCount.get(key) || 0) + 1;
     this.errorCount.set(key, count);
     this.lastErrorTime.set(key, now);
-    
+
     // 如果超过阈值，发送告警
     if (count >= this.alertThreshold) {
       this.alert(key, count);
@@ -189,15 +194,16 @@ class StructuredLogger {
 
   private alert(errorType: string, count: number): void {
     const alertMessage = `🚨 ALERT: ${errorType} errors exceeded threshold (${count} errors in ${this.alertWindow / 1000}s)`;
-    console.warn(this.enableJson 
-      ? JSON.stringify({ alert: true, errorType, count, timestamp: new Date().toISOString() })
-      : this.colorize(alertMessage, LogLevel.ERROR)
+    console.warn(
+      this.enableJson
+        ? JSON.stringify({ alert: true, errorType, count, timestamp: new Date().toISOString() })
+        : this.colorize(alertMessage, LogLevel.ERROR)
     );
   }
 
   log(entry: Omit<LogEntry, 'timestamp'>): void {
     if (!this.shouldLog(entry.level)) return;
-    
+
     const fullEntry: LogEntry = {
       ...entry,
       timestamp: new Date().toISOString(),
@@ -291,13 +297,25 @@ class StructuredLogger {
     if (error.name === 'ValidationError' || error.message.includes('validation')) {
       return ErrorType.VALIDATION;
     }
-    if (error.name === 'AuthError' || error.message.includes('auth') || error.message.includes('unauthorized')) {
+    if (
+      error.name === 'AuthError' ||
+      error.message.includes('auth') ||
+      error.message.includes('unauthorized')
+    ) {
       return ErrorType.AUTH;
     }
-    if (error.message.includes('database') || error.message.includes('D1') || error.message.includes('SQL')) {
+    if (
+      error.message.includes('database') ||
+      error.message.includes('D1') ||
+      error.message.includes('SQL')
+    ) {
       return ErrorType.DATABASE;
     }
-    if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('ECONNREFUSED')) {
+    if (
+      error.message.includes('network') ||
+      error.message.includes('fetch') ||
+      error.message.includes('ECONNREFUSED')
+    ) {
       return ErrorType.NETWORK;
     }
     if (error.message.includes('timeout') || error.name === 'TimeoutError') {
@@ -337,11 +355,7 @@ class StructuredLogger {
     }
 
     // 中严重性错误
-    if (
-      type === ErrorType.TIMEOUT ||
-      type === ErrorType.RATE_LIMIT ||
-      type === ErrorType.AUTH
-    ) {
+    if (type === ErrorType.TIMEOUT || type === ErrorType.RATE_LIMIT || type === ErrorType.AUTH) {
       return ErrorSeverity.MEDIUM;
     }
 

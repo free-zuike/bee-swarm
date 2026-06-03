@@ -428,8 +428,10 @@ export async function loadUserChannelSettings(
     if (env.DB) {
       const result = await env.DB.prepare(
         'SELECT channel_id, config, enabled FROM channel_configs WHERE user_id = ?'
-      ).bind(username).all<{ channel_id: string; config: string; enabled: number }>();
-      
+      )
+        .bind(username)
+        .all<{ channel_id: string; config: string; enabled: number }>();
+
       if (result.results && result.results.length > 0) {
         for (const row of result.results) {
           const config = JSON.parse(row.config);
@@ -464,7 +466,9 @@ export async function loadUserChannelSettingsBatch(
   const placeholders = usernames.map(() => '?').join(',');
   const result = await env.DB.prepare(
     `SELECT user_id, channel_id, config, enabled FROM channel_configs WHERE user_id IN (${placeholders})`
-  ).bind(...usernames).all<{ user_id: string; channel_id: string; config: string; enabled: number }>();
+  )
+    .bind(...usernames)
+    .all<{ user_id: string; channel_id: string; config: string; enabled: number }>();
 
   // 按用户分组
   for (const username of usernames) {
@@ -518,22 +522,18 @@ export async function saveUserChannelSetting(
   const enabled = fields.enabled === 'true' ? 1 : 0;
   const now = new Date().toISOString();
 
-  await env.DB.prepare(
-    'DELETE FROM channel_configs WHERE user_id = ? AND channel_id = ?'
-  ).bind(username, channelId).run();
+  await env.DB.prepare('DELETE FROM channel_configs WHERE user_id = ? AND channel_id = ?')
+    .bind(username, channelId)
+    .run();
 
-  await env.DB.prepare(`
+  await env.DB.prepare(
+    `
     INSERT INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    crypto.randomUUID(),
-    username,
-    channelId,
-    JSON.stringify(config),
-    enabled,
-    now,
-    now
-  ).run();
+  `
+  )
+    .bind(crypto.randomUUID(), username, channelId, JSON.stringify(config), enabled, now, now)
+    .run();
 }
 
 /**
@@ -664,22 +664,26 @@ export async function dispatchPushWithOptions(
   // 保存到 D1 推送历史
   try {
     if (env.DB) {
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        crypto.randomUUID(),
-        username,
-        payload.title,
-        payload.body || '',
-        payload.url || null,
-        payload.imageUrl || null,
-        payload.markdown ? 1 : 0,
-        JSON.stringify(enabledChannels.map((c) => c.id)),
-        JSON.stringify(results),
-        results.every((r) => r.success) ? 'success' : 'partial',
-        new Date().toISOString()
-      ).run();
+      `
+      )
+        .bind(
+          crypto.randomUUID(),
+          username,
+          payload.title,
+          payload.body || '',
+          payload.url || null,
+          payload.imageUrl || null,
+          payload.markdown ? 1 : 0,
+          JSON.stringify(enabledChannels.map((c) => c.id)),
+          JSON.stringify(results),
+          results.every((r) => r.success) ? 'success' : 'partial',
+          new Date().toISOString()
+        )
+        .run();
     }
   } catch (err) {
     console.error('[PushHistory] Failed to save:', (err as Error).message);
@@ -810,12 +814,16 @@ export async function getPushHistory(
   // 获取总数
   const countResult = await env.DB.prepare(
     `SELECT COUNT(*) as count FROM push_history ${whereClause}`
-  ).bind(...params).first<{ count: number }>();
+  )
+    .bind(...params)
+    .first<{ count: number }>();
 
   // 获取分页数据
   const dataResult = await env.DB.prepare(
     `SELECT * FROM push_history ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
-  ).bind(...params, pageSize + 1, offset).all<any>();
+  )
+    .bind(...params, pageSize + 1, offset)
+    .all<any>();
 
   const records: PushHistoryRecord[] = (dataResult.results || []).map((row: any) => ({
     id: row.id,
@@ -836,7 +844,7 @@ export async function getPushHistory(
   return {
     records: limitedRecords,
     total: countResult?.count || 0,
-    hasMore
+    hasMore,
   };
 }
 
@@ -857,12 +865,14 @@ export async function batchDeletePushHistory(
   const placeholders = ids.map(() => '?').join(',');
   const result = await env.DB.prepare(
     `DELETE FROM push_history WHERE user_id = ? AND id IN (${placeholders})`
-  ).bind(username, ...ids).run();
+  )
+    .bind(username, ...ids)
+    .run();
 
   return {
     success: true,
     message: `已删除 ${result.meta?.changes || 0} 条记录`,
-    deletedCount: result.meta?.changes || 0
+    deletedCount: result.meta?.changes || 0,
   };
 }
 
@@ -891,9 +901,9 @@ export async function batchDeletePushHistoryByFilter(
     params.push(filter.status);
   }
 
-  const result = await env.DB.prepare(
-    `DELETE FROM push_history ${whereClause}`
-  ).bind(...params).run();
+  const result = await env.DB.prepare(`DELETE FROM push_history ${whereClause}`)
+    .bind(...params)
+    .run();
 
   const deletedCount = result.meta?.changes || 0;
   if (deletedCount === 0) {
@@ -903,7 +913,7 @@ export async function batchDeletePushHistoryByFilter(
   return {
     success: true,
     message: `已删除 ${deletedCount} 条记录`,
-    deletedCount
+    deletedCount,
   };
 }
 

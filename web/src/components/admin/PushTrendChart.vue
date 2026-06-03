@@ -34,18 +34,18 @@ const themeStore = useThemeStore();
 
 const initChart = () => {
   if (!chartRef.value) return;
-  
+
   chartInstance = echarts.init(chartRef.value);
   updateChart();
 };
 
 const updateChart = () => {
   if (!chartInstance || !props.data.length) return;
-  
+
   const isDark = themeStore.isDark;
   const textColor = isDark ? '#e0e0e0' : '#1a1a2e';
   const backgroundColor = isDark ? '#2d2d2d' : '#ffffff';
-  
+
   const option: echarts.EChartsOption = {
     title: {
       text: props.title || t('dashboard.recentActivity'),
@@ -130,7 +130,7 @@ const updateChart = () => {
       },
     ],
   };
-  
+
   chartInstance.setOption(option);
 };
 
@@ -141,7 +141,7 @@ const handleResize = () => {
 onMounted(() => {
   initChart();
   window.addEventListener('resize', handleResize);
-  
+
   watch(
     () => themeStore.isDark,
     () => {
