@@ -241,7 +241,7 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
       id: r.id,
       templateId: r.template_id,
       cron: r.cron,
-      nextRun: r.next_run ? new Date(r.next_run * 60000).toISOString() : undefined,
+      nextRun: r.next_run && r.next_run > 0 && r.next_run < 1e12 ? new Date(r.next_run * 60000).toISOString() : undefined,
       title: r.title,
       body: r.body,
       url: r.url,
