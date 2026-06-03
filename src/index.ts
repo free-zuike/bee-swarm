@@ -24,8 +24,12 @@ import {
   upsertBackupRun,
 } from './services/d1DataService';
 import { QueueService, type PushQueueMessage } from './services/queueService';
+import { MigrationService } from './services/migrationService';
 
 const app = new Hono<{ Bindings: Env }>();
+
+// 迁移标记，避免重复执行
+let migrationsRan = false;
 
 // 安全 HTTP 头
 app.use('*', securityHeaders());
@@ -141,6 +145,13 @@ app.notFound(async (c) => {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    if (!migrationsRan) {
+      migrationsRan = true;
+      const migrationService = new MigrationService(env);
+      await migrationService.runMigrations().catch((err) => {
+        console.error('[Migration] Failed to run migrations:', err);
+      });
+    }
     return app.fetch(request, env, ctx);
   },
 
