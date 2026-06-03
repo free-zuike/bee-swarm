@@ -1592,6 +1592,7 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
 /** 获取推送统计 */
 adminApi.get('/stats', async (c) => {
   const username = c.get('username');
+  const days = parseInt(c.req.query('days') || '7', 10);
 
   try {
     const pushService = new PushService(c.env, username);
@@ -1624,16 +1625,22 @@ adminApi.get('/stats', async (c) => {
     }
 
     return c.json({
-      ...stats,
-      channelUsage,
+      success: true,
+      data: {
+        ...stats,
+        channelUsage,
+      },
     });
   } catch (error) {
     console.error('[Stats] Error:', error);
     return c.json({
-      session: { total: 0, success: 0, failed: 0 },
-      trend: { rate: 0, direction: 'stable' as const },
-      recent: [],
-      channelUsage: {},
+      success: false,
+      data: {
+        session: { total: 0, success: 0, failed: 0 },
+        trend: { rate: 0, direction: 'stable' as const },
+        recent: [],
+        channelUsage: {},
+      },
     });
   }
 });

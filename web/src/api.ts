@@ -719,8 +719,8 @@ export async function deleteScheduledPush(
 // -------------------------------------------
 
 // 获取推送统计
-export async function getPushStats(token: string): Promise<PushStats> {
-  return tokenRequest(`${BASE}/admin/stats`, token);
+export async function getPushStats(token: string, days: number = 7): Promise<PushStats> {
+  return tokenRequest(`${BASE}/admin/stats?days=${days}`, token);
 }
 
 // 获取会话指标
