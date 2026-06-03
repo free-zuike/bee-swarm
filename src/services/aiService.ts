@@ -65,8 +65,9 @@ export class AIService {
       const systemPrompt = this.buildSystemPrompt(type, language);
       const userPrompt = this.buildUserPrompt(prompt, type);
 
-      // 调用 AI 模型
-      const response = await this.env.AI.run('@cf/qwen/qwen1.5-0.5b-chat', {
+      // 调用 AI 模型 - 使用免费模型 @cf/meta/llama-3.2-1b-instruct
+      // 每天 10,000 token 免费额度
+      const response = await this.env.AI.run('@cf/meta/llama-3.2-1b-instruct', {
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
