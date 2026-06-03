@@ -819,13 +819,15 @@ defineExpose({
           <div class="form-section">
             <h4>{{ t('label.schedule_settings') }}</h4>
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group checkbox-group">
                 <label class="checkbox-label">
                   <input type="checkbox" v-model="editingEndpoint.schedule.enabled" />
                   <span>{{ t('label.enable_schedule') }}</span>
                 </label>
-                <span class="input-hint">{{ t('hint.enable_schedule') }}</span>
               </div>
+            </div>
+            <div v-if="editingEndpoint.schedule.enabled" class="form-row">
+              <span class="input-hint">{{ t('hint.enable_schedule') }}</span>
             </div>
             <div v-if="editingEndpoint.schedule.enabled" class="form-row">
               <div class="form-group">
