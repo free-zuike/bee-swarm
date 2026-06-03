@@ -113,6 +113,81 @@ export class PushService {
     this.metrics = new MetricsCollector(env, userId);
   }
 
+  /**
+   * 查询单个推送模板（优化：避免查询整个列表）
+   */
+  private async getTemplateById(id: string): Promise<PushTemplate | null> {
+    if (!this.env.DB) return null;
+    
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM push_templates WHERE id = ? AND user_id = ?'
+    ).bind(id, this.userId).first<any>();
+
+    if (!result) return null;
+    
+    return {
+      id: result.id,
+      name: result.name,
+      title: result.title || '',
+      content: result.body || '',
+      channels: result.channels ? JSON.parse(result.channels) : [],
+      url: result.url,
+      imageUrl: result.image_url,
+      useMarkdown: result.markdown === 1,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  /**
+   * 查询单个渠道分组（优化：避免查询整个列表）
+   */
+  private async getChannelGroupById(id: string): Promise<ChannelGroup | null> {
+    if (!this.env.DB) return null;
+    
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM channel_groups WHERE id = ? AND user_id = ?'
+    ).bind(id, this.userId).first<any>();
+
+    if (!result) return null;
+    
+    return {
+      id: result.id,
+      name: result.name,
+      channels: JSON.parse(result.channels || '[]'),
+      createdAt: result.created_at,
+    };
+  }
+
+  /**
+   * 查询单个定时推送（优化：避免查询整个列表）
+   */
+  private async getScheduledPushById(id: string): Promise<ScheduledPush | null> {
+    if (!this.env.DB) return null;
+    
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
+    ).bind(id, this.userId).first<any>();
+
+    if (!result) return null;
+    
+    return {
+      id: result.id,
+      templateId: result.template_id,
+      title: result.title || '',
+      content: result.body || '',
+      channels: JSON.parse(result.channels || '[]'),
+      url: result.url,
+      scheduledAt: new Date(result.next_run).toISOString(),
+      scheduleType: result.enabled ? 'recurring' : 'once',
+      enabled: result.enabled === 1,
+      createdBy: result.user_id,
+      createdAt: result.created_at,
+      status: result.status,
+      overdueReminderSent: result.overdue_reminder_sent === 1,
+    };
+  }
+
   async pushConcurrent(
     channels: PushChannel[],
     settings: Record<string, ChannelConfig>,
@@ -163,12 +238,18 @@ export class PushService {
     };
   }
 
-  async getTemplates(): Promise<PushTemplate[]> {
+  /**
+   * 获取推送模板列表（优化：添加分页限制）
+   */
+  async getTemplates(options?: { limit?: number; offset?: number }): Promise<PushTemplate[]> {
     if (!this.env.DB) return [];
     
+    const limit = options?.limit || 100; // 默认最多返回 100 条
+    const offset = options?.offset || 0;
+    
     const result = await this.env.DB.prepare(
-      'SELECT * FROM push_templates WHERE user_id = ? ORDER BY created_at DESC'
-    ).bind(this.userId).all<any>();
+      'SELECT * FROM push_templates WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).bind(this.userId, limit, offset).all<any>();
 
     return (result.results || []).map((row: any) => ({
       id: row.id,
@@ -217,6 +298,9 @@ export class PushService {
     };
   }
 
+  /**
+   * 更新推送模板（优化：使用单个查询替代列表查询）
+   */
   async updateTemplate(id: string, updates: Partial<PushTemplate>): Promise<PushTemplate | null> {
     if (!this.env.DB) return null;
     
@@ -260,8 +344,8 @@ export class PushService {
       `UPDATE push_templates SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`
     ).bind(...values).run();
 
-    const templates = await this.getTemplates();
-    return templates.find(t => t.id === id) || null;
+    // 优化：直接查询单个记录，而不是整个列表
+    return await this.getTemplateById(id);
   }
 
   async deleteTemplate(id: string): Promise<boolean> {
@@ -274,12 +358,18 @@ export class PushService {
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
-  async getChannelGroups(): Promise<ChannelGroup[]> {
+  /**
+   * 获取渠道分组列表（优化：添加分页限制）
+   */
+  async getChannelGroups(options?: { limit?: number; offset?: number }): Promise<ChannelGroup[]> {
     if (!this.env.DB) return [];
     
+    const limit = options?.limit || 100; // 默认最多返回 100 条
+    const offset = options?.offset || 0;
+    
     const result = await this.env.DB.prepare(
-      'SELECT * FROM channel_groups WHERE user_id = ? ORDER BY created_at DESC'
-    ).bind(this.userId).all<any>();
+      'SELECT * FROM channel_groups WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).bind(this.userId, limit, offset).all<any>();
 
     return (result.results || []).map((row: any) => ({
       id: row.id,
@@ -324,6 +414,9 @@ export class PushService {
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
+  /**
+   * 更新渠道分组（优化：使用单个查询替代列表查询）
+   */
   async updateChannelGroup(
     id: string,
     updates: { name?: string; channels?: PushChannel[] }
@@ -350,14 +443,21 @@ export class PushService {
       `UPDATE channel_groups SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`
     ).bind(...values).run();
 
-    const groups = await this.getChannelGroups();
-    return groups.find(g => g.id === id) || null;
+    // 优化：直接查询单个记录，而不是整个列表
+    return await this.getChannelGroupById(id);
   }
 
+  /**
+   * 获取定时推送列表（优化：添加分页限制）
+   */
   async getScheduledPushes(
-    status?: 'pending' | 'processing' | 'completed' | 'failed' | 'overdue'
+    status?: 'pending' | 'processing' | 'completed' | 'failed' | 'overdue',
+    options?: { limit?: number; offset?: number }
   ): Promise<ScheduledPush[]> {
     if (!this.env.DB) return [];
+    
+    const limit = options?.limit || 100; // 默认最多返回 100 条
+    const offset = options?.offset || 0;
     
     let sql = 'SELECT * FROM scheduled_pushes WHERE user_id = ?';
     const params: any[] = [this.userId];
@@ -367,7 +467,8 @@ export class PushService {
       params.push(status);
     }
     
-    sql += ' ORDER BY next_run ASC';
+    sql += ' ORDER BY next_run ASC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
     const result = await this.env.DB.prepare(sql).bind(...params).all<any>();
 
@@ -425,6 +526,9 @@ export class PushService {
     };
   }
 
+  /**
+   * 更新定时推送（优化：使用单个查询替代列表查询）
+   */
   async updateScheduledPush(
     id: string,
     updates: Partial<Omit<ScheduledPush, 'id' | 'createdBy' | 'createdAt'>>
@@ -462,8 +566,8 @@ export class PushService {
       `UPDATE scheduled_pushes SET ${fields.join(', ')} WHERE id = ? AND user_id = ? AND status = 'pending'`
     ).bind(...values).run();
 
-    const pushes = await this.getScheduledPushes();
-    return pushes.find(p => p.id === id) || null;
+    // 优化：直接查询单个记录，而不是整个列表
+    return await this.getScheduledPushById(id);
   }
 
   async deleteScheduledPush(id: string): Promise<boolean> {
@@ -550,6 +654,9 @@ export class PushService {
     return this.getScheduledPushes('overdue');
   }
 
+  /**
+   * 重新安排超时任务（优化：使用单个查询替代列表查询）
+   */
   async rescheduleOverdueTask(id: string, newScheduledAt: string): Promise<ScheduledPush | null> {
     if (!this.env.DB) return null;
     
@@ -557,8 +664,8 @@ export class PushService {
       UPDATE scheduled_pushes SET status = 'pending', next_run = ?, updated_at = ? WHERE id = ? AND user_id = ?
     `).bind(new Date(newScheduledAt).getTime(), new Date().toISOString(), id, this.userId).run();
 
-    const pushes = await this.getScheduledPushes();
-    return pushes.find(p => p.id === id) || null;
+    // 优化：直接查询单个记录，而不是整个列表
+    return await this.getScheduledPushById(id);
   }
 
   getMetrics(): MetricsCollector {
@@ -589,9 +696,13 @@ export class PushService {
     };
   }
 
+  /**
+   * 检测超时任务（优化：添加分页限制）
+   */
   async detectOverdueTasks(overdueMinutes: number = 30): Promise<ScheduledPush[]> {
     const now = new Date();
-    const pushes = await this.getScheduledPushes('pending');
+    // 优化：添加分页限制，避免查询过多记录
+    const pushes = await this.getScheduledPushes('pending', { limit: 1000 });
     const overduePushes: ScheduledPush[] = [];
 
     for (const push of pushes) {

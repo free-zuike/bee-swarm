@@ -94,18 +94,31 @@ class MockPreparedStatement {
 
   private _handleSelect(sql: string, type: string): any {
     const sqlLower = sql.toLowerCase();
-    // 获取过滤条件中的 user_id，应该是第一个参数
-    const userId = this.params[0] as string;
-
+    
+    // 检查是否是单个记录查询（WHERE id = ? AND user_id = ?）
+    const idCondition = sqlLower.includes('where') && sqlLower.match(/where\s+id\s*=\s*\?/);
+    
     // 处理 push_templates
     if (sqlLower.includes('push_templates')) {
       const table = this.tables.get('push_templates') || new Map();
       const allResults = Array.from(table.values());
       
-      // 按 user_id 过滤
-      const filteredResults = allResults.filter(row => 
-        row.user_id === userId
-      );
+      let filteredResults;
+      
+      if (idCondition) {
+        // 单个记录查询：WHERE id = ? AND user_id = ?
+        const recordId = this.params[0];
+        const userId = this.params[1];
+        filteredResults = allResults.filter(row => 
+          row.id === recordId && row.user_id === userId
+        );
+      } else {
+        // 列表查询：WHERE user_id = ?
+        const userId = this.params[0];
+        filteredResults = allResults.filter(row => 
+          row.user_id === userId
+        );
+      }
       
       return type === 'first' ? filteredResults[0] || null : filteredResults;
     }
@@ -114,9 +127,23 @@ class MockPreparedStatement {
     if (sqlLower.includes('channel_groups')) {
       const table = this.tables.get('channel_groups') || new Map();
       const allResults = Array.from(table.values());
-      const filteredResults = allResults.filter(row => 
-        row.user_id === userId
-      );
+      
+      let filteredResults;
+      
+      if (idCondition) {
+        // 单个记录查询
+        const recordId = this.params[0];
+        const userId = this.params[1];
+        filteredResults = allResults.filter(row => 
+          row.id === recordId && row.user_id === userId
+        );
+      } else {
+        // 列表查询
+        const userId = this.params[0];
+        filteredResults = allResults.filter(row => 
+          row.user_id === userId
+        );
+      }
       
       return type === 'first' ? filteredResults[0] || null : filteredResults;
     }
@@ -126,16 +153,30 @@ class MockPreparedStatement {
       const table = this.tables.get('scheduled_pushes') || new Map();
       const allResults = Array.from(table.values());
       
-      // 如果有 status 参数，第二个参数应该是 status
-      let filteredResults = allResults.filter(row => 
-        row.user_id === userId
-      );
-      if (this.params.length >= 2) {
-        const status = this.params[1];
-        if (typeof status === 'string') {
-          filteredResults = filteredResults.filter(row => 
-            row.status === status
-          );
+      let filteredResults;
+      
+      if (idCondition) {
+        // 单个记录查询
+        const recordId = this.params[0];
+        const userId = this.params[1];
+        filteredResults = allResults.filter(row => 
+          row.id === recordId && row.user_id === userId
+        );
+      } else {
+        // 列表查询
+        const userId = this.params[0];
+        filteredResults = allResults.filter(row => 
+          row.user_id === userId
+        );
+        
+        // 如果有 status 参数
+        if (this.params.length >= 2) {
+          const status = this.params[1];
+          if (typeof status === 'string') {
+            filteredResults = filteredResults.filter(row => 
+              row.status === status
+            );
+          }
         }
       }
       
