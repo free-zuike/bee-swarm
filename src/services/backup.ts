@@ -279,18 +279,38 @@ export async function uploadBackupToEndpoint(
   endpoint: BackupEndpoint,
   data?: any
 ): Promise<BackupResult> {
+  let backupRecordId = '';
+
   try {
-    const backupData = data || {
-      timestamp: new Date().toISOString(),
-      username,
-      version: '1.0',
-    };
+    // 创建备份记录
+    backupRecordId = crypto.randomUUID();
+    await createBackupRecord(env, {
+      id: backupRecordId,
+      userId: username,
+      endpointId: endpoint.id,
+      endpointName: endpoint.name,
+      status: 'pending',
+    });
+
+    // 导出用户数据（如果没有提供数据）
+    const backupData = data || await exportUserData(env, username);
     const filename = `backup-${Date.now()}.json`;
+    const jsonContent = JSON.stringify(backupData, null, 2);
+    const dataHash = computeDataHash(backupData);
+
+    // 更新备份记录为进行中
+    await updateBackupRecordStatus(env, backupRecordId, username, 'pending', {
+      sizeBytes: new Blob([jsonContent]).size,
+      dataHash,
+    });
+
+    let storagePath = '';
 
     if (endpoint.type === 's3') {
       const config = endpoint.config as S3Config;
       const root = config.path || 'beeswarm';
       const key = `${root}/backups/${username}/${filename}`;
+      storagePath = `s3://${config.bucket}/${key}`;
 
       const awsClient = new AwsClient({
         accessKeyId: config.accessKeyId,
@@ -305,7 +325,7 @@ export async function uploadBackupToEndpoint(
 
       const response = await awsClient.fetch(url, {
         method: 'PUT',
-        body: JSON.stringify(backupData, null, 2),
+        body: jsonContent,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -315,7 +335,7 @@ export async function uploadBackupToEndpoint(
         const errorText = await response.text();
         return {
           success: false,
-          message: `S3 上传失败 (${response.status}): ${errorText.substring(0, 200)}`,
+          message: `S3 upload failed (${response.status}): ${errorText.substring(0, 200)}`,
           endpointId: endpoint.id,
           statusCode: response.status,
         };
@@ -327,6 +347,7 @@ export async function uploadBackupToEndpoint(
       const config = endpoint.config as WebDAVConfig;
       const root = config.path || 'beeswarm';
       const url = `${config.url.replace(/\/$/, '')}/${root}/backups/${username}/${filename}`;
+      storagePath = url;
 
       // 确保目录存在
       try {
@@ -337,13 +358,13 @@ export async function uploadBackupToEndpoint(
         // 目录可能已经存在，忽略错误
       }
 
-      const response = await webdavRequest('PUT', url, config, JSON.stringify(backupData, null, 2));
+      const response = await webdavRequest('PUT', url, config, jsonContent);
 
       if (!response.ok) {
         const errorText = await response.text();
         return {
           success: false,
-          message: `WebDAV 上传失败 (${response.status}): ${errorText.substring(0, 200)}`,
+          message: `WebDAV upload failed (${response.status}): ${errorText.substring(0, 200)}`,
           endpointId: endpoint.id,
           statusCode: response.status,
         };
@@ -356,7 +377,7 @@ export async function uploadBackupToEndpoint(
       if (!r2Service.isAvailable()) {
         return {
           success: false,
-          message: 'R2 存储未配置',
+          message: 'R2 storage not available',
           endpointId: endpoint.id,
         };
       }
@@ -364,18 +385,35 @@ export async function uploadBackupToEndpoint(
       const config = endpoint.config as R2Config;
       const root = config.path || 'backups';
       const key = `${root}/${username}/${filename}`;
+      storagePath = `r2://${key}`;
 
-      await r2Service.uploadBackup(key, JSON.stringify(backupData, null, 2), 'application/json');
+      await r2Service.uploadBackup(key, jsonContent, 'application/json');
 
       // 清理旧备份
       await cleanupOldBackupsR2(r2Service, root, username, endpoint.retention || 30);
     }
 
-    return { success: true, message: '备份成功', endpointId: endpoint.id };
+    // 更新备份记录为成功
+    await updateBackupRecordStatus(env, backupRecordId, username, 'success', {
+      storagePath,
+      sizeBytes: new Blob([jsonContent]).size,
+      dataHash,
+      completedAt: new Date().toISOString(),
+    });
+
+    return { success: true, message: 'Backup successful', endpointId: endpoint.id, count: 1 };
   } catch (err) {
+    // 更新备份记录为失败
+    if (backupRecordId) {
+      await updateBackupRecordStatus(env, backupRecordId, username, 'failed', {
+        errorMessage: (err as Error).message,
+        completedAt: new Date().toISOString(),
+      });
+    }
+
     return {
       success: false,
-      message: '备份失败',
+      message: 'Backup failed',
       errorMessage: (err as Error).message,
       endpointId: endpoint.id,
     };
