@@ -10,9 +10,10 @@ export interface PushTemplate {
   url?: string;
   imageUrl?: string;
   useMarkdown?: boolean;
+  category?: string;
+  variables?: TemplateVariable[];
   createdAt: string;
   updatedAt: string;
-  variables?: TemplateVariable[];
 }
 
 export interface TemplateVariable {
@@ -136,6 +137,8 @@ export class PushService {
       url: result.url,
       imageUrl: result.image_url,
       useMarkdown: result.markdown === 1,
+      category: result.category,
+      variables: result.variables ? JSON.parse(result.variables) : [],
       createdAt: result.created_at,
       updatedAt: result.updated_at,
     };
@@ -267,6 +270,8 @@ export class PushService {
       url: row.url,
       imageUrl: row.image_url,
       useMarkdown: row.markdown === 1,
+      category: row.category,
+      variables: row.variables ? JSON.parse(row.variables) : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -282,8 +287,8 @@ export class PushService {
 
     await this.env.DB.prepare(
       `
-      INSERT INTO push_templates (id, user_id, name, title, body, channels, url, image_url, markdown, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO push_templates (id, user_id, name, title, body, channels, url, image_url, markdown, category, variables, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     )
       .bind(
@@ -296,6 +301,8 @@ export class PushService {
         template.url || null,
         template.imageUrl || null,
         template.useMarkdown ? 1 : 0,
+        template.category || null,
+        template.variables ? JSON.stringify(template.variables) : null,
         now,
         now
       )
@@ -347,6 +354,14 @@ export class PushService {
     if (updates.useMarkdown !== undefined) {
       fields.push('markdown = ?');
       values.push(updates.useMarkdown ? 1 : 0);
+    }
+    if (updates.category !== undefined) {
+      fields.push('category = ?');
+      values.push(updates.category);
+    }
+    if (updates.variables !== undefined) {
+      fields.push('variables = ?');
+      values.push(updates.variables ? JSON.stringify(updates.variables) : null);
     }
 
     values.push(id, this.userId);

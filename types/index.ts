@@ -282,6 +282,12 @@ export interface BackupResult {
  * 推送模板
  * 预定义的推送内容模板
  */
+export interface TemplateVariable {
+  key: string;
+  defaultValue: string;
+  description?: string;
+}
+
 export interface PushTemplate {
   /** 模板唯一标识 */
   id: string;
@@ -299,6 +305,10 @@ export interface PushTemplate {
   imageUrl?: string;
   /** 是否使用 Markdown */
   useMarkdown?: boolean;
+  /** 模板分类 */
+  category?: string;
+  /** 模板变量 */
+  variables?: TemplateVariable[];
   /** 创建时间 */
   createdAt: string;
   /** 更新时间 */
