@@ -46,6 +46,10 @@ export interface Env {
   ADMIN_EMAIL?: string;
   /** R2 公共域名，用于头像等公开资源的访问 */
   R2_PUBLIC_DOMAIN?: string;
+  /** Turnstile 密钥，用于反爬虫验证（可选） */
+  TURNSTILE_SECRET_KEY?: string;
+  /** Turnstile 站点密钥，用于前端显示（可选） */
+  TURNSTILE_SITE_KEY?: string;
 }
 
 /**

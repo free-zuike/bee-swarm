@@ -10,6 +10,8 @@ import { PushService, type ScheduledPush } from './services/push';
 import { dispatchPushWithOptions } from './services/dispatcher';
 import { rateLimit } from './middleware/rateLimit';
 import { securityHeaders } from './middleware/securityHeaders';
+import { staticCache } from './middleware/cache';
+import { optionalTurnstile } from './middleware/turnstile';
 import { createErrorResponse, logError } from './utils/errors';
 import { convertTimezone } from './utils/timezone';
 import { escapeRegex } from './utils/regex';
@@ -22,6 +24,17 @@ const app = new Hono<{ Bindings: Env }>();
 
 // 安全 HTTP 头
 app.use('*', securityHeaders());
+
+// 静态资源缓存（应用到静态资源路由）
+app.use('*.js', staticCache());
+app.use('*.css', staticCache());
+app.use('*.png', staticCache());
+app.use('*.jpg', staticCache());
+app.use('*.jpeg', staticCache());
+app.use('*.gif', staticCache());
+app.use('*.ico', staticCache());
+app.use('*.svg', staticCache());
+app.use('*.webmanifest', staticCache());
 
 // 请求体大小限制
 const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB
@@ -45,6 +58,9 @@ app.use(
     message: '请求过于频繁，请稍后重试',
   })
 );
+
+// 可选的 Turnstile 验证（如果配置了）
+app.use('/api/*', optionalTurnstile());
 
 // CORS 配置
 app.use('*', async (c, next) => {

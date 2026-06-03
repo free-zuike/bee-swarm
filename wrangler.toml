@@ -3,6 +3,7 @@
 # ============================================
 # 敏感配置通过 wrangler secret 设置：
 #   npx wrangler secret put ADMIN_PASSWORD
+#   npx wrangler secret put TURNSTILE_SECRET_KEY（可选，用于反爬虫）
 #
 # 所有业务数据存储在 D1 数据库中
 
@@ -62,6 +63,8 @@ max_retries = 3
 [vars]
 # 可选：指定管理员邮箱，该邮箱注册自动成为管理员
 # ADMIN_EMAIL = "admin@example.com"
+# 可选：Turnstile 站点密钥（用于前端显示反爬虫组件）
+# TURNSTILE_SITE_KEY = "your-site-key"
 
 # ------------------------------------------
 # Workers 日志和监控
