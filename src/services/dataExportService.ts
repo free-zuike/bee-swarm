@@ -649,6 +649,7 @@ export async function updateBackupRecordStatus(
   options: {
     sizeBytes?: number;
     dataHash?: string;
+    storagePath?: string;
     errorMessage?: string;
     completedAt?: string;
   } = {}
@@ -659,12 +660,13 @@ export async function updateBackupRecordStatus(
       
       await env.DB.prepare(`
         UPDATE backup_records 
-        SET status = ?, size_bytes = ?, data_hash = ?, error_message = ?, completed_at = ?
+        SET status = ?, size_bytes = ?, data_hash = ?, storage_path = ?, error_message = ?, completed_at = ?
         WHERE id = ? AND user_id = ?
       `).bind(
         status,
         options.sizeBytes || null,
         options.dataHash || null,
+        options.storagePath || null,
         options.errorMessage || null,
         options.completedAt || new Date().toISOString(),
         id,
