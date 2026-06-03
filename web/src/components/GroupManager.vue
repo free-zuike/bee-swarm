@@ -398,18 +398,26 @@ async function testGroup(group: ChannelGroup): Promise<void> {
   testResult.value = null;
 
   try {
-    const results = await dispatchPush(props.accessToken, {
+    const response = await dispatchPush(props.accessToken, {
       title: `Group Test: ${group.name}`,
       body: t('message.testMessageBody'),
       channels: group.channels,
     });
 
-    const success = results.every((r: PushResult) => r.success);
-    testResult.value = {
-      success,
-      message: success ? t('scheduled.message.allSuccess') : t('scheduled.message.someFailed'),
-      results,
-    };
+    if (response.async || !response.results) {
+      testResult.value = {
+        success: true,
+        message: t('message.pushQueued'),
+        results: [],
+      };
+    } else {
+      const success = response.results.every((r: PushResult) => r.success);
+      testResult.value = {
+        success,
+        message: success ? t('scheduled.message.allSuccess') : t('scheduled.message.someFailed'),
+        results: response.results,
+      };
+    }
   } catch (error) {
     testResult.value = {
       success: false,

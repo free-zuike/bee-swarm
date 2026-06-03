@@ -263,7 +263,9 @@ export async function dispatchPush(
 ): Promise<{
   success: boolean;
   message: string;
-  results: Array<{ channel: PushChannel; success: boolean; message: string }>;
+  results?: Array<{ channel: PushChannel; success: boolean; message: string }>;
+  requestId?: string;
+  async?: boolean;
 }> {
   return sendPushWithToken(token, payload);
 }
