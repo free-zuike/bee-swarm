@@ -452,7 +452,7 @@ export async function downloadBackupFromEndpoint(
 
 // 手动触发所有启用的备份
 export async function backupAll(token: string): Promise<{
-  results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string }>;
+  results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string; errorMessage?: string }>;
 }> {
   return tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
 }

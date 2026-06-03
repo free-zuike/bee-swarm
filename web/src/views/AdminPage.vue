@@ -738,7 +738,11 @@ async function handleBackupAll() {
     } else {
       const failed = result.results.filter((r) => !r.success);
       const details = failed
-        .map((r) => `${r.endpointName || t('common.unknown')}: ${r.message}`)
+        .map((r) => {
+          const endpointName = r.endpointName || t('common.unknown');
+          const errorInfo = r.errorMessage ? ` (${r.errorMessage})` : '';
+          return `${endpointName}: ${r.message}${errorInfo}`;
+        })
         .join('; ');
       backupManagerRef.value?.handleBackupAllResult(
         t('msg.backup_partial', { success: successCount, total: totalCount }) + ' — ' + details,
