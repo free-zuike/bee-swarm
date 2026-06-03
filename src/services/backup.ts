@@ -501,7 +501,7 @@ async function cleanupOldBackupsWebDAV(
   try {
     const dirPath = `/${root}/backups/${username}/`;
     const baseUrl = config.url.replace(/\/$/, '');
-    const response = await webdavRequest('PROPFIND', dirPath, config);
+    const response = await webdavRequest('PROPFIND', `${baseUrl}${dirPath}`, config);
     if (!response.ok && response.status !== 207) return;
 
     const xml = await response.text();
@@ -556,7 +556,7 @@ async function cleanupOldBackupsWebDAV(
     // 按时间排序，删除旧的
     backups.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
     for (let i = retention; i < backups.length; i++) {
-      await webdavRequest('DELETE', `/${backups[i].key}`, config);
+      await webdavRequest('DELETE', `${baseUrl}/${backups[i].key}`, config);
     }
   } catch (e) {
     console.error('清理 WebDAV 旧备份失败', e);
@@ -636,7 +636,7 @@ export async function listBackupsFromEndpoint(
     const root = config.path || 'beeswarm';
     const dirPath = `/${root}/backups/${username}/`;
     const baseUrl = config.url.replace(/\/$/, '');
-    const response = await webdavRequest('PROPFIND', dirPath, config);
+    const response = await webdavRequest('PROPFIND', `${baseUrl}${dirPath}`, config);
 
     if (!response.ok && response.status !== 207) {
       throw new Error('列出备份失败');
@@ -750,8 +750,9 @@ export async function downloadBackupFromEndpoint(
     return await awsClient.fetch(url, { method: 'GET' });
   } else if (endpoint.type === 'webdav') {
     const config = endpoint.config as WebDAVConfig;
+    const baseUrl = config.url.replace(/\/$/, '');
     const normalizedKey = key.startsWith('/') ? key : `/${key}`;
-    return await webdavRequest('GET', normalizedKey, config);
+    return await webdavRequest('GET', `${baseUrl}${normalizedKey}`, config);
   } else if (endpoint.type === 'r2') {
     const r2Service = new R2StorageService(env);
     if (!r2Service.isAvailable()) {
@@ -809,8 +810,9 @@ export async function deleteBackupFromEndpoint(
       return { success: true, message: '删除备份成功' };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
+      const baseUrl = config.url.replace(/\/$/, '');
       const normalizedKey = key.startsWith('/') ? key : `/${key}`;
-      const response = await webdavRequest('DELETE', normalizedKey, config);
+      const response = await webdavRequest('DELETE', `${baseUrl}${normalizedKey}`, config);
       if (response.status !== 204 && !response.ok) {
         return { success: false, message: '删除备份失败', statusCode: response.status };
       }
@@ -867,7 +869,8 @@ export async function testBackupEndpoint(
       return { success: true, message: 'S3 连接成功', statusCode: null };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
-      const response = await webdavRequest('PROPFIND', '/', config);
+      const baseUrl = config.url.replace(/\/$/, '');
+      const response = await webdavRequest('PROPFIND', baseUrl, config);
       if (response.status === 429) {
         return { success: false, message: '请求太频繁', statusCode: 429 };
       }
