@@ -648,13 +648,12 @@ export async function listBackupsFromEndpoint(
       : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}?list-type=2&prefix=${encodeURIComponent(prefix)}`;
 
     const response = await awsClient.fetch(listUrl, { method: 'GET' });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Backup] S3 list backups failed:', response.status, errorText);
-      throw new Error(`S3 list backups failed (${response.status}): ${errorText.substring(0, 200)}`);
-    }
-
     const xml = await response.text();
+    
+    if (!response.ok) {
+      console.error('[Backup] S3 list backups failed:', response.status, xml);
+      throw new Error(`S3 list backups failed (${response.status}): ${xml.substring(0, 200)}`);
+    }
 
     // 检查是否返回了错误 XML
     if (xml.includes('<Error>')) {
