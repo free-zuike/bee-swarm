@@ -259,25 +259,28 @@
                 </div>
               </div>
 
-              <div v-if="recurringType === 'monthly'" class="monthday-selector">
-                <label class="weekday-label">{{ t('scheduled.label.selectDate') }}</label>
-                <div class="monthday-options">
-                  <button
-                    type="button"
-                    v-for="day in monthDays"
-                    :key="day"
-                    class="monthday-btn"
-                    :class="{ active: selectedMonthDays.includes(day) }"
-                    @click="toggleMonthDay(day)"
-                  >
-                    {{ day }}
-                  </button>
+              <div v-if="recurringType === 'monthly'" class="monthly-selector">
+                <div class="monthly-date">
+                  <label class="weekday-label">{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label>
+                  <div class="monthday-options">
+                    <button
+                      type="button"
+                      v-for="day in monthDays"
+                      :key="day"
+                      class="monthday-btn"
+                      :class="{ active: selectedMonthDays.includes(day) }"
+                      @click="toggleMonthDay(day)"
+                    >
+                      {{ day }}
+                    </button>
+                  </div>
+                  <p class="selector-hint">{{ t('hint.monthly_days') }}</p>
                 </div>
               </div>
 
               <div v-if="recurringType === 'yearly'" class="yearly-selector">
                 <div class="yearly-month">
-                  <label class="weekday-label">{{ t('scheduled.label.selectMonth') }}</label>
+                  <label class="weekday-label">{{ t('scheduled.label.selectMonth') }} <span class="required">*</span></label>
                   <div class="month-options">
                     <button
                       type="button"
@@ -292,7 +295,7 @@
                   </div>
                 </div>
                 <div class="yearly-date">
-                  <label class="weekday-label">{{ t('scheduled.label.selectDate') }}</label>
+                  <label class="weekday-label">{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label>
                   <div class="monthday-options">
                     <button
                       type="button"
@@ -306,6 +309,7 @@
                     </button>
                   </div>
                 </div>
+                <p class="selector-hint">{{ t('hint.yearly_date') }}</p>
               </div>
 
               <div v-if="recurringType === 'cron'" class="cron-input">
@@ -1995,6 +1999,19 @@ watch(
 
 .monthday-selector {
   margin-top: 12px;
+}
+
+.selector-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.required {
+  color: #ff4d4f;
+  margin-left: 4px;
 }
 
 .monthday-options {
