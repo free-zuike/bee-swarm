@@ -538,7 +538,7 @@ async function cleanupOldBackupsWebDAV(
         }
       }
 
-      if (!relativePath || relativePath.endsWith('/')) continue;
+      if (!relativePath || relativePath.endsWith('/') || !relativePath.endsWith('.json')) continue;
 
       const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
       const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
@@ -621,9 +621,10 @@ export async function listBackupsFromEndpoint(
 
     const files: BackupInfo[] = [];
     for (let i = 0; i < keyMatches.length; i++) {
-      if (keyMatches[i]?.[1]) {
+      const key = keyMatches[i]?.[1];
+      if (key && key.endsWith('.json')) {
         files.push({
-          key: keyMatches[i][1],
+          key,
           lastModified: lastModifiedMatches[i]?.[1] || '',
           size: parseInt(sizeMatches[i]?.[1] || '0', 10),
         });

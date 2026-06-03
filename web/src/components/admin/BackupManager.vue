@@ -1048,7 +1048,7 @@ defineExpose({
                   />
                 </div>
                 <div class="backup-info">
-                  <span class="backup-name">{{ formatBackupName(b.key) }}</span>
+                  <span class="backup-name" :title="b.key">{{ formatBackupName(b.key) }}</span>
                   <span class="backup-meta"
                     >{{ formatBackupSize(b.size) }} · {{ formatBackupTime(b.lastModified) }}</span
                   >
@@ -1663,6 +1663,10 @@ defineExpose({
   font-weight: 500;
   font-size: 14px;
   color: var(--text-primary, #1a1a2e);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
 .backup-meta {
