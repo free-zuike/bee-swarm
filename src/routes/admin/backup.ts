@@ -16,6 +16,12 @@ import {
   deleteBackupEndpoint,
   testBackupEndpoint,
   executeAllBackups,
+  exportData,
+  importData,
+  validateBackup,
+  getBackupHistory,
+  deleteBackupRecordItem,
+  restoreFromEndpoint,
   type BackupEndpoint,
   type S3Config,
   type WebDAVConfig,
@@ -351,5 +357,119 @@ backupRoutes.post('/backup-endpoints/:id/backup', async (c) => {
       success: false, 
       message: '执行备份失败：' + error.message 
     }, 500);
+  }
+});
+
+// ============================================
+// 备份增强功能 API
+// ============================================
+
+/** 导出用户数据 */
+backupRoutes.get('/export', async (c) => {
+  const username = c.get('username');
+  
+  try {
+    const data = await exportData(c.env, username);
+    const filename = `backup-${username}-${new Date().toISOString().split('T')[0]}.json`;
+    
+    return c.json(data, 200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 导出数据失败:', error);
+    return c.json({ error: '导出失败：' + error.message }, 500);
+  }
+});
+
+/** 导入用户数据 */
+backupRoutes.post('/import', async (c) => {
+  const username = c.get('username');
+  
+  try {
+    const body = await c.req.json();
+    const options = {
+      skipTables: body.skipTables || [],
+      mergeMode: body.mergeMode || 'overwrite',
+    };
+    
+    const result = await importData(c.env, username, body.data, options);
+    return c.json(result);
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 导入数据失败:', error);
+    return c.json({ error: '导入失败：' + error.message }, 400);
+  }
+});
+
+/** 验证备份数据 */
+backupRoutes.post('/validate', async (c) => {
+  const body = await c.req.json();
+  const validation = validateBackup(body.data);
+  return c.json(validation);
+});
+
+/** 获取备份历史记录 */
+backupRoutes.get('/history', async (c) => {
+  const username = c.get('username');
+  const limit = parseInt(c.req.query('limit') || '50', 10);
+  
+  try {
+    const history = await getBackupHistory(c.env, username, limit);
+    return c.json({ history });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 获取备份历史失败:', error);
+    return c.json({ error: '获取历史记录失败：' + error.message }, 500);
+  }
+});
+
+/** 删除备份记录 */
+backupRoutes.delete('/history/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  
+  try {
+    const success = await deleteBackupRecordItem(c.env, id, username);
+    return c.json({ success });
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 删除备份记录失败:', error);
+    return c.json({ error: '删除失败：' + error.message }, 500);
+  }
+});
+
+/** 从备份端点恢复数据 */
+backupRoutes.post('/backup-endpoints/:id/restore', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const { backupKey, skipTables, mergeMode } = await c.req.json();
+  
+  if (!backupKey) {
+    return c.json({ error: '请提供备份文件 key' }, 400);
+  }
+  
+  try {
+    const endpoints = await getBackupEndpoints(c.env, username);
+    const endpoint = endpoints.find((e) => e.id === id);
+    
+    if (!endpoint) {
+      return c.json({ error: '备份端不存在' }, 404);
+    }
+    
+    const result = await restoreFromEndpoint(
+      c.env, 
+      username, 
+      endpoint, 
+      backupKey, 
+      { skipTables, mergeMode }
+    );
+    
+    return c.json(result);
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Backup] 恢复数据失败:', error);
+    return c.json({ error: '恢复失败：' + error.message }, 500);
   }
 });

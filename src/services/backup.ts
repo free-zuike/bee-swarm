@@ -5,6 +5,17 @@ import { AwsClient } from 'aws4fetch';
 import type { Env } from '../types';
 import { convertTimezone } from '../utils/timezone';
 import { R2StorageService } from './r2StorageService';
+import { 
+  exportUserData, 
+  importUserData, 
+  validateBackupData,
+  computeDataHash,
+  createBackupRecord,
+  updateBackupRecordStatus,
+  getBackupRecords,
+  deleteBackupRecord,
+  type UserDataExport
+} from './dataExportService';
 
 // 备份端类型
 export type EndpointType = 's3' | 'webdav' | 'r2';
@@ -867,4 +878,86 @@ export async function executeAllBackups(env: Env, username: string): Promise<Bac
   });
 
   return await Promise.all(promises);
+}
+
+// ============================================
+// 数据导出/导入增强功能
+// ============================================
+
+// 导出用户数据为 JSON 格式
+export async function exportData(env: Env, username: string) {
+  return await exportUserData(env, username);
+}
+
+// 导入用户数据
+export async function importData(
+  env: Env,
+  username: string,
+  data: any,
+  options?: { skipTables?: string[]; mergeMode?: 'overwrite' | 'merge' }
+) {
+  // 先验证数据
+  const validation = validateBackupData(data);
+  if (!validation.valid) {
+    throw new Error(`Invalid backup data: ${validation.errors.join(', ')}`);
+  }
+
+  return await importUserData(env, username, data, options);
+}
+
+// 验证备份数据
+export function validateBackup(data: any) {
+  return validateBackupData(data);
+}
+
+// 获取备份历史记录
+export async function getBackupHistory(env: Env, username: string, limit: number = 50) {
+  return await getBackupRecords(env, username, limit);
+}
+
+// 删除备份记录
+export async function deleteBackupRecordItem(env: Env, id: string, username: string) {
+  return await deleteBackupRecord(env, id, username);
+}
+
+// 从备份端点恢复数据
+export async function restoreFromEndpoint(
+  env: Env,
+  username: string,
+  endpoint: BackupEndpoint,
+  backupKey: string,
+  options?: { skipTables?: string[]; mergeMode?: 'overwrite' | 'merge' }
+) {
+  try {
+    // 下载备份文件
+    const response = await downloadBackupFromEndpoint(env, username, endpoint, backupKey);
+    if (!response.ok) {
+      throw new Error(`Failed to download backup: ${response.status}`);
+    }
+
+    const content = await response.text();
+    const data = JSON.parse(content);
+
+    // 导入数据
+    const result = await importData(env, username, data, options);
+
+    // 记录恢复操作
+    try {
+      await createBackupRecord(env, {
+        id: crypto.randomUUID(),
+        userId: username,
+        endpointId: endpoint.id,
+        endpointName: endpoint.name,
+        storagePath: backupKey,
+        status: 'success',
+        tableCounts: result.imported,
+      });
+    } catch (recordError) {
+      console.warn('[Backup] Failed to record restore operation:', recordError);
+    }
+
+    return result;
+  } catch (error) {
+    throw new Error(`Restore failed: ${(error as Error).message}`);
+  }
 }
