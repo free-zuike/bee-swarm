@@ -24,6 +24,7 @@ export class MetricsCollector {
   private metricsId: string;
   private sessionMetrics: PushMetrics;
   private startTime: number;
+  private lastPushSuccess?: boolean;
 
   constructor(env: Env, userId: string) {
     this.env = env;
@@ -49,7 +50,7 @@ export class MetricsCollector {
           success: d1Metrics.success,
           failed: d1Metrics.failed,
           byChannel: d1Metrics.channelStats || {},
-          avgLatency: 0,
+          avgLatency: d1Metrics.avgLatency || 0,
         };
       }
     } catch {
@@ -88,6 +89,7 @@ export class MetricsCollector {
     this.sessionMetrics.byChannel = updatedByChannel;
 
     this.sessionMetrics.lastPushAt = new Date().toISOString();
+    this.lastPushSuccess = success;
 
     await this.persistMetrics();
   }
@@ -95,6 +97,30 @@ export class MetricsCollector {
   private async persistMetrics(): Promise<void> {
     try {
       const now = new Date().toISOString();
+      const today = this.formatDate();
+      
+      // 获取现有的每日统计数据
+      let dailyStats: Record<string, { pushes: number; success: number; failed: number; byChannel: Record<string, number> }> = {};
+      try {
+        const existing = await getMetrics(this.env, this.userId);
+        if (existing && existing.dailyStats) {
+          dailyStats = existing.dailyStats;
+        }
+      } catch {
+        // Ignore error loading existing stats
+      }
+      
+      // 更新今日统计
+      if (!dailyStats[today]) {
+        dailyStats[today] = { pushes: 0, success: 0, failed: 0, byChannel: {} };
+      }
+      dailyStats[today].pushes++;
+      if (this.lastPushSuccess) {
+        dailyStats[today].success++;
+      } else {
+        dailyStats[today].failed++;
+      }
+      
       const d1Metrics = {
         id: this.metricsId,
         userId: this.userId,
@@ -102,9 +128,10 @@ export class MetricsCollector {
         success: this.sessionMetrics.success,
         failed: this.sessionMetrics.failed,
         channelStats: this.sessionMetrics.byChannel,
-        dailyStats: {},
+        dailyStats,
         createdAt: now,
         updatedAt: now,
+        avgLatency: this.sessionMetrics.avgLatency,
       };
       await upsertMetrics(this.env, d1Metrics);
     } catch {

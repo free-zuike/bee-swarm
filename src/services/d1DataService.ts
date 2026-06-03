@@ -141,6 +141,7 @@ export interface Metrics {
   failed: number;
   channelStats: any;
   dailyStats: any;
+  avgLatency?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +164,7 @@ export async function getMetrics(env: Env, userId: string): Promise<Metrics | nu
         failed: row.failed,
         channelStats: JSON.parse(row.channel_stats || '{}'),
         dailyStats: JSON.parse(row.daily_stats || '{}'),
+        avgLatency: row.avg_latency || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -179,7 +181,7 @@ export async function upsertMetrics(env: Env, metrics: Metrics): Promise<void> {
   try {
     await env
       .DB!.prepare(
-        'INSERT OR REPLACE INTO metrics (id, user_id, total, success, failed, channel_stats, daily_stats, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT OR REPLACE INTO metrics (id, user_id, total, success, failed, channel_stats, daily_stats, avg_latency, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
       .bind(
         metrics.id,
@@ -189,6 +191,7 @@ export async function upsertMetrics(env: Env, metrics: Metrics): Promise<void> {
         metrics.failed,
         JSON.stringify(metrics.channelStats),
         JSON.stringify(metrics.dailyStats),
+        metrics.avgLatency || 0,
         metrics.createdAt,
         metrics.updatedAt
       )
