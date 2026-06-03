@@ -24,10 +24,7 @@ const showPanel = ref(false);
 const quickCommands = [
   { label: '列出所有模板', query: '列出所有模板' },
   { label: '创建模板', query: '创建一个名为"系统通知"的模板，标题为"系统更新提醒"，内容为"系统将于今晚22:00进行维护升级"' },
-  { label: '创建分组', query: '创建一个名为"紧急通知"的分组，包含telegram和bark渠道' },
   { label: '执行备份', query: '执行备份' },
-  { label: '列出定时任务', query: '列出所有定时任务' },
-  { label: '列出渠道', query: '列出所有渠道' },
 ];
 
 async function checkAI() {
