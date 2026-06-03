@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS metrics_new (
   updated_at TEXT NOT NULL
 );
 
--- 复制数据
+-- 复制数据（注意：原表没有 avg_latency 列，会使用 0）
 INSERT INTO metrics_new (
   id, user_id, total, success, failed, channel_stats, daily_stats,
   avg_latency, created_at, updated_at
@@ -32,7 +32,7 @@ SELECT
   COALESCE(failed, 0),
   channel_stats,
   daily_stats,
-  COALESCE(avg_latency, 0),
+  0 as avg_latency,
   created_at,
   updated_at
 FROM metrics;
