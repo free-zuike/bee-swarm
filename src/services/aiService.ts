@@ -99,6 +99,10 @@ export class AIService {
         const apiKey = settings.ai_api_key;
         const model = settings.ai_model_name || 'gpt-4o';
 
+        if (!apiKey) {
+          throw new Error('API key 未配置');
+        }
+
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
@@ -117,7 +121,9 @@ export class AIService {
           throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
         return data.choices?.[0]?.message?.content || '';
       }
 
@@ -147,7 +153,9 @@ export class AIService {
           throw new Error(`Azure OpenAI API error: ${response.status} ${errorText}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
         return data.choices?.[0]?.message?.content || '';
       }
 
@@ -155,6 +163,10 @@ export class AIService {
         const apiUrl = settings.ai_api_url || 'https://api.anthropic.com/v1/messages';
         const apiKey = settings.ai_api_key;
         const model = settings.ai_model_name || 'claude-3-5-sonnet-20240620';
+
+        if (!apiKey) {
+          throw new Error('Anthropic API key 未配置');
+        }
 
         const systemMessage = messages.find(m => m.role === 'system');
         const otherMessages = messages.filter(m => m.role !== 'system');
@@ -180,7 +192,9 @@ export class AIService {
           throw new Error(`Anthropic API error: ${response.status} ${errorText}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as {
+          content?: Array<{ text?: string }>;
+        };
         return data.content?.[0]?.text || '';
       }
 
