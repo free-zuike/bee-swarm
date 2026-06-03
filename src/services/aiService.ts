@@ -5,6 +5,7 @@
 import type { Env } from '../types';
 import { PushService } from './push';
 import { executeAllBackups } from './backup';
+import { loadUserChannelSettings } from './dispatcher';
 
 /**
  * AI 生成消息请求
@@ -234,9 +235,9 @@ ${JSON.stringify(tools, null, 2)}
       }
 
       case 'createGroup': {
-        const channels = Array.isArray(params.channels)
+        const channels = (Array.isArray(params.channels)
           ? params.channels.map(String)
-          : String(params.channels || '').split(',').filter(Boolean);
+          : String(params.channels || '').split(',').filter(Boolean)) as PushChannel[];
         const result = await pushService.saveChannelGroup({
           name: String(params.name),
           channels,
@@ -269,10 +270,10 @@ ${JSON.stringify(tools, null, 2)}
       }
 
       case 'listChannels': {
-        const settings = await pushService.loadUserChannelSettings();
+        const settings = await loadUserChannelSettings(username, this.env);
         const channels = Object.entries(settings).map(([id, config]) => ({
           id,
-          enabled: config?.enabled || false,
+          enabled: (config as Record<string, unknown>)?.enabled === true,
         }));
         return { success: true, result: `共找到 ${channels.length} 个渠道`, data: channels };
       }

@@ -590,8 +590,22 @@ async function cleanupOldBackupsWebDAV(
 
     // 按时间排序（最新的在前），删除旧的
     backups.sort((a, b) => {
-      const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
-      const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+      let dateA = 0;
+      let dateB = 0;
+      if (a.lastModified) {
+        try {
+          dateA = new Date(a.lastModified).getTime();
+        } catch {
+          dateA = 0;
+        }
+      }
+      if (b.lastModified) {
+        try {
+          dateB = new Date(b.lastModified).getTime();
+        } catch {
+          dateB = 0;
+        }
+      }
       return dateB - dateA;
     });
     
