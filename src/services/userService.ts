@@ -134,18 +134,19 @@ export class UserService {
   /** 获取用户设置 */
   async getUserSettings(userId: string): Promise<UserSettings> {
     this.checkDB();
-    const result = await this.env.DB.prepare('SELECT settings FROM users WHERE id = ?')
-      .bind(userId)
-      .first<{ settings?: string }>();
-
-    if (!result?.settings) {
-      return this.getDefaultSettings();
-    }
-
     try {
+      const result = await this.env.DB.prepare('SELECT settings FROM users WHERE id = ?')
+        .bind(userId)
+        .first<{ settings?: string }>();
+
+      if (!result?.settings) {
+        return this.getDefaultSettings();
+      }
+
       const settings = JSON.parse(result.settings) as UserSettings;
       return { ...this.getDefaultSettings(), ...settings };
-    } catch {
+    } catch (error) {
+      console.warn('[UserService] Failed to get settings, returning defaults:', error);
       return this.getDefaultSettings();
     }
   }
@@ -169,9 +170,13 @@ export class UserService {
     const now = new Date().toISOString();
     const settingsJson = JSON.stringify(settings);
 
-    await this.env.DB.prepare('UPDATE users SET settings = ?, updated_at = ? WHERE id = ?')
-      .bind(settingsJson, now, userId)
-      .run();
+    try {
+      await this.env.DB.prepare('UPDATE users SET settings = ?, updated_at = ? WHERE id = ?')
+        .bind(settingsJson, now, userId)
+        .run();
+    } catch (error) {
+      console.warn('[UserService] Failed to save settings, table may not have settings column:', error);
+    }
   }
 
   /** 删除用户（慎用） */
