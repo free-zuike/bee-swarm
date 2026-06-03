@@ -93,56 +93,50 @@ class MockPreparedStatement {
   }
 
   private _handleSelect(sql: string, type: string): any {
+    const sqlLower = sql.toLowerCase();
     // 获取过滤条件中的 user_id，应该是第一个参数
     const userId = this.params[0] as string;
 
     // 处理 push_templates
-    if (sql.includes('push_templates')) {
+    if (sqlLower.includes('push_templates')) {
       const table = this.tables.get('push_templates') || new Map();
       const allResults = Array.from(table.values());
       
       // 按 user_id 过滤
       const filteredResults = allResults.filter(row => 
-        row.user_id === userId || row.user_id === 'test-user'
+        row.user_id === userId
       );
       
       return type === 'first' ? filteredResults[0] || null : filteredResults;
     }
 
     // 处理 channel_groups
-    if (sql.includes('channel_groups')) {
+    if (sqlLower.includes('channel_groups')) {
       const table = this.tables.get('channel_groups') || new Map();
       const allResults = Array.from(table.values());
       const filteredResults = allResults.filter(row => 
-        row.user_id === userId || row.user_id === 'test-user'
+        row.user_id === userId
       );
       
       return type === 'first' ? filteredResults[0] || null : filteredResults;
     }
 
     // 处理 scheduled_pushes
-    if (sql.includes('scheduled_pushes')) {
+    if (sqlLower.includes('scheduled_pushes')) {
       const table = this.tables.get('scheduled_pushes') || new Map();
       const allResults = Array.from(table.values());
       
       // 如果有 status 参数，第二个参数应该是 status
-      let filteredResults = allResults;
+      let filteredResults = allResults.filter(row => 
+        row.user_id === userId
+      );
       if (this.params.length >= 2) {
         const status = this.params[1];
         if (typeof status === 'string') {
-          filteredResults = allResults.filter(row => 
-            (row.user_id === userId || row.user_id === 'test-user') && 
-            (row.status === status || !status)
-          );
-        } else {
-          filteredResults = allResults.filter(row => 
-            row.user_id === userId || row.user_id === 'test-user'
+          filteredResults = filteredResults.filter(row => 
+            row.status === status
           );
         }
-      } else {
-        filteredResults = allResults.filter(row => 
-          row.user_id === userId || row.user_id === 'test-user'
-        );
       }
       
       return type === 'first' ? filteredResults[0] || null : filteredResults;
@@ -152,7 +146,9 @@ class MockPreparedStatement {
   }
 
   private _handleInsert(sql: string): void {
-    if (sql.includes('push_templates')) {
+    const sqlLower = sql.toLowerCase();
+
+    if (sqlLower.includes('push_templates')) {
       const table = this.tables.get('push_templates') || new Map();
       const id = this.params[0];
       const row = {
@@ -172,7 +168,7 @@ class MockPreparedStatement {
       this.tables.set('push_templates', table);
     }
 
-    if (sql.includes('channel_groups')) {
+    if (sqlLower.includes('channel_groups')) {
       const table = this.tables.get('channel_groups') || new Map();
       const id = this.params[0];
       const row = {
@@ -187,7 +183,7 @@ class MockPreparedStatement {
       this.tables.set('channel_groups', table);
     }
 
-    if (sql.includes('scheduled_pushes')) {
+    if (sqlLower.includes('scheduled_pushes')) {
       const table = this.tables.get('scheduled_pushes') || new Map();
       const id = this.params[0];
       const row = {
@@ -199,13 +195,11 @@ class MockPreparedStatement {
         title: this.params[5],
         body: this.params[6],
         url: this.params[7],
-        image_url: this.params[8],
-        markdown: this.params[9],
-        channels: this.params[10],
-        enabled: this.params[11],
+        channels: this.params[8],
+        enabled: this.params[9],
         status: 'pending',
-        created_at: this.params[12],
-        updated_at: this.params[13],
+        created_at: this.params[10],
+        updated_at: this.params[11],
       };
       table.set(id, row);
       this.tables.set('scheduled_pushes', table);
@@ -213,9 +207,10 @@ class MockPreparedStatement {
   }
 
   private _handleUpdate(sql: string): number {
+    const sqlLower = sql.toLowerCase();
     let changes = 0;
 
-    if (sql.includes('push_templates')) {
+    if (sqlLower.includes('push_templates')) {
       const table = this.tables.get('push_templates') || new Map();
       const id = this.params[this.params.length - 2];
       const userId = this.params[this.params.length - 1];
@@ -224,25 +219,25 @@ class MockPreparedStatement {
         let paramIdx = 0;
         row.updated_at = this.params[paramIdx++];
         
-        if (this.sql.includes('name = ?')) {
+        if (sqlLower.includes('name = ?')) {
           row.name = this.params[paramIdx++];
         }
-        if (this.sql.includes('title = ?')) {
+        if (sqlLower.includes('title = ?')) {
           row.title = this.params[paramIdx++];
         }
-        if (this.sql.includes('body = ?')) {
+        if (sqlLower.includes('body = ?')) {
           row.body = this.params[paramIdx++];
         }
-        if (this.sql.includes('channels = ?')) {
+        if (sqlLower.includes('channels = ?')) {
           row.channels = this.params[paramIdx++];
         }
-        if (this.sql.includes('url = ?')) {
+        if (sqlLower.includes('url = ?')) {
           row.url = this.params[paramIdx++];
         }
-        if (this.sql.includes('image_url = ?')) {
+        if (sqlLower.includes('image_url = ?')) {
           row.image_url = this.params[paramIdx++];
         }
-        if (this.sql.includes('markdown = ?')) {
+        if (sqlLower.includes('markdown = ?')) {
           row.markdown = this.params[paramIdx++];
         }
         
@@ -252,7 +247,7 @@ class MockPreparedStatement {
       }
     }
 
-    if (sql.includes('channel_groups')) {
+    if (sqlLower.includes('channel_groups')) {
       const table = this.tables.get('channel_groups') || new Map();
       const id = this.params[this.params.length - 2];
       const userId = this.params[this.params.length - 1];
@@ -261,10 +256,10 @@ class MockPreparedStatement {
         let paramIdx = 0;
         row.updated_at = this.params[paramIdx++];
         
-        if (this.sql.includes('name = ?')) {
+        if (sqlLower.includes('name = ?')) {
           row.name = this.params[paramIdx++];
         }
-        if (this.sql.includes('channels = ?')) {
+        if (sqlLower.includes('channels = ?')) {
           row.channels = this.params[paramIdx++];
         }
         
@@ -274,10 +269,10 @@ class MockPreparedStatement {
       }
     }
 
-    if (sql.includes('scheduled_pushes')) {
+    if (sqlLower.includes('scheduled_pushes')) {
       const table = this.tables.get('scheduled_pushes') || new Map();
       
-      if (this.sql.includes('IN (')) { // 批量操作
+      if (sql.includes('IN (')) { // 批量操作
         const userId = this.params[this.params.length - 1];
         const lastIdParamIndex = this.params.length - 2;
         
@@ -286,23 +281,31 @@ class MockPreparedStatement {
           const row = table.get(id);
           if (row && row.user_id === userId) {
             // 检查 status 条件
-            if (this.sql.includes('STATUS = \'PENDING\'')) {
-              if (row.status !== 'pending') continue;
+            let statusMatch = true;
+            if (sqlLower.includes('and status = \'pending\'')) {
+              if (row.status !== 'pending') statusMatch = false;
             }
-            if (this.sql.includes('STATUS = \'FAILED\'')) {
-              if (row.status !== 'failed') continue;
+            if (sqlLower.includes('and status = \'failed\'')) {
+              if (row.status !== 'failed') statusMatch = false;
             }
-
-            if (this.sql.includes('status = ?')) {
-              row.status = this.params[0];
-              row.updated_at = new Date().toISOString();
+            
+            if (statusMatch) {
+              if (sqlLower.includes('set status = ')) {
+                // cancel 或者 enable 操作
+                if (sqlLower.includes('set status = \'failed\'')) {
+                  row.status = 'failed';
+                } else if (sqlLower.includes('set status = \'pending\'')) {
+                  row.status = 'pending';
+                }
+                row.updated_at = this.params[0];
+              }
+              if (sqlLower.includes('enabled = ?')) {
+                row.enabled = this.params[0];
+                row.updated_at = new Date().toISOString();
+              }
+              table.set(id, row);
+              changes++;
             }
-            if (this.sql.includes('enabled = ?')) {
-              row.enabled = this.params[0];
-              row.updated_at = new Date().toISOString();
-            }
-            table.set(id, row);
-            changes++;
           }
         }
         this.tables.set('scheduled_pushes', table);
@@ -312,29 +315,35 @@ class MockPreparedStatement {
         const row = table.get(id);
         if (row && row.user_id === userId) {
           // 检查 status 条件
-          if (this.sql.includes('STATUS = \'PENDING\'')) {
-            if (row.status !== 'pending') return 0;
+          let statusMatch = true;
+          if (sqlLower.includes('and status = \'pending\'')) {
+            if (row.status !== 'pending') statusMatch = false;
           }
 
-          if (this.sql.includes('status = ?')) {
-            row.status = this.params[0];
-            row.updated_at = this.sql.includes('NEXT_RUN') ? this.params[2] : this.params[1];
+          if (statusMatch) {
+            if (sqlLower.includes('set status = \'failed\'')) {
+              row.status = 'failed';
+              row.updated_at = this.params[0];
+            } else if (sqlLower.includes('status = ?')) {
+              row.status = this.params[0];
+              row.updated_at = sqlLower.includes('next_run') ? this.params[2] : this.params[1];
+            }
+            if (sqlLower.includes('overdue_reminder_sent = ?')) {
+              row.overdue_reminder_sent = this.params[0];
+              row.updated_at = this.params[1];
+            }
+            if (sqlLower.includes('enabled = ?')) {
+              row.enabled = this.params[0];
+              row.updated_at = this.params[1];
+            }
+            if (sqlLower.includes('next_run = ?')) {
+              row.next_run = this.params[1];
+              row.updated_at = this.params[2];
+            }
+            table.set(id, row);
+            this.tables.set('scheduled_pushes', table);
+            changes = 1;
           }
-          if (this.sql.includes('overdue_reminder_sent = ?')) {
-            row.overdue_reminder_sent = this.params[0];
-            row.updated_at = this.params[1];
-          }
-          if (this.sql.includes('enabled = ?')) {
-            row.enabled = this.params[0];
-            row.updated_at = this.params[1];
-          }
-          if (this.sql.includes('next_run = ?')) {
-            row.next_run = this.params[1];
-            row.updated_at = this.params[2];
-          }
-          table.set(id, row);
-          this.tables.set('scheduled_pushes', table);
-          changes = 1;
         }
       }
     }
@@ -343,10 +352,11 @@ class MockPreparedStatement {
   }
 
   private _handleDelete(sql: string): number {
+    const sqlLower = sql.toLowerCase();
     let tableName;
-    if (sql.includes('push_templates')) tableName = 'push_templates';
-    else if (sql.includes('channel_groups')) tableName = 'channel_groups';
-    else if (sql.includes('scheduled_pushes')) tableName = 'scheduled_pushes';
+    if (sqlLower.includes('push_templates')) tableName = 'push_templates';
+    else if (sqlLower.includes('channel_groups')) tableName = 'channel_groups';
+    else if (sqlLower.includes('scheduled_pushes')) tableName = 'scheduled_pushes';
     else return 0;
 
     const table = this.tables.get(tableName) || new Map();
