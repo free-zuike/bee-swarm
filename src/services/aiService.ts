@@ -191,7 +191,7 @@ ${JSON.stringify(tools, null, 2)}
         const result = await pushService.saveTemplate({
           name: String(params.name),
           title: String(params.title),
-          body: String(params.content || ''),
+          content: String(params.content || ''),
           url: String(params.url || ''),
           category: String(params.category || ''),
         });
