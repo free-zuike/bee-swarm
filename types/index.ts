@@ -467,3 +467,20 @@ export interface ChannelHealth {
   /** 状态消息 */
   message: string;
 }
+
+/**
+ * 用户设置
+ */
+export interface UserSettings {
+  cache_ttl_backup?: number;
+  cache_ttl_channels?: number;
+  cache_ttl_templates?: number;
+  cache_ttl_groups?: number;
+  cache_ttl_scheduled?: number;
+  ai_model?: string;
+  ai_enabled?: boolean;
+  ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+  ai_api_key?: string;
+  ai_api_url?: string;
+  ai_model_name?: string;
+}

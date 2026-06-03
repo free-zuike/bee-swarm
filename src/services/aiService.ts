@@ -6,6 +6,7 @@ import type { Env, PushChannel } from '../types';
 import { PushService } from './push';
 import { executeAllBackups } from './backup';
 import { loadUserChannelSettings } from './dispatcher';
+import type { UserSettings } from './userService';
 
 /**
  * AI 生成消息请求
@@ -14,6 +15,7 @@ export interface AIGenerateRequest {
   prompt: string;
   type?: 'title' | 'body' | 'both';
   language?: 'zh' | 'en';
+  userId?: string;
 }
 
 /**
@@ -45,6 +47,8 @@ export interface AIExecuteResponse {
   error?: string;
 }
 
+type AIProvider = 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+
 /**
  * AI 服务类
  */
@@ -55,28 +59,169 @@ export class AIService {
     this.env = env;
   }
 
-  isAvailable(): boolean {
-    return !!this.env.AI;
+  isAvailable(settings?: UserSettings): boolean {
+    if (!settings) {
+      return !!this.env.AI;
+    }
+    if (!settings.ai_enabled) return false;
+    switch (settings.ai_provider) {
+      case 'workers-ai':
+        return !!this.env.AI;
+      case 'openai':
+      case 'azure-openai':
+      case 'anthropic':
+      case 'custom':
+        return !!(settings.ai_api_key && settings.ai_api_url);
+      default:
+        return !!this.env.AI;
+    }
+  }
+
+  private async callAI(
+    messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    settings: UserSettings
+  ): Promise<string> {
+    const provider = settings.ai_provider || 'workers-ai';
+
+    switch (provider) {
+      case 'workers-ai': {
+        if (!this.env.AI) {
+          throw new Error('Workers AI 未配置');
+        }
+        const model = settings.ai_model_name || '@cf/meta/llama-3.1-8b-instruct';
+        const response = await this.env.AI.run(model, { messages });
+        return response.response || '';
+      }
+
+      case 'openai':
+      case 'custom': {
+        const apiUrl = settings.ai_api_url || 'https://api.openai.com/v1/chat/completions';
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name || 'gpt-4o';
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || '';
+      }
+
+      case 'azure-openai': {
+        const apiUrl = settings.ai_api_url;
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name;
+
+        if (!apiUrl || !apiKey || !model) {
+          throw new Error('Azure OpenAI 配置不完整');
+        }
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': apiKey,
+          },
+          body: JSON.stringify({
+            messages,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Azure OpenAI API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || '';
+      }
+
+      case 'anthropic': {
+        const apiUrl = settings.ai_api_url || 'https://api.anthropic.com/v1/messages';
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name || 'claude-3-5-sonnet-20240620';
+
+        const systemMessage = messages.find(m => m.role === 'system');
+        const otherMessages = messages.filter(m => m.role !== 'system');
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            messages: otherMessages,
+            system: systemMessage?.content,
+            max_tokens: 4096,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Anthropic API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.content?.[0]?.text || '';
+      }
+
+      default:
+        throw new Error(`不支持的 AI 提供商: ${provider}`);
+    }
   }
 
   async generateMessage(request: AIGenerateRequest): Promise<AIGenerateResponse> {
     try {
-      if (!this.env.AI) {
-        return { success: false, message: 'AI 服务不可用' };
+      let settings: UserSettings = {
+        ai_enabled: true,
+        ai_provider: 'workers-ai',
+        ai_model_name: '@cf/meta/llama-3.1-8b-instruct',
+        ai_api_key: '',
+        ai_api_url: '',
+      };
+
+      // 如果有用户 ID，尝试获取用户设置
+      if (request.userId) {
+        const { UserService } = await import('./userService');
+        const userService = new UserService(this.env);
+        settings = await userService.getUserSettings(request.userId);
+      }
+
+      if (!this.isAvailable(settings)) {
+        return { success: false, message: 'AI 服务不可用，请先配置 AI' };
       }
 
       const { prompt, type = 'both', language = 'zh' } = request;
       const systemPrompt = this.buildSystemPrompt(type, language);
       const userPrompt = this.buildUserPrompt(prompt, type);
 
-      const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [
+      const aiContent = await this.callAI(
+        [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-      });
+        settings
+      );
 
-      const aiContent = response.response || '';
       const result = this.parseAIResponse(aiContent, type);
 
       return { ...result, success: true };
@@ -88,22 +233,26 @@ export class AIService {
 
   async executeCommand(request: AIExecuteRequest): Promise<AIExecuteResponse> {
     try {
-      if (!this.env.AI) {
-        return { success: false, result: 'AI 服务不可用', error: '请先配置 Workers AI' };
+      const { UserService } = await import('./userService');
+      const userService = new UserService(this.env);
+      const settings = await userService.getUserSettings(request.userId);
+
+      if (!this.isAvailable(settings)) {
+        return { success: false, result: 'AI 服务不可用', error: '请先配置 AI' };
       }
 
       const { query, userId, username } = request;
       const tools = this.getAvailableTools();
       const systemPrompt = this.buildToolSystemPrompt(tools);
 
-      const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [
+      const aiContent = await this.callAI(
+        [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query },
         ],
-      });
+        settings
+      );
 
-      const aiContent = response.response || '';
       const toolCall = this.parseToolCall(aiContent);
 
       if (toolCall) {

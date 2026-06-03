@@ -1831,11 +1831,13 @@ adminApi.post('/ai/generate', async (c) => {
     return c.json({ error: '请提供提示词', code: 'VALIDATION_ERROR' }, 400);
   }
 
+  const userId = c.get('userId');
   const aiService = new AIService(c.env);
   const result = await aiService.generateMessage({
     prompt: body.prompt,
     type: body.type || 'both',
     language: body.language || 'zh',
+    userId,
   });
 
   return c.json(result);

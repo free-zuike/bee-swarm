@@ -132,6 +132,10 @@ const userSettings = ref<UserSettings>({
   cache_ttl_scheduled: 5 * 60 * 1000,
   ai_model: 'workers-ai',
   ai_enabled: true,
+  ai_provider: 'workers-ai',
+  ai_api_key: '',
+  ai_api_url: '',
+  ai_model_name: '',
 });
 const isSavingSettings = ref(false);
 
@@ -1237,12 +1241,44 @@ function handleResend(record: PushHistoryRecord) {
               </label>
             </div>
             <div class="setting-item">
-              <label>{{ t('label.ai_model') }}</label>
-              <select v-model="userSettings.ai_model" class="input-sm" :class="{ dark: isDark }">
+              <label>{{ t('label.ai_provider') }}</label>
+              <select v-model="userSettings.ai_provider" class="input-sm" :class="{ dark: isDark }">
                 <option value="workers-ai">Cloudflare Workers AI</option>
                 <option value="openai">OpenAI</option>
+                <option value="azure-openai">Azure OpenAI</option>
+                <option value="anthropic">Anthropic</option>
                 <option value="custom">Custom API</option>
               </select>
+            </div>
+            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+              <label>{{ t('label.ai_api_key') }}</label>
+              <input
+                type="password"
+                v-model="userSettings.ai_api_key"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.ai_api_key')"
+              />
+            </div>
+            <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
+              <label>{{ t('label.ai_api_url') }}</label>
+              <input
+                type="url"
+                v-model="userSettings.ai_api_url"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.ai_api_url')"
+              />
+            </div>
+            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+              <label>{{ t('label.ai_model_name') }}</label>
+              <input
+                type="text"
+                v-model="userSettings.ai_model_name"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.ai_model_name')"
+              />
             </div>
           </div>
 

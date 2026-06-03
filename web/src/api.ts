@@ -951,6 +951,10 @@ export interface UserSettings {
   cache_ttl_scheduled?: number;
   ai_model?: string;
   ai_enabled?: boolean;
+  ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+  ai_api_key?: string;
+  ai_api_url?: string;
+  ai_model_name?: string;
 }
 
 // 获取用户设置

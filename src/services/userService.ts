@@ -10,6 +10,10 @@ export interface UserSettings {
   cache_ttl_scheduled?: number;
   ai_model?: string;
   ai_enabled?: boolean;
+  ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+  ai_api_key?: string;
+  ai_api_url?: string;
+  ai_model_name?: string;
 }
 
 export interface User {
@@ -161,6 +165,10 @@ export class UserService {
       cache_ttl_scheduled: 5 * 60 * 1000,
       ai_model: 'workers-ai',
       ai_enabled: true,
+      ai_provider: 'workers-ai',
+      ai_api_key: '',
+      ai_api_url: '',
+      ai_model_name: '',
     };
   }
 
