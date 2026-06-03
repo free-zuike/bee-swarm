@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS push_templates_new (
   updated_at TEXT NOT NULL
 );
 
--- 复制数据
+-- 复制数据（注意：原表没有 category 和 variables 列，会使用 NULL）
 INSERT INTO push_templates_new (
   id, user_id, name, title, body, url, image_url, markdown, channels,
   category, variables, created_at, updated_at
@@ -37,8 +37,8 @@ SELECT
   image_url,
   COALESCE(markdown, 0),
   channels,
-  category,
-  variables,
+  NULL as category,
+  NULL as variables,
   created_at,
   updated_at
 FROM push_templates;
