@@ -322,8 +322,9 @@ async function loadHistory(page = 1) {
     });
     pushHistory.value = data.history || [];
     historyTotal.value = data.total || 0;
-    if (pushHistory.value.length > 0) {
-      lastPushTime.value = new Date(pushHistory.value[0].time).toLocaleString('zh-CN');
+    if (pushHistory.value.length > 0 && pushHistory.value[0].time) {
+      const date = new Date(pushHistory.value[0].time);
+      lastPushTime.value = isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN');
     }
   } catch (err: unknown) {
     console.error('加载历史记录失败:', err);
