@@ -712,6 +712,20 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_api_key': '请输入 API 密钥',
     'hint.ai_api_url': '请输入 API 地址',
     'hint.ai_model_name': '请输入模型名称',
+    // 清除缓存
+    'msg.cache_cleared': '缓存已清除',
+    // 忘记密码/修改密码
+    'button.forgot_password': '忘记密码',
+    'button.back_to_login': '返回登录',
+    'button.send_reset_link': '发送重置链接',
+    'button.reset_password': '重置密码',
+    'hint.password_reset': '输入您的邮箱地址，我们将发送密码重置链接',
+    'label.processing': '处理中...',
+    'message.password_reset_link_sent': '密码重置链接已发送到您的邮箱',
+    'message.user_not_found': '未找到该用户',
+    'message.password_reset_failed': '密码重置失败',
+    'message.password_reset_success': '密码重置成功',
+    'message.invalid_reset_token': '无效的重置链接',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -1427,6 +1441,18 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_api_key': 'Please enter API key',
     'hint.ai_api_url': 'Please enter API URL',
     'hint.ai_model_name': 'Please enter model name',
+    // Forgot password / change password
+    'button.forgot_password': 'Forgot Password',
+    'button.back_to_login': 'Back to Login',
+    'button.send_reset_link': 'Send Reset Link',
+    'button.reset_password': 'Reset Password',
+    'hint.password_reset': 'Enter your email address and we will send a password reset link',
+    'label.processing': 'Processing...',
+    'message.password_reset_link_sent': 'Password reset link has been sent to your email',
+    'message.user_not_found': 'User not found',
+    'message.password_reset_failed': 'Password reset failed',
+    'message.password_reset_success': 'Password reset successful',
+    'message.invalid_reset_token': 'Invalid reset token',
   },
 };
 
