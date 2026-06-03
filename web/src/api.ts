@@ -454,7 +454,9 @@ export async function downloadBackupFromEndpoint(
 export async function backupAll(token: string): Promise<{
   results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string; errorMessage?: string }>;
 }> {
-  const result = await tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
+  const result = await tokenRequest<{
+    results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string; errorMessage?: string }>;
+  }>(`${BASE}/admin/backup-all`, token, { method: 'POST' });
   apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
   return result;
 }
@@ -464,7 +466,11 @@ export async function backupSingleEndpoint(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
-  const result = await tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
+  const result = await tokenRequest<{ success: boolean; message: string; endpointId?: string; endpointName?: string }>(
+    `${BASE}/admin/backup-endpoints/${id}/backup`,
+    token,
+    { method: 'POST' }
+  );
   apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
   return result;
 }
