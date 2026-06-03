@@ -198,16 +198,13 @@ defineExpose({
         <div v-if="expandedChannels.has(def.id)" class="channel-card-body">
           <div v-for="field in def.fields" :key="field.key" class="form-group">
             <label>
-              {{ t(`field.${def.id}.${field.key}`) }}
+              {{ field.label }}
               <span v-if="field.required" class="required-mark">*</span>
             </label>
             <input
               :type="field.type === 'password' ? 'password' : 'text'"
               :value="getSettingValue(def.id, field.key)"
-              :placeholder="
-                t(`placeholder.${def.id}.${field.key}`) ||
-                `${t('label.enter')}${t(`field.${def.id}.${field.key}`)}`
-              "
+              :placeholder="field.placeholder"
               @input="setSettingValue(def.id, field.key, ($event.target as HTMLInputElement).value)"
             />
           </div>

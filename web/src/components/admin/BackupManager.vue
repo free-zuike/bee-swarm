@@ -760,8 +760,17 @@ defineExpose({
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>{{ t('label.s3_access_key') }}</label>
-                <input v-model="editingEndpoint.config.accessKeyId" placeholder="AKIA..." />
+                <label
+                  >{{ t('label.s3_access_key') }}
+                  {{ isCreatingNew ? '*' : `(${t('label.keep_original')})` }}</label
+                >
+                <input
+                  v-model="editingEndpoint.config.accessKeyId"
+                  type="password"
+                  :placeholder="
+                    isCreatingNew ? t('placeholder.access_key') : t('placeholder.configured')
+                  "
+                />
               </div>
               <div class="form-group">
                 <label
