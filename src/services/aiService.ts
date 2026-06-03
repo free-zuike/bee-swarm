@@ -2,7 +2,7 @@
 // AI 服务
 // 处理 Workers AI 相关功能，支持消息生成和工具调用
 // ============================================
-import type { Env } from '../types';
+import type { Env, PushChannel } from '../types';
 import { PushService } from './push';
 import { executeAllBackups } from './backup';
 import { loadUserChannelSettings } from './dispatcher';
@@ -273,7 +273,7 @@ ${JSON.stringify(tools, null, 2)}
         const settings = await loadUserChannelSettings(username, this.env);
         const channels = Object.entries(settings).map(([id, config]) => ({
           id,
-          enabled: (config as Record<string, unknown>)?.enabled === true,
+          enabled: (config as unknown as Record<string, unknown>)?.enabled === true,
         }));
         return { success: true, result: `共找到 ${channels.length} 个渠道`, data: channels };
       }
