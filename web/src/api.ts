@@ -190,7 +190,7 @@ export async function refreshToken(refreshToken: string): Promise<{
 // 管理接口（Token 认证版本）
 // -------------------------------------------
 
-export async function getChannelsWithToken(token: string): Promise<{
+export async function getChannelsWithToken(token: string, forceRefresh = false): Promise<{
   channels: Array<{ id: PushChannel; name: string; icon: string; enabled: boolean }>;
   settings: ChannelSettings;
   definitions: Array<{
@@ -207,7 +207,7 @@ export async function getChannelsWithToken(token: string): Promise<{
   }>;
 }> {
   const url = `${BASE}/admin/channels`;
-  return withCache(url, () => tokenRequest(url, token), token, { ttl: 10 * 60 * 1000 });
+  return withCache(url, () => tokenRequest(url, token), token, { ttl: 10 * 60 * 1000, forceRefresh });
 }
 
 export async function saveChannelWithToken(

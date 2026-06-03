@@ -463,10 +463,17 @@ async function handleSaveChannel(channelId: string, fields: Record<string, strin
   try {
     const result = await saveChannelWithToken(accessToken.value, channelId, fields);
     channels.value = result.channels;
-    // 重新加载设置以确保同步
-    const data = await getChannelsWithToken(accessToken.value);
-    channelSettings.value = data.settings;
-    channelDefinitions.value = data.definitions;
+    
+    // 重新加载设置以确保同步 - 强制刷新获取最新数据
+    try {
+      const data = await getChannelsWithToken(accessToken.value, true);
+      channelSettings.value = data.settings;
+      channelDefinitions.value = data.definitions;
+    } catch (refreshErr) {
+      console.error('[Channel] Failed to refresh settings:', refreshErr);
+      // 不显示错误，因为保存本身成功了
+    }
+    
     channelSettingsRef.value?.handleSaveSuccess(channelId, result.message || t('msg.save_success'));
   } catch (err: unknown) {
     channelSettingsRef.value?.handleSaveError(
