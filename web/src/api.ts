@@ -957,6 +957,20 @@ export async function generateMessageWithAI(
   });
 }
 
+// AI 工具调用 - 执行命令
+export async function executeAICommand(token: string, query: string): Promise<{
+  success: boolean;
+  result: string;
+  data?: unknown;
+  error?: string;
+}> {
+  return tokenRequest(`${BASE}/admin/ai/execute`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+}
+
 // -------------------------------------------
 // 用户管理接口（管理员专用）
 // -------------------------------------------

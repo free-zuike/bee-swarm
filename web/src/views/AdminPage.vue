@@ -58,6 +58,7 @@ import WebhookManager from '@/components/WebhookManager.vue';
 import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import AuditLogs from '@/components/admin/AuditLogs.vue';
+import AIHelper from '@/components/admin/AIHelper.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -1243,6 +1244,9 @@ function handleResend(record: PushHistoryRecord) {
         <AuditLogs v-if="activeTab === 'audit' && hasPermission('users:manage')" />
       </template>
     </div>
+
+    <!-- AI 助手 -->
+    <AIHelper :access-token="accessToken" @refresh="loadHistory" />
   </div>
 </template>
 

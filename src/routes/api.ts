@@ -1800,6 +1800,29 @@ adminApi.post('/ai/generate', async (c) => {
   return c.json(result);
 });
 
+/** AI 工具调用 - 执行命令 */
+adminApi.post('/ai/execute', async (c) => {
+  const body = await c.req.json<{
+    query: string;
+  }>();
+
+  if (!body.query) {
+    return c.json({ error: '请提供查询内容', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const userId = c.get('userId');
+  const username = c.get('username');
+
+  const aiService = new AIService(c.env);
+  const result = await aiService.executeCommand({
+    query: body.query,
+    userId,
+    username,
+  });
+
+  return c.json(result);
+});
+
 // ============================================
 // 备份相关审计日志
 // ============================================
