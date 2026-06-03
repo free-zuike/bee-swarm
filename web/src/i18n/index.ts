@@ -1379,6 +1379,21 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_not_available': 'Please configure Workers AI in Cloudflare Dashboard',
     'placeholder.ai_query': 'Enter your command...',
     'msg.ai_execute_failed': 'AI execution failed',
+    // Settings related
+    'label.settings': '设置',
+    'label.cache_settings': '缓存设置',
+    'label.cache_ttl_backup': '备份缓存时间',
+    'label.cache_ttl_channels': '渠道缓存时间',
+    'label.cache_ttl_templates': '模板缓存时间',
+    'label.cache_ttl_groups': '分组缓存时间',
+    'label.cache_ttl_scheduled': '定时任务缓存时间',
+    'button.clear_cache': '清除缓存',
+    'msg.cache_cleared': '缓存已清除',
+    // AI Settings
+    'label.ai_settings': 'AI 设置',
+    'label.ai_enabled': '启用 AI',
+    'label.ai_model': 'AI 模型',
+    'button.save_settings': '保存设置',
   },
 };
 
