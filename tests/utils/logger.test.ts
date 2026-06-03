@@ -96,9 +96,9 @@ describe('Logger', () => {
   describe('getElapsedTime', () => {
     it('应该计算经过的时间', async () => {
       const context = createRequestContext();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 20));
       const elapsed = getElapsedTime(context);
-      expect(elapsed).toBeGreaterThanOrEqual(10);
+      expect(elapsed).toBeGreaterThanOrEqual(15);
     });
   });
 
