@@ -588,10 +588,26 @@ async function cleanupOldBackupsWebDAV(
       });
     }
 
-    // 按时间排序，删除旧的
-    backups.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+    // 按时间排序（最新的在前），删除旧的
+    backups.sort((a, b) => {
+      const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+      const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+      return dateB - dateA;
+    });
+    
+    console.log(`[Backup] WebDAV cleanup: ${backups.length} backups found, keeping ${retention}, deleting ${Math.max(0, backups.length - retention)}`);
     for (let i = retention; i < backups.length; i++) {
-      await webdavRequest('DELETE', `${baseUrl}/${backups[i].key}`, config);
+      const backupKey = backups[i].key;
+      console.log(`[Backup] Deleting old backup: ${backupKey}`);
+      const deleteUrl = `${baseUrl}/${backupKey}`;
+      console.log(`[Backup] DELETE URL: ${deleteUrl}`);
+      const deleteResponse = await webdavRequest('DELETE', deleteUrl, config);
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text().catch(() => '');
+        console.error(`[Backup] Failed to delete backup ${backupKey}: ${deleteResponse.status} - ${errorText}`);
+      } else {
+        console.log(`[Backup] Successfully deleted backup: ${backupKey}`);
+      }
     }
   } catch (e) {
     console.error('清理 WebDAV 旧备份失败', e);
