@@ -12,12 +12,12 @@ export interface LazyLoadOptions {
 
 export class LazyLoader {
   private observer: IntersectionObserver | null = null;
-  private options: Required<LazyLoadOptions>;
+  private options: Required<Omit<LazyLoadOptions, 'root'>> & { root: Element | null };
   private loadedCount = 0;
 
   constructor(options: LazyLoadOptions = {}) {
     this.options = {
-      root: options.root || null,
+      root: options.root ?? null,
       rootMargin: options.rootMargin || '50px',
       threshold: options.threshold || 0.1,
       loadingClass: options.loadingClass || 'lazy-loading',

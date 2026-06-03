@@ -180,7 +180,6 @@ export class PushService {
       url: result.url,
       scheduledAt: new Date(result.next_run).toISOString(),
       scheduleType: result.enabled ? 'recurring' : 'once',
-      enabled: result.enabled === 1,
       createdBy: result.user_id,
       createdAt: result.created_at,
       status: result.status,

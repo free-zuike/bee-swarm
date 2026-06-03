@@ -16,7 +16,7 @@ import { ServerchanChannel } from './channels/serverchan';
 import { PushplusChannel } from './channels/pushplus';
 import { NtfyChannel } from './channels/ntfy';
 import { GotifyChannel } from './channels/gotify';
-import { LineChannel } from './channels/line';
+import { LineNotifyChannel } from './channels/line';
 import { EmailChannel } from './channels/email';
 import { WebhookChannel } from './channels/webhook';
 import { PushoverChannel } from './channels/pushover';
@@ -81,31 +81,45 @@ class ChannelHealthChecker {
    * 创建渠道实例
    */
   private createChannelInstance(channel: PushChannel, config: Record<string, string>): BaseChannel | null {
-    const channelMap: Record<string, typeof BaseChannel> = {
-      wework: WeworkChannel,
-      dingtalk: DingtalkChannel,
-      feishu: FeishuChannel,
-      discord: DiscordChannel,
-      slack: SlackChannel,
-      teams: TeamsChannel,
-      telegram: TelegramChannel,
-      bark: BarkChannel,
-      serverchan: ServerchanChannel,
-      pushplus: PushplusChannel,
-      ntfy: NtfyChannel,
-      gotify: GotifyChannel,
-      line: LineChannel,
-      email: EmailChannel,
-      webhook: WebhookChannel,
-      pushover: PushoverChannel,
-    };
-
-    const ChannelClass = channelMap[channel];
-    if (!ChannelClass) {
+    try {
+      switch (channel) {
+        case 'wework':
+          return new WeworkChannel('wework', config, { timeout: 10000, retries: 1 });
+        case 'dingtalk':
+          return new DingtalkChannel('dingtalk', config, { timeout: 10000, retries: 1 });
+        case 'feishu':
+          return new FeishuChannel('feishu', config, { timeout: 10000, retries: 1 });
+        case 'discord':
+          return new DiscordChannel('discord', config, { timeout: 10000, retries: 1 });
+        case 'slack':
+          return new SlackChannel('slack', config, { timeout: 10000, retries: 1 });
+        case 'teams':
+          return new TeamsChannel('teams', config, { timeout: 10000, retries: 1 });
+        case 'telegram':
+          return new TelegramChannel('telegram', config, { timeout: 10000, retries: 1 });
+        case 'bark':
+          return new BarkChannel('bark', config, { timeout: 10000, retries: 1 });
+        case 'serverchan':
+          return new ServerchanChannel('serverchan', config, { timeout: 10000, retries: 1 });
+        case 'pushplus':
+          return new PushplusChannel('pushplus', config, { timeout: 10000, retries: 1 });
+        case 'ntfy':
+          return new NtfyChannel('ntfy', config, { timeout: 10000, retries: 1 });
+        case 'gotify':
+          return new GotifyChannel('gotify', config, { timeout: 10000, retries: 1 });
+        case 'line':
+          return new LineNotifyChannel('line', config, { timeout: 10000, retries: 1 });
+        case 'email':
+          return new EmailChannel('email', config, { timeout: 10000, retries: 1 });
+        case 'pushover':
+          return new PushoverChannel('pushover', config, { timeout: 10000, retries: 1 });
+        default:
+          return null;
+      }
+    } catch (error) {
+      console.error(`Failed to create channel instance for ${channel}:`, error);
       return null;
     }
-
-    return new ChannelClass(channel, config, { timeout: 10000, retries: 1 });
   }
 
   /**
@@ -171,14 +185,16 @@ class ChannelHealthChecker {
   /**
    * 检查所有渠道健康状态
    */
-  async checkAllChannels(settings: Record<string, ChannelConfig>): Promise<HealthCheckResult> {
+  async checkAllChannels(settings: Record<string, any>): Promise<HealthCheckResult> {
     const startTime = Date.now();
     const results: ChannelHealthStatus[] = [];
 
     const checkPromises = Object.entries(settings)
       .filter(([_, config]) => config.enabled)
       .map(async ([channel, config]) => {
-        return this.checkChannel(channel as PushChannel, config.config);
+        // config.config 是 Record<string, string> 类型的配置
+        const channelConfig = config.config || config;
+        return this.checkChannel(channel as PushChannel, channelConfig);
       });
 
     const allResults = await Promise.allSettled(checkPromises);

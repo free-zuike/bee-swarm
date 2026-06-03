@@ -2,8 +2,8 @@
 // Cache API 缓存中间件
 // ============================================
 
-import type { Context, Env } from 'hono';
-import type { Next } from 'hono/dist/types/types';
+import type { Context, Next } from 'hono';
+import type { Env } from '../types';
 
 /**
  * 缓存配置

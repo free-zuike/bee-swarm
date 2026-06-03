@@ -39,6 +39,8 @@ export enum ErrorType {
   NOT_FOUND = 'NOT_FOUND',
   CONFLICT = 'CONFLICT',
   INTERNAL = 'INTERNAL',
+  SECURITY = 'SECURITY',
+  CRITICAL = 'CRITICAL',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -84,9 +86,14 @@ class StructuredLogger {
   private alertWindow: number = 60000; // 1 分钟
 
   constructor() {
-    this.enableJson = process.env.NODE_ENV === 'production';
-    this.enableColors = process.env.NODE_ENV !== 'production';
-    this.minLevel = this.parseLogLevel(process.env.LOG_LEVEL);
+    // @ts-ignore - Cloudflare Workers 环境
+    const env = typeof process !== 'undefined' ? process.env.NODE_ENV : 'development';
+    this.enableJson = env === 'production';
+    this.enableColors = env !== 'production';
+    this.minLevel = this.parseLogLevel(
+      // @ts-ignore
+      typeof process !== 'undefined' ? process.env.LOG_LEVEL : undefined
+    );
   }
 
   private parseLogLevel(level?: string): LogLevel {
@@ -372,7 +379,9 @@ class StructuredLogger {
   }
 
   private getMemoryUsage(): number {
+    // @ts-ignore - Cloudflare Workers 环境
     if (typeof process !== 'undefined' && process.memoryUsage) {
+      // @ts-ignore
       return process.memoryUsage().heapUsed;
     }
     return 0;

@@ -296,12 +296,18 @@ export class TemplateEngine {
     },
     variables: Record<string, string | number | boolean> = {}
   ): TemplatePreview {
+    // 将所有变量转换为字符串
+    const stringVariables: Record<string, string> = {};
+    for (const [key, value] of Object.entries(variables)) {
+      stringVariables[key] = String(value);
+    }
+
     return {
       title: this.replaceVariables(template.title, variables, true),
       content: this.replaceVariables(template.content, variables, true),
       url: template.url ? this.replaceVariables(template.url, variables, true) : undefined,
       imageUrl: template.imageUrl ? this.replaceVariables(template.imageUrl, variables, true) : undefined,
-      variables,
+      variables: stringVariables,
     };
   }
 

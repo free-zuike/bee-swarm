@@ -65,5 +65,14 @@ declare module 'hono' {
     userId: string;
     /** 当前认证的用户角色 */
     userRole: 'admin' | 'user' | 'viewer';
+    /** 请求追踪上下文 */
+    requestContext?: {
+      requestId: string;
+      startTime: number;
+      method?: string;
+      path?: string;
+      ip?: string;
+      userAgent?: string;
+    };
   }
 }

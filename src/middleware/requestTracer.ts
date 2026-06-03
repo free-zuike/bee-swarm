@@ -2,8 +2,8 @@
 // 请求追踪中间件
 // ============================================
 
-import type { Context, Env } from 'hono';
-import type { Next } from 'hono/dist/types/types';
+import type { Context, Next } from 'hono';
+import type { Env } from '../types';
 import { logger, createRequestContext, getElapsedTime, type RequestContext } from '../utils/logger';
 
 /**
