@@ -135,8 +135,38 @@ export class AIService {
         parameters: [],
       },
       {
+        name: 'createGroup',
+        description: '创建渠道分组',
+        parameters: [
+          { name: 'name', type: 'string', description: '分组名称', required: true },
+          { name: 'channels', type: 'string[]', description: '渠道列表，用逗号分隔', required: true },
+        ],
+      },
+      {
+        name: 'listGroups',
+        description: '获取分组列表',
+        parameters: [],
+      },
+      {
+        name: 'deleteGroup',
+        description: '删除分组',
+        parameters: [
+          { name: 'id', type: 'string', description: '分组ID', required: true },
+        ],
+      },
+      {
+        name: 'listScheduledTasks',
+        description: '获取定时任务列表',
+        parameters: [],
+      },
+      {
         name: 'runBackup',
         description: '执行备份',
+        parameters: [],
+      },
+      {
+        name: 'listChannels',
+        description: '获取已配置的渠道列表',
         parameters: [],
       },
     ];
@@ -203,11 +233,48 @@ ${JSON.stringify(tools, null, 2)}
         return { success: true, result: `共找到 ${templates.length} 个模板`, data: templates };
       }
 
+      case 'createGroup': {
+        const channels = Array.isArray(params.channels)
+          ? params.channels.map(String)
+          : String(params.channels || '').split(',').filter(Boolean);
+        const result = await pushService.saveChannelGroup({
+          name: String(params.name),
+          channels,
+        });
+        return { success: true, result: `分组 "${params.name}" 创建成功`, data: result };
+      }
+
+      case 'listGroups': {
+        const groups = await pushService.getChannelGroups();
+        return { success: true, result: `共找到 ${groups.length} 个分组`, data: groups };
+      }
+
+      case 'deleteGroup': {
+        const result = await pushService.deleteChannelGroup(String(params.id));
+        return result
+          ? { success: true, result: '分组删除成功' }
+          : { success: false, result: '分组删除失败，可能不存在' };
+      }
+
+      case 'listScheduledTasks': {
+        const tasks = await pushService.getScheduledPushes();
+        return { success: true, result: `共找到 ${tasks.length} 个定时任务`, data: tasks };
+      }
+
       case 'runBackup': {
         const result = await executeAllBackups(this.env, username);
         const successCount = result.filter((r: { success: boolean }) => r.success).length;
         const failCount = result.length - successCount;
         return { success: true, result: `备份完成：成功 ${successCount} 个，失败 ${failCount} 个`, data: result };
+      }
+
+      case 'listChannels': {
+        const settings = await pushService.loadUserChannelSettings();
+        const channels = Object.entries(settings).map(([id, config]) => ({
+          id,
+          enabled: config?.enabled || false,
+        }));
+        return { success: true, result: `共找到 ${channels.length} 个渠道`, data: channels };
       }
 
       default:
