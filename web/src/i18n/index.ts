@@ -687,7 +687,6 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_helper_example': '尝试输入：创建一个模板，列出所有渠道，执行备份',
     'hint.ai_not_available': '请在 Cloudflare 控制台配置 Workers AI',
     'placeholder.ai_query': '输入您的命令...',
-    'button.clear_history': '清空历史',
     'msg.ai_execute_failed': 'AI 执行失败',
   },
   en: {
@@ -1377,7 +1376,6 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_helper_example': 'Try: create a template, list channels, run backup',
     'hint.ai_not_available': 'Please configure Workers AI in Cloudflare Dashboard',
     'placeholder.ai_query': 'Enter your command...',
-    'button.clear_history': 'Clear History',
     'msg.ai_execute_failed': 'AI execution failed',
   },
 };
