@@ -572,6 +572,12 @@ async function processBackups(
   try {
     const endpoints = await getBackupEndpoints(env, username);
 
+    // 调试日志：检查备份端点
+    console.log(`[Cron Backup] Checking backups for ${username}, found ${endpoints.length} endpoints`);
+    for (const ep of endpoints) {
+      console.log(`[Cron Backup]   - ${ep.name}: enabled=${ep.enabled}, schedule.enabled=${ep.schedule?.enabled}, interval=${ep.schedule?.interval || 24}h`);
+    }
+
     for (const endpoint of endpoints) {
       if (!endpoint.enabled || !endpoint.schedule?.enabled) {
         continue;
@@ -583,6 +589,9 @@ async function processBackups(
       const interval = schedule.interval || 24;
       const tz = convertTimezone(schedule.timezone || 'Asia/Shanghai');
       const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
+
+      // 调试日志：检查时间条件
+      console.log(`[Cron Backup] ${endpoint.name}: local=${localHour}:${localMinute}, expected=${startHour}:${startMinute}, interval=${interval}h`);
 
       // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
       const timeDiffMinutes = Math.abs((localHour - startHour) * 60 + (localMinute - startMinute));
@@ -609,6 +618,7 @@ async function processBackups(
       }
 
       if (!shouldRun) {
+        console.log(`[Cron Backup] Skipping ${endpoint.name}: not in time window (timeDiff=${timeDiffMinutes}min)`);
         continue;
       }
 
