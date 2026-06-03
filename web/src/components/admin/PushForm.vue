@@ -110,7 +110,12 @@ async function generateContent(type: 'title' | 'body' | 'both') {
     }
   } catch (error) {
     console.error('Failed to generate content:', error);
-    showToast(t('msg.ai_generate_failed'), 'error');
+    const errorMsg = (error as Error).message || '';
+    if (errorMsg.includes('401') || errorMsg.includes('过期') || errorMsg.includes('Unauthorized')) {
+      showToast(t('msg.auth_expired'), 'error');
+    } else {
+      showToast(t('msg.ai_generate_failed'), 'error');
+    }
   } finally {
     aiLoading.value = false;
   }

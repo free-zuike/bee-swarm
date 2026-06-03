@@ -674,6 +674,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_prompt': '描述您想要生成的推送消息内容',
     'msg.ai_generate_success': 'AI 生成成功',
     'msg.ai_generate_failed': 'AI 生成失败',
+    'msg.auth_expired': '登录已过期，请重新登录',
     'label.title_placeholder': '（无标题）',
     'label.selected_channels': '已选择渠道',
     // AI 助手相关
@@ -1363,6 +1364,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ai_prompt': 'Describe what kind of push message you want to generate',
     'msg.ai_generate_success': 'AI generation successful',
     'msg.ai_generate_failed': 'AI generation failed',
+    'msg.auth_expired': 'Session expired, please login again',
     'label.title_placeholder': '(No title)',
     'label.selected_channels': 'Selected Channels',
     // AI Helper related
