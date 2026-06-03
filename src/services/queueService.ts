@@ -24,6 +24,7 @@ export class QueueService {
 
   constructor(env: Env) {
     this.queue = env.PUSH_QUEUE;
+    console.log('[QueueService] Queue initialized:', this.queue ? 'available' : 'not available');
   }
 
   /**
@@ -38,11 +39,14 @@ export class QueueService {
    * @param message 任务消息
    */
   async sendPushTask(message: PushQueueMessage): Promise<void> {
+    console.log('[QueueService] sendPushTask called with message:', message);
     if (!this.queue) {
       throw new Error('Queue not available');
     }
 
+    console.log('[QueueService] Sending message to queue...');
     await this.queue.send(message);
+    console.log('[QueueService] Message sent successfully');
   }
 
   /**
@@ -71,10 +75,13 @@ export class QueueService {
     batch: MessageBatch<PushQueueMessage>,
     handler: (message: PushQueueMessage) => Promise<void>
   ): Promise<void> {
+    console.log(`[QueueService] processBatch called with ${batch.messages.length} messages`);
     const results: PromiseSettledResult<void>[] = await Promise.allSettled(
       batch.messages.map(async (msg) => {
         try {
+          console.log('[QueueService] Processing message:', msg.body.requestId);
           await handler(msg.body);
+          console.log('[QueueService] Message processed successfully, acknowledging');
           msg.ack();
         } catch (error) {
           console.error('[Queue] Failed to process message:', error);

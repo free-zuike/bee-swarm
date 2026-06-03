@@ -319,11 +319,17 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const username = c.get('username');
   const body = (c as ValidatedContext).validatedBody as PushRequest & { async?: boolean };
 
+  console.log('[Push API] Received request:', { username, async: body.async, body });
+
   // 检查是否使用队列异步推送
   const useQueue = body.async === true;
+  console.log('[Push API] Using queue:', useQueue);
 
   if (useQueue) {
+    console.log('[Push API] Queue mode enabled, initializing QueueService...');
     const queueService = new QueueService(c.env);
+    console.log('[Push API] Queue available:', queueService.isAvailable());
+    
     if (!queueService.isAvailable()) {
       return c.json(
         {
@@ -336,12 +342,28 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
     }
 
     const requestId = crypto.randomUUID();
-    await queueService.sendPushTask({
-      requestId,
-      userId: username,
-      payload: body,
-      createdAt: new Date().toISOString(),
-    });
+    console.log('[Push API] Created requestId:', requestId);
+    
+    try {
+      console.log('[Push API] Sending push task to queue...');
+      await queueService.sendPushTask({
+        requestId,
+        userId: username,
+        payload: body,
+        createdAt: new Date().toISOString(),
+      });
+      console.log('[Push API] Push task sent to queue successfully');
+    } catch (error) {
+      console.error('[Push API] Failed to send task to queue:', error);
+      return c.json(
+        {
+          success: false,
+          message: '发送到队列失败: ' + (error as Error).message,
+          code: 'QUEUE_SEND_FAILED',
+        },
+        500
+      );
+    }
 
     // 记录异步推送日志
     try {
@@ -354,6 +376,7 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
       // 审计日志失败不影响主流程
     }
 
+    console.log('[Push API] Returning success response');
     return c.json({
       success: true,
       message: '推送已加入队列',
