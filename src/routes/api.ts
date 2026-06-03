@@ -241,6 +241,14 @@ api.post('/refresh', validateBody(schemas.refresh), async (c) => {
   return c.json({ token, refreshToken: newRefreshToken, expiresAt });
 });
 
+/** 检查 AI 是否可用（公开接口） */
+api.get('/ai/available', async (c) => {
+  const aiService = new AIService(c.env);
+  return c.json({
+    available: aiService.isAvailable(),
+  });
+});
+
 // ============================================
 // 管理接口
 // ============================================
@@ -1769,14 +1777,6 @@ adminApi.get('/webhook/url', async (c) => {
 // ============================================
 // AI 相关功能
 // ============================================
-
-/** 检查 AI 是否可用 */
-adminApi.get('/ai/available', async (c) => {
-  const aiService = new AIService(c.env);
-  return c.json({
-    available: aiService.isAvailable(),
-  });
-});
 
 /** 使用 AI 生成推送消息 */
 adminApi.post('/ai/generate', async (c) => {

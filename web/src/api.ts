@@ -933,9 +933,10 @@ export async function batchDeleteGroups(
 // AI 相关接口
 // -------------------------------------------
 
-// 检查 AI 是否可用
-export async function checkAIAvailable(token: string): Promise<{ available: boolean }> {
-  return tokenRequest(`${BASE}/admin/ai/available`, token);
+// 检查 AI 是否可用（公开接口，不需要认证）
+export async function checkAIAvailable(): Promise<{ available: boolean }> {
+  const response = await fetch(`${BASE}/ai/available`);
+  return response.json();
 }
 
 // 使用 AI 生成消息

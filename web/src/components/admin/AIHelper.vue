@@ -32,7 +32,7 @@ const quickCommands = [
 
 async function checkAI() {
   try {
-    const result = await checkAIAvailable(props.accessToken);
+    const result = await checkAIAvailable();
     aiAvailable.value = result.available;
   } catch (error) {
     console.error('Failed to check AI availability:', error);
