@@ -215,7 +215,7 @@ ${JSON.stringify(tools, null, 2)}
     username: string
   ): Promise<AIExecuteResponse> {
     const { tool, params } = toolCall;
-    const pushService = new PushService(this.env, userId);
+    const pushService = new PushService(this.env, username);
 
     switch (tool) {
       case 'createTemplate': {
