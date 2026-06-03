@@ -230,6 +230,27 @@ async function saveEndpoint() {
     r2_domain: editingEndpoint.r2_domain || null,
   };
 
+  // 如果是编辑现有端点，从原始端点数据中恢复敏感字段（如果用户没有提供新值）
+  if (!isCreatingNew.value && selectedEndpoint.value) {
+    const originalConfig = selectedEndpoint.value.config;
+    if (originalConfig) {
+      // 恢复 S3 相关字段
+      if (originalConfig.accessKeyId && !endpointData.config?.accessKeyId) {
+        if (!endpointData.config) endpointData.config = {};
+        endpointData.config.accessKeyId = originalConfig.accessKeyId;
+      }
+      if (originalConfig.secretAccessKey && !endpointData.config?.secretAccessKey) {
+        if (!endpointData.config) endpointData.config = {};
+        endpointData.config.secretAccessKey = originalConfig.secretAccessKey;
+      }
+      // 恢复 WebDAV 相关字段
+      if (originalConfig.password && !endpointData.config?.password) {
+        if (!endpointData.config) endpointData.config = {};
+        endpointData.config.password = originalConfig.password;
+      }
+    }
+  }
+
   if (endpointData.config) {
     if (endpointData.config.endpoint) {
       endpointData.config.endpoint = endpointData.config.endpoint.replace(/[`\s]/g, '');
@@ -259,6 +280,25 @@ async function testEndpoint() {
   isTestingEndpoint.value = true;
 
   const configCleaned = { ...editingEndpoint.config };
+  
+  // 如果是测试现有端点，从原始端点数据中恢复敏感字段（如果用户没有提供新值）
+  if (!isCreatingNew.value && selectedEndpoint.value) {
+    const originalConfig = selectedEndpoint.value.config;
+    if (originalConfig) {
+      // 恢复 S3 相关字段
+      if (originalConfig.accessKeyId && !configCleaned.accessKeyId) {
+        configCleaned.accessKeyId = originalConfig.accessKeyId;
+      }
+      if (originalConfig.secretAccessKey && !configCleaned.secretAccessKey) {
+        configCleaned.secretAccessKey = originalConfig.secretAccessKey;
+      }
+      // 恢复 WebDAV 相关字段
+      if (originalConfig.password && !configCleaned.password) {
+        configCleaned.password = originalConfig.password;
+      }
+    }
+  }
+
   if (configCleaned.endpoint) {
     configCleaned.endpoint = configCleaned.endpoint.replace(/[`\s]/g, '');
   }
