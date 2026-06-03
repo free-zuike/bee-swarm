@@ -271,10 +271,17 @@ ${JSON.stringify(tools, null, 2)}
 
       case 'listChannels': {
         const settings = await loadUserChannelSettings(username, this.env);
-        const channels = Object.entries(settings).map(([id, config]) => ({
-          id,
-          enabled: (config as unknown as Record<string, unknown>)?.enabled === true,
-        }));
+        const { CHANNEL_DEFINITIONS } = await import('../services/dispatcher');
+        const channels = CHANNEL_DEFINITIONS.map((ch) => {
+          const channelPrefix = `channel:${ch.id}:`;
+          const isConfigured = Object.keys(settings).some((key) => key.startsWith(channelPrefix));
+          return {
+            id: ch.id,
+            name: ch.name,
+            icon: ch.icon,
+            enabled: isConfigured,
+          };
+        });
         return { success: true, result: `共找到 ${channels.length} 个渠道`, data: channels };
       }
 
