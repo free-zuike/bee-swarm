@@ -157,6 +157,38 @@ export async function login(
   });
 }
 
+/** 请求密码重置 */
+export async function requestPasswordReset(
+  email: string
+): Promise<{ success: boolean; message: string }> {
+  return request(`${BASE}/password-reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** 验证重置令牌 */
+export async function verifyResetToken(
+  token: string
+): Promise<{ valid: boolean; email?: string; message: string }> {
+  return request(`${BASE}/password-reset/${token}`, {
+    method: 'GET',
+  });
+}
+
+/** 重置密码 */
+export async function resetPassword(
+  token: string,
+  password: string
+): Promise<{ success: boolean; message: string }> {
+  return request(`${BASE}/password-reset/${token}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+}
+
 /** 获取访问 Token */
 export async function getToken(
   email: string,

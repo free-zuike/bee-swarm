@@ -241,6 +241,91 @@ api.post('/refresh', validateBody(schemas.refresh), async (c) => {
   return c.json({ token, refreshToken: newRefreshToken, expiresAt });
 });
 
+/** 请求密码重置 */
+api.post('/password-reset', async (c) => {
+  try {
+    const body = await c.req.json<{ email: string }>();
+    const { email } = body;
+
+    if (!email) {
+      return c.json({ success: false, message: '邮箱不能为空' }, 400);
+    }
+
+    const userService = new UserService(c.env);
+    
+    // 生成重置令牌
+    const resetToken = await userService.generatePasswordResetToken(email);
+
+    if (!resetToken) {
+      // 为了安全，即使邮箱不存在也返回成功
+      return c.json({ success: true, message: '密码重置链接已发送' });
+    }
+
+    // 注意：这里应该添加发送邮件的逻辑，但在这个项目中我们简化处理，直接返回令牌（仅用于测试）
+    console.log(`[Password Reset] Generated token for ${email}: ${resetToken}`);
+    
+    // 在实际生产环境中，应该通过邮件发送重置链接，而不是直接返回令牌
+    // 但在这里，我们返回一个提示，并且可以在控制台找到令牌用于测试
+    return c.json({ 
+      success: true, 
+      message: '密码重置请求已生成（测试模式下请查看控制台获取令牌）' 
+    });
+  } catch (error) {
+    console.error('[Password Reset] Error:', error);
+    return c.json({ success: false, message: '请求失败，请稍后重试' }, 500);
+  }
+});
+
+/** 验证重置令牌 */
+api.get('/password-reset/:token', async (c) => {
+  const token = c.req.param('token');
+  const userService = new UserService(c.env);
+  
+  const user = await userService.verifyPasswordResetToken(token);
+  
+  if (!user) {
+    return c.json({ valid: false, message: '无效或已过期的重置链接' }, 400);
+  }
+  
+  return c.json({ valid: true, email: user.email });
+});
+
+/** 重置密码 */
+api.post('/password-reset/:token', async (c) => {
+  try {
+    const token = c.req.param('token');
+    const body = await c.req.json<{ password: string }>();
+    const { password } = body;
+
+    if (!password || password.length < 8) {
+      return c.json({ success: false, message: '密码长度至少为8位' }, 400);
+    }
+
+    const userService = new UserService(c.env);
+    
+    // 先验证令牌
+    const user = await userService.verifyPasswordResetToken(token);
+    if (!user) {
+      return c.json({ success: false, message: '无效或已过期的重置链接' }, 400);
+    }
+
+    // 加密新密码
+    const hashedPassword = await hashPassword(password);
+
+    // 更新密码
+    const success = await userService.resetPasswordWithToken(token, hashedPassword);
+    
+    if (success) {
+      return c.json({ success: true, message: '密码重置成功' });
+    } else {
+      return c.json({ success: false, message: '密码重置失败，请重试' }, 500);
+    }
+  } catch (error) {
+    console.error('[Password Reset] Error:', error);
+    return c.json({ success: false, message: '请求失败，请稍后重试' }, 500);
+  }
+});
+
 /** 检查 AI 是否可用（公开接口） */
 api.get('/ai/available', async (c) => {
   const aiService = new AIService(c.env);

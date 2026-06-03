@@ -32,6 +32,8 @@ export interface User {
   avatar_url?: string;
   use_avatar_as_popup?: number;
   settings?: string;
+  password_reset_token?: string;
+  password_reset_expires_at?: number;
   created_at: string;
   updated_at: string;
 }
@@ -192,5 +194,65 @@ export class UserService {
     this.checkDB();
     const result = await this.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
     return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  /** 生成密码重置令牌 */
+  async generatePasswordResetToken(email: string): Promise<string | null> {
+    this.checkDB();
+    const user = await this.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+
+    // 生成重置令牌和过期时间
+    const resetToken = crypto.randomUUID().replace(/-/g, '');
+    const resetExpiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24小时后过期
+
+    // 更新用户的重置令牌和过期时间
+    await this.updateUser(user.id, {
+      password_reset_token: resetToken,
+      password_reset_expires_at: resetExpiresAt,
+    });
+
+    return resetToken;
+  }
+
+  /** 验证密码重置令牌 */
+  async verifyPasswordResetToken(token: string): Promise<User | null> {
+    this.checkDB();
+    const result = await this.env.DB.prepare('SELECT * FROM users WHERE password_reset_token = ?')
+      .bind(token)
+      .first<User>();
+    
+    if (!result) {
+      return null;
+    }
+    
+    // 检查令牌是否过期
+    const now = Date.now();
+    const expiresAt = (result as any).password_reset_expires_at;
+    if (!expiresAt || expiresAt < now) {
+      return null;
+    }
+    
+    return result;
+  }
+
+  /** 使用重置令牌更新密码 */
+  async resetPasswordWithToken(token: string, newPassword: string): Promise<boolean> {
+    this.checkDB();
+    const user = await this.verifyPasswordResetToken(token);
+    if (!user) {
+      return false;
+    }
+
+    // 更新密码并清除重置令牌
+    await this.updateUser(user.id, {
+      password: newPassword,
+      password_reset_token: null,
+      password_reset_expires_at: null,
+    });
+
+    return true;
   }
 }
