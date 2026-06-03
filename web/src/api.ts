@@ -241,11 +241,13 @@ export async function saveChannelWithToken(
 
 export async function sendPushWithToken(
   token: string,
-  payload: { title: string; body?: string; url?: string; channels?: PushChannel[] }
+  payload: { title: string; body?: string; url?: string; channels?: PushChannel[]; async?: boolean }
 ): Promise<{
   success: boolean;
   message: string;
-  results: Array<{ channel: PushChannel; success: boolean; message: string }>;
+  results?: Array<{ channel: PushChannel; success: boolean; message: string }>;
+  requestId?: string;
+  async?: boolean;
 }> {
   return tokenRequest(`${BASE}/admin/push`, token, {
     method: 'POST',

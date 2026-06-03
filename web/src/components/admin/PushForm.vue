@@ -19,7 +19,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  push: [title: string, body: string, url: string, channels: PushChannel[]];
+  push: [title: string, body: string, url: string, channels: PushChannel[], async: boolean];
   'update:selectedChannels': [channels: Set<PushChannel>];
   refresh: [];
 }>();
@@ -27,6 +27,7 @@ const emit = defineEmits<{
 const pushTitle = ref('');
 const pushBody = ref('');
 const pushUrl = ref('');
+const useAsync = ref(false);
 
 function fillFromTemplate(template: PushTemplate) {
   pushTitle.value = template.title;
@@ -65,7 +66,7 @@ function doPush() {
     return;
   }
   const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
-  emit('push', pushTitle.value.trim(), pushBody.value.trim(), pushUrl.value.trim(), channels);
+  emit('push', pushTitle.value.trim(), pushBody.value.trim(), pushUrl.value.trim(), channels, useAsync.value);
 }
 </script>
 
@@ -117,8 +118,16 @@ function doPush() {
         <input v-model="pushUrl" type="url" placeholder="https://example.com" />
       </div>
 
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input v-model="useAsync" type="checkbox" />
+          <span>{{ t('label.async_push') }}</span>
+          <span class="hint-text">{{ t('hint.async_push') }}</span>
+        </label>
+      </div>
+
       <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
-        🚀 {{ t('button.push') }}
+        🚀 {{ useAsync ? t('button.push_async') : t('button.push') }}
       </button>
       <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">
         {{ t('button.refresh_channels') }}

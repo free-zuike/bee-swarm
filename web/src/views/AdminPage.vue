@@ -532,9 +532,10 @@ type PushPayload = {
   body?: string;
   url?: string;
   channels?: PushChannel[];
+  async?: boolean;
 };
 
-async function handlePush(title: string, body: string, url: string, pushChannels: PushChannel[]) {
+async function handlePush(title: string, body: string, url: string, pushChannels: PushChannel[], asyncPush: boolean = false) {
   if (isPushing.value) return;
   isPushing.value = true;
 
@@ -543,23 +544,37 @@ async function handlePush(title: string, body: string, url: string, pushChannels
     if (pushChannels.length > 0) {
       payload.channels = pushChannels;
     }
-
-    const result = await sendPushWithToken(accessToken.value, payload);
-    pushResults.value = result.results;
-    lastPushTime.value = new Date().toLocaleTimeString('zh-CN');
-
-    const successCount = result.results.filter((r: PushResult) => r.success).length;
-    const totalCount = result.results.length;
-
-    if (successCount === totalCount) {
-      showToast(t('msg.push_success', { count: successCount }), 'success');
-    } else if (successCount > 0) {
-      showToast(t('msg.push_partial', { success: successCount, total: totalCount }), 'error');
-    } else {
-      showToast(t('msg.push_failed'), 'error');
+    if (asyncPush) {
+      payload.async = true;
     }
 
-    await loadHistory();
+    const result = await sendPushWithToken(accessToken.value, payload);
+    lastPushTime.value = new Date().toLocaleTimeString('zh-CN');
+
+    if (result.async && result.requestId) {
+      showToast(t('success.push'), 'success');
+      pushResults.value = [];
+      setTimeout(() => {
+        loadHistory();
+      }, 2000);
+    } else {
+      pushResults.value = result.results || [];
+
+      const successCount = result.results?.filter((r: PushResult) => r.success).length || 0;
+      const totalCount = result.results?.length || 0;
+
+      if (successCount === totalCount && totalCount > 0) {
+        showToast(t('msg.push_success', { count: successCount }), 'success');
+      } else if (successCount > 0) {
+        showToast(t('msg.push_partial', { success: successCount, total: totalCount }), 'warning');
+      } else if (totalCount > 0) {
+        showToast(t('msg.push_failed'), 'error');
+      } else {
+        showToast(t('success.push'), 'success');
+      }
+
+      await loadHistory();
+    }
   } catch (err: unknown) {
     pushResults.value = [
       { channel: 'wework', success: false, message: getErrorMessage(err, t('msg.push_failed')) },
