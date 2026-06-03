@@ -128,6 +128,7 @@ export const schemas = {
     title: z.string().min(1, '请输入标题'),
     body: z.string().optional(),
     channels: z.array(z.string()).optional(),
+    async: z.boolean().optional(),
   }),
 
   token: z.object({
