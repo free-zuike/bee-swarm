@@ -648,7 +648,22 @@ export async function listBackupsFromEndpoint(
       : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}?list-type=2&prefix=${encodeURIComponent(prefix)}`;
 
     const response = await awsClient.fetch(listUrl, { method: 'GET' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Backup] S3 list backups failed:', response.status, errorText);
+      throw new Error(`S3 list backups failed (${response.status}): ${errorText.substring(0, 200)}`);
+    }
+
     const xml = await response.text();
+
+    // 检查是否返回了错误 XML
+    if (xml.includes('<Error>')) {
+      const errorMatch = xml.match(/<Code>([^<]+)<\/Code>/);
+      const messageMatch = xml.match(/<Message>([^<]+)<\/Message>/);
+      const errorCode = errorMatch?.[1] || 'UnknownError';
+      const errorMessage = messageMatch?.[1] || 'Unknown error';
+      throw new Error(`S3 error: ${errorCode} - ${errorMessage}`);
+    }
 
     const keyMatches = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)];
     const lastModifiedMatches = [...xml.matchAll(/<LastModified>([^<]+)<\/LastModified>/g)];
@@ -666,7 +681,11 @@ export async function listBackupsFromEndpoint(
       }
     }
 
-    return files.sort((a, b) => b.key.localeCompare(a.key));
+    return files.sort((a, b) => {
+      const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+      const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+      return dateB - dateA; // 最新的在前
+    });
   } else if (endpoint.type === 'webdav') {
     const config = endpoint.config as WebDAVConfig;
     const root = config.path || 'beeswarm';
@@ -716,6 +735,9 @@ export async function listBackupsFromEndpoint(
 
       const sizeMatch = block.match(/<D:getcontentlength[^>]*>([^<]+)<\/D:getcontentlength>/i);
       const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+      // 跳过文件夹（没有 content-length 或 size 为 0）
+      if (size === 0) continue;
+
       const lastModifiedMatch = block.match(
         /<D:getlastmodified[^>]*>([^<]+)<\/D:getlastmodified>/i
       );
@@ -727,7 +749,11 @@ export async function listBackupsFromEndpoint(
       });
     }
 
-    return backups.sort((a, b) => b.key.localeCompare(a.key));
+    return backups.sort((a, b) => {
+      const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+      const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+      return dateB - dateA; // 最新的在前
+    });
   } else if (endpoint.type === 'r2') {
     const r2Service = new R2StorageService(env);
     if (!r2Service.isAvailable()) {
@@ -745,7 +771,11 @@ export async function listBackupsFromEndpoint(
         size: b.size || 0,
         lastModified: b.uploadedAt || '',
       }))
-      .sort((a, b) => b.key.localeCompare(a.key));
+      .sort((a, b) => {
+        const dateA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+        const dateB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+        return dateB - dateA; // 最新的在前
+      });
   }
   return [];
 }
