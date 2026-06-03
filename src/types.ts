@@ -50,6 +50,8 @@ export interface Env {
   TURNSTILE_SECRET_KEY?: string;
   /** Turnstile 站点密钥，用于前端显示（可选） */
   TURNSTILE_SITE_KEY?: string;
+  /** Workers AI，用于 AI 生成功能（可选） */
+  AI?: any;
 }
 
 /**

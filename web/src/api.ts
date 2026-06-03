@@ -930,6 +930,34 @@ export async function batchDeleteGroups(
 }
 
 // -------------------------------------------
+// AI 相关接口
+// -------------------------------------------
+
+// 检查 AI 是否可用
+export async function checkAIAvailable(token: string): Promise<{ available: boolean }> {
+  return tokenRequest(`${BASE}/admin/ai/available`, token);
+}
+
+// 使用 AI 生成消息
+export async function generateMessageWithAI(
+  token: string,
+  prompt: string,
+  type: 'title' | 'body' | 'both' = 'both',
+  language: 'zh' | 'en' = 'zh'
+): Promise<{
+  success: boolean;
+  title?: string;
+  body?: string;
+  message?: string;
+}> {
+  return tokenRequest(`${BASE}/admin/ai/generate`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, type, language }),
+  });
+}
+
+// -------------------------------------------
 // 用户管理接口（管理员专用）
 // -------------------------------------------
 

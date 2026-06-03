@@ -664,6 +664,18 @@ const messages: Record<Locale, LocaleMessages> = {
     'health.testError': '测试失败',
     'message.preview_failed': '预览失败',
     'label.variable_description': '{variable} 变量',
+    // AI 相关
+    'button.ai_generate': 'AI 生成',
+    'button.generate_title': '生成标题',
+    'button.generate_body': '生成内容',
+    'button.generate_both': '生成标题和内容',
+    'label.ai_prompt': 'AI 提示',
+    'placeholder.ai_prompt': '例如：写一条关于系统更新的推送通知...',
+    'hint.ai_prompt': '描述您想要生成的推送消息内容',
+    'msg.ai_generate_success': 'AI 生成成功',
+    'msg.ai_generate_failed': 'AI 生成失败',
+    'label.title_placeholder': '（无标题）',
+    'label.selected_channels': '已选择渠道',
   },
   en: {
     'app.title': '🐝 Bee Swarm',
@@ -1329,6 +1341,18 @@ const messages: Record<Locale, LocaleMessages> = {
     'health.testError': 'Test failed',
     'message.preview_failed': 'Preview failed',
     'label.variable_description': '{variable} variable',
+    // AI related
+    'button.ai_generate': 'AI Generate',
+    'button.generate_title': 'Generate Title',
+    'button.generate_body': 'Generate Content',
+    'button.generate_both': 'Generate Both',
+    'label.ai_prompt': 'AI Prompt',
+    'placeholder.ai_prompt': 'e.g., Write a push notification about system updates...',
+    'hint.ai_prompt': 'Describe what kind of push message you want to generate',
+    'msg.ai_generate_success': 'AI generation successful',
+    'msg.ai_generate_failed': 'AI generation failed',
+    'label.title_placeholder': '(No title)',
+    'label.selected_channels': 'Selected Channels',
   },
 };
 

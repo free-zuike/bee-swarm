@@ -27,6 +27,7 @@ import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { getBackupEndpoints } from '../services/backup';
+import { AIService } from '../services/aiService';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -1763,6 +1764,40 @@ adminApi.get('/webhook/url', async (c) => {
       channels: ['wework'],
     },
   });
+});
+
+// ============================================
+// AI 相关功能
+// ============================================
+
+/** 检查 AI 是否可用 */
+adminApi.get('/ai/available', async (c) => {
+  const aiService = new AIService(c.env);
+  return c.json({
+    available: aiService.isAvailable(),
+  });
+});
+
+/** 使用 AI 生成推送消息 */
+adminApi.post('/ai/generate', async (c) => {
+  const body = await c.req.json<{
+    prompt: string;
+    type?: 'title' | 'body' | 'both';
+    language?: 'zh' | 'en';
+  }>();
+
+  if (!body.prompt) {
+    return c.json({ error: '请提供提示词', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const aiService = new AIService(c.env);
+  const result = await aiService.generateMessage({
+    prompt: body.prompt,
+    type: body.type || 'both',
+    language: body.language || 'zh',
+  });
+
+  return c.json(result);
 });
 
 // ============================================

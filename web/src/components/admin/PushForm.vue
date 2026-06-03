@@ -2,9 +2,10 @@
 // ============================================
 // 推送表单组件
 // ============================================
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
+import { checkAIAvailable, generateMessageWithAI } from '@/api';
 import type { ChannelConfig, PushChannel, PushResult, PushTemplate } from '@/types';
 
 const { showToast } = useGlobalToast();
@@ -16,6 +17,7 @@ const props = defineProps<{
   isPushing?: boolean;
   pushResults?: PushResult[];
   lastPushTime?: string;
+  accessToken: string;
 }>();
 
 const emit = defineEmits<{
@@ -28,6 +30,15 @@ const pushTitle = ref('');
 const pushBody = ref('');
 const pushUrl = ref('');
 const useAsync = ref(false);
+
+// AI 相关状态
+const aiAvailable = ref(false);
+const aiLoading = ref(false);
+const aiPrompt = ref('');
+const showAiPanel = ref(false);
+
+// 消息预览相关状态
+const showPreview = ref(false);
 
 function fillFromTemplate(template: PushTemplate) {
   pushTitle.value = template.title;
@@ -68,6 +79,45 @@ function doPush() {
   const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
   emit('push', pushTitle.value.trim(), pushBody.value.trim(), pushUrl.value.trim(), channels, useAsync.value);
 }
+
+// 检查 AI 是否可用
+async function checkAI() {
+  try {
+    const result = await checkAIAvailable(props.accessToken);
+    aiAvailable.value = result.available;
+  } catch (error) {
+    console.error('Failed to check AI availability:', error);
+    aiAvailable.value = false;
+  }
+}
+
+// 使用 AI 生成内容
+async function generateContent(type: 'title' | 'body' | 'both') {
+  if (!aiPrompt.value.trim()) {
+    showToast(t('error.required', { field: t('label.ai_prompt') }), 'error');
+    return;
+  }
+
+  aiLoading.value = true;
+  try {
+    const result = await generateMessageWithAI(props.accessToken, aiPrompt.value.trim(), type);
+    if (result.success) {
+      if (result.title) pushTitle.value = result.title;
+      if (result.body) pushBody.value = result.body;
+      showToast(t('msg.ai_generate_success'), 'success');
+    } else {
+      showToast(result.message || t('msg.ai_generate_failed'), 'error');
+    }
+  } catch (error) {
+    console.error('Failed to generate content:', error);
+    showToast(t('msg.ai_generate_failed'), 'error');
+  } finally {
+    aiLoading.value = false;
+  }
+}
+
+// 初始化时检查 AI 可用性
+checkAI();
 </script>
 
 <template>
@@ -86,6 +136,69 @@ function doPush() {
     <div class="panel">
       <div class="panel-header">
         <h2>📤 {{ t('label.push_notification') }}</h2>
+        <div class="panel-actions">
+          <button v-if="aiAvailable" class="btn btn-sm btn-secondary" @click="showAiPanel = !showAiPanel">
+            🤖 {{ t('button.ai_generate') }}
+          </button>
+          <button class="btn btn-sm btn-secondary" @click="showPreview = !showPreview">
+            👁️ {{ t('button.preview') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- AI 生成面板 -->
+      <div v-if="showAiPanel" class="ai-panel">
+        <div class="form-group">
+          <label>{{ t('label.ai_prompt') }} *</label>
+          <textarea
+            v-model="aiPrompt"
+            :placeholder="t('placeholder.ai_prompt')"
+            rows="3"
+          ></textarea>
+          <p class="hint">{{ t('hint.ai_prompt') }}</p>
+        </div>
+        <div class="ai-actions">
+          <button
+            class="btn btn-sm btn-secondary"
+            :disabled="aiLoading"
+            @click="generateContent('title')"
+          >
+            {{ aiLoading ? '...' : t('button.generate_title') }}
+          </button>
+          <button
+            class="btn btn-sm btn-secondary"
+            :disabled="aiLoading"
+            @click="generateContent('body')"
+          >
+            {{ aiLoading ? '...' : t('button.generate_body') }}
+          </button>
+          <button
+            class="btn btn-sm btn-primary"
+            :disabled="aiLoading"
+            @click="generateContent('both')"
+          >
+            {{ aiLoading ? '...' : t('button.generate_both') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 消息预览面板 -->
+      <div v-if="showPreview" class="preview-panel">
+        <div class="preview-title">
+          {{ pushTitle || t('label.title_placeholder') }}
+        </div>
+        <div v-if="pushBody" class="preview-body">
+          {{ pushBody }}
+        </div>
+        <div v-if="pushUrl" class="preview-url">
+          🔗 {{ pushUrl }}
+        </div>
+        <div v-if="selectedChannels.size > 0" class="preview-channels">
+          <span class="label">{{ t('label.selected_channels') }}: </span>
+          <span v-for="ch in Array.from(selectedChannels)" :key="ch" class="preview-channel">
+            {{ t(`channel.${ch}`) }}
+          </span>
+        </div>
       </div>
 
       <div class="form-group">
@@ -220,6 +333,82 @@ function doPush() {
   box-sizing: border-box;
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  min-width: auto;
+  width: auto;
+}
+
+.ai-panel {
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.preview-panel {
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.preview-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 8px;
+}
+
+.preview-body {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.preview-url {
+  font-size: 13px;
+  color: #667eea;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.preview-channels {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preview-channels .label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+.preview-channel {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-right: 4px;
+  margin-bottom: 4px;
 }
 
 .panel h2 {
