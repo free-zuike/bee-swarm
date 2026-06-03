@@ -51,32 +51,19 @@ class MockPreparedStatement {
   }
 
   async run(): Promise<{ success: boolean, meta?: { changes: number } }> {
-    const result = await this._execute('run');
-    // 检查是否是 DELETE 操作
-    if (this.sql.trim().toUpperCase().startsWith('DELETE')) {
-      const id = this.params[0];
-      const tableName = this.sql.includes('push_templates') ? 'push_templates' 
-        : this.sql.includes('channel_groups') ? 'channel_groups' 
-        : 'scheduled_pushes';
-      const table = this.tables.get(tableName) || new Map();
-      const hadRecord = table.has(id);
-      if (hadRecord) {
-        table.delete(id);
-        this.tables.set(tableName, table);
-      }
-      return { 
-        success: true, 
-        meta: { changes: hadRecord ? 1 : 0 } 
-      };
+    const sql = this.sql.trim().toUpperCase();
+    let changes = 0;
+
+    if (sql.startsWith('INSERT')) {
+      this._handleInsert(sql);
+      changes = 1;
+    } else if (sql.startsWith('UPDATE')) {
+      changes = this._handleUpdate(sql);
+    } else if (sql.startsWith('DELETE')) {
+      changes = this._handleDelete(sql);
     }
-    // 对于 UPDATE，我们假设更新了一条记录
-    if (this.sql.trim().toUpperCase().startsWith('UPDATE')) {
-      return { 
-        success: true, 
-        meta: { changes: 1 } 
-      };
-    }
-    return { success: true };
+
+    return { success: true, meta: { changes } };
   }
 
   private async _execute(type: string): Promise<any> {
@@ -225,70 +212,153 @@ class MockPreparedStatement {
     }
   }
 
-  private _handleUpdate(sql: string): void {
+  private _handleUpdate(sql: string): number {
+    let changes = 0;
+
     if (sql.includes('push_templates')) {
       const table = this.tables.get('push_templates') || new Map();
-      const id = this.params[this.params.length - 1];
+      const id = this.params[this.params.length - 2];
+      const userId = this.params[this.params.length - 1];
       const row = table.get(id);
-      if (row) {
-        // 更新简单的字段
-        row.updated_at = this.params[0];
+      if (row && row.user_id === userId) {
+        let paramIdx = 0;
+        row.updated_at = this.params[paramIdx++];
         
-        // 查找 SET 子句中有 name = ?
-        if (this.sql.includes('name =')) {
-          row.name = this.params[1];
+        if (this.sql.includes('name = ?')) {
+          row.name = this.params[paramIdx++];
         }
-        if (this.sql.includes('title =')) {
-          row.title = this.params[1];
+        if (this.sql.includes('title = ?')) {
+          row.title = this.params[paramIdx++];
+        }
+        if (this.sql.includes('body = ?')) {
+          row.body = this.params[paramIdx++];
+        }
+        if (this.sql.includes('channels = ?')) {
+          row.channels = this.params[paramIdx++];
+        }
+        if (this.sql.includes('url = ?')) {
+          row.url = this.params[paramIdx++];
+        }
+        if (this.sql.includes('image_url = ?')) {
+          row.image_url = this.params[paramIdx++];
+        }
+        if (this.sql.includes('markdown = ?')) {
+          row.markdown = this.params[paramIdx++];
         }
         
         table.set(id, row);
         this.tables.set('push_templates', table);
+        changes = 1;
       }
     }
 
     if (sql.includes('channel_groups')) {
       const table = this.tables.get('channel_groups') || new Map();
-      const id = this.params[this.params.length - 1];
+      const id = this.params[this.params.length - 2];
+      const userId = this.params[this.params.length - 1];
       const row = table.get(id);
-      if (row) {
-        row.updated_at = this.params[0];
-        if (this.sql.includes('name =')) {
-          row.name = this.params[1];
+      if (row && row.user_id === userId) {
+        let paramIdx = 0;
+        row.updated_at = this.params[paramIdx++];
+        
+        if (this.sql.includes('name = ?')) {
+          row.name = this.params[paramIdx++];
         }
-        if (this.sql.includes('channels =')) {
-          row.channels = this.params[1];
+        if (this.sql.includes('channels = ?')) {
+          row.channels = this.params[paramIdx++];
         }
+        
         table.set(id, row);
         this.tables.set('channel_groups', table);
+        changes = 1;
       }
     }
 
     if (sql.includes('scheduled_pushes')) {
       const table = this.tables.get('scheduled_pushes') || new Map();
-      const id = this.params[this.params.length - 1];
-      const row = table.get(id);
-      if (row) {
-        if (this.sql.includes('status =')) {
-          row.status = this.params[0];
-          row.updated_at = this.params[this.params.length - 2];
+      
+      if (this.sql.includes('IN (')) { // 批量操作
+        const userId = this.params[this.params.length - 1];
+        const lastIdParamIndex = this.params.length - 2;
+        
+        for (let i = 1; i <= lastIdParamIndex; i++) {
+          const id = this.params[i];
+          const row = table.get(id);
+          if (row && row.user_id === userId) {
+            // 检查 status 条件
+            if (this.sql.includes('STATUS = \'PENDING\'')) {
+              if (row.status !== 'pending') continue;
+            }
+            if (this.sql.includes('STATUS = \'FAILED\'')) {
+              if (row.status !== 'failed') continue;
+            }
+
+            if (this.sql.includes('status = ?')) {
+              row.status = this.params[0];
+              row.updated_at = new Date().toISOString();
+            }
+            if (this.sql.includes('enabled = ?')) {
+              row.enabled = this.params[0];
+              row.updated_at = new Date().toISOString();
+            }
+            table.set(id, row);
+            changes++;
+          }
         }
-        if (this.sql.includes('overdue_reminder_sent =')) {
-          row.overdue_reminder_sent = this.params[0];
-          row.updated_at = this.params[1];
-        }
-        if (this.sql.includes('enabled =')) {
-          row.enabled = this.params[0];
-          row.updated_at = this.params[this.params.length - 2];
-        }
-        table.set(id, row);
         this.tables.set('scheduled_pushes', table);
+      } else { // 单个操作
+        const id = this.params[this.params.length - 2];
+        const userId = this.params[this.params.length - 1];
+        const row = table.get(id);
+        if (row && row.user_id === userId) {
+          // 检查 status 条件
+          if (this.sql.includes('STATUS = \'PENDING\'')) {
+            if (row.status !== 'pending') return 0;
+          }
+
+          if (this.sql.includes('status = ?')) {
+            row.status = this.params[0];
+            row.updated_at = this.sql.includes('NEXT_RUN') ? this.params[2] : this.params[1];
+          }
+          if (this.sql.includes('overdue_reminder_sent = ?')) {
+            row.overdue_reminder_sent = this.params[0];
+            row.updated_at = this.params[1];
+          }
+          if (this.sql.includes('enabled = ?')) {
+            row.enabled = this.params[0];
+            row.updated_at = this.params[1];
+          }
+          if (this.sql.includes('next_run = ?')) {
+            row.next_run = this.params[1];
+            row.updated_at = this.params[2];
+          }
+          table.set(id, row);
+          this.tables.set('scheduled_pushes', table);
+          changes = 1;
+        }
       }
     }
+
+    return changes;
   }
 
-  private _handleDelete(_sql: string): void {
-    // DELETE 操作在 run() 方法中处理
+  private _handleDelete(sql: string): number {
+    let tableName;
+    if (sql.includes('push_templates')) tableName = 'push_templates';
+    else if (sql.includes('channel_groups')) tableName = 'channel_groups';
+    else if (sql.includes('scheduled_pushes')) tableName = 'scheduled_pushes';
+    else return 0;
+
+    const table = this.tables.get(tableName) || new Map();
+    const id = this.params[0];
+    const userId = this.params[1];
+    const row = table.get(id);
+    if (row && row.user_id === userId) {
+      table.delete(id);
+      this.tables.set(tableName, table);
+      return 1;
+    }
+    return 0;
   }
 }
 
