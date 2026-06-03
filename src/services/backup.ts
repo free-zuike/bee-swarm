@@ -309,7 +309,10 @@ export async function uploadBackupToEndpoint(
     // 获取用户信息用于加密
     const userService = new UserService(env);
     const user = await userService.findByEmail(username);
+    console.log(`[Backup] Found user: ${!!user}, username: ${username}`);
+    
     if (!user) {
+      console.error(`[Backup] User not found: ${username}`);
       return {
         success: false,
         message: 'User not found',
@@ -318,14 +321,31 @@ export async function uploadBackupToEndpoint(
     }
 
     // 导出用户数据（如果没有提供数据）
+    console.log(`[Backup] Exporting user data for: ${username}`);
     const backupData = data || (await exportUserData(env, username));
+    console.log(`[Backup] Data exported successfully, size: ${JSON.stringify(backupData).length} bytes`);
+    
     const filename = generateSecureFilename(); // 使用安全的随机文件名
     let jsonContent = JSON.stringify(backupData, null, 2);
 
     // 加密备份内容
+    let encrypted = false;
     const encryptionSecret = user.password; // 使用用户密码哈希作为密钥材料
     const encryptionSalt = user.id; // 使用用户ID作为盐
-    jsonContent = await encryptData(jsonContent, encryptionSecret, encryptionSalt);
+    
+    if (encryptionSecret && encryptionSalt) {
+      console.log(`[Backup] Encrypting data, secret length: ${encryptionSecret?.length || 0}, salt: ${encryptionSalt?.substring(0, 8) || 'empty'}...`);
+      try {
+        jsonContent = await encryptData(jsonContent, encryptionSecret, encryptionSalt);
+        encrypted = true;
+        console.log(`[Backup] Data encrypted successfully, encrypted size: ${jsonContent.length} bytes`);
+      } catch (e) {
+        console.error(`[Backup] Encryption failed, proceeding without encryption: ${(e as Error).message}`);
+        // 加密失败，继续不加密
+      }
+    } else {
+      console.log(`[Backup] Skipping encryption: secret=${!!encryptionSecret}, salt=${!!encryptionSalt}`);
+    }
 
     const dataHash = computeDataHash(backupData);
 
@@ -438,10 +458,14 @@ export async function uploadBackupToEndpoint(
 
     return { success: true, message: 'Backup successful', endpointId: endpoint.id, count: 1 };
   } catch (err) {
+    const error = err as Error;
+    console.error(`[Backup] Failed for endpoint ${endpoint.id} (${endpoint.name}):`, error.message);
+    console.error('[Backup] Error stack:', error.stack);
+    
     // 更新备份记录为失败
     if (backupRecordId) {
       await updateBackupRecordStatus(env, backupRecordId, username, 'failed', {
-        errorMessage: (err as Error).message,
+        errorMessage: error.message,
         completedAt: new Date().toISOString(),
       });
     }
@@ -449,7 +473,7 @@ export async function uploadBackupToEndpoint(
     return {
       success: false,
       message: 'Backup failed',
-      errorMessage: (err as Error).message,
+      errorMessage: error.message,
       endpointId: endpoint.id,
     };
   }
