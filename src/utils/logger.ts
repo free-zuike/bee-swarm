@@ -329,7 +329,7 @@ class StructuredLogger {
       return ErrorSeverity.HIGH;
     }
 
-    // 中等严重性错误
+    // 中严重性错误
     if (
       type === ErrorType.TIMEOUT ||
       type === ErrorType.RATE_LIMIT ||
@@ -394,10 +394,24 @@ class StructuredLogger {
 export const logger = new StructuredLogger();
 
 // 请求上下文管理器
-export function createRequestContext(requestId?: string): RequestContext {
+export function createRequestContext(
+  requestId?: string,
+  options?: {
+    method?: string;
+    path?: string;
+    ip?: string;
+    userAgent?: string;
+    userId?: string;
+  }
+): RequestContext {
   return {
-    requestId: requestId || crypto.randomUUID(),
+    requestId: requestId || crypto.randomUUID().slice(0, 8),
     startTime: Date.now(),
+    method: options?.method,
+    path: options?.path,
+    ip: options?.ip,
+    userAgent: options?.userAgent,
+    userId: options?.userId,
   };
 }
 
