@@ -69,7 +69,7 @@ export class AIService {
       const systemPrompt = this.buildSystemPrompt(type, language);
       const userPrompt = this.buildUserPrompt(prompt, type);
 
-      const response = await this.env.AI.run('@cf/meta/llama-3.2-1b-instruct', {
+      const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -96,7 +96,7 @@ export class AIService {
       const tools = this.getAvailableTools();
       const systemPrompt = this.buildToolSystemPrompt(tools);
 
-      const response = await this.env.AI.run('@cf/meta/llama-3.2-1b-instruct', {
+      const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query },
