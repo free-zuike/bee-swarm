@@ -49,11 +49,11 @@ bucket_name = "bee-swarm-storage"
 # Queues 队列（异步任务处理）
 # ------------------------------------------
 [[queues.producers]]
-queue = "bee-swarm-push-wurue"
+queue = "bee-swarm-push-queue"
 binding = "PUSH_QUEUE"
 
 [[queues.consumers]]
-queue = "bee-swarm-push-wurue"
+queue = "bee-swarm-push-queue"
 max_batch_size = 10
 max_retries = 3
 
