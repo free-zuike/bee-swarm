@@ -454,7 +454,9 @@ export async function downloadBackupFromEndpoint(
 export async function backupAll(token: string): Promise<{
   results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string; errorMessage?: string }>;
 }> {
-  return tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
+  const result = await tokenRequest(`${BASE}/admin/backup-all`, token, { method: 'POST' });
+  apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
+  return result;
 }
 
 // 手动触发单个备份端备份
@@ -462,7 +464,9 @@ export async function backupSingleEndpoint(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
+  const result = await tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
+  apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
+  return result;
 }
 
 // -------------------------------------------
