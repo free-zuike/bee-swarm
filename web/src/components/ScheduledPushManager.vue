@@ -1104,6 +1104,9 @@ async function createScheduledPushHandler(): Promise<void> {
       recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
+      selectedMonths: recurringType.value === 'yearly' ? selectedMonths.value : undefined,
+      selectedYearDays: recurringType.value === 'yearly' ? selectedYearDays.value : undefined,
+      cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
     });
 
     showModal.value = false;
@@ -1957,6 +1960,34 @@ watch(
 }
 
 .weekday-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.month-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.month-btn {
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #666);
+}
+
+.month-btn:hover {
+  border-color: #667eea;
+}
+
+.month-btn.active {
   border-color: #667eea;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
