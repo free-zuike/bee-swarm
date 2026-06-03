@@ -272,8 +272,25 @@ adminApi.put('/channels/:id', async (c) => {
     return c.json({ error: '无效的配置数据', code: 'VALIDATION_ERROR' }, 400);
   }
 
+  // 准备要保存的字段
+  const fieldsToSave = { ...body.fields };
+
+  // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
+  // 注意：只传 enabled 时不触发此逻辑
+  const def = CHANNEL_DEFINITIONS.find((d) => d.id === channelId);
+  if (def && Object.keys(body.fields).some((k) => k !== 'enabled')) {
+    const requiredFields = def.fields.filter((f) => f.required);
+    const allEmpty = requiredFields.every((f) => !body.fields[f.key]);
+    const allFilled = requiredFields.every((f) => !!body.fields[f.key]);
+    if (allEmpty) {
+      fieldsToSave.enabled = 'false';
+    } else if (allFilled) {
+      fieldsToSave.enabled = 'true';
+    }
+  }
+
   try {
-    await saveUserChannelSetting(username, channelId, body.fields, c.env);
+    await saveUserChannelSetting(username, channelId, fieldsToSave, c.env);
   } catch (err) {
     return c.json({ error: (err as Error).message, code: 'VALIDATION_ERROR' }, 400);
   }
@@ -284,20 +301,6 @@ adminApi.put('/channels/:id', async (c) => {
     await auditLogger.log('channel_updated', { channelId });
   } catch {
     // 审计日志失败不影响主流程
-  }
-
-  // 检查必填字段是否都清空了，如果是则自动禁用；如果填了则自动启用
-  // 注意：只传 enabled 时不触发此逻辑
-  const def = CHANNEL_DEFINITIONS.find((d) => d.id === channelId);
-  if (def && Object.keys(body.fields).some((k) => k !== 'enabled')) {
-    const requiredFields = def.fields.filter((f) => f.required);
-    const allEmpty = requiredFields.every((f) => !body.fields[f.key]);
-    const allFilled = requiredFields.every((f) => !!body.fields[f.key]);
-    if (allEmpty) {
-      await saveUserChannelSetting(username, channelId, { enabled: 'false' }, c.env);
-    } else if (allFilled) {
-      await saveUserChannelSetting(username, channelId, { enabled: 'true' }, c.env);
-    }
   }
 
   const settings = await loadUserChannelSettings(username, c.env);
