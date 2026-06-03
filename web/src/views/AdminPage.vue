@@ -322,8 +322,8 @@ async function loadHistory(page = 1) {
     });
     pushHistory.value = data.history || [];
     historyTotal.value = data.total || 0;
-    if (pushHistory.value.length > 0 && pushHistory.value[0].time) {
-      const date = new Date(pushHistory.value[0].time);
+    if (pushHistory.value.length > 0 && pushHistory.value[0].createdAt) {
+      const date = new Date(pushHistory.value[0].createdAt);
       lastPushTime.value = isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN');
     }
   } catch (err: unknown) {

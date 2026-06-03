@@ -282,7 +282,7 @@ export async function getHistoryWithToken(
 ): Promise<{
   history: Array<{
     id: string;
-    time: string;
+    createdAt: string;
     title: string;
     body: string;
     url: string;
