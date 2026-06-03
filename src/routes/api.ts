@@ -629,6 +629,47 @@ adminApi.get('/me/avatar/status', async (c) => {
   }
 });
 
+/** 获取用户设置 */
+adminApi.get('/me/settings', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+  const settings = await svc.getUserSettings(user.id);
+  return c.json({ success: true, settings });
+});
+
+/** 保存用户设置 */
+adminApi.put('/me/settings', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const body = await c.req.json<{
+    cache_ttl_backup?: number;
+    cache_ttl_channels?: number;
+    cache_ttl_templates?: number;
+    cache_ttl_groups?: number;
+    cache_ttl_scheduled?: number;
+    ai_model?: string;
+    ai_enabled?: boolean;
+  }>();
+
+  const currentSettings = await svc.getUserSettings(user.id);
+  const newSettings = { ...currentSettings, ...body };
+
+  await svc.saveUserSettings(user.id, newSettings);
+
+  return c.json({ success: true, message: '设置已保存', settings: newSettings });
+});
+
 /** 上传头像文件 */
 adminApi.post('/me/avatar/upload', async (c) => {
   const env = c.env as Env;

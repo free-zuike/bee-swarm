@@ -32,8 +32,11 @@ import {
   updateAvatar,
   uploadAvatar,
   getAvatarStorageStatus,
+  getUserSettings,
+  saveUserSettings,
+  apiCache,
 } from '@/api';
-import type { BackupEndpoint } from '@/api';
+import type { BackupEndpoint, UserSettings } from '@/api';
 import type {
   ChannelConfig,
   ChannelDefinition,
@@ -119,6 +122,61 @@ const activeTab = ref<
 
 // ==================== 设置面板 ====================
 const showSettings = ref(false);
+
+// ==================== 用户配置 ====================
+const userSettings = ref<UserSettings>({
+  cache_ttl_backup: 5 * 60 * 1000,
+  cache_ttl_channels: 5 * 60 * 1000,
+  cache_ttl_templates: 5 * 60 * 1000,
+  cache_ttl_groups: 5 * 60 * 1000,
+  cache_ttl_scheduled: 5 * 60 * 1000,
+  ai_model: 'workers-ai',
+  ai_enabled: true,
+});
+const isSavingSettings = ref(false);
+
+async function loadUserSettings() {
+  try {
+    const result = await getUserSettings(accessToken.value);
+    if (result.success) {
+      userSettings.value = result.settings;
+      updateCacheSettings();
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function updateCacheSettings() {
+  apiCache.setCustomTtl({
+    cache_ttl_backup: userSettings.value.cache_ttl_backup,
+    cache_ttl_channels: userSettings.value.cache_ttl_channels,
+    cache_ttl_templates: userSettings.value.cache_ttl_templates,
+    cache_ttl_groups: userSettings.value.cache_ttl_groups,
+    cache_ttl_scheduled: userSettings.value.cache_ttl_scheduled,
+  });
+}
+
+async function handleSaveSettings() {
+  if (isSavingSettings.value) return;
+  isSavingSettings.value = true;
+  try {
+    const result = await saveUserSettings(accessToken.value, userSettings.value);
+    if (result.success) {
+      showToast(result.message, 'success');
+      updateCacheSettings();
+    }
+  } catch (err: unknown) {
+    showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
+  } finally {
+    isSavingSettings.value = false;
+  }
+}
+
+function handleClearCache() {
+  apiCache.clear();
+  showToast(t('msg.cache_cleared'), 'success');
+}
 
 // ==================== 移动端悬浮菜单 ====================
 const showFabMenu = ref(false);
@@ -369,6 +427,7 @@ onMounted(async () => {
           await loadChannels();
           await loadHistory();
           await loadUserAvatar();
+          await loadUserSettings();
           pageState.value = 'dashboard';
           return;
         } catch {
@@ -384,6 +443,7 @@ onMounted(async () => {
         await loadChannels();
         await loadHistory();
         await loadUserAvatar();
+        await loadUserSettings();
         pageState.value = 'dashboard';
         return;
       }
@@ -1089,6 +1149,110 @@ function handleResend(record: PushHistoryRecord) {
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- 用户配置面板 -->
+        <div class="panel" :class="{ dark: isDark }">
+          <h3>⚙️ {{ t('label.settings') }}</h3>
+          
+          <!-- 缓存设置 -->
+          <div class="settings-section">
+            <h4>🗄️ {{ t('label.cache_settings') }}</h4>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_backup') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_backup"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_channels') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_channels"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_templates') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_templates"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_groups') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_groups"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_scheduled') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_scheduled"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="handleClearCache">
+              🗑️ {{ t('button.clear_cache') }}
+            </button>
+          </div>
+
+          <!-- AI 设置 -->
+          <div class="settings-section">
+            <h4>🤖 {{ t('label.ai_settings') }}</h4>
+            <div class="setting-item">
+              <label>{{ t('label.ai_enabled') }}</label>
+              <label class="toggle">
+                <input
+                  type="checkbox"
+                  v-model="userSettings.ai_enabled"
+                />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.ai_model') }}</label>
+              <select v-model="userSettings.ai_model" class="input-sm" :class="{ dark: isDark }">
+                <option value="workers-ai">Cloudflare Workers AI</option>
+                <option value="openai">OpenAI</option>
+                <option value="custom">Custom API</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            class="btn btn-primary"
+            :class="{ dark: isDark, loading: isSavingSettings }"
+            @click="handleSaveSettings"
+          >
+            {{ t('button.save_settings') }}
+          </button>
         </div>
 
         <!-- 数据备份面板（多备份端） -->

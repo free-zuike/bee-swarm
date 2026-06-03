@@ -2,6 +2,16 @@ import type { Env } from '../types';
 
 export type UserRole = 'admin' | 'user' | 'viewer';
 
+export interface UserSettings {
+  cache_ttl_backup?: number;
+  cache_ttl_channels?: number;
+  cache_ttl_templates?: number;
+  cache_ttl_groups?: number;
+  cache_ttl_scheduled?: number;
+  ai_model?: string;
+  ai_enabled?: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -17,6 +27,7 @@ export interface User {
   disabled_reason?: string;
   avatar_url?: string;
   use_avatar_as_popup?: number;
+  settings?: string;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +129,49 @@ export class UserService {
       .run();
 
     return this.findById(id);
+  }
+
+  /** 获取用户设置 */
+  async getUserSettings(userId: string): Promise<UserSettings> {
+    this.checkDB();
+    const result = await this.env.DB.prepare('SELECT settings FROM users WHERE id = ?')
+      .bind(userId)
+      .first<{ settings?: string }>();
+
+    if (!result?.settings) {
+      return this.getDefaultSettings();
+    }
+
+    try {
+      const settings = JSON.parse(result.settings) as UserSettings;
+      return { ...this.getDefaultSettings(), ...settings };
+    } catch {
+      return this.getDefaultSettings();
+    }
+  }
+
+  /** 获取默认设置 */
+  getDefaultSettings(): UserSettings {
+    return {
+      cache_ttl_backup: 5 * 60 * 1000,
+      cache_ttl_channels: 5 * 60 * 1000,
+      cache_ttl_templates: 5 * 60 * 1000,
+      cache_ttl_groups: 5 * 60 * 1000,
+      cache_ttl_scheduled: 5 * 60 * 1000,
+      ai_model: 'workers-ai',
+      ai_enabled: true,
+    };
+  }
+
+  /** 保存用户设置 */
+  async saveUserSettings(userId: string, settings: UserSettings): Promise<void> {
+    this.checkDB();
+    const now = new Date().toISOString();
+    const settingsJson = JSON.stringify(settings);
+
+    await this.env.DB.prepare('UPDATE users SET settings = ?, updated_at = ? WHERE id = ?')
+      .bind(settingsJson, now, userId)
+      .run();
   }
 
   /** 删除用户（慎用） */

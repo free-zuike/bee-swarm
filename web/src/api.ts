@@ -940,6 +940,37 @@ export async function batchDeleteGroups(
 }
 
 // -------------------------------------------
+// 用户设置接口
+// -------------------------------------------
+
+export interface UserSettings {
+  cache_ttl_backup?: number;
+  cache_ttl_channels?: number;
+  cache_ttl_templates?: number;
+  cache_ttl_groups?: number;
+  cache_ttl_scheduled?: number;
+  ai_model?: string;
+  ai_enabled?: boolean;
+}
+
+// 获取用户设置
+export async function getUserSettings(token: string): Promise<{ success: boolean; settings: UserSettings }> {
+  return tokenRequest(`${BASE}/admin/me/settings`, token);
+}
+
+// 保存用户设置
+export async function saveUserSettings(
+  token: string,
+  settings: UserSettings
+): Promise<{ success: boolean; message: string; settings: UserSettings }> {
+  return tokenRequest(`${BASE}/admin/me/settings`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+}
+
+// -------------------------------------------
 // AI 相关接口
 // -------------------------------------------
 
