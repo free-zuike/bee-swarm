@@ -13,6 +13,83 @@ import type {
 } from '../types';
 import { PUSH_CONFIG } from '../utils/constants';
 
+// 检查并修复 push_history 表结构
+let pushHistorySchemaFixed = false;
+
+async function ensurePushHistorySchema(env: Env): Promise<void> {
+  if (!env.DB || pushHistorySchemaFixed) return;
+
+  try {
+    // 检查表是否有正确的列
+    const checkResult = await env.DB.prepare('PRAGMA table_info(push_history)').all<any>();
+    const columns = (checkResult.results || []).map((c) => c.name);
+
+    // 检查是否有需要的列
+    const hasBody = columns.includes('body');
+    const hasChannels = columns.includes('channels');
+    const hasResults = columns.includes('results');
+    const hasStatus = columns.includes('status');
+
+    if (!hasBody || !hasChannels || !hasResults || !hasStatus) {
+      console.log('[PushHistory] Schema needs migration, recreating table...');
+
+      // 备份旧表
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_history_backup_20240603 AS SELECT * FROM push_history').run();
+
+      // 创建新表
+      await env.DB.prepare(`
+        CREATE TABLE push_history_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          title TEXT,
+          body TEXT,
+          url TEXT,
+          image_url TEXT,
+          markdown INTEGER DEFAULT 0,
+          channels TEXT,
+          results TEXT,
+          status TEXT,
+          created_at TEXT NOT NULL
+        )
+      `).run();
+
+      // 复制数据
+      await env.DB.prepare(`
+        INSERT INTO push_history_new (
+          id, user_id, title, body, url, image_url, markdown, created_at
+        )
+        SELECT
+          id,
+          user_id,
+          title,
+          COALESCE(content, ''),
+          url,
+          image_url,
+          CASE WHEN markdown THEN 1 ELSE 0 END,
+          created_at
+        FROM push_history
+      `).run();
+
+      // 替换表
+      await env.DB.prepare('DROP TABLE push_history').run();
+      await env.DB.prepare('ALTER TABLE push_history_new RENAME TO push_history').run();
+
+      // 创建索引
+      await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_push_history_user_id ON push_history(user_id)').run();
+      await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_push_history_created_at ON push_history(created_at)').run();
+
+      // 删除备份
+      await env.DB.prepare('DROP TABLE IF EXISTS push_history_backup_20240603').run();
+
+      console.log('[PushHistory] Schema migrated successfully');
+    }
+
+    pushHistorySchemaFixed = true;
+  } catch (err) {
+    console.error('[PushHistory] Schema check failed:', (err as Error).message);
+  }
+}
+
 // Import from unified channels module
 import {
   sendWework,
@@ -661,9 +738,13 @@ export async function dispatchPushWithOptions(
     }
   }
 
+  // 确保表结构正确
+  await ensurePushHistorySchema(env);
+
   // 保存到 D1 推送历史
   try {
     if (env.DB) {
+      console.log('[PushHistory] Saving to DB...');
       await env.DB.prepare(
         `
         INSERT INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at)
@@ -684,9 +765,11 @@ export async function dispatchPushWithOptions(
           new Date().toISOString()
         )
         .run();
+      console.log('[PushHistory] Saved successfully');
     }
   } catch (err) {
     console.error('[PushHistory] Failed to save:', (err as Error).message);
+    console.error('[PushHistory] Full error:', err);
   }
 
   // 记录推送统计数据
@@ -789,6 +872,9 @@ export async function getPushHistory(
   if (!env.DB) {
     return { records: [], total: 0, hasMore: false };
   }
+
+  // 确保表结构正确
+  await ensurePushHistorySchema(env);
 
   const pageSize = options.pageSize || 20;
   const page = options.page || 1;
