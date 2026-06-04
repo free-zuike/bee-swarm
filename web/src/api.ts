@@ -1080,6 +1080,7 @@ export interface UserInfo {
   disabled: number;
   disabled_reason?: string;
   created_at: string;
+  avatar_url?: string;
 }
 
 // 获取当前用户信息

@@ -605,11 +605,12 @@ adminApi.get('/users', async (c) => {
     disabled: number | null;
     disabled_reason: string | null;
     created_at: string;
+    avatar_url?: string | null;
   }> = [];
 
   try {
     const result = await svc['env'].DB.prepare(
-      'SELECT id, email, role, disabled, disabled_reason, created_at FROM users ORDER BY created_at ASC'
+      'SELECT id, email, role, disabled, disabled_reason, created_at, avatar_url FROM users ORDER BY created_at ASC'
     ).all<{
       id: string;
       email: string;
@@ -617,6 +618,7 @@ adminApi.get('/users', async (c) => {
       disabled: number | null;
       disabled_reason: string | null;
       created_at: string;
+      avatar_url?: string | null;
     }>();
     users = result.results || [];
   } catch {
@@ -627,6 +629,7 @@ adminApi.get('/users', async (c) => {
       ...u,
       disabled: 0,
       disabled_reason: '',
+      avatar_url: '',
     }));
   }
 

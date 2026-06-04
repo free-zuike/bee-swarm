@@ -252,13 +252,10 @@ function getDefaultModelName() {
 }
 
 function handleProviderChange() {
-  const provider = userSettings.value.ai_provider;
-  if (!userSettings.value.ai_api_url) {
-    userSettings.value.ai_api_url = getDefaultApiUrl();
-  }
-  if (!userSettings.value.ai_model_name) {
-    userSettings.value.ai_model_name = getDefaultModelName();
-  }
+  // 切换提供商时清除旧值
+  userSettings.value.ai_api_key = '';
+  userSettings.value.ai_api_url = getDefaultApiUrl();
+  userSettings.value.ai_model_name = getDefaultModelName();
 }
 
 async function handleSaveSettings() {
@@ -1163,7 +1160,7 @@ function handleResend(record: PushHistoryRecord) {
           <!-- 缓存设置 -->
           <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel">
             <h3>🗄️ {{ t('label.cache_settings') }}</h3>
-            <div class="settings-card cache-settings">
+            <div class="settings-card">
               <div class="setting-item">
                 <label>{{ t('label.cache_ttl_backup') }}</label>
                 <input
@@ -2900,23 +2897,14 @@ function handleResend(record: PushHistoryRecord) {
   margin-top: 20px;
 }
 
-/* ==================== AI 设置和缓存设置优化样式 ==================== */
+/* ==================== AI 设置样式 ==================== */
 .settings-card.ai-settings {
   background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
   border-color: rgba(99, 102, 241, 0.2);
 }
 
-.settings-card.cache-settings {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border-color: rgba(251, 191, 36, 0.3);
-}
-
 .settings-panel.dark .settings-card.ai-settings {
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-}
-
-.settings-panel.dark .settings-card.cache-settings {
-  background: linear-gradient(135deg, #451a03 0%, #713f12 100%);
 }
 
 /* 设置项优化 */

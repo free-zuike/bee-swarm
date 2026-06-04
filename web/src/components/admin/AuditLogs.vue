@@ -305,6 +305,26 @@ onMounted(() => {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+}
+
+/* 滚动条样式 */
+.log-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+}
+
+.log-list::-webkit-scrollbar-thumb {
+  background: var(--text-secondary, #888);
+  border-radius: 4px;
+}
+
+.log-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-primary, #333);
 }
 
 .log-card {

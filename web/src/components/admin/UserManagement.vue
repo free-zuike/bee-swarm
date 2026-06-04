@@ -475,6 +475,26 @@ onMounted(() => {
   padding: 20px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+}
+
+/* 滚动条样式 */
+.user-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.user-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+}
+
+.user-list::-webkit-scrollbar-thumb {
+  background: var(--text-secondary, #888);
+  border-radius: 4px;
+}
+
+.user-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-primary, #333);
 }
 
 .user-card {
