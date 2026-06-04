@@ -452,6 +452,7 @@ onMounted(() => {
 .user-content {
   overflow-y: auto;
   flex: 1;
+  max-height: calc(100vh - 150px);
 }
 
 .user-list {
