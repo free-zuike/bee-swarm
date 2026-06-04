@@ -394,35 +394,32 @@ onMounted(() => {
 
 <style scoped>
 .user-management {
+  position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  height: 100%;
 }
 
 .panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg-panel, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .panel-header {
-  height: auto;
-  min-height: 50px;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
-  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 16px;
   flex-shrink: 0;
 }
 
@@ -472,8 +469,6 @@ onMounted(() => {
 
 .user-list {
   padding: 20px;
-  display: grid;
-  gap: 12px;
   overflow-y: auto;
   flex: 1;
 }
@@ -489,7 +484,11 @@ onMounted(() => {
   border: 1px solid #f0f0f0;
   transition: all 0.25s ease;
   overflow: hidden;
-  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.user-card:last-child {
+  margin-bottom: 0;
 }
 
 .user-card:hover {

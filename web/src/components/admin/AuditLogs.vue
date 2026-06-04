@@ -187,22 +187,23 @@ onMounted(() => {
 
 <style scoped>
 .audit-logs {
+  position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  height: 100%;
 }
 
 .panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .panel-header {
@@ -301,11 +302,8 @@ onMounted(() => {
 
 .log-list {
   padding: 24px;
-  display: grid;
-  gap: 12px;
   overflow-y: auto;
   flex: 1;
-  min-height: 0;
 }
 
 .log-card {
@@ -319,7 +317,11 @@ onMounted(() => {
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
-  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.log-card:last-child {
+  margin-bottom: 0;
 }
 
 .log-card::before {
