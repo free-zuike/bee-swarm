@@ -412,15 +412,32 @@ ${JSON.stringify(tools, null, 2)}
 
   private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
     try {
-      // 尝试多种 JSON 提取方式
+      // 方式1: 尝试解析简单的 "工具名 {}" 格式
+      const simpleMatch = content.match(/^\s*(\w+)\s*(\{[\s\S]*\})?\s*$/);
+      if (simpleMatch) {
+        const toolName = simpleMatch[1];
+        let params = {};
+        
+        if (simpleMatch[2]) {
+          try {
+            params = JSON.parse(simpleMatch[2]);
+          } catch {
+            // 如果参数解析失败，就用空对象
+          }
+        }
+        
+        return { tool: toolName, params };
+      }
+      
+      // 方式2: 尝试多种 JSON 提取方式
       let jsonStr = null;
       
-      // 方式1: 直接匹配整个 JSON 对象
+      // 方式2a: 直接匹配整个 JSON 对象
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         jsonStr = jsonMatch[0];
       } 
-      // 方式2: 尝试匹配 markdown 代码块中的 JSON
+      // 方式2b: 尝试匹配 markdown 代码块中的 JSON
       else if (content.includes('```')) {
         const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
         if (codeBlockMatch) {
@@ -434,7 +451,7 @@ ${JSON.stringify(tools, null, 2)}
       
       const parsed = JSON.parse(jsonStr);
       
-      // 兼容多种格式
+      // 兼容多种 JSON 格式
       if (parsed.tool) {
         return { 
           tool: parsed.tool, 
