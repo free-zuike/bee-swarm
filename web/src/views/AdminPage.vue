@@ -1360,6 +1360,13 @@ function handleResend(record: PushHistoryRecord) {
                   :placeholder="t('placeholder.ai_model_name')"
                 />
               </div>
+              <button
+                class="btn btn-primary btn-sm"
+                :class="{ dark: isDark, loading: isSavingSettings }"
+                @click="handleSaveSettings"
+              >
+                {{ t('button.save_settings') }}
+              </button>
             </div>
           </div>
 
@@ -1418,14 +1425,6 @@ function handleResend(record: PushHistoryRecord) {
               />
             </div>
           </div>
-
-          <button
-            class="btn btn-primary"
-            :class="{ dark: isDark, loading: isSavingSettings }"
-            @click="handleSaveSettings"
-          >
-            {{ t('button.save_settings') }}
-          </button>
         </div>
       </div>
 
