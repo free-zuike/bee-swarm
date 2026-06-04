@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import { checkAIAvailable, executeAICommand } from '@/api';
 
 const props = defineProps<{
   accessToken: string;
+  aiEnabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -20,6 +21,9 @@ const aiLoading = ref(false);
 const userQuery = ref('');
 const chatHistory = ref<Array<{ type: 'user' | 'ai'; content: string; data?: unknown }>>([]);
 const showPanel = ref(false);
+
+// 如果 AI 未启用，不显示组件
+const shouldShow = computed(() => props.aiEnabled !== false);
 
 const quickCommands = [
   { label: '列出所有模板', query: '列出所有模板' },
@@ -91,7 +95,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ai-helper">
+  <div v-if="shouldShow" class="ai-helper">
     <button
       v-if="aiAvailable"
       class="ai-toggle-btn"

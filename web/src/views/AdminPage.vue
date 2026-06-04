@@ -163,6 +163,30 @@ function updateCacheSettings() {
 
 async function handleSaveSettings() {
   if (isSavingSettings.value) return;
+  
+  // AI 设置验证
+  if (userSettings.value.ai_enabled) {
+    if (!userSettings.value.ai_provider) {
+      showToast('请选择 AI 提供商', 'error');
+      return;
+    }
+    
+    if (userSettings.value.ai_provider !== 'workers-ai') {
+      if (!userSettings.value.ai_api_key?.trim()) {
+        showToast('请输入 API Key', 'error');
+        return;
+      }
+      if (!userSettings.value.ai_model_name?.trim()) {
+        showToast('请输入模型名称', 'error');
+        return;
+      }
+      if (userSettings.value.ai_provider === 'custom' && !userSettings.value.ai_api_url?.trim()) {
+        showToast('请输入 API URL', 'error');
+        return;
+      }
+    }
+  }
+  
   isSavingSettings.value = true;
   try {
     const result = await saveUserSettings(accessToken.value, userSettings.value);
@@ -1450,7 +1474,7 @@ function handleResend(record: PushHistoryRecord) {
     </div>
 
     <!-- AI 助手 -->
-    <AIHelper :access-token="accessToken" @refresh="loadHistory" />
+    <AIHelper :access-token="accessToken" :ai-enabled="userSettings.ai_enabled" @refresh="loadHistory" />
   </div>
 </template>
 
