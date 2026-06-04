@@ -1,5 +1,5 @@
 -- ============================================
--- 拆分用户设置为缓存设置和AI设置两个独立字段
+-- 拆分用户设置为缓存设置和AI设置两个独立字段，并删除旧的settings字段
 -- ============================================
 
 -- 备份原表
@@ -36,8 +36,10 @@ INSERT INTO users_new (
 SELECT
   id, email, password, token, token_expires_at, refresh_token, refresh_token_expires_at,
   apikey, apikey_expires_at, role, disabled, disabled_reason, avatar_url, use_avatar_as_popup,
-  -- 拆分 cache_settings
+  -- 优先尝试从新字段读取，如果不存在则从旧字段拆分
   CASE
+    WHEN cache_settings IS NOT NULL AND cache_settings != '' AND cache_settings != '{}' THEN
+      cache_settings
     WHEN settings IS NOT NULL AND settings != '' THEN
       json_object(
         'cache_ttl_backup', json_extract(settings, '$.cache_ttl_backup'),
@@ -48,8 +50,10 @@ SELECT
       )
     ELSE '{}'
   END AS cache_settings,
-  -- 拆分 ai_settings
+  -- 优先尝试从新字段读取，如果不存在则从旧字段拆分
   CASE
+    WHEN ai_settings IS NOT NULL AND ai_settings != '' AND ai_settings != '{}' THEN
+      ai_settings
     WHEN settings IS NOT NULL AND settings != '' THEN
       json_object(
         'ai_model', json_extract(settings, '$.ai_model'),
