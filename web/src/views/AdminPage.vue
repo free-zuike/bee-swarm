@@ -1664,14 +1664,31 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <!-- 操作按钮 - 重新创建 -->
-              <div class="modal-actions" style="display: flex; align-items: center; gap: 12px; margin-top: 24px;">
+              <div style="display: flex; flex-direction: row; align-items: stretch; justify-content: space-between; gap: 12px; margin-top: 24px; width: 100%;">
                 <!-- 删除按钮 -->
                 <button
                   v-if="userAvatar"
                   type="button"
-                  class="btn btn-danger"
+                  :style="{
+                    flex: '1',
+                    height: '48px !important',
+                    minHeight: '48px !important',
+                    maxHeight: '48px !important',
+                    padding: '0 24px !important',
+                    fontSize: '15px !important',
+                    fontWeight: '600 !important',
+                    display: 'flex !important',
+                    alignItems: 'center !important',
+                    justifyContent: 'center !important',
+                    borderRadius: '8px !important',
+                    border: 'none !important',
+                    cursor: 'pointer !important',
+                    boxSizing: 'border-box !important',
+                    lineHeight: '48px !important',
+                    background: '#ef4444 !important',
+                    color: 'white !important'
+                  }"
                   :class="{ dark: isDark }"
-                  style="flex: 1; height: 44px; min-height: 44px; padding: 0 16px;"
                   @click="deleteAvatar"
                 >
                   {{ t('button.delete_avatar') }}
@@ -1679,10 +1696,28 @@ function handleResend(record: PushHistoryRecord) {
                 <!-- 保存按钮 -->
                 <button
                   type="button"
-                  class="btn btn-primary"
-                  :class="{ dark: isDark }"
                   :disabled="isSaving"
-                  style="flex: 1; height: 44px; min-height: 44px; padding: 0 16px;"
+                  :style="{
+                    flex: '1',
+                    height: '48px !important',
+                    minHeight: '48px !important',
+                    maxHeight: '48px !important',
+                    padding: '0 24px !important',
+                    fontSize: '15px !important',
+                    fontWeight: '600 !important',
+                    display: 'flex !important',
+                    alignItems: 'center !important',
+                    justifyContent: 'center !important',
+                    borderRadius: '8px !important',
+                    border: 'none !important',
+                    cursor: isSaving ? 'not-allowed !important' : 'pointer !important',
+                    boxSizing: 'border-box !important',
+                    lineHeight: '48px !important',
+                    background: isSaving ? '#94a3b8 !important' : '#3b82f6 !important',
+                    color: 'white !important',
+                    opacity: isSaving ? '0.6 !important' : '1 !important'
+                  }"
+                  :class="{ dark: isDark }"
                   @click="handleSaveAvatar"
                 >
                   {{ isSaving ? t('label.saving') : t('button.save') }}
