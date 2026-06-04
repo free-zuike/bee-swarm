@@ -1070,310 +1070,327 @@ function handleResend(record: PushHistoryRecord) {
           <!-- 主题设置 -->
           <div v-if="activeSettingsTab === 'theme'" class="settings-panel">
             <h3>🎨 {{ t('theme.settings') }}</h3>
-            <div class="theme-options">
-              <button
-                v-for="theme in [
-                  { value: 'light', label: t('theme.light'), icon: '☀️' },
-                  { value: 'dark', label: t('theme.dark'), icon: '🌙' },
-                  { value: 'auto', label: t('theme.auto'), icon: '🌓' },
-                ]"
-                :key="theme.value"
-                class="theme-option"
-                :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
-                @click="themeStore.setTheme(theme.value as any)"
-              >
-                <span class="theme-icon">{{ theme.icon }}</span>
-                <span class="theme-label">{{ theme.label }}</span>
-                <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
-              </button>
+            <div class="settings-card">
+              <div class="theme-options">
+                <button
+                  v-for="theme in [
+                    { value: 'light', label: t('theme.light'), icon: '☀️' },
+                    { value: 'dark', label: t('theme.dark'), icon: '🌙' },
+                    { value: 'auto', label: t('theme.auto'), icon: '🌓' },
+                  ]"
+                  :key="theme.value"
+                  class="theme-option"
+                  :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
+                  @click="themeStore.setTheme(theme.value as any)"
+                >
+                  <span class="theme-icon">{{ theme.icon }}</span>
+                  <span class="theme-label">{{ theme.label }}</span>
+                  <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- API Key 设置 -->
           <div v-else-if="activeSettingsTab === 'apiKey'" class="settings-panel">
             <h3>🔑 {{ t('label.api_key') }}</h3>
-            <p class="hint">{{ t('hint.api_key') }}</p>
-            <div v-if="apiKey" class="api-key-display">
-              <code :class="{ dark: isDark }">{{ apiKey }}</code>
-              <button
-                class="btn btn-sm btn-icon"
-                :class="{ dark: isDark }"
-                @click="copyApiKey"
-                :title="t('button.copy_api_key')"
-              >
-                📋
-              </button>
-              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
-                {{ t('button.refresh') }}
-              </button>
-            </div>
-            <div v-else>
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
-                {{ t('button.generate_api_key') }}
-              </button>
+            <div class="settings-card">
+              <p class="hint">{{ t('hint.api_key') }}</p>
+              <div v-if="apiKey" class="api-key-display">
+                <code :class="{ dark: isDark }">{{ apiKey }}</code>
+                <button
+                  class="btn btn-sm btn-icon"
+                  :class="{ dark: isDark }"
+                  @click="copyApiKey"
+                  :title="t('button.copy_api_key')"
+                >
+                  📋
+                </button>
+                <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
+                  {{ t('button.refresh') }}
+                </button>
+              </div>
+              <div v-else>
+                <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
+                  {{ t('button.generate_api_key') }}
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- 缓存设置 -->
           <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel">
             <h3>🗄️ {{ t('label.cache_settings') }}</h3>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_backup') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_backup"
-                min="0"
-                step="60000"
-                class="input-sm"
+            <div class="settings-card">
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_backup') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_backup"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_channels') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_channels"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_templates') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_templates"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_groups') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_groups"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_scheduled') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_scheduled"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <button
+                class="btn btn-sm btn-secondary"
                 :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
+                @click="handleClearCache"
+              >
+                🗑️ {{ t('button.clear_cache') }}
+              </button>
             </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_channels') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_channels"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_templates') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_templates"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_groups') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_groups"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_scheduled') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_scheduled"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <button
-              class="btn btn-sm btn-secondary"
-              :class="{ dark: isDark }"
-              @click="handleClearCache"
-            >
-              🗑️ {{ t('button.clear_cache') }}
-            </button>
           </div>
 
           <!-- AI 设置 -->
           <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel">
             <h3>🤖 {{ t('label.ai_settings') }}</h3>
-            <div class="setting-item">
-              <label>{{ t('label.ai_enabled') }}</label>
-              <label class="toggle">
-                <input type="checkbox" v-model="userSettings.ai_enabled" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.ai_provider') }}</label>
-              <select
-                v-model="userSettings.ai_provider"
-                class="input-sm"
-                :class="{ dark: isDark }"
+            <div class="settings-card">
+              <div class="setting-item">
+                <label>{{ t('label.ai_enabled') }}</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="userSettings.ai_enabled" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.ai_provider') }}</label>
+                <select
+                  v-model="userSettings.ai_provider"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                >
+                  <option value="workers-ai">Cloudflare Workers AI</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="azure-openai">Azure OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="custom">Custom API</option>
+                </select>
+              </div>
+              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+                <label>{{ t('label.ai_api_key') }}</label>
+                <input
+                  type="password"
+                  v-model="userSettings.ai_api_key"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.ai_api_key')"
+                />
+              </div>
+              <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
+                <label>{{ t('label.ai_api_url') }}</label>
+                <input
+                  type="url"
+                  v-model="userSettings.ai_api_url"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.ai_api_url')"
+                />
+              </div>
+              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+                <label>{{ t('label.ai_model_name') }}</label>
+                <input
+                  type="text"
+                  v-model="userSettings.ai_model_name"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.ai_model_name')"
+                />
+              </div>
+              <button
+                class="btn btn-primary btn-sm"
+                :class="{ dark: isDark, loading: isSavingSettings }"
+                @click="handleSaveSettings"
               >
-                <option value="workers-ai">Cloudflare Workers AI</option>
-                <option value="openai">OpenAI</option>
-                <option value="azure-openai">Azure OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="custom">Custom API</option>
-              </select>
+                {{ t('button.save_settings') }}
+              </button>
             </div>
-            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-              <label>{{ t('label.ai_api_key') }}</label>
-              <input
-                type="password"
-                v-model="userSettings.ai_api_key"
-                class="input-sm"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.ai_api_key')"
-              />
-            </div>
-            <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
-              <label>{{ t('label.ai_api_url') }}</label>
-              <input
-                type="url"
-                v-model="userSettings.ai_api_url"
-                class="input-sm"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.ai_api_url')"
-              />
-            </div>
-            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-              <label>{{ t('label.ai_model_name') }}</label>
-              <input
-                type="text"
-                v-model="userSettings.ai_model_name"
-                class="input-sm"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.ai_model_name')"
-              />
-            </div>
-            <button
-              class="btn btn-primary btn-sm"
-              :class="{ dark: isDark, loading: isSavingSettings }"
-              @click="handleSaveSettings"
-            >
-              {{ t('button.save_settings') }}
-            </button>
           </div>
 
           <!-- 头像设置 -->
           <div v-else-if="activeSettingsTab === 'avatar'" class="settings-panel">
             <h3>🖼️ {{ t('label.avatar_settings') }}</h3>
-            
-            <!-- 当前头像预览 -->
-            <div class="avatar-preview-section">
-              <div class="avatar-preview">
-                <img 
-                  v-if="userAvatar" 
-                  :src="userAvatar" 
-                  class="preview-image" 
-                  @error="handleAvatarError"
-                />
-                <span v-else class="preview-placeholder">{{ roleIcon }}</span>
+            <div class="settings-card">
+              <!-- 当前头像预览 -->
+              <div class="avatar-preview-section">
+                <div class="avatar-preview">
+                  <img 
+                    v-if="userAvatar" 
+                    :src="userAvatar" 
+                    class="preview-image" 
+                    @error="handleAvatarError"
+                  />
+                  <span v-else class="preview-placeholder">{{ roleIcon }}</span>
+                </div>
               </div>
-            </div>
 
-            <!-- 文件上传 -->
-            <div class="form-group">
-              <label>{{ t('label.upload_avatar') }}</label>
-              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
-                <input
-                  ref="fileInput"
-                  type="file"
-                  accept="image/*"
-                  class="file-input"
-                  @change="handleFileUpload"
-                />
-                <span class="upload-icon">📤</span>
-                <span class="upload-text">{{ t('label.click_to_upload') }}</span>
-                <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
+              <!-- 文件上传 -->
+              <div class="form-group">
+                <label>{{ t('label.upload_avatar') }}</label>
+                <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*"
+                    class="file-input"
+                    @change="handleFileUpload"
+                  />
+                  <span class="upload-icon">📤</span>
+                  <span class="upload-text">{{ t('label.click_to_upload') }}</span>
+                  <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
+                </div>
               </div>
-            </div>
 
-            <!-- 头像URL输入 -->
-            <div class="form-group">
-              <label>{{ t('label.avatar_url') }}</label>
-              <input
-                v-model="avatarInput"
-                type="url"
-                class="form-input"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.avatar_url')"
-              />
-            </div>
-
-            <!-- 悬浮窗设置 -->
-            <div class="form-group">
-              <label class="checkbox-label">
+              <!-- 头像URL输入 -->
+              <div class="form-group">
+                <label>{{ t('label.avatar_url') }}</label>
                 <input
-                  v-model="useAvatarAsPopup"
-                  type="checkbox"
-                  :true-value="1"
-                  :false-value="0"
+                  v-model="avatarInput"
+                  type="url"
+                  class="form-input"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.avatar_url')"
                 />
-                <span>{{ t('label.use_avatar_as_popup') }}</span>
-              </label>
-            </div>
+              </div>
 
-            <!-- 操作按钮 -->
-            <div class="modal-actions">
-              <button
-                v-if="userAvatar"
-                class="btn btn-danger"
-                :class="{ dark: isDark }"
-                @click="deleteAvatar"
-              >
-                {{ t('button.delete_avatar') }}
-              </button>
-              <button
-                class="btn btn-primary"
-                :disabled="isSaving"
-                @click="handleSaveAvatar"
-              >
-                {{ isSaving ? t('label.saving') : t('button.save') }}
-              </button>
+              <!-- 悬浮窗设置 -->
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input
+                    v-model="useAvatarAsPopup"
+                    type="checkbox"
+                    :true-value="1"
+                    :false-value="0"
+                  />
+                  <span>{{ t('label.use_avatar_as_popup') }}</span>
+                </label>
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="modal-actions">
+                <button
+                  v-if="userAvatar"
+                  class="btn btn-danger"
+                  :class="{ dark: isDark }"
+                  @click="deleteAvatar"
+                >
+                  {{ t('button.delete_avatar') }}
+                </button>
+                <button
+                  class="btn btn-primary"
+                  :disabled="isSaving"
+                  @click="handleSaveAvatar"
+                >
+                  {{ isSaving ? t('label.saving') : t('button.save') }}
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- 数据备份 -->
           <div v-else-if="activeSettingsTab === 'backup'" class="settings-panel">
             <h3>💾 {{ t('label.backup_settings') }}</h3>
-            <BackupManager
-              ref="backupManagerRef"
-              :access-token="accessToken"
-              @load-endpoints="handleLoadEndpoints"
-              @add-endpoint="handleAddEndpoint"
-              @update-endpoint="handleUpdateEndpoint"
-              @delete-endpoint="handleDeleteEndpoint"
-              @test-endpoint="handleTestEndpoint"
-              @list-backups="handleListBackups"
-              @restore-backup="handleRestoreBackup"
-              @delete-backup="handleDeleteBackup"
-              @download-backup="handleDownloadBackup"
-              @batch-delete-backups="handleBatchDeleteBackups"
-              @backup-all="handleBackupAll"
-              @backup-single="handleBackupSingle"
-            />
+            <div class="settings-card">
+              <BackupManager
+                ref="backupManagerRef"
+                :access-token="accessToken"
+                @load-endpoints="handleLoadEndpoints"
+                @add-endpoint="handleAddEndpoint"
+                @update-endpoint="handleUpdateEndpoint"
+                @delete-endpoint="handleDeleteEndpoint"
+                @test-endpoint="handleTestEndpoint"
+                @list-backups="handleListBackups"
+                @restore-backup="handleRestoreBackup"
+                @delete-backup="handleDeleteBackup"
+                @download-backup="handleDownloadBackup"
+                @batch-delete-backups="handleBatchDeleteBackups"
+                @backup-all="handleBackupAll"
+                @backup-single="handleBackupSingle"
+              />
+            </div>
           </div>
 
           <!-- 渠道设置 -->
           <div v-else-if="activeSettingsTab === 'channels'" class="settings-panel">
             <h3>📡 {{ t('label.channel_settings') }}</h3>
-            <ChannelSettingsPanel
-              ref="channelSettingsRef"
-              :channels="channels"
-              :channel-definitions="channelDefinitions"
-              :channel-settings="channelSettings"
-              :access-token="accessToken"
-              @save="handleSaveChannel"
-              @test="handleTestChannel"
-              @toggle-enabled="handleToggleChannelEnabled"
-            />
+            <div class="settings-card">
+              <ChannelSettingsPanel
+                ref="channelSettingsRef"
+                :channels="channels"
+                :channel-definitions="channelDefinitions"
+                :channel-settings="channelSettings"
+                :access-token="accessToken"
+                @save="handleSaveChannel"
+                @test="handleTestChannel"
+                @toggle-enabled="handleToggleChannelEnabled"
+              />
+            </div>
           </div>
 
           <!-- 用户管理 -->
           <div v-else-if="activeSettingsTab === 'users' && hasPermission('users:manage')" class="settings-panel">
             <h3>👥 {{ t('tab.users') }}</h3>
-            <UserManagement />
+            <div class="settings-card">
+              <UserManagement />
+            </div>
           </div>
 
           <!-- 审计日志 -->
           <div v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')" class="settings-panel">
             <h3>📋 {{ t('tab.audit') }}</h3>
-            <AuditLogs />
+            <div class="settings-card">
+              <AuditLogs />
+            </div>
           </div>
         </div>
       </div>
@@ -2683,6 +2700,20 @@ function handleResend(record: PushHistoryRecord) {
 
 .settings-panel {
   animation: fadeIn 0.2s ease;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.settings-card {
+  background: var(--bg-panel, #ffffff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.settings-panel.dark .settings-card {
+  background: var(--bg-panel, #2d2d2d);
 }
 
 .settings-panel h3 {
