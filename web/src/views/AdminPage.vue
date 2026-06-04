@@ -333,11 +333,13 @@ async function selectProvider(provider: string) {
     saveProviderConfig(oldProvider);
   }
   
-  // 先构建请求数据
-  const requestData: Record<string, any> = {};
-  requestData.ai_provider = provider;  // 直接用参数，确保正确
-  requestData.ai_provider_configs = userSettings.value.ai_provider_configs;
-  requestData.custom_ai_providers = userSettings.value.custom_ai_providers;
+  // 只保存AI相关设置，不包含缓存设置
+  const requestData = {
+    ai_provider: provider,
+    ai_model: provider,
+    ai_provider_configs: userSettings.value.ai_provider_configs,
+    custom_ai_providers: userSettings.value.custom_ai_providers,
+  };
   
   // 先发送请求
   isSavingSettings.value = true;
@@ -526,6 +528,7 @@ async function handleSaveAISettings() {
     const result = await saveUserSettings(accessToken.value, {
       ai_enabled: userSettings.value.ai_enabled,
       ai_provider: userSettings.value.ai_provider,
+      ai_model: userSettings.value.ai_provider,
       ai_api_key: userSettings.value.ai_api_key,
       ai_api_url: userSettings.value.ai_api_url,
       ai_model_name: userSettings.value.ai_model_name,
