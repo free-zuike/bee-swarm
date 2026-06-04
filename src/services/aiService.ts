@@ -205,37 +205,86 @@ export class AIService {
       }
 
       default:
-        // 对于自定义提供商，使用 OpenAI 兼容的 API 格式
-        const apiUrl = settings.ai_api_url || 'https://api.openai.com/v1/chat/completions';
         const apiKey = settings.ai_api_key;
-        const model = settings.ai_model_name || 'gpt-4o';
+        const model = settings.ai_model_name;
+        const customProviderName = settings.custom_ai_providers?.find(
+          p => p.id === settings.ai_provider
+        )?.name?.toLowerCase() || '';
 
         if (!apiKey) {
           throw new Error('API key 未配置');
         }
 
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages,
-            temperature: 0.7,
-          }),
-        });
+        // 检测是否是 Gemini API
+        const isGemini = customProviderName.includes('gemini') || 
+                         (model && model.toLowerCase().includes('gemini')) ||
+                         (settings.ai_api_url && settings.ai_api_url.includes('generativelanguage.googleapis.com'));
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`AI API error: ${response.status} ${errorText}`);
+        if (isGemini) {
+          // Gemini API 格式
+          const geminiModel = model || 'gemini-1.5-flash';
+          const apiUrl = settings.ai_api_url || `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
+          
+          // 转换消息格式
+          const geminiContents = messages.map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }]
+          }));
+
+          const response = await fetch(`${apiUrl}?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: geminiContents,
+              generationConfig: {
+                temperature: 0.7,
+              }
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Gemini API error: ${response.status} ${errorText}`);
+          }
+
+          const data = (await response.json()) as {
+            candidates?: Array<{
+              content?: {
+                parts?: Array<{ text?: string }>
+              }
+            }>
+          };
+          return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+          // 对于其他自定义提供商，使用 OpenAI 兼容的 API 格式
+          const apiUrl = settings.ai_api_url || 'https://api.openai.com/v1/chat/completions';
+          const openaiModel = model || 'gpt-4o';
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: openaiModel,
+              messages,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`AI API error: ${response.status} ${errorText}`);
+          }
+
+          const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          return data.choices?.[0]?.message?.content || '';
         }
-
-        const data = (await response.json()) as {
-          choices?: Array<{ message?: { content?: string } }>;
-        };
-        return data.choices?.[0]?.message?.content || '';
     }
   }
 
