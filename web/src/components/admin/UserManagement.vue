@@ -503,9 +503,9 @@ onMounted(() => {
   justify-content: space-between;
   gap: 16px;
   padding: 24px;
-  background: white;
+  background: var(--bg-primary, white);
   border-radius: 16px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--border-color, #f0f0f0);
   transition: all 0.25s ease;
   overflow: hidden;
   margin-bottom: 12px;
@@ -516,7 +516,7 @@ onMounted(() => {
 }
 
 .user-card:hover {
-  border-color: #e0e0e0;
+  border-color: var(--border-color-hover, #e0e0e0);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
