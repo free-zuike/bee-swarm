@@ -2079,6 +2079,9 @@ function handleResend(record: PushHistoryRecord) {
   height: 44px;
   box-sizing: border-box;
   line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-sm {
@@ -2087,6 +2090,9 @@ function handleResend(record: PushHistoryRecord) {
   height: 36px;
   line-height: 20px;
   box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-icon-btn {
@@ -2591,6 +2597,7 @@ function handleResend(record: PushHistoryRecord) {
   gap: 12px;
   justify-content: flex-end;
   margin-top: 24px;
+  align-items: center;
 }
 
 .flex-1 {
