@@ -331,7 +331,7 @@ async function selectProvider(provider: string) {
     saveProviderConfig(oldProvider);
   }
   
-  // 更新选中的提供商
+  // 立即更新选中的提供商
   userSettings.value.ai_provider = provider as any;
   
   // 加载新提供商的配置
@@ -339,12 +339,16 @@ async function selectProvider(provider: string) {
   
   // 立即发送请求保存提供商选择（不保存配置细节）
   isSavingSettings.value = true;
+  
+  // 显式创建请求数据，确保使用正确的提供商
+  const requestData = {
+    ai_provider: provider,
+    ai_provider_configs: userSettings.value.ai_provider_configs,
+    custom_ai_providers: userSettings.value.custom_ai_providers,
+  };
+  
   try {
-    await saveUserSettings(accessToken.value, {
-      ai_provider: provider,
-      ai_provider_configs: userSettings.value.ai_provider_configs,
-      custom_ai_providers: userSettings.value.custom_ai_providers,
-    });
+    await saveUserSettings(accessToken.value, requestData);
   } catch {
     // 失败时回滚到旧提供商
     userSettings.value.ai_provider = oldProvider as any;
