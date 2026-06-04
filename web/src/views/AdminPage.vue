@@ -1028,40 +1028,6 @@ function handleResend(record: PushHistoryRecord) {
           }}</span>
         </button>
         <button
-          class="fab-item"
-          @click="
-            openAvatarModal();
-            showFabMenu = false;
-          "
-        >
-          <span class="fab-icon">🖼️</span>
-          <span class="fab-label">{{ t('button.avatar_settings') }}</span>
-        </button>
-        <button
-          v-if="hasPermission('users:manage')"
-          class="fab-item"
-          @click="
-            activeTab = 'users';
-            showSettings = false;
-            showFabMenu = false;
-          "
-        >
-          <span class="fab-icon">👥</span>
-          <span class="fab-label">{{ t('tab.users') }}</span>
-        </button>
-        <button
-          v-if="hasPermission('users:manage')"
-          class="fab-item"
-          @click="
-            activeTab = 'audit';
-            showSettings = false;
-            showFabMenu = false;
-          "
-        >
-          <span class="fab-icon">📋</span>
-          <span class="fab-label">{{ t('tab.audit') }}</span>
-        </button>
-        <button
           class="fab-item fab-logout"
           @click="
             logout();
