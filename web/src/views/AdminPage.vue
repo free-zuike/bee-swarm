@@ -438,13 +438,16 @@ async function handleSaveAISettings() {
       return;
     }
 
+    // 所有提供商都需要模型名称
+    if (!userSettings.value.ai_model_name?.trim()) {
+      showToast('请输入模型名称', 'error');
+      return;
+    }
+
+    // 除了 workers-ai，其他提供商需要 API Key
     if (userSettings.value.ai_provider !== 'workers-ai') {
       if (!userSettings.value.ai_api_key?.trim()) {
         showToast('请输入 API Key', 'error');
-        return;
-      }
-      if (!userSettings.value.ai_model_name?.trim()) {
-        showToast('请输入模型名称', 'error');
         return;
       }
       // 对于 azure-openai 和所有自定义提供商，需要 API URL
@@ -1547,9 +1550,11 @@ function handleResend(record: PushHistoryRecord) {
               </div>
               
               <!-- 提供商配置 -->
-              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="provider-config">
+              <div class="provider-config">
                 <div class="config-title">{{ getProviderConfigTitle() }}</div>
-                <div class="setting-item">
+                
+                <!-- API Key - 除了workers-ai都需要 -->
+                <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
                   <label>{{ t('label.ai_api_key') }}</label>
                   <input
                     type="password"
@@ -1559,9 +1564,10 @@ function handleResend(record: PushHistoryRecord) {
                     :placeholder="t('placeholder.ai_api_key')"
                   />
                 </div>
+                
+                <!-- API URL - azure-openai和自定义提供商需要 -->
                 <div 
                   v-if="userSettings.ai_provider === 'azure-openai' || 
-                         userSettings.ai_provider === 'custom' || 
                          isCustomProvider(userSettings.ai_provider)" 
                   class="setting-item"
                 >
@@ -1574,6 +1580,8 @@ function handleResend(record: PushHistoryRecord) {
                     :placeholder="getDefaultApiUrlForProvider(userSettings.ai_provider || 'openai')"
                   />
                 </div>
+                
+                <!-- 模型名称 - 所有提供商都需要 -->
                 <div class="setting-item">
                   <label>{{ t('label.ai_model_name') }}</label>
                   <input
@@ -1658,9 +1666,9 @@ function handleResend(record: PushHistoryRecord) {
               <!-- 操作按钮 -->
               <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button
-                  v-if="userAvatar"
+                  v-show="userAvatar"
                   class="btn btn-danger"
-                  :style="{ flex: '1', height: '40px' }"
+                  :style="{ flex: '1', height: '40px', minWidth: '100px' }"
                   :class="{ dark: isDark }"
                   @click="deleteAvatar"
                 >
@@ -1668,7 +1676,7 @@ function handleResend(record: PushHistoryRecord) {
                 </button>
                 <button
                   class="btn btn-primary"
-                  :style="{ flex: '1', height: '40px' }"
+                  :style="{ flex: '1', height: '40px', minWidth: '100px' }"
                   :class="{ dark: isDark }"
                   :disabled="isSaving"
                   @click="handleSaveAvatar"
