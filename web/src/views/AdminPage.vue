@@ -181,11 +181,6 @@ function deleteAvatar() {
   avatarInput.value = '';
 }
 
-function hasPermission(permission: string): boolean {
-  const permissions = currentUser.value?.permissions || [];
-  return permissions.includes(permission);
-}
-
 const settingsMenu = [
   { id: 'theme', icon: '🎨', label: 'theme.settings' },
   { id: 'apiKey', icon: '🔑', label: 'label.api_key' },
@@ -290,12 +285,6 @@ const historyPageSize = 20;
 const apiKey = ref('');
 const { toast, showToast } = useGlobalToast();
 
-// ==================== 头像设置 ====================
-const userAvatar = ref('');
-const useAvatarAsPopup = ref(0);
-const showAvatarModal = ref(false);
-const avatarInput = ref('');
-
 // ==================== 子组件引用 ====================
 const channelSettingsRef = ref<InstanceType<typeof ChannelSettingsPanel> | null>(null);
 const backupManagerRef = ref<InstanceType<typeof BackupManager> | null>(null);
@@ -324,116 +313,9 @@ async function copyApiKey() {
   }
 }
 
-// ==================== 头像管理 ====================
-const isUploading = ref(false);
-const isSaving = ref(false);
-const fileInput = ref<HTMLInputElement | null>(null);
-const selectedFile = ref<File | null>(null);
 
-function triggerFileUpload() {
-  fileInput.value?.click();
-}
 
-async function openAvatarModal() {
-  avatarInput.value = userAvatar.value;
-  selectedFile.value = null;
-  showAvatarModal.value = true;
-}
 
-function closeAvatarModal() {
-  showAvatarModal.value = false;
-  avatarInput.value = '';
-  selectedFile.value = null;
-}
-
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    showToast(t('msg.invalid_image_format'), 'error');
-    return;
-  }
-
-  if (file.size > 2 * 1024 * 1024) {
-    showToast(t('msg.image_too_large'), 'error');
-    return;
-  }
-
-  selectedFile.value = file;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    avatarInput.value = e.target?.result as string;
-  };
-  reader.readAsDataURL(file);
-
-  target.value = '';
-}
-
-async function handleSaveAvatar() {
-  if (isSaving.value) return;
-
-  isSaving.value = true;
-  try {
-    let avatarUrl = avatarInput.value;
-    let shouldUseAsPopup = useAvatarAsPopup.value;
-
-    if (selectedFile.value) {
-      const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
-      if (uploadResult.success) {
-        avatarUrl = uploadResult.avatar_url;
-        // 上传新头像时自动启用作为悬浮窗图标
-        shouldUseAsPopup = 1;
-      }
-    }
-
-    const avatarToSave = avatarUrl || null;
-
-    const result = await updateAvatar(accessToken.value, {
-      avatar_url: avatarToSave,
-      use_avatar_as_popup: shouldUseAsPopup,
-    });
-
-    if (result.success) {
-      userAvatar.value = result.avatar_url;
-      useAvatarAsPopup.value = result.use_avatar_as_popup;
-      showToast(t('msg.avatar_updated'), 'success');
-      closeAvatarModal();
-    } else {
-      showToast(result.message || t('msg.operation_failed'), 'error');
-    }
-  } catch (err: unknown) {
-    showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
-  } finally {
-    isSaving.value = false;
-  }
-}
-
-function removeAvatar() {
-  avatarInput.value = '';
-  selectedFile.value = null;
-  useAvatarAsPopup.value = 0;
-}
-
-async function deleteAvatar() {
-  try {
-    const result = await updateAvatar(accessToken.value, {
-      avatar_url: null,
-      use_avatar_as_popup: 0,
-    });
-    if (result.success) {
-      userAvatar.value = '';
-      avatarInput.value = '';
-      selectedFile.value = null;
-      useAvatarAsPopup.value = 0;
-      showToast(t('msg.avatar_deleted'), 'success');
-    }
-  } catch (err: unknown) {
-    showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
-  }
-}
 
 async function loadUserAvatar() {
   try {
