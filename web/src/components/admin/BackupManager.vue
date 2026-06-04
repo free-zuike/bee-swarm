@@ -1167,6 +1167,7 @@ defineExpose({
   display: flex;
   gap: 20px;
   margin-top: 16px;
+  height: calc(100vh - 200px);
   min-height: 400px;
 }
 
@@ -1178,6 +1179,7 @@ defineExpose({
   padding: 12px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -1234,7 +1236,8 @@ defineExpose({
   flex-direction: column;
   gap: 4px;
   overflow-y: auto;
-  max-height: 400px;
+  flex: 1;
+  min-height: 0;
 }
 
 .endpoint-item {
@@ -1374,6 +1377,10 @@ defineExpose({
 .endpoints-content {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .endpoint-empty-state {
