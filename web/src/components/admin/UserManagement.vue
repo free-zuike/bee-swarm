@@ -1,16 +1,14 @@
 <template>
   <div class="user-management">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>👥 {{ t('users.title') }}</h2>
-        <div class="header-actions">
-          <button class="btn btn-primary" @click="openCreateModal" :disabled="loading">
-            + {{ t('users.create') }}
-          </button>
-        </div>
+    <div class="panel-header">
+      <div class="header-actions">
+        <button class="btn btn-primary" @click="openCreateModal" :disabled="loading">
+          + {{ t('users.create') }}
+        </button>
       </div>
+    </div>
 
-      <div class="user-content">
+    <div class="user-content">
         <div v-if="loading" class="loading-state">
           <div class="spinner"></div>
           <span>{{ t('label.loading') }}</span>
@@ -87,7 +85,6 @@
               {{ t('button.delete') }}
             </button>
           </div>
-        </div>
         </div>
       </div>
     </div>

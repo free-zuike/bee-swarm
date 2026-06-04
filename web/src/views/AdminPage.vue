@@ -1362,6 +1362,7 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 渠道设置 -->
           <div v-else-if="activeSettingsTab === 'channels'" class="settings-panel">
+            <h3>⚙️ {{ t('label.channel_settings') }}</h3>
             <div class="settings-card">
               <ChannelSettingsPanel
                 ref="channelSettingsRef"
@@ -1378,6 +1379,7 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 用户管理 -->
           <div v-else-if="activeSettingsTab === 'users' && hasPermission('users:manage')" class="settings-panel">
+            <h3>👥 {{ t('users.title') }}</h3>
             <div class="settings-card">
               <UserManagement />
             </div>
@@ -1385,6 +1387,7 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 审计日志 -->
           <div v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')" class="settings-panel">
+            <h3>📋 {{ t('audit.title') }}</h3>
             <div class="settings-card">
               <AuditLogs />
             </div>

@@ -167,8 +167,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="panel">
-    <h2>⚙️ {{ t('label.channel_settings') }}</h2>
+  <div>
     <p class="hint" style="margin-bottom: 20px">{{ t('hint.channel_settings') }}</p>
 
     <div class="channel-cards">

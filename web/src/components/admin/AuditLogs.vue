@@ -1,19 +1,17 @@
 <template>
   <div class="audit-logs">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>📋 {{ t('audit.title') }}</h2>
-        <div class="header-actions">
-          <button class="btn btn-secondary btn-sm" @click="clearFilters">
-            {{ t('button.reset') }}
-          </button>
-          <button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading">
-            {{ t('audit.clearAll') }}
-          </button>
-        </div>
+    <div class="panel-header">
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" @click="clearFilters">
+          {{ t('button.reset') }}
+        </button>
+        <button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading">
+          {{ t('audit.clearAll') }}
+        </button>
       </div>
+    </div>
 
-      <div class="filter-bar">
+    <div class="filter-bar">
         <div class="filter-group">
           <label>{{ t('audit.action') }}</label>
           <select v-model="filterAction" class="filter-select">
