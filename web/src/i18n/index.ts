@@ -1037,9 +1037,12 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.url': 'URL',
     'label.async_push': 'Async Push',
     'hint.channel_selection': 'Click to select/deselect. No push if none selected.',
-    'hint.async_push': 'Use queue for async push processing, suitable for large number of channels or slow networks',
-    'hint.monthly_days': 'Select days of month to execute, multiple selection allowed (e.g., select 1 and 15 for 1st and 15th of each month)',
-    'hint.yearly_date': 'Select month and day for yearly execution (e.g., select January and 1 for January 1st every year)',
+    'hint.async_push':
+      'Use queue for async push processing, suitable for large number of channels or slow networks',
+    'hint.monthly_days':
+      'Select days of month to execute, multiple selection allowed (e.g., select 1 and 15 for 1st and 15th of each month)',
+    'hint.yearly_date':
+      'Select month and day for yearly execution (e.g., select January and 1 for January 1st every year)',
     'placeholder.title': 'Notification Title',
     'placeholder.content': 'Notification Content...',
     'button.refresh_channels': 'Refresh Channels',

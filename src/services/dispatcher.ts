@@ -34,10 +34,13 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
       console.log('[PushHistory] Schema needs migration, recreating table...');
 
       // 备份旧表
-      await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_history_backup_20240603 AS SELECT * FROM push_history').run();
+      await env.DB.prepare(
+        'CREATE TABLE IF NOT EXISTS push_history_backup_20240603 AS SELECT * FROM push_history'
+      ).run();
 
       // 创建新表
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         CREATE TABLE push_history_new (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL,
@@ -51,10 +54,12 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
           status TEXT,
           created_at TEXT NOT NULL
         )
-      `).run();
+      `
+      ).run();
 
       // 复制数据
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO push_history_new (
           id, user_id, title, body, url, image_url, markdown, created_at
         )
@@ -68,15 +73,20 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
           CASE WHEN markdown THEN 1 ELSE 0 END,
           created_at
         FROM push_history
-      `).run();
+      `
+      ).run();
 
       // 替换表
       await env.DB.prepare('DROP TABLE push_history').run();
       await env.DB.prepare('ALTER TABLE push_history_new RENAME TO push_history').run();
 
       // 创建索引
-      await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_push_history_user_id ON push_history(user_id)').run();
-      await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_push_history_created_at ON push_history(created_at)').run();
+      await env.DB.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_push_history_user_id ON push_history(user_id)'
+      ).run();
+      await env.DB.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_push_history_created_at ON push_history(created_at)'
+      ).run();
 
       // 删除备份
       await env.DB.prepare('DROP TABLE IF EXISTS push_history_backup_20240603').run();

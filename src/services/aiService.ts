@@ -107,7 +107,7 @@ export class AIService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
             model,
@@ -121,7 +121,7 @@ export class AIService {
           throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
         }
 
-        const data = await response.json() as {
+        const data = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
         };
         return data.choices?.[0]?.message?.content || '';
@@ -153,7 +153,7 @@ export class AIService {
           throw new Error(`Azure OpenAI API error: ${response.status} ${errorText}`);
         }
 
-        const data = await response.json() as {
+        const data = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
         };
         return data.choices?.[0]?.message?.content || '';
@@ -168,8 +168,8 @@ export class AIService {
           throw new Error('Anthropic API key 未配置');
         }
 
-        const systemMessage = messages.find(m => m.role === 'system');
-        const otherMessages = messages.filter(m => m.role !== 'system');
+        const systemMessage = messages.find((m) => m.role === 'system');
+        const otherMessages = messages.filter((m) => m.role !== 'system');
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -192,7 +192,7 @@ export class AIService {
           throw new Error(`Anthropic API error: ${response.status} ${errorText}`);
         }
 
-        const data = await response.json() as {
+        const data = (await response.json()) as {
           content?: Array<{ text?: string }>;
         };
         return data.content?.[0]?.text || '';
@@ -303,7 +303,12 @@ export class AIService {
         description: '创建渠道分组',
         parameters: [
           { name: 'name', type: 'string', description: '分组名称', required: true },
-          { name: 'channels', type: 'string[]', description: '渠道列表，用逗号分隔', required: true },
+          {
+            name: 'channels',
+            type: 'string[]',
+            description: '渠道列表，用逗号分隔',
+            required: true,
+          },
         ],
       },
       {
@@ -314,9 +319,7 @@ export class AIService {
       {
         name: 'deleteGroup',
         description: '删除分组',
-        parameters: [
-          { name: 'id', type: 'string', description: '分组ID', required: true },
-        ],
+        parameters: [{ name: 'id', type: 'string', description: '分组ID', required: true }],
       },
       {
         name: 'listScheduledTasks',
@@ -398,9 +401,13 @@ ${JSON.stringify(tools, null, 2)}
       }
 
       case 'createGroup': {
-        const channels = (Array.isArray(params.channels)
-          ? params.channels.map(String)
-          : String(params.channels || '').split(',').filter(Boolean)) as PushChannel[];
+        const channels = (
+          Array.isArray(params.channels)
+            ? params.channels.map(String)
+            : String(params.channels || '')
+                .split(',')
+                .filter(Boolean)
+        ) as PushChannel[];
         const result = await pushService.saveChannelGroup({
           name: String(params.name),
           channels,
@@ -429,7 +436,11 @@ ${JSON.stringify(tools, null, 2)}
         const result = await executeAllBackups(this.env, username);
         const successCount = result.filter((r: { success: boolean }) => r.success).length;
         const failCount = result.length - successCount;
-        return { success: true, result: `备份完成：成功 ${successCount} 个，失败 ${failCount} 个`, data: result };
+        return {
+          success: true,
+          result: `备份完成：成功 ${successCount} 个，失败 ${failCount} 个`,
+          data: result,
+        };
       }
 
       case 'listChannels': {

@@ -98,9 +98,12 @@ export class MetricsCollector {
     try {
       const now = new Date().toISOString();
       const today = this.formatDate();
-      
+
       // 获取现有的每日统计数据
-      let dailyStats: Record<string, { pushes: number; success: number; failed: number; byChannel: Record<string, number> }> = {};
+      let dailyStats: Record<
+        string,
+        { pushes: number; success: number; failed: number; byChannel: Record<string, number> }
+      > = {};
       try {
         const existing = await getMetrics(this.env, this.userId);
         if (existing && existing.dailyStats) {
@@ -109,7 +112,7 @@ export class MetricsCollector {
       } catch {
         // Ignore error loading existing stats
       }
-      
+
       // 更新今日统计
       if (!dailyStats[today]) {
         dailyStats[today] = { pushes: 0, success: 0, failed: 0, byChannel: {} };
@@ -120,7 +123,7 @@ export class MetricsCollector {
       } else {
         dailyStats[today].failed++;
       }
-      
+
       const d1Metrics = {
         id: this.metricsId,
         userId: this.userId,

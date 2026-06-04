@@ -23,9 +23,14 @@ export class MigrationService {
   private async migration0013AddUserSettings(): Promise<void> {
     try {
       // 检查 users 表是否已经有 settings 列
-      const result = await this.env.DB.prepare(
-        "PRAGMA table_info(users)"
-      ).all<{ cid: number; name: string; type: string; notnull: number; dflt_value: string; pk: number }>();
+      const result = await this.env.DB.prepare('PRAGMA table_info(users)').all<{
+        cid: number;
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: string;
+        pk: number;
+      }>();
 
       const hasSettingsColumn = result.results.some((col) => col.name === 'settings');
 
@@ -37,9 +42,7 @@ export class MigrationService {
       console.log('[Migration] Adding settings column to users table');
 
       // 添加 settings 列
-      await this.env.DB.prepare(
-        'ALTER TABLE users ADD COLUMN settings TEXT DEFAULT \'{}\''
-      ).run();
+      await this.env.DB.prepare("ALTER TABLE users ADD COLUMN settings TEXT DEFAULT '{}'").run();
 
       console.log('[Migration] Successfully added settings column');
     } catch (error) {

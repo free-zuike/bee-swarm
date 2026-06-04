@@ -6,15 +6,15 @@ import type { Env } from '../types';
 import { encryptData, decryptData, generateSecureFilename } from '../utils/crypto';
 import { UserService } from './userService';
 import { R2StorageService } from './r2StorageService';
-import { 
-  exportUserData, 
-  importUserData, 
+import {
+  exportUserData,
+  importUserData,
   validateBackupData,
   computeDataHash,
   createBackupRecord,
   updateBackupRecordStatus,
   getBackupRecords,
-  deleteBackupRecord
+  deleteBackupRecord,
 } from './dataExportService';
 
 // 备份端类型
@@ -310,7 +310,7 @@ export async function uploadBackupToEndpoint(
     const userService = new UserService(env);
     const user = await userService.findByEmail(username);
     console.log(`[Backup] Found user: ${!!user}, username: ${username}`);
-    
+
     if (!user) {
       console.error(`[Backup] User not found: ${username}`);
       return {
@@ -323,8 +323,10 @@ export async function uploadBackupToEndpoint(
     // 导出用户数据（如果没有提供数据）
     console.log(`[Backup] Exporting user data for: ${username}`);
     const backupData = data || (await exportUserData(env, username));
-    console.log(`[Backup] Data exported successfully, size: ${JSON.stringify(backupData).length} bytes`);
-    
+    console.log(
+      `[Backup] Data exported successfully, size: ${JSON.stringify(backupData).length} bytes`
+    );
+
     const filename = generateSecureFilename(); // 使用安全的随机文件名
     let jsonContent = JSON.stringify(backupData, null, 2);
 
@@ -332,19 +334,27 @@ export async function uploadBackupToEndpoint(
     let encrypted = false;
     const encryptionSecret = user.password; // 使用用户密码哈希作为密钥材料
     const encryptionSalt = user.id; // 使用用户ID作为盐
-    
+
     if (encryptionSecret && encryptionSalt) {
-      console.log(`[Backup] Encrypting data, secret length: ${encryptionSecret?.length || 0}, salt: ${encryptionSalt?.substring(0, 8) || 'empty'}...`);
+      console.log(
+        `[Backup] Encrypting data, secret length: ${encryptionSecret?.length || 0}, salt: ${encryptionSalt?.substring(0, 8) || 'empty'}...`
+      );
       try {
         jsonContent = await encryptData(jsonContent, encryptionSecret, encryptionSalt);
         encrypted = true;
-        console.log(`[Backup] Data encrypted successfully, encrypted size: ${jsonContent.length} bytes`);
+        console.log(
+          `[Backup] Data encrypted successfully, encrypted size: ${jsonContent.length} bytes`
+        );
       } catch (e) {
-        console.error(`[Backup] Encryption failed, proceeding without encryption: ${(e as Error).message}`);
+        console.error(
+          `[Backup] Encryption failed, proceeding without encryption: ${(e as Error).message}`
+        );
         // 加密失败，继续不加密
       }
     } else {
-      console.log(`[Backup] Skipping encryption: secret=${!!encryptionSecret}, salt=${!!encryptionSalt}`);
+      console.log(
+        `[Backup] Skipping encryption: secret=${!!encryptionSecret}, salt=${!!encryptionSalt}`
+      );
     }
 
     const dataHash = computeDataHash(backupData);
@@ -461,7 +471,7 @@ export async function uploadBackupToEndpoint(
     const error = err as Error;
     console.error(`[Backup] Failed for endpoint ${endpoint.id} (${endpoint.name}):`, error.message);
     console.error('[Backup] Error stack:', error.stack);
-    
+
     // 更新备份记录为失败
     if (backupRecordId) {
       await updateBackupRecordStatus(env, backupRecordId, username, 'failed', {
@@ -632,8 +642,10 @@ async function cleanupOldBackupsWebDAV(
       }
       return dateB - dateA;
     });
-    
-    console.log(`[Backup] WebDAV cleanup: ${backups.length} backups found, keeping ${retention}, deleting ${Math.max(0, backups.length - retention)}`);
+
+    console.log(
+      `[Backup] WebDAV cleanup: ${backups.length} backups found, keeping ${retention}, deleting ${Math.max(0, backups.length - retention)}`
+    );
     for (let i = retention; i < backups.length; i++) {
       const backupKey = backups[i].key;
       console.log(`[Backup] Deleting old backup: ${backupKey}`);
@@ -642,7 +654,9 @@ async function cleanupOldBackupsWebDAV(
       const deleteResponse = await webdavRequest('DELETE', deleteUrl, config);
       if (!deleteResponse.ok) {
         const errorText = await deleteResponse.text().catch(() => '');
-        console.error(`[Backup] Failed to delete backup ${backupKey}: ${deleteResponse.status} - ${errorText}`);
+        console.error(
+          `[Backup] Failed to delete backup ${backupKey}: ${deleteResponse.status} - ${errorText}`
+        );
       } else {
         console.log(`[Backup] Successfully deleted backup: ${backupKey}`);
       }
@@ -703,7 +717,7 @@ export async function listBackupsFromEndpoint(
 
     const response = await awsClient.fetch(listUrl, { method: 'GET' });
     const xml = await response.text();
-    
+
     if (!response.ok) {
       console.error('[Backup] S3 list backups failed:', response.status, xml);
       throw new Error(`S3 list backups failed (${response.status}): ${xml.substring(0, 200)}`);

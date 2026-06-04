@@ -484,10 +484,22 @@ export async function downloadBackupFromEndpoint(
 
 // 手动触发所有启用的备份
 export async function backupAll(token: string): Promise<{
-  results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string; errorMessage?: string }>;
+  results: Array<{
+    success: boolean;
+    message: string;
+    endpointId?: string;
+    endpointName?: string;
+    errorMessage?: string;
+  }>;
 }> {
   const result = await tokenRequest<{
-    results: Array<{ success: boolean; message: string; endpointId?: string; endpointName?: string; errorMessage?: string }>;
+    results: Array<{
+      success: boolean;
+      message: string;
+      endpointId?: string;
+      endpointName?: string;
+      errorMessage?: string;
+    }>;
   }>(`${BASE}/admin/backup-all`, token, { method: 'POST' });
   apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
   return result;
@@ -498,11 +510,12 @@ export async function backupSingleEndpoint(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string; endpointId?: string; endpointName?: string }> {
-  const result = await tokenRequest<{ success: boolean; message: string; endpointId?: string; endpointName?: string }>(
-    `${BASE}/admin/backup-endpoints/${id}/backup`,
-    token,
-    { method: 'POST' }
-  );
+  const result = await tokenRequest<{
+    success: boolean;
+    message: string;
+    endpointId?: string;
+    endpointName?: string;
+  }>(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
   apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
   return result;
 }
@@ -990,7 +1003,9 @@ export interface UserSettings {
 }
 
 // 获取用户设置
-export async function getUserSettings(token: string): Promise<{ success: boolean; settings: UserSettings }> {
+export async function getUserSettings(
+  token: string
+): Promise<{ success: boolean; settings: UserSettings }> {
   return tokenRequest(`${BASE}/admin/me/settings`, token);
 }
 
@@ -1036,7 +1051,10 @@ export async function generateMessageWithAI(
 }
 
 // AI 工具调用 - 执行命令
-export async function executeAICommand(token: string, query: string): Promise<{
+export async function executeAICommand(
+  token: string,
+  query: string
+): Promise<{
   success: boolean;
   result: string;
   data?: unknown;

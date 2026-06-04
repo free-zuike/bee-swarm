@@ -27,7 +27,11 @@ const shouldShow = computed(() => props.aiEnabled !== false);
 
 const quickCommands = [
   { label: '列出所有模板', query: '列出所有模板' },
-  { label: '创建模板', query: '创建一个名为"系统通知"的模板，标题为"系统更新提醒"，内容为"系统将于今晚22:00进行维护升级"' },
+  {
+    label: '创建模板',
+    query:
+      '创建一个名为"系统通知"的模板，标题为"系统更新提醒"，内容为"系统将于今晚22:00进行维护升级"',
+  },
   { label: '创建分组', query: '创建一个名为"紧急通知"的分组，包含telegram和bark渠道' },
   { label: '列出分组', query: '列出所有分组' },
   { label: '执行备份', query: '执行备份' },
@@ -141,7 +145,9 @@ onMounted(() => {
             <div class="message-avatar">{{ msg.type === 'user' ? '👤' : '🤖' }}</div>
             <div class="message-content">
               <p>{{ msg.content }}</p>
-              <pre v-if="msg.data" class="message-data">{{ JSON.stringify(msg.data, null, 2) }}</pre>
+              <pre v-if="msg.data" class="message-data">{{
+                JSON.stringify(msg.data, null, 2)
+              }}</pre>
             </div>
           </div>
         </div>

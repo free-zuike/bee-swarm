@@ -185,7 +185,10 @@ export class UserService {
         .bind(settingsJson, now, userId)
         .run();
     } catch (error) {
-      console.warn('[UserService] Failed to save settings, table may not have settings column:', error);
+      console.warn(
+        '[UserService] Failed to save settings, table may not have settings column:',
+        error
+      );
     }
   }
 
@@ -223,18 +226,18 @@ export class UserService {
     const result = await this.env.DB.prepare('SELECT * FROM users WHERE password_reset_token = ?')
       .bind(token)
       .first<User>();
-    
+
     if (!result) {
       return null;
     }
-    
+
     // 检查令牌是否过期
     const now = Date.now();
     const expiresAt = (result as any).password_reset_expires_at;
     if (!expiresAt || expiresAt < now) {
       return null;
     }
-    
+
     return result;
   }
 

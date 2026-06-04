@@ -261,7 +261,9 @@
 
               <div v-if="recurringType === 'monthly'" class="monthly-selector">
                 <div class="monthly-date">
-                  <label class="weekday-label">{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label>
+                  <label class="weekday-label"
+                    >{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label
+                  >
                   <div class="monthday-options">
                     <button
                       type="button"
@@ -280,7 +282,9 @@
 
               <div v-if="recurringType === 'yearly'" class="yearly-selector">
                 <div class="yearly-month">
-                  <label class="weekday-label">{{ t('scheduled.label.selectMonth') }} <span class="required">*</span></label>
+                  <label class="weekday-label"
+                    >{{ t('scheduled.label.selectMonth') }} <span class="required">*</span></label
+                  >
                   <div class="month-options">
                     <button
                       type="button"
@@ -295,7 +299,9 @@
                   </div>
                 </div>
                 <div class="yearly-date">
-                  <label class="weekday-label">{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label>
+                  <label class="weekday-label"
+                    >{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label
+                  >
                   <div class="monthday-options">
                     <button
                       type="button"

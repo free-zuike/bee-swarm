@@ -87,7 +87,7 @@ async function verifyAndReset() {
     localError.value = '请输入重置令牌';
     return;
   }
-  
+
   isProcessing.value = true;
   try {
     const { verifyResetToken } = await import('@/api');
@@ -217,14 +217,8 @@ const isResetMode = computed(() => {
       </form>
 
       <form v-else-if="authMode === 'enterToken'" @submit.prevent="verifyAndReset">
-        <input
-          v-model="resetToken"
-          type="text"
-          placeholder="请输入重置令牌"
-        />
-        <div class="forgot-hint">
-          请输入从服务器控制台获取的令牌，或访问 ?token=xxx 的重置链接
-        </div>
+        <input v-model="resetToken" type="text" placeholder="请输入重置令牌" />
+        <div class="forgot-hint">请输入从服务器控制台获取的令牌，或访问 ?token=xxx 的重置链接</div>
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isProcessing">
           {{ isProcessing ? t('label.processing') : '验证令牌' }}

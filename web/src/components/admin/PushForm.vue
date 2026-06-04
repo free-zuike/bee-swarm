@@ -69,7 +69,14 @@ function doPush() {
     return;
   }
   const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
-  emit('push', pushTitle.value.trim(), pushBody.value.trim(), pushUrl.value.trim(), channels, useAsync.value);
+  emit(
+    'push',
+    pushTitle.value.trim(),
+    pushBody.value.trim(),
+    pushUrl.value.trim(),
+    channels,
+    useAsync.value
+  );
 }
 </script>
 
@@ -104,9 +111,7 @@ function doPush() {
         <div v-if="pushBody" class="preview-body">
           {{ pushBody }}
         </div>
-        <div v-if="pushUrl" class="preview-url">
-          🔗 {{ pushUrl }}
-        </div>
+        <div v-if="pushUrl" class="preview-url">🔗 {{ pushUrl }}</div>
         <div v-if="selectedChannels.size > 0" class="preview-channels">
           <span class="label">{{ t('label.selected_channels') }}: </span>
           <span v-for="ch in Array.from(selectedChannels)" :key="ch" class="preview-channel">

@@ -252,7 +252,7 @@ api.post('/password-reset', async (c) => {
     }
 
     const userService = new UserService(c.env);
-    
+
     // 生成重置令牌
     const resetToken = await userService.generatePasswordResetToken(email);
 
@@ -263,12 +263,12 @@ api.post('/password-reset', async (c) => {
 
     // 注意：这里应该添加发送邮件的逻辑，但在这个项目中我们简化处理，直接返回令牌（仅用于测试）
     console.log(`[Password Reset] Generated token for ${email}: ${resetToken}`);
-    
+
     // 在实际生产环境中，应该通过邮件发送重置链接，而不是直接返回令牌
     // 但在这里，我们返回一个提示，并且可以在控制台找到令牌用于测试
-    return c.json({ 
-      success: true, 
-      message: '密码重置请求已生成（测试模式下请查看控制台获取令牌）' 
+    return c.json({
+      success: true,
+      message: '密码重置请求已生成（测试模式下请查看控制台获取令牌）',
     });
   } catch (error) {
     console.error('[Password Reset] Error:', error);
@@ -280,13 +280,13 @@ api.post('/password-reset', async (c) => {
 api.get('/password-reset/:token', async (c) => {
   const token = c.req.param('token');
   const userService = new UserService(c.env);
-  
+
   const user = await userService.verifyPasswordResetToken(token);
-  
+
   if (!user) {
     return c.json({ valid: false, message: '无效或已过期的重置链接' }, 400);
   }
-  
+
   return c.json({ valid: true, email: user.email });
 });
 
@@ -302,7 +302,7 @@ api.post('/password-reset/:token', async (c) => {
     }
 
     const userService = new UserService(c.env);
-    
+
     // 先验证令牌
     const user = await userService.verifyPasswordResetToken(token);
     if (!user) {
@@ -314,7 +314,7 @@ api.post('/password-reset/:token', async (c) => {
 
     // 更新密码
     const success = await userService.resetPasswordWithToken(token, hashedPassword);
-    
+
     if (success) {
       return c.json({ success: true, message: '密码重置成功' });
     } else {
@@ -423,7 +423,7 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
     console.log('[Push API] Queue mode enabled, initializing QueueService...');
     const queueService = new QueueService(c.env);
     console.log('[Push API] Queue available:', queueService.isAvailable());
-    
+
     if (!queueService.isAvailable()) {
       return c.json(
         {
@@ -437,7 +437,7 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
 
     const requestId = crypto.randomUUID();
     console.log('[Push API] Created requestId:', requestId);
-    
+
     try {
       console.log('[Push API] Sending push task to queue...');
       await queueService.sendPushTask({

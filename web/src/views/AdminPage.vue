@@ -171,14 +171,14 @@ function updateCacheSettings() {
 
 async function handleSaveSettings() {
   if (isSavingSettings.value) return;
-  
+
   // AI 设置验证
   if (userSettings.value.ai_enabled) {
     if (!userSettings.value.ai_provider) {
       showToast('请选择 AI 提供商', 'error');
       return;
     }
-    
+
     if (userSettings.value.ai_provider !== 'workers-ai') {
       if (!userSettings.value.ai_api_key?.trim()) {
         showToast('请输入 API Key', 'error');
@@ -194,7 +194,7 @@ async function handleSaveSettings() {
       }
     }
   }
-  
+
   isSavingSettings.value = true;
   try {
     const result = await saveUserSettings(accessToken.value, userSettings.value);
@@ -633,7 +633,13 @@ type PushPayload = {
   async?: boolean;
 };
 
-async function handlePush(title: string, body: string, url: string, pushChannels: PushChannel[], asyncPush: boolean = false) {
+async function handlePush(
+  title: string,
+  body: string,
+  url: string,
+  pushChannels: PushChannel[],
+  asyncPush: boolean = false
+) {
   if (isPushing.value) return;
   isPushing.value = true;
 
@@ -1141,10 +1147,14 @@ function handleResend(record: PushHistoryRecord) {
         <!-- 用户配置面板 -->
         <div class="panel" :class="{ dark: isDark }">
           <h3>⚙️ {{ t('label.settings') }}</h3>
-          
+
           <!-- 主题设置 - 可折叠 -->
           <div class="collapsible-section">
-            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.theme = !expandedSections.theme">
+            <button
+              class="collapsible-header"
+              :class="{ dark: isDark }"
+              @click="expandedSections.theme = !expandedSections.theme"
+            >
               <span class="section-icon">🎨</span>
               <span class="section-title">{{ t('theme.settings') }}</span>
               <span class="section-arrow">{{ expandedSections.theme ? '▼' : '▶' }}</span>
@@ -1172,7 +1182,11 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- API Key 设置 - 可折叠 -->
           <div class="collapsible-section">
-            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.apiKey = !expandedSections.apiKey">
+            <button
+              class="collapsible-header"
+              :class="{ dark: isDark }"
+              @click="expandedSections.apiKey = !expandedSections.apiKey"
+            >
               <span class="section-icon">🔑</span>
               <span class="section-title">{{ t('label.api_key') }}</span>
               <span class="section-arrow">{{ expandedSections.apiKey ? '▼' : '▶' }}</span>
@@ -1203,7 +1217,11 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 缓存设置 - 可折叠 -->
           <div class="collapsible-section">
-            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.cache = !expandedSections.cache">
+            <button
+              class="collapsible-header"
+              :class="{ dark: isDark }"
+              @click="expandedSections.cache = !expandedSections.cache"
+            >
               <span class="section-icon">🗄️</span>
               <span class="section-title">{{ t('label.cache_settings') }}</span>
               <span class="section-arrow">{{ expandedSections.cache ? '▼' : '▶' }}</span>
@@ -1269,7 +1287,11 @@ function handleResend(record: PushHistoryRecord) {
                 />
                 <span class="unit">ms</span>
               </div>
-              <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="handleClearCache">
+              <button
+                class="btn btn-sm btn-secondary"
+                :class="{ dark: isDark }"
+                @click="handleClearCache"
+              >
                 🗑️ {{ t('button.clear_cache') }}
               </button>
             </div>
@@ -1277,7 +1299,11 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- AI 设置 - 可折叠 -->
           <div class="collapsible-section">
-            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.ai = !expandedSections.ai">
+            <button
+              class="collapsible-header"
+              :class="{ dark: isDark }"
+              @click="expandedSections.ai = !expandedSections.ai"
+            >
               <span class="section-icon">🤖</span>
               <span class="section-title">{{ t('label.ai_settings') }}</span>
               <span class="section-arrow">{{ expandedSections.ai ? '▼' : '▶' }}</span>
@@ -1286,16 +1312,17 @@ function handleResend(record: PushHistoryRecord) {
               <div class="setting-item">
                 <label>{{ t('label.ai_enabled') }}</label>
                 <label class="toggle">
-                  <input
-                    type="checkbox"
-                    v-model="userSettings.ai_enabled"
-                  />
+                  <input type="checkbox" v-model="userSettings.ai_enabled" />
                   <span class="slider"></span>
                 </label>
               </div>
               <div class="setting-item">
                 <label>{{ t('label.ai_provider') }}</label>
-                <select v-model="userSettings.ai_provider" class="input-sm" :class="{ dark: isDark }">
+                <select
+                  v-model="userSettings.ai_provider"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                >
                   <option value="workers-ai">Cloudflare Workers AI</option>
                   <option value="openai">OpenAI</option>
                   <option value="azure-openai">Azure OpenAI</option>
@@ -1338,7 +1365,11 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 数据备份 - 可折叠 -->
           <div class="collapsible-section">
-            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.backup = !expandedSections.backup">
+            <button
+              class="collapsible-header"
+              :class="{ dark: isDark }"
+              @click="expandedSections.backup = !expandedSections.backup"
+            >
               <span class="section-icon">💾</span>
               <span class="section-title">{{ t('label.backup_settings') }}</span>
               <span class="section-arrow">{{ expandedSections.backup ? '▼' : '▶' }}</span>
@@ -1365,7 +1396,11 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 渠道设置 - 可折叠 -->
           <div class="collapsible-section">
-            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.channels = !expandedSections.channels">
+            <button
+              class="collapsible-header"
+              :class="{ dark: isDark }"
+              @click="expandedSections.channels = !expandedSections.channels"
+            >
               <span class="section-icon">📡</span>
               <span class="section-title">{{ t('label.channel_settings') }}</span>
               <span class="section-arrow">{{ expandedSections.channels ? '▼' : '▶' }}</span>
@@ -1520,7 +1555,11 @@ function handleResend(record: PushHistoryRecord) {
     </div>
 
     <!-- AI 助手 -->
-    <AIHelper :access-token="accessToken" :ai-enabled="userSettings.ai_enabled" @refresh="loadHistory" />
+    <AIHelper
+      :access-token="accessToken"
+      :ai-enabled="userSettings.ai_enabled"
+      @refresh="loadHistory"
+    />
   </div>
 </template>
 
