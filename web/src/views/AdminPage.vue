@@ -404,7 +404,33 @@ function deleteCustomProvider(providerId: string, event: Event) {
   showToast('自定义提供商删除成功', 'success');
 }
 
-async function handleSaveSettings() {
+async function handleSaveCacheSettings() {
+  if (isSavingSettings.value) return;
+
+  isSavingSettings.value = true;
+  try {
+    // 只保存缓存相关设置
+    const cacheSettings = {
+      cache_ttl_backup: userSettings.value.cache_ttl_backup,
+      cache_ttl_channels: userSettings.value.cache_ttl_channels,
+      cache_ttl_templates: userSettings.value.cache_ttl_templates,
+      cache_ttl_groups: userSettings.value.cache_ttl_groups,
+      cache_ttl_scheduled: userSettings.value.cache_ttl_scheduled,
+    };
+    
+    const result = await saveUserSettings(accessToken.value, { ...userSettings.value, ...cacheSettings });
+    if (result.success) {
+      showToast('缓存设置已保存', 'success');
+      updateCacheSettings();
+    }
+  } catch (err: unknown) {
+    showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
+  } finally {
+    isSavingSettings.value = false;
+  }
+}
+
+async function handleSaveAISettings() {
   if (isSavingSettings.value) return;
 
   // AI 设置验证
@@ -425,7 +451,6 @@ async function handleSaveSettings() {
       }
       // 对于 azure-openai 和所有自定义提供商，需要 API URL
       if ((userSettings.value.ai_provider === 'azure-openai' || 
-           userSettings.value.ai_provider === 'custom' || 
            isCustomProvider(userSettings.value.ai_provider)) && 
           !userSettings.value.ai_api_url?.trim()) {
         showToast('请输入 API URL', 'error');
@@ -444,7 +469,6 @@ async function handleSaveSettings() {
     const result = await saveUserSettings(accessToken.value, userSettings.value);
     if (result.success) {
       showToast(result.message, 'success');
-      updateCacheSettings();
     }
   } catch (err: unknown) {
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
@@ -1438,7 +1462,7 @@ function handleResend(record: PushHistoryRecord) {
               <button
                 class="btn btn-sm btn-primary"
                 :class="{ dark: isDark, loading: isSavingSettings }"
-                @click="handleSaveSettings"
+                @click="handleSaveCacheSettings"
               >
                 {{ t('button.save_settings') }}
               </button>
@@ -1558,7 +1582,7 @@ function handleResend(record: PushHistoryRecord) {
               <button
                 class="btn btn-primary btn-sm"
                 :class="{ dark: isDark, loading: isSavingSettings }"
-                @click="handleSaveSettings"
+                @click="handleSaveAISettings"
               >
                 {{ t('button.save_settings') }}
               </button>
@@ -1625,11 +1649,11 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <!-- 操作按钮 -->
-              <div class="modal-actions" style="display: flex; gap: 10px;">
+              <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button
                   v-if="userAvatar"
                   class="btn btn-danger"
-                  style="flex: 1;"
+                  :style="{ flex: '1', height: '40px' }"
                   :class="{ dark: isDark }"
                   @click="deleteAvatar"
                 >
@@ -1637,7 +1661,7 @@ function handleResend(record: PushHistoryRecord) {
                 </button>
                 <button
                   class="btn btn-primary"
-                  style="flex: 1;"
+                  :style="{ flex: '1', height: '40px' }"
                   :class="{ dark: isDark }"
                   :disabled="isSaving"
                   @click="handleSaveAvatar"
