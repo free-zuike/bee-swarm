@@ -2613,6 +2613,8 @@ function handleResend(record: PushHistoryRecord) {
   display: flex;
   gap: 20px;
   min-height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
+  overflow: hidden;
 }
 
 .settings-sidebar {
@@ -2621,9 +2623,8 @@ function handleResend(record: PushHistoryRecord) {
   background: var(--bg-secondary, #f5f5f5);
   border-radius: 12px;
   padding: 16px;
-  position: sticky;
-  top: 20px;
-  height: fit-content;
+  overflow-y: auto;
+  max-height: calc(100vh - 140px);
 }
 
 .settings-sidebar.dark {
@@ -2695,6 +2696,8 @@ function handleResend(record: PushHistoryRecord) {
   border-radius: 12px;
   padding: 24px;
   min-height: 400px;
+  overflow-y: auto;
+  max-height: calc(100vh - 140px);
 }
 
 .settings-content.dark {
