@@ -41,6 +41,7 @@ export interface AuditLog {
   action: AuditAction;
   data: any;
   createdAt: string;
+  avatar_url?: string;
 }
 
 export async function insertAuditLog(env: Env, log: AuditLog): Promise<void> {
@@ -111,7 +112,7 @@ export async function getAuditLogs(
       userId: row.user_id,
       action: row.action as AuditAction,
       data: JSON.parse(row.data || '{}'),
-      timestamp: row.created_at,
+      createdAt: row.created_at,
       avatar_url: row.avatar_url || '',
     }));
   } catch (error) {
