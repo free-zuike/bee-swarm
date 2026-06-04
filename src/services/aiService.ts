@@ -303,11 +303,20 @@ export class AIService {
         settings
       );
 
+      console.log('[AI Service] === 收到 AI 响应 ===');
+      console.log('[AI Service] 提供商:', settings.ai_provider);
+      console.log('[AI Service] 模型:', settings.ai_model_name);
+      console.log('[AI Service] 原始响应:', aiContent);
+
       const toolCall = this.parseToolCall(aiContent);
 
       if (toolCall) {
-        return await this.executeTool(toolCall, userId, username);
+        console.log('[AI Service] 解析成功，工具调用:', toolCall);
+        const result = await this.executeTool(toolCall, userId, username);
+        console.log('[AI Service] 工具执行结果:', result);
+        return result;
       } else {
+        console.log('[AI Service] 未解析到工具调用，直接返回 AI 响应');
         return { success: true, result: aiContent };
       }
     } catch (error) {
