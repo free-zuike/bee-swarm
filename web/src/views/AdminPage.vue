@@ -229,6 +229,7 @@ function saveProviderConfig(provider: string) {
     api_key: userSettings.value.ai_api_key,
     api_url: userSettings.value.ai_api_url,
     model_name: userSettings.value.ai_model_name,
+    custom_fields: currentCustomFields.value,
   };
 }
 
@@ -240,12 +241,27 @@ function loadProviderConfig(provider: string) {
     userSettings.value.ai_api_key = config.api_key || '';
     userSettings.value.ai_api_url = config.api_url || getDefaultApiUrlForProvider(provider);
     userSettings.value.ai_model_name = config.model_name || getDefaultModelNameForProvider(provider);
+    currentCustomFields.value = config.custom_fields || [];
   } else {
     // 如果没有保存过该提供商的配置，使用默认值
     userSettings.value.ai_api_key = '';
     userSettings.value.ai_api_url = getDefaultApiUrlForProvider(provider);
     userSettings.value.ai_model_name = getDefaultModelNameForProvider(provider);
+    currentCustomFields.value = [];
   }
+}
+
+// 当前自定义字段
+const currentCustomFields = ref<Array<{ key: string; value: string }>>([]);
+
+// 添加自定义字段
+function addCustomField() {
+  currentCustomFields.value.push({ key: '', value: '' });
+}
+
+// 删除自定义字段
+function removeCustomField(index: number) {
+  currentCustomFields.value.splice(index, 1);
 }
 
 function getDefaultApiUrlForProvider(provider: string) {
@@ -1287,13 +1303,22 @@ function handleResend(record: PushHistoryRecord) {
                 />
                 <span class="unit">ms</span>
               </div>
-              <button
-                class="btn btn-sm btn-secondary"
-                :class="{ dark: isDark }"
-                @click="handleClearCache"
-              >
-                🗑️ {{ t('button.clear_cache') }}
-              </button>
+              <div class="setting-actions">
+                <button
+                  class="btn btn-sm btn-secondary"
+                  :class="{ dark: isDark }"
+                  @click="handleClearCache"
+                >
+                  🗑️ {{ t('button.clear_cache') }}
+                </button>
+                <button
+                  class="btn btn-sm btn-primary"
+                  :class="{ dark: isDark, loading: isSavingSettings }"
+                  @click="handleSaveSettings"
+                >
+                  💾 {{ t('button.save') }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1409,6 +1434,48 @@ function handleResend(record: PushHistoryRecord) {
                     :class="{ dark: isDark }"
                     :placeholder="getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')"
                   />
+                </div>
+                
+                <!-- 自定义字段（仅自定义API支持） -->
+                <div v-if="userSettings.ai_provider === 'custom'" class="custom-fields-section">
+                  <div class="custom-fields-header">
+                    <span class="custom-fields-title">自定义参数</span>
+                    <button
+                      class="btn btn-sm btn-secondary"
+                      :class="{ dark: isDark }"
+                      @click="addCustomField"
+                    >
+                      + 添加参数
+                    </button>
+                  </div>
+                  <div
+                    v-for="(field, index) in currentCustomFields"
+                    :key="index"
+                    class="custom-field-item"
+                  >
+                    <input
+                      type="text"
+                      v-model="field.key"
+                      class="input-sm custom-field-key"
+                      :class="{ dark: isDark }"
+                      placeholder="参数名"
+                    />
+                    <input
+                      type="text"
+                      v-model="field.value"
+                      class="input-sm custom-field-value"
+                      :class="{ dark: isDark }"
+                      placeholder="参数值"
+                    />
+                    <button
+                      class="btn btn-icon-btn"
+                      :class="{ dark: isDark }"
+                      @click="removeCustomField(index)"
+                      title="删除"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -3050,6 +3117,13 @@ function handleResend(record: PushHistoryRecord) {
   border-bottom: none;
 }
 
+.setting-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 0;
+}
+
 .setting-item label {
   font-size: 14px;
   font-weight: 500;
@@ -3431,5 +3505,48 @@ function handleResend(record: PushHistoryRecord) {
 .provider-config.dark .config-title {
   color: var(--text-primary, #e0e0e0);
   border-bottom-color: var(--border-color, #4c4c4c);
+}
+
+/* ==================== 自定义字段样式 ==================== */
+.custom-fields-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color, #e0e0e0);
+}
+
+.dark .custom-fields-section {
+  border-top-color: var(--border-color, #555);
+}
+
+.custom-fields-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.custom-fields-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+}
+
+.dark .custom-fields-title {
+  color: var(--text-secondary, #999);
+}
+
+.custom-field-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.custom-field-key {
+  flex: 1;
+}
+
+.custom-field-value {
+  flex: 2;
 }
 </style>

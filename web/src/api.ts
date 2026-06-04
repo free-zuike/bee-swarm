@@ -992,6 +992,11 @@ export interface AIProviderConfig {
   api_key?: string;
   api_url?: string;
   model_name?: string;
+  // 自定义额外字段
+  custom_fields?: Array<{
+    key: string;
+    value: string;
+  }>;
 }
 
 export interface UserSettings {
