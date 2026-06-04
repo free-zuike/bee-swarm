@@ -20,6 +20,7 @@ export interface AuditLogEntry {
   action: AuditAction;
   metadata: Record<string, unknown>;
   timestamp: string;
+  avatar_url?: string;
   ip?: string;
   userAgent?: string;
 }
@@ -76,6 +77,7 @@ export class AuditLogger {
       action: log.action,
       metadata: log.data || {},
       timestamp: log.createdAt,
+      avatar_url: log.avatar_url || '',
     }));
   }
 

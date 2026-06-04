@@ -252,14 +252,23 @@ function getDefaultModelName() {
 }
 
 function handleProviderChange() {
-  // 切换提供商时清除旧值
-  userSettings.value.ai_api_key = '';
-  userSettings.value.ai_api_url = getDefaultApiUrl();
-  userSettings.value.ai_model_name = getDefaultModelName();
+  // 切换提供商时不清空已设置的值，由用户自行管理
+  // 只清空不适用于新提供商的配置（如 workers-ai 不需要 api_key）
 }
 
 function selectProvider(provider: string) {
+  const oldProvider = userSettings.value.ai_provider;
   userSettings.value.ai_provider = provider as any;
+  
+  // 只有当切换到 workers-ai 时才清空其他配置
+  // 切换到其他提供商时保留已有配置
+  if (provider === 'workers-ai') {
+    // workers-ai 不需要这些配置，清空避免混淆
+    userSettings.value.ai_api_key = '';
+    userSettings.value.ai_api_url = '';
+    userSettings.value.ai_model_name = '';
+  }
+  
   handleProviderChange();
 }
 
