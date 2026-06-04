@@ -3178,7 +3178,6 @@ function handleResend(record: PushHistoryRecord) {
   width: 100%;
   height: calc(100vh - 80px);
   padding: 0 16px;
-  overflow: hidden;
 }
 
 .settings-sidebar {
@@ -3257,7 +3256,7 @@ function handleResend(record: PushHistoryRecord) {
   flex: 1;
   background: transparent;
   padding: 0;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -3271,6 +3270,7 @@ function handleResend(record: PushHistoryRecord) {
   background: var(--bg-secondary, #f5f5f5);
   border-radius: 12px;
   padding: 16px;
+  min-height: fit-content;
 }
 
 .settings-card {
