@@ -1435,6 +1435,13 @@ function handleResend(record: PushHistoryRecord) {
               >
                 🗑️ {{ t('button.clear_cache') }}
               </button>
+              <button
+                class="btn btn-sm btn-primary"
+                :class="{ dark: isDark, loading: isSavingSettings }"
+                @click="handleSaveSettings"
+              >
+                {{ t('button.save_settings') }}
+              </button>
             </div>
           </div>
 
@@ -1492,20 +1499,6 @@ function handleResend(record: PushHistoryRecord) {
                     </button>
                   </div>
                   <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
-                </div>
-                
-                <!-- 旧的自定义 API 选项保留兼容 -->
-                <div 
-                  class="ai-provider-card"
-                  :class="{ active: userSettings.ai_provider === 'custom', dark: isDark }"
-                  @click="selectProvider('custom')"
-                >
-                  <div class="provider-icon">⚙️</div>
-                  <div class="provider-info">
-                    <div class="provider-name">自定义 API (旧版)</div>
-                    <div class="provider-desc">使用自定义 OpenAI 兼容 API</div>
-                  </div>
-                  <div v-if="userSettings.ai_provider === 'custom'" class="provider-check">✓</div>
                 </div>
                 
                 <!-- 添加自定义提供商按钮 -->
@@ -1632,17 +1625,19 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <!-- 操作按钮 -->
-              <div class="modal-actions">
+              <div class="modal-actions" style="display: flex; gap: 10px;">
                 <button
                   v-if="userAvatar"
-                  class="btn btn-danger flex-1"
+                  class="btn btn-danger"
+                  style="flex: 1;"
                   :class="{ dark: isDark }"
                   @click="deleteAvatar"
                 >
                   {{ t('button.delete_avatar') }}
                 </button>
                 <button
-                  class="btn btn-primary flex-1"
+                  class="btn btn-primary"
+                  style="flex: 1;"
                   :class="{ dark: isDark }"
                   :disabled="isSaving"
                   @click="handleSaveAvatar"
