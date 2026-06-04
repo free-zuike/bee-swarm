@@ -409,16 +409,14 @@ async function handleSaveCacheSettings() {
 
   isSavingSettings.value = true;
   try {
-    // 只保存缓存相关设置
-    const cacheSettings = {
+    // 只保存缓存相关设置，不发送AI设置
+    const result = await saveUserSettings(accessToken.value, {
       cache_ttl_backup: userSettings.value.cache_ttl_backup,
       cache_ttl_channels: userSettings.value.cache_ttl_channels,
       cache_ttl_templates: userSettings.value.cache_ttl_templates,
       cache_ttl_groups: userSettings.value.cache_ttl_groups,
       cache_ttl_scheduled: userSettings.value.cache_ttl_scheduled,
-    };
-    
-    const result = await saveUserSettings(accessToken.value, { ...userSettings.value, ...cacheSettings });
+    });
     if (result.success) {
       showToast('缓存设置已保存', 'success');
       updateCacheSettings();
@@ -466,7 +464,16 @@ async function handleSaveAISettings() {
 
   isSavingSettings.value = true;
   try {
-    const result = await saveUserSettings(accessToken.value, userSettings.value);
+    // 只保存AI相关设置，不发送缓存设置
+    const result = await saveUserSettings(accessToken.value, {
+      ai_enabled: userSettings.value.ai_enabled,
+      ai_provider: userSettings.value.ai_provider,
+      ai_api_key: userSettings.value.ai_api_key,
+      ai_api_url: userSettings.value.ai_api_url,
+      ai_model_name: userSettings.value.ai_model_name,
+      ai_provider_configs: userSettings.value.ai_provider_configs,
+      custom_ai_providers: userSettings.value.custom_ai_providers,
+    });
     if (result.success) {
       showToast(result.message, 'success');
     }
