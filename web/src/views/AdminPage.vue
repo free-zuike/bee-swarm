@@ -181,6 +181,10 @@ function deleteAvatar() {
   avatarInput.value = '';
 }
 
+function handleAvatarError() {
+  userAvatar.value = '';
+}
+
 const settingsMenu = [
   { id: 'theme', icon: '🎨', label: 'theme.settings' },
   { id: 'apiKey', icon: '🔑', label: 'label.api_key' },
@@ -1252,7 +1256,12 @@ function handleResend(record: PushHistoryRecord) {
             <!-- 当前头像预览 -->
             <div class="avatar-preview-section">
               <div class="avatar-preview">
-                <img v-if="userAvatar" :src="userAvatar" class="preview-image" />
+                <img 
+                  v-if="userAvatar" 
+                  :src="userAvatar" 
+                  class="preview-image" 
+                  @error="handleAvatarError"
+                />
                 <span v-else class="preview-placeholder">{{ roleIcon }}</span>
               </div>
             </div>
