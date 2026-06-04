@@ -692,9 +692,6 @@ const messages: Record<Locale, LocaleMessages> = {
     // 设置页面
     'label.settings': '设置',
     'label.cache_settings': '缓存设置',
-    'label.backup_settings': '数据备份',
-    'label.channel_settings': '渠道设置',
-    'label.avatar_settings': '头像设置',
     'label.cache_ttl_backup': '备份缓存',
     'label.cache_ttl_channels': '渠道缓存',
     'label.cache_ttl_templates': '模板缓存',
@@ -1424,9 +1421,6 @@ const messages: Record<Locale, LocaleMessages> = {
     // Settings related
     'label.settings': 'Settings',
     'label.cache_settings': 'Cache Settings',
-    'label.backup_settings': 'Data Backup',
-    'label.channel_settings': 'Channel Settings',
-    'label.avatar_settings': 'Avatar Settings',
     'label.cache_ttl_backup': 'Backup Cache',
     'label.cache_ttl_channels': 'Channel Cache',
     'label.cache_ttl_templates': 'Template Cache',
