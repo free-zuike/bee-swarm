@@ -3237,6 +3237,35 @@ function handleResend(record: PushHistoryRecord) {
   flex-direction: column;
   gap: 12px;
   margin: 16px 0;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.ai-provider-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-provider-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 3px;
+}
+
+.ai-provider-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #ccc);
+  border-radius: 3px;
+}
+
+.ai-provider-list::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.dark .ai-provider-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.dark .ai-provider-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #555);
 }
 
 .ai-provider-card {

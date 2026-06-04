@@ -1234,7 +1234,8 @@ export interface AuditLog {
   userId: string;
   action: string;
   metadata?: any;
-  timestamp: string;
+  createdAt: string;
+  avatar_url?: string;
 }
 
 export async function getAuditLogs(
