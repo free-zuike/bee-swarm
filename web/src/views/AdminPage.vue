@@ -1491,117 +1491,129 @@ function handleResend(record: PushHistoryRecord) {
                   <span class="slider"></span>
                 </label>
               </div>
-              
-              <!-- AI 提供商选择 -->
-              <div class="ai-provider-list">
-                <!-- 预定义提供商 -->
-                <div 
-                  v-for="provider in predefinedProviders"
-                  :key="provider.id"
-                  class="ai-provider-card"
-                  :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
-                  @click="selectProvider(provider.id)"
-                >
-                  <div class="provider-icon">{{ provider.icon }}</div>
-                  <div class="provider-info">
-                    <div class="provider-name">{{ provider.name }}</div>
-                    <div class="provider-desc">{{ provider.desc }}</div>
-                  </div>
-                  <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+            </div>
+            
+            <!-- AI 提供商布局 -->
+            <div class="ai-provider-layout">
+              <!-- 左边：AI 提供商列表 -->
+              <div class="ai-provider-sidebar" :class="{ dark: isDark }">
+                <div class="sidebar-header">
+                  <span class="sidebar-title">AI 提供商</span>
+                  <button
+                    class="btn-add-provider"
+                    @click="showAddProviderModal = true"
+                    title="添加自定义提供商"
+                  >
+                    <span>+</span>
+                  </button>
                 </div>
                 
-                <!-- 自定义提供商 -->
-                <div 
-                  v-for="provider in userSettings.custom_ai_providers"
-                  :key="provider.id"
-                  class="ai-provider-card"
-                  :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
-                  @click="selectProvider(provider.id)"
-                >
-                  <div class="provider-icon">{{ provider.icon }}</div>
-                  <div class="provider-info">
-                    <div class="provider-name">{{ provider.name }}</div>
-                    <div class="provider-desc">自定义 AI 提供商</div>
+                <div class="provider-list">
+                  <!-- 预定义提供商 -->
+                  <div
+                    v-for="provider in predefinedProviders"
+                    :key="provider.id"
+                    class="provider-item"
+                    :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
+                    @click="selectProvider(provider.id)"
+                  >
+                    <div class="provider-icon">{{ provider.icon }}</div>
+                    <div class="provider-info">
+                      <div class="provider-name">{{ provider.name }}</div>
+                      <div class="provider-desc">{{ provider.desc }}</div>
+                    </div>
+                    <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
                   </div>
-                  <div class="provider-actions">
-                    <button 
-                      class="delete-provider-btn"
-                      @click="deleteCustomProvider(provider.id, $event)"
+                  
+                  <!-- 自定义提供商 -->
+                  <div
+                    v-for="provider in userSettings.custom_ai_providers"
+                    :key="provider.id"
+                    class="provider-item"
+                    :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
+                    @click="selectProvider(provider.id)"
+                  >
+                    <div class="provider-icon">{{ provider.icon }}</div>
+                    <div class="provider-info">
+                      <div class="provider-name">{{ provider.name }}</div>
+                      <div class="provider-desc">自定义 AI 提供商</div>
+                    </div>
+                    <div class="provider-actions">
+                      <button
+                        class="delete-provider-btn"
+                        @click="deleteCustomProvider(provider.id, $event)"
+                        :class="{ dark: isDark }"
+                        title="删除提供商"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                    <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 右边：提供商配置 -->
+              <div class="ai-provider-content" :class="{ dark: isDark }">
+                <div v-if="!userSettings.ai_provider" class="provider-empty-state">
+                  <p>请选择一个 AI 提供商进行配置</p>
+                </div>
+                
+                <div v-else class="provider-config-form">
+                  <div class="config-header">
+                    <h4>{{ getProviderConfigTitle() }}</h4>
+                  </div>
+                  
+                  <!-- API Key - 除了workers-ai都需要 -->
+                  <div v-if="userSettings.ai_provider !== 'workers-ai'" class="form-group">
+                    <label>{{ t('label.ai_api_key') }}</label>
+                    <input
+                      type="password"
+                      v-model="userSettings.ai_api_key"
+                      class="input-sm"
                       :class="{ dark: isDark }"
-                      title="删除提供商"
+                      :placeholder="t('placeholder.ai_api_key')"
+                    />
+                  </div>
+                  
+                  <!-- API URL - azure-openai和自定义提供商需要 -->
+                  <div
+                    v-if="userSettings.ai_provider === 'azure-openai' || isCustomProvider(userSettings.ai_provider)"
+                    class="form-group"
+                  >
+                    <label>{{ t('label.ai_api_url') }}</label>
+                    <input
+                      type="url"
+                      v-model="userSettings.ai_api_url"
+                      class="input-sm"
+                      :class="{ dark: isDark }"
+                      :placeholder="getDefaultApiUrlForProvider(userSettings.ai_provider || 'openai')"
+                    />
+                  </div>
+                  
+                  <!-- 模型名称 - 所有提供商都需要 -->
+                  <div class="form-group">
+                    <label>{{ t('label.ai_model_name') }}</label>
+                    <input
+                      type="text"
+                      v-model="userSettings.ai_model_name"
+                      class="input-sm"
+                      :class="{ dark: isDark }"
+                      :placeholder="getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')"
+                    />
+                  </div>
+                  
+                  <div class="form-actions">
+                    <button
+                      class="btn btn-primary btn-sm"
+                      :class="{ dark: isDark, loading: isSavingSettings }"
+                      @click="handleSaveAISettings"
                     >
-                      🗑️
+                      {{ t('button.save_settings') }}
                     </button>
                   </div>
-                  <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
-                </div>
-                
-                <!-- 添加自定义提供商按钮 -->
-                <div 
-                  class="ai-provider-card add-provider-btn"
-                  :class="{ dark: isDark }"
-                  @click="showAddProviderModal = true"
-                >
-                  <div class="provider-icon">➕</div>
-                  <div class="provider-info">
-                    <div class="provider-name">添加自定义提供商</div>
-                    <div class="provider-desc">创建您自己的 AI 提供商配置</div>
-                  </div>
                 </div>
               </div>
-              
-              <!-- 提供商配置 -->
-              <div class="provider-config">
-                <div class="config-title">{{ getProviderConfigTitle() }}</div>
-                
-                <!-- API Key - 除了workers-ai都需要 -->
-                <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-                  <label>{{ t('label.ai_api_key') }}</label>
-                  <input
-                    type="password"
-                    v-model="userSettings.ai_api_key"
-                    class="input-sm"
-                    :class="{ dark: isDark }"
-                    :placeholder="t('placeholder.ai_api_key')"
-                  />
-                </div>
-                
-                <!-- API URL - azure-openai和自定义提供商需要 -->
-                <div 
-                  v-if="userSettings.ai_provider === 'azure-openai' || 
-                         isCustomProvider(userSettings.ai_provider)" 
-                  class="setting-item"
-                >
-                  <label>{{ t('label.ai_api_url') }}</label>
-                  <input
-                    type="url"
-                    v-model="userSettings.ai_api_url"
-                    class="input-sm"
-                    :class="{ dark: isDark }"
-                    :placeholder="getDefaultApiUrlForProvider(userSettings.ai_provider || 'openai')"
-                  />
-                </div>
-                
-                <!-- 模型名称 - 所有提供商都需要 -->
-                <div class="setting-item">
-                  <label>{{ t('label.ai_model_name') }}</label>
-                  <input
-                    type="text"
-                    v-model="userSettings.ai_model_name"
-                    class="input-sm"
-                    :class="{ dark: isDark }"
-                    :placeholder="getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')"
-                  />
-                </div>
-              </div>
-              
-              <button
-                class="btn btn-primary btn-sm"
-                :class="{ dark: isDark, loading: isSavingSettings }"
-                @click="handleSaveAISettings"
-              >
-                {{ t('button.save_settings') }}
-              </button>
             </div>
           </div>
 
@@ -3741,5 +3753,265 @@ function handleResend(record: PushHistoryRecord) {
 .icon-option.dark.active {
   border-color: #8b5cf6;
   background: rgba(139, 92, 246, 0.15);
+}
+
+/* ==================== AI 提供商左右布局样式 ==================== */
+.ai-provider-layout {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  min-height: 400px;
+}
+
+.ai-provider-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-provider-sidebar.dark {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: var(--border-color, #3c3c3c);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.dark .sidebar-header {
+  background: var(--bg-secondary, #3c3c3c);
+  border-bottom-color: var(--border-color, #4c4c4c);
+}
+
+.sidebar-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.dark .sidebar-title {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.btn-add-provider {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-primary, white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 20px;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.btn-add-provider:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.dark .btn-add-provider {
+  background: var(--bg-primary, #1e1e1e);
+  border-color: var(--border-color, #4c4c4c);
+}
+
+.dark .btn-add-provider:hover {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.provider-list {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.provider-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-primary, white);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.provider-item:last-child {
+  margin-bottom: 0;
+}
+
+.provider-item:hover {
+  background: var(--bg-secondary, #f5f5f5);
+  border-color: var(--border-color, #e0e0e0);
+}
+
+.provider-item.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+}
+
+.provider-item.dark {
+  background: var(--bg-primary, #1e1e1e);
+}
+
+.provider-item.dark:hover {
+  background: var(--bg-secondary, #3c3c3c);
+  border-color: var(--border-color, #4c4c4c);
+}
+
+.provider-item.dark.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.12));
+  border-color: #667eea;
+}
+
+.provider-item .provider-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.provider-item .provider-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.provider-item .provider-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 2px;
+}
+
+.dark .provider-item .provider-name {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.provider-item .provider-desc {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.dark .provider-item .provider-desc {
+  color: var(--text-secondary, #999);
+}
+
+.provider-item .provider-check {
+  font-size: 18px;
+  color: #667eea;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.provider-item .provider-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.provider-item .delete-provider-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.provider-item .delete-provider-btn:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.ai-provider-content {
+  flex: 1;
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  padding: 24px;
+  min-width: 0;
+}
+
+.ai-provider-content.dark {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: var(--border-color, #3c3c3c);
+}
+
+.provider-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  color: var(--text-secondary, #888);
+  font-size: 15px;
+}
+
+.provider-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.config-header {
+  margin-bottom: 4px;
+}
+
+.config-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.dark .config-header h4 {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #333);
+}
+
+.dark .form-group label {
+  color: var(--text-primary, #ddd);
+}
+
+.form-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-start;
 }
 </style>
