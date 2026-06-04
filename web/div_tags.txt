@@ -1,0 +1,173 @@
+1048:  <div v-if="pageState === 'loading'" class="loading-overlay" :class="{ dark: isDark }">
+1049:    <div class="loading-spinner"></div>
+1051:  </div>
+1063:  <div v-else class="page" :class="{ dark: isDark }">
+1066:      <div v-if="showAvatarModal" class="modal-overlay" @click.self="closeAvatarModal">
+1067:        <div class="modal-content" :class="{ dark: isDark }">
+1068:          <div class="modal-header">
+1071:          </div>
+1072:          <div class="modal-body">
+1074:            <div class="avatar-preview-section">
+1075:              <div class="avatar-preview">
+1078:              </div>
+1079:            </div>
+1082:            <div class="form-group">
+1084:              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
+1095:              </div>
+1096:            </div>
+1099:            <div class="form-group">
+1108:            </div>
+1111:            <div class="form-group">
+1121:            </div>
+1124:            <div class="modal-actions">
+1139:            </div>
+1140:          </div>
+1141:        </div>
+1142:      </div>
+1146:      <div v-if="toast" class="toast" :class="toast.type">
+1148:      </div>
+1151:      <div class="header-left">
+1162:      </div>
+1175:      <div
+1233:      </div>
+1236:    <div class="container">
+1238:      <div v-if="showSettings" class="settings-layout">
+1240:        <div class="settings-sidebar" :class="{ dark: isDark }">
+1242:          <div class="settings-menu">
+1254:          </div>
+1255:        </div>
+1258:        <div class="settings-content" :class="{ dark: isDark }">
+1260:          <div v-if="activeSettingsTab === 'theme'" class="settings-panel">
+1262:            <div class="settings-card">
+1263:              <div class="theme-options">
+1279:              </div>
+1280:            </div>
+1281:          </div>
+1284:          <div v-else-if="activeSettingsTab === 'apiKey'" class="settings-panel">
+1286:            <div class="settings-card">
+1288:              <div v-if="apiKey" class="api-key-display">
+1301:              </div>
+1302:              <div v-else>
+1306:              </div>
+1307:            </div>
+1308:          </div>
+1311:          <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel">
+1313:            <div class="settings-card">
+1314:              <div class="setting-item">
+1325:              </div>
+1326:              <div class="setting-item">
+1337:              </div>
+1338:              <div class="setting-item">
+1349:              </div>
+1350:              <div class="setting-item">
+1361:              </div>
+1362:              <div class="setting-item">
+1373:              </div>
+1374:              <div class="setting-actions">
+1389:              </div>
+1390:            </div>
+1391:          </div>
+1394:          <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel">
+1396:            <div class="settings-card">
+1397:              <div class="setting-item">
+1403:              </div>
+1406:              <div class="ai-provider-list">
+1407:                <div 
+1412:                  <div class="provider-icon">☁️</div>
+1413:                  <div class="provider-info">
+1414:                    <div class="provider-name">Cloudflare Workers AI</div>
+1415:                    <div class="provider-desc">使用 Cloudflare Workers AI，无需额外配置</div>
+1416:                  </div>
+1417:                  <div v-if="userSettings.ai_provider === 'workers-ai'" class="provider-check">✓</div>
+1418:                </div>
+1420:                <div 
+1425:                  <div class="provider-icon">🧠</div>
+1426:                  <div class="provider-info">
+1427:                    <div class="provider-name">OpenAI</div>
+1428:                    <div class="provider-desc">使用 OpenAI GPT 模型，需要 API Key</div>
+1429:                  </div>
+1430:                  <div v-if="userSettings.ai_provider === 'openai'" class="provider-check">✓</div>
+1431:                </div>
+1433:                <div 
+1438:                  <div class="provider-icon">🔷</div>
+1439:                  <div class="provider-info">
+1440:                    <div class="provider-name">Azure OpenAI</div>
+1441:                    <div class="provider-desc">使用 Azure OpenAI 服务，需要完整配置</div>
+1442:                  </div>
+1443:                  <div v-if="userSettings.ai_provider === 'azure-openai'" class="provider-check">✓</div>
+1444:                </div>
+1446:                <div 
+1451:                  <div class="provider-icon">🤖</div>
+1452:                  <div class="provider-info">
+1453:                    <div class="provider-name">Anthropic Claude</div>
+1454:                    <div class="provider-desc">使用 Claude 模型，需要 API Key</div>
+1455:                  </div>
+1456:                  <div v-if="userSettings.ai_provider === 'anthropic'" class="provider-check">✓</div>
+1457:                </div>
+1460:                <div 
+1467:                  <div class="provider-icon">{{ provider.icon }}</div>
+1468:                  <div class="provider-info">
+1469:                    <div class="provider-name">{{ provider.name }}</div>
+1470:                    <div class="provider-desc">自定义 AI 提供商</div>
+1471:                  </div>
+1472:                  <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+1481:                </div>
+1484:                <div 
+1489:                  <div class="provider-icon">➕</div>
+1490:                  <div class="provider-info">
+1491:                    <div class="provider-name">添加自定义提供商</div>
+1492:                    <div class="provider-desc">添加智谱、GLM等其他AI服务</div>
+1493:                  </div>
+1494:                </div>
+1495:              </div>
+1498:              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="provider-config">
+1499:                <div class="config-title">{{ getProviderConfigTitle() }}</div>
+1500:                <div class="setting-item">
+1509:                </div>
+1510:                <div class="setting-item">
+1519:                </div>
+1520:                <div class="setting-item">
+1529:                </div>
+1530:              </div>
+1539:            </div>
+1540:          </div>
+1543:          <div v-else-if="activeSettingsTab === 'avatar'" class="settings-panel">
+1545:            <div class="settings-card">
+1547:              <div class="avatar-preview-section">
+1548:                <div class="avatar-preview">
+1556:                </div>
+1557:              </div>
+1560:              <div class="form-group">
+1562:                <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
+1573:                </div>
+1574:              </div>
+1577:              <div class="form-group">
+1586:              </div>
+1589:              <div class="form-group">
+1599:              </div>
+1602:              <div class="modal-actions">
+1619:              </div>
+1620:            </div>
+1621:          </div>
+1664:        </div>
+1665:      </div>
+1670:        <div class="tab-nav" :class="{ dark: isDark }">
+1727:        </div>
+1790:    </div>
+1793:    <div v-if="showAddProviderModal" class="modal-overlay" @click="showAddProviderModal = false">
+1794:      <div class="modal-content" @click.stop>
+1795:        <div class="modal-header">
+1798:        </div>
+1799:        <div class="modal-body">
+1800:          <div class="setting-item">
+1809:          </div>
+1810:          <div class="setting-item">
+1812:            <div class="icon-selector">
+1822:            </div>
+1823:          </div>
+1824:        </div>
+1825:        <div class="modal-actions">
+1840:        </div>
+1841:      </div>
+1842:    </div>
+1850:  </div>

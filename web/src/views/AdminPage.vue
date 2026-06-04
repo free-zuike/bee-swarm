@@ -254,17 +254,71 @@ function loadProviderConfig(provider: string) {
 // 当前自定义字段
 const currentCustomFields = ref<Array<{ key: string; value: string }>>([]);
 
-// 添加自定义字段
-function addCustomField() {
-  currentCustomFields.value.push({ key: '', value: '' });
+// 添加自定义提供商的模态框状态
+const showAddProviderModal = ref(false);
+const newProviderName = ref('');
+const newProviderIcon = ref('🤖');
+
+// 常用图标列表
+const iconOptions = ['🤖', '🧠', '🔮', '⚡', '🌟', '💡', '🚀', '🎯', '🎨', '🎭', '🦾', '👽', '🔧', '⚙️', '💎'];
+
+// 添加自定义提供商
+function addCustomProvider() {
+  if (!newProviderName.value.trim()) {
+    toast.warning('请输入提供商名称');
+    return;
+  }
+  
+  const newId = 'custom-' + Date.now();
+  
+  if (!userSettings.value.custom_ai_providers) {
+    userSettings.value.custom_ai_providers = [];
+  }
+  
+  userSettings.value.custom_ai_providers.push({
+    id: newId,
+    name: newProviderName.value.trim(),
+    icon: newProviderIcon.value,
+  });
+  
+  // 初始化配置
+  if (!userSettings.value.ai_provider_configs) {
+    userSettings.value.ai_provider_configs = {};
+  }
+  userSettings.value.ai_provider_configs[newId] = {
+    api_key: '',
+    api_url: 'https://api.example.com/v1/chat/completions',
+    model_name: '',
+  };
+  
+  newProviderName.value = '';
+  newProviderIcon.value = '🤖';
+  showAddProviderModal.value = false;
+  
+  toast.success('添加成功');
 }
 
-// 删除自定义字段
-function removeCustomField(index: number) {
-  currentCustomFields.value.splice(index, 1);
+// 删除自定义提供商
+function deleteCustomProvider(providerId: string) {
+  if (userSettings.value.custom_ai_providers) {
+    userSettings.value.custom_ai_providers = userSettings.value.custom_ai_providers.filter(p => p.id !== providerId);
+  }
+  
+  // 如果当前选中的是被删除的提供商，切换到其他提供商
+  if (userSettings.value.ai_provider === providerId) {
+    userSettings.value.ai_provider = 'openai';
+    loadProviderConfig('openai');
+  }
+  
+  toast.success('删除成功');
 }
 
 function getDefaultApiUrlForProvider(provider: string) {
+  const isCustom = provider.startsWith('custom-');
+  if (isCustom) {
+    return 'https://api.example.com/v1/chat/completions';
+  }
+  
   switch (provider) {
     case 'openai':
       return 'https://api.openai.com/v1/chat/completions';
@@ -272,14 +326,19 @@ function getDefaultApiUrlForProvider(provider: string) {
       return 'https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-name}/chat/completions?api-version=2024-02-15-preview';
     case 'anthropic':
       return 'https://api.anthropic.com/v1/messages';
-    case 'custom':
-      return 'https://api.example.com/v1/chat/completions';
+    case 'workers-ai':
+      return '';
     default:
       return '';
   }
 }
 
 function getDefaultModelNameForProvider(provider: string) {
+  const isCustom = provider.startsWith('custom-');
+  if (isCustom) {
+    return '';
+  }
+  
   switch (provider) {
     case 'openai':
       return 'gpt-4';
@@ -287,6 +346,8 @@ function getDefaultModelNameForProvider(provider: string) {
       return 'gpt-4';
     case 'anthropic':
       return 'claude-3-opus';
+    case 'workers-ai':
+      return '@cf/meta/llama-3-8b-instruct';
     case 'custom':
       return 'gpt-4';
     default:
@@ -321,6 +382,13 @@ function selectProvider(provider: string) {
 
 function getProviderConfigTitle() {
   const provider = userSettings.value.ai_provider;
+  
+  // 检查是否是自定义提供商
+  if (provider && provider.startsWith('custom-')) {
+    const customProvider = userSettings.value.custom_ai_providers?.find(p => p.id === provider);
+    return customProvider ? `${customProvider.name} 配置` : '自定义 API 配置';
+  }
+  
   switch (provider) {
     case 'openai':
       return 'OpenAI 配置';
@@ -328,10 +396,10 @@ function getProviderConfigTitle() {
       return 'Azure OpenAI 配置';
     case 'anthropic':
       return 'Anthropic Claude 配置';
-    case 'custom':
-      return '自定义 API 配置';
+    case 'workers-ai':
+      return 'Cloudflare Workers AI 配置';
     default:
-      return '';
+      return 'AI 配置';
   }
 }
 
@@ -1388,17 +1456,41 @@ function handleResend(record: PushHistoryRecord) {
                   <div v-if="userSettings.ai_provider === 'anthropic'" class="provider-check">✓</div>
                 </div>
                 
+                <!-- 用户自定义的AI提供商 -->
                 <div 
-                  class="ai-provider-card"
-                  :class="{ active: userSettings.ai_provider === 'custom', dark: isDark }"
-                  @click="selectProvider('custom')"
+                  v-for="provider in userSettings.custom_ai_providers"
+                  :key="provider.id"
+                  class="ai-provider-card custom-provider"
+                  :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
+                  @click="selectProvider(provider.id)"
                 >
-                  <div class="provider-icon">⚙️</div>
+                  <div class="provider-icon">{{ provider.icon }}</div>
                   <div class="provider-info">
-                    <div class="provider-name">自定义 API</div>
-                    <div class="provider-desc">使用自定义 OpenAI 兼容 API</div>
+                    <div class="provider-name">{{ provider.name }}</div>
+                    <div class="provider-desc">自定义 AI 提供商</div>
                   </div>
-                  <div v-if="userSettings.ai_provider === 'custom'" class="provider-check">✓</div>
+                  <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+                  <button 
+                    class="btn btn-icon-btn provider-delete"
+                    :class="{ dark: isDark }"
+                    @click.stop="deleteCustomProvider(provider.id)"
+                    title="删除此提供商"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <!-- 添加自定义提供商按钮 -->
+                <div 
+                  class="ai-provider-card add-provider"
+                  :class="{ dark: isDark }"
+                  @click="showAddProviderModal = true"
+                >
+                  <div class="provider-icon">➕</div>
+                  <div class="provider-info">
+                    <div class="provider-name">添加自定义提供商</div>
+                    <div class="provider-desc">添加智谱、GLM等其他AI服务</div>
+                  </div>
                 </div>
               </div>
               
@@ -1415,7 +1507,7 @@ function handleResend(record: PushHistoryRecord) {
                     :placeholder="t('placeholder.ai_api_key')"
                   />
                 </div>
-                <div v-if="userSettings.ai_provider === 'azure-openai' || userSettings.ai_provider === 'custom'" class="setting-item">
+                <div class="setting-item">
                   <label>{{ t('label.ai_api_url') }}</label>
                   <input
                     type="url"
@@ -1434,48 +1526,6 @@ function handleResend(record: PushHistoryRecord) {
                     :class="{ dark: isDark }"
                     :placeholder="getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')"
                   />
-                </div>
-                
-                <!-- 自定义字段（仅自定义API支持） -->
-                <div v-if="userSettings.ai_provider === 'custom'" class="custom-fields-section">
-                  <div class="custom-fields-header">
-                    <span class="custom-fields-title">自定义参数</span>
-                    <button
-                      class="btn btn-sm btn-secondary"
-                      :class="{ dark: isDark }"
-                      @click="addCustomField"
-                    >
-                      + 添加参数
-                    </button>
-                  </div>
-                  <div
-                    v-for="(field, index) in currentCustomFields"
-                    :key="index"
-                    class="custom-field-item"
-                  >
-                    <input
-                      type="text"
-                      v-model="field.key"
-                      class="input-sm custom-field-key"
-                      :class="{ dark: isDark }"
-                      placeholder="参数名"
-                    />
-                    <input
-                      type="text"
-                      v-model="field.value"
-                      class="input-sm custom-field-value"
-                      :class="{ dark: isDark }"
-                      placeholder="参数值"
-                    />
-                    <button
-                      class="btn btn-icon-btn"
-                      :class="{ dark: isDark }"
-                      @click="removeCustomField(index)"
-                      title="删除"
-                    >
-                      ✕
-                    </button>
-                  </div>
                 </div>
               </div>
               
@@ -1611,11 +1661,10 @@ function handleResend(record: PushHistoryRecord) {
           <AuditLogs
             v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')"
           />
-        </div>
-      </div>
+          </div>
 
-      <!-- 推送/历史 Tab（当设置面板关闭时显示） -->
-      <template v-else>
+          <!-- 推送/历史 Tab（当设置面板关闭时显示） -->
+          <div v-if="!showSettings">
         <!-- Tab 导航 -->
         <div class="tab-nav" :class="{ dark: isDark }">
           <button
@@ -1674,7 +1723,6 @@ function handleResend(record: PushHistoryRecord) {
           >
             💚 {{ t('tab.health') }}
           </button>
-        </div>
 
         <!-- ==================== 统计仪表盘 Tab ==================== -->
         <StatsDashboard v-if="activeTab === 'stats'" :access-token="accessToken" />
@@ -1736,9 +1784,61 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 审计日志 Tab（从悬浮菜单进入） ==================== -->
         <AuditLogs v-if="activeTab === 'audit' && hasPermission('users:manage')" />
-      </template>
-    </div>
 
+    <!-- 添加自定义AI提供商模态框 -->
+    <Teleport to="body">
+      <div v-if="showAddProviderModal" class="modal-overlay" @click="showAddProviderModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>添加自定义 AI 提供商</h3>
+            <button class="modal-close" @click="showAddProviderModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="setting-item">
+              <label>提供商名称</label>
+              <input
+                type="text"
+                v-model="newProviderName"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                placeholder="例如：智谱 AI、GLM"
+              />
+            </div>
+            <div class="setting-item">
+              <label>选择图标</label>
+              <div class="icon-selector">
+                <button
+                  v-for="icon in iconOptions"
+                  :key="icon"
+                  class="icon-option"
+                  :class="{ active: newProviderIcon === icon, dark: isDark }"
+                  @click="newProviderIcon = icon"
+                >
+                  {{ icon }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button
+              class="btn btn-secondary"
+              :class="{ dark: isDark }"
+              @click="showAddProviderModal = false"
+            >
+              {{ t('button.cancel') }}
+            </button>
+            <button
+              class="btn btn-primary"
+              :class="{ dark: isDark }"
+              @click="addCustomProvider"
+            >
+              {{ t('button.add') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+    
     <!-- AI 助手 -->
     <AIHelper
       :access-token="accessToken"
@@ -3507,46 +3607,167 @@ function handleResend(record: PushHistoryRecord) {
   border-bottom-color: var(--border-color, #4c4c4c);
 }
 
-/* ==================== 自定义字段样式 ==================== */
-.custom-fields-section {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--border-color, #e0e0e0);
+/* ==================== 自定义提供商样式 ==================== */
+.ai-provider-card.add-provider {
+  border: 2px dashed var(--border-color, #ccc);
+  background: transparent;
+  cursor: pointer;
 }
 
-.dark .custom-fields-section {
-  border-top-color: var(--border-color, #555);
+.ai-provider-card.add-provider:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
 }
 
-.custom-fields-header {
+.ai-provider-card.add-provider .provider-icon {
+  background: transparent;
+  color: #667eea;
+  font-size: 24px;
+}
+
+.ai-provider-card.custom-provider .provider-delete {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ai-provider-card.custom-provider:hover .provider-delete {
+  opacity: 1;
+}
+
+.provider-delete {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 12px;
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.provider-delete:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+/* ==================== 图标选择器样式 ==================== */
+.icon-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.icon-option {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  background: var(--bg-primary, #fff);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-option:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.icon-option.active {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.15);
+}
+
+.dark .icon-option {
+  background: var(--bg-secondary, #3c3c3c);
+  border-color: var(--border-color, #555);
+}
+
+/* ==================== 模态框样式 ==================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--bg-primary, #fff);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.dark .modal-content {
+  background: var(--bg-primary, #2d2d2d);
+}
+
+.modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
 }
 
-.custom-fields-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary, #666);
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary, #1a1a2e);
 }
 
-.dark .custom-fields-title {
+.dark .modal-header h3 {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.dark .modal-header {
+  border-bottom-color: var(--border-color, #4c4c4c);
+}
+
+.modal-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
   color: var(--text-secondary, #999);
-}
-
-.custom-field-item {
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 6px;
   display: flex;
-  gap: 8px;
   align-items: center;
-  margin-bottom: 8px;
+  justify-content: center;
 }
 
-.custom-field-key {
-  flex: 1;
+.modal-close:hover {
+  background: var(--border-color, #e0e0e0);
 }
 
-.custom-field-value {
-  flex: 2;
+.dark .modal-close:hover {
+  background: var(--border-color, #4c4c4c);
 }
-</style>
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.dark .modal-actions {
+  border-top-color: var(--border-color, #4c4c4c);
+}

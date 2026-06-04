@@ -992,11 +992,12 @@ export interface AIProviderConfig {
   api_key?: string;
   api_url?: string;
   model_name?: string;
-  // 自定义额外字段
-  custom_fields?: Array<{
-    key: string;
-    value: string;
-  }>;
+}
+
+export interface CustomAIProvider {
+  id: string;
+  name: string;
+  icon: string;
 }
 
 export interface UserSettings {
@@ -1007,15 +1008,11 @@ export interface UserSettings {
   cache_ttl_scheduled?: number;
   ai_model?: string;
   ai_enabled?: boolean;
-  ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
-  // 每个AI提供商独立的配置
-  ai_provider_configs?: {
-    'workers-ai'?: AIProviderConfig;
-    'openai'?: AIProviderConfig;
-    'azure-openai'?: AIProviderConfig;
-    'anthropic'?: AIProviderConfig;
-    'custom'?: AIProviderConfig;
-  };
+  ai_provider?: string;
+  // 自定义AI提供商列表（用户自己添加的）
+  custom_ai_providers?: CustomAIProvider[];
+  // 每个AI提供商独立的配置（支持预定义和自定义提供商）
+  ai_provider_configs?: Record<string, AIProviderConfig>;
   // 兼容性字段（保持与旧版本兼容）
   ai_api_key?: string;
   ai_api_url?: string;
