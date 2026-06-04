@@ -136,36 +136,15 @@ const userSettings = ref<UserSettings>({
   ai_api_key: '',
   ai_api_url: '',
   ai_model_name: '',
-  custom_ai_providers: [],
-  ai_provider_configs: {},
 });
 const isSavingSettings = ref(false);
 const activeSettingsTab = ref<string>('theme');
-
-// ==================== 自定义 AI 提供商相关 ====================
-const showAddProviderModal = ref(false);
-const newProviderName = ref('');
-const newProviderIcon = ref('🤖');
-const availableIcons = ['🤖', '🧠', '⚡', '🔧', '🌟', '🎯', '🚀', '💡', '🔥', '✨'];
-
-// 预定义的提供商列表
-const predefinedProviders = [
-  { id: 'workers-ai', name: 'Cloudflare Workers AI', icon: '☁️', desc: '使用 Cloudflare Workers AI，无需额外配置' },
-  { id: 'openai', name: 'OpenAI', icon: '🧠', desc: '使用 OpenAI GPT 模型，需要 API Key' },
-  { id: 'azure-openai', name: 'Azure OpenAI', icon: '🔷', desc: '使用 Azure OpenAI 服务，需要完整配置' },
-  { id: 'anthropic', name: 'Anthropic Claude', icon: '🤖', desc: '使用 Claude 模型，需要 API Key' },
-];
 
 const userAvatar = ref('');
 const avatarInput = ref('');
 const useAvatarAsPopup = ref(0);
 const isSaving = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
-const showAvatarModal = ref(false);
-
-function closeAvatarModal() {
-  showAvatarModal.value = false;
-}
 
 function triggerFileUpload() {
   fileInput.value?.click();
@@ -229,11 +208,6 @@ async function loadUserSettings() {
         userSettings.value.ai_provider_configs = {};
       }
       
-      // 确保 custom_ai_providers 存在
-      if (!userSettings.value.custom_ai_providers) {
-        userSettings.value.custom_ai_providers = [];
-      }
-      
       // 如果当前提供商有配置，加载到临时字段用于绑定
       const currentProvider = userSettings.value.ai_provider || 'workers-ai';
       loadProviderConfig(currentProvider);
@@ -285,8 +259,7 @@ function getDefaultApiUrlForProvider(provider: string) {
     case 'custom':
       return 'https://api.example.com/v1/chat/completions';
     default:
-      // 对于自定义提供商，返回默认值
-      return 'https://api.example.com/v1/chat/completions';
+      return '';
   }
 }
 
@@ -301,8 +274,7 @@ function getDefaultModelNameForProvider(provider: string) {
     case 'custom':
       return 'gpt-4';
     default:
-      // 对于自定义提供商，返回默认值
-      return 'gpt-4';
+      return '';
   }
 }
 
@@ -333,11 +305,6 @@ function selectProvider(provider: string) {
 
 function getProviderConfigTitle() {
   const provider = userSettings.value.ai_provider;
-  // 检查是否是自定义提供商
-  const customProvider = userSettings.value.custom_ai_providers?.find(p => p.id === provider);
-  if (customProvider) {
-    return `${customProvider.name} 配置`;
-  }
   switch (provider) {
     case 'openai':
       return 'OpenAI 配置';
@@ -350,58 +317,6 @@ function getProviderConfigTitle() {
     default:
       return '';
   }
-}
-
-// ==================== 自定义提供商管理函数 ====================
-function isCustomProvider(providerId: string) {
-  return !!userSettings.value.custom_ai_providers?.find(p => p.id === providerId);
-}
-
-function addCustomProvider() {
-  if (!newProviderName.value.trim()) {
-    showToast('请输入提供商名称', 'error');
-    return;
-  }
-
-  // 生成唯一 ID
-  const providerId = `custom-${Date.now()}`;
-  const newProvider = {
-    id: providerId,
-    name: newProviderName.value.trim(),
-    icon: newProviderIcon.value,
-  };
-
-  if (!userSettings.value.custom_ai_providers) {
-    userSettings.value.custom_ai_providers = [];
-  }
-  userSettings.value.custom_ai_providers.push(newProvider);
-
-  // 重置表单
-  newProviderName.value = '';
-  newProviderIcon.value = '🤖';
-  showAddProviderModal.value = false;
-
-  showToast('自定义提供商添加成功', 'success');
-}
-
-function deleteCustomProvider(providerId: string, event: Event) {
-  event.stopPropagation();
-  
-  // 检查是否是当前选中的提供商
-  if (userSettings.value.ai_provider === providerId) {
-    showToast('无法删除当前正在使用的提供商', 'error');
-    return;
-  }
-
-  // 从列表中删除
-  userSettings.value.custom_ai_providers = userSettings.value.custom_ai_providers?.filter(p => p.id !== providerId) || [];
-  
-  // 删除相关配置
-  if (userSettings.value.ai_provider_configs) {
-    delete userSettings.value.ai_provider_configs[providerId];
-  }
-
-  showToast('自定义提供商删除成功', 'success');
 }
 
 async function handleSaveSettings() {
@@ -423,11 +338,7 @@ async function handleSaveSettings() {
         showToast('请输入模型名称', 'error');
         return;
       }
-      // 对于 azure-openai 和所有自定义提供商，需要 API URL
-      if ((userSettings.value.ai_provider === 'azure-openai' || 
-           userSettings.value.ai_provider === 'custom' || 
-           isCustomProvider(userSettings.value.ai_provider)) && 
-          !userSettings.value.ai_api_url?.trim()) {
+      if (userSettings.value.ai_provider === 'custom' && !userSettings.value.ai_api_url?.trim()) {
         showToast('请输入 API URL', 'error');
         return;
       }
@@ -1146,58 +1057,6 @@ function handleResend(record: PushHistoryRecord) {
         </div>
       </div>
     </Teleport>
-
-    <!-- 添加自定义 AI 提供商模态框 -->
-    <Teleport to="body">
-      <div v-if="showAddProviderModal" class="modal-overlay" @click.self="showAddProviderModal = false">
-        <div class="modal-content" :class="{ dark: isDark }">
-          <div class="modal-header">
-            <h3>添加自定义 AI 提供商</h3>
-            <button class="modal-close" @click="showAddProviderModal = false">✕</button>
-          </div>
-          <div class="modal-body">
-            <!-- 提供商名称输入 -->
-            <div class="form-group">
-              <label>提供商名称</label>
-              <input
-                v-model="newProviderName"
-                type="text"
-                class="form-input"
-                :class="{ dark: isDark }"
-                placeholder="例如：My AI Service"
-                autofocus
-              />
-            </div>
-
-            <!-- 图标选择 -->
-            <div class="form-group">
-              <label>选择图标</label>
-              <div class="icon-selector">
-                <button
-                  v-for="icon in availableIcons"
-                  :key="icon"
-                  class="icon-option"
-                  :class="{ active: newProviderIcon === icon, dark: isDark }"
-                  @click="newProviderIcon = icon"
-                >
-                  {{ icon }}
-                </button>
-              </div>
-            </div>
-
-            <!-- 操作按钮 -->
-            <div class="modal-actions">
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showAddProviderModal = false">
-                取消
-              </button>
-              <button class="btn btn-primary" @click="addCustomProvider">
-                添加
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
     <!-- 轻提示 Toast -->
     <transition name="toast">
       <div v-if="toast" class="toast" :class="toast.type">
@@ -1452,49 +1311,58 @@ function handleResend(record: PushHistoryRecord) {
               
               <!-- AI 提供商选择 -->
               <div class="ai-provider-list">
-                <!-- 预定义提供商 -->
                 <div 
-                  v-for="provider in predefinedProviders"
-                  :key="provider.id"
                   class="ai-provider-card"
-                  :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
-                  @click="selectProvider(provider.id)"
+                  :class="{ active: userSettings.ai_provider === 'workers-ai', dark: isDark }"
+                  @click="selectProvider('workers-ai')"
                 >
-                  <div class="provider-icon">{{ provider.icon }}</div>
+                  <div class="provider-icon">☁️</div>
                   <div class="provider-info">
-                    <div class="provider-name">{{ provider.name }}</div>
-                    <div class="provider-desc">{{ provider.desc }}</div>
+                    <div class="provider-name">Cloudflare Workers AI</div>
+                    <div class="provider-desc">使用 Cloudflare Workers AI，无需额外配置</div>
                   </div>
-                  <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+                  <div v-if="userSettings.ai_provider === 'workers-ai'" class="provider-check">✓</div>
                 </div>
                 
-                <!-- 自定义提供商 -->
                 <div 
-                  v-for="provider in userSettings.custom_ai_providers"
-                  :key="provider.id"
                   class="ai-provider-card"
-                  :class="{ active: userSettings.ai_provider === provider.id, dark: isDark }"
-                  @click="selectProvider(provider.id)"
+                  :class="{ active: userSettings.ai_provider === 'openai', dark: isDark }"
+                  @click="selectProvider('openai')"
                 >
-                  <div class="provider-icon">{{ provider.icon }}</div>
+                  <div class="provider-icon">🧠</div>
                   <div class="provider-info">
-                    <div class="provider-name">{{ provider.name }}</div>
-                    <div class="provider-desc">自定义 AI 提供商</div>
+                    <div class="provider-name">OpenAI</div>
+                    <div class="provider-desc">使用 OpenAI GPT 模型，需要 API Key</div>
                   </div>
-                  <div class="provider-actions">
-                    <button 
-                      class="delete-provider-btn"
-                      @click="deleteCustomProvider(provider.id, $event)"
-                      :class="{ dark: isDark }"
-                      title="删除提供商"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+                  <div v-if="userSettings.ai_provider === 'openai'" class="provider-check">✓</div>
                 </div>
                 
-                <!-- 旧的自定义 API 选项保留兼容 -->
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'azure-openai', dark: isDark }"
+                  @click="selectProvider('azure-openai')"
+                >
+                  <div class="provider-icon">🔷</div>
+                  <div class="provider-info">
+                    <div class="provider-name">Azure OpenAI</div>
+                    <div class="provider-desc">使用 Azure OpenAI 服务，需要完整配置</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'azure-openai'" class="provider-check">✓</div>
+                </div>
+                
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'anthropic', dark: isDark }"
+                  @click="selectProvider('anthropic')"
+                >
+                  <div class="provider-icon">🤖</div>
+                  <div class="provider-info">
+                    <div class="provider-name">Anthropic Claude</div>
+                    <div class="provider-desc">使用 Claude 模型，需要 API Key</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'anthropic'" class="provider-check">✓</div>
+                </div>
+                
                 <div 
                   class="ai-provider-card"
                   :class="{ active: userSettings.ai_provider === 'custom', dark: isDark }"
@@ -1502,23 +1370,10 @@ function handleResend(record: PushHistoryRecord) {
                 >
                   <div class="provider-icon">⚙️</div>
                   <div class="provider-info">
-                    <div class="provider-name">自定义 API (旧版)</div>
+                    <div class="provider-name">自定义 API</div>
                     <div class="provider-desc">使用自定义 OpenAI 兼容 API</div>
                   </div>
                   <div v-if="userSettings.ai_provider === 'custom'" class="provider-check">✓</div>
-                </div>
-                
-                <!-- 添加自定义提供商按钮 -->
-                <div 
-                  class="ai-provider-card add-provider-btn"
-                  :class="{ dark: isDark }"
-                  @click="showAddProviderModal = true"
-                >
-                  <div class="provider-icon">➕</div>
-                  <div class="provider-info">
-                    <div class="provider-name">添加自定义提供商</div>
-                    <div class="provider-desc">创建您自己的 AI 提供商配置</div>
-                  </div>
                 </div>
               </div>
               
@@ -1535,12 +1390,7 @@ function handleResend(record: PushHistoryRecord) {
                     :placeholder="t('placeholder.ai_api_key')"
                   />
                 </div>
-                <div 
-                  v-if="userSettings.ai_provider === 'azure-openai' || 
-                         userSettings.ai_provider === 'custom' || 
-                         isCustomProvider(userSettings.ai_provider)" 
-                  class="setting-item"
-                >
+                <div v-if="userSettings.ai_provider === 'azure-openai' || userSettings.ai_provider === 'custom'" class="setting-item">
                   <label>{{ t('label.ai_api_url') }}</label>
                   <input
                     type="url"
@@ -3574,98 +3424,5 @@ function handleResend(record: PushHistoryRecord) {
 .provider-config.dark .config-title {
   color: var(--text-primary, #e0e0e0);
   border-bottom-color: var(--border-color, #4c4c4c);
-}
-
-/* ==================== 自定义提供商添加按钮样式 ==================== */
-.ai-provider-card.add-provider-btn {
-  border: 2px dashed var(--border-color, #d0d0d0);
-  background: transparent;
-  cursor: pointer;
-}
-
-.ai-provider-card.add-provider-btn:hover {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
-}
-
-.ai-provider-card.add-provider-btn.dark {
-  border-color: var(--border-color, #4c4c4c);
-}
-
-.ai-provider-card.add-provider-btn.dark:hover {
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.1);
-}
-
-/* ==================== 删除提供商按钮样式 ==================== */
-.provider-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.delete-provider-btn {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  opacity: 0.6;
-  transition: all 0.2s;
-}
-
-.delete-provider-btn:hover {
-  opacity: 1;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.delete-provider-btn.dark:hover {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-/* ==================== 图标选择器样式 ==================== */
-.icon-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.icon-option {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-radius: 10px;
-  background: var(--bg-primary, #fff);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.icon-option:hover {
-  border-color: #667eea;
-  transform: scale(1.1);
-}
-
-.icon-option.active {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
-}
-
-.icon-option.dark {
-  background: var(--bg-primary, #1e1e1e);
-  border-color: var(--border-color, #3c3c3c);
-}
-
-.icon-option.dark:hover {
-  border-color: #8b5cf6;
-}
-
-.icon-option.dark.active {
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.15);
 }
 </style>
