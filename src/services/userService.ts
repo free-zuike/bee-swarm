@@ -48,7 +48,6 @@ export interface User {
   disabled_reason?: string | null;
   avatar_url?: string | null;
   use_avatar_as_popup?: number;
-  settings?: string | null;
   cache_settings?: string | null;
   ai_settings?: string | null;
   password_reset_token?: string | null;
