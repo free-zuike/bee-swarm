@@ -1485,14 +1485,15 @@ function handleResend(record: PushHistoryRecord) {
               <div class="modal-actions">
                 <button
                   v-if="userAvatar"
-                  class="btn btn-danger"
+                  class="btn btn-danger flex-1"
                   :class="{ dark: isDark }"
                   @click="deleteAvatar"
                 >
                   {{ t('button.delete_avatar') }}
                 </button>
                 <button
-                  class="btn btn-primary"
+                  class="btn btn-primary flex-1"
+                  :class="{ dark: isDark }"
                   :disabled="isSaving"
                   @click="handleSaveAvatar"
                 >
@@ -2590,6 +2591,10 @@ function handleResend(record: PushHistoryRecord) {
   gap: 12px;
   justify-content: flex-end;
   margin-top: 24px;
+}
+
+.flex-1 {
+  flex: 1;
 }
 
 /* ==================== 头像预览样式 ==================== */
