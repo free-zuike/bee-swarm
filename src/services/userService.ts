@@ -49,10 +49,31 @@ export interface User {
   avatar_url?: string | null;
   use_avatar_as_popup?: number;
   settings?: string | null;
+  cache_settings?: string | null;
+  ai_settings?: string | null;
   password_reset_token?: string | null;
   password_reset_expires_at?: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CacheSettings {
+  cache_ttl_backup?: number;
+  cache_ttl_channels?: number;
+  cache_ttl_templates?: number;
+  cache_ttl_groups?: number;
+  cache_ttl_scheduled?: number;
+}
+
+export interface AISettings {
+  ai_model?: string;
+  ai_enabled?: boolean;
+  ai_provider?: string;
+  ai_api_key?: string;
+  ai_api_url?: string;
+  ai_model_name?: string;
+  custom_ai_providers?: CustomAIProvider[];
+  ai_provider_configs?: Record<string, AIProviderConfig>;
 }
 
 export class UserService {
@@ -154,34 +175,67 @@ export class UserService {
     return this.findById(id);
   }
 
-  /** 获取用户设置 */
-  async getUserSettings(userId: string): Promise<UserSettings> {
+  /** 获取缓存设置 */
+  async getCacheSettings(userId: string): Promise<CacheSettings> {
     this.checkDB();
     try {
-      const result = await this.env.DB.prepare('SELECT settings FROM users WHERE id = ?')
+      const result = await this.env.DB.prepare('SELECT cache_settings FROM users WHERE id = ?')
         .bind(userId)
-        .first<{ settings?: string }>();
+        .first<{ cache_settings?: string }>();
 
-      if (!result?.settings) {
-        return this.getDefaultSettings();
+      if (!result?.cache_settings) {
+        return this.getDefaultCacheSettings();
       }
 
-      const settings = JSON.parse(result.settings) as UserSettings;
-      return { ...this.getDefaultSettings(), ...settings };
+      const settings = JSON.parse(result.cache_settings) as CacheSettings;
+      return { ...this.getDefaultCacheSettings(), ...settings };
     } catch (error) {
-      console.warn('[UserService] Failed to get settings, returning defaults:', error);
-      return this.getDefaultSettings();
+      console.warn('[UserService] Failed to get cache settings, returning defaults:', error);
+      return this.getDefaultCacheSettings();
     }
   }
 
-  /** 获取默认设置 */
-  getDefaultSettings(): UserSettings {
+  /** 获取AI设置 */
+  async getAISettings(userId: string): Promise<AISettings> {
+    this.checkDB();
+    try {
+      const result = await this.env.DB.prepare('SELECT ai_settings FROM users WHERE id = ?')
+        .bind(userId)
+        .first<{ ai_settings?: string }>();
+
+      if (!result?.ai_settings) {
+        return this.getDefaultAISettings();
+      }
+
+      const settings = JSON.parse(result.ai_settings) as AISettings;
+      return { ...this.getDefaultAISettings(), ...settings };
+    } catch (error) {
+      console.warn('[UserService] Failed to get AI settings, returning defaults:', error);
+      return this.getDefaultAISettings();
+    }
+  }
+
+  /** 获取用户设置（兼容旧接口） */
+  async getUserSettings(userId: string): Promise<UserSettings> {
+    const cacheSettings = await this.getCacheSettings(userId);
+    const aiSettings = await this.getAISettings(userId);
+    return { ...cacheSettings, ...aiSettings };
+  }
+
+  /** 获取默认缓存设置 */
+  getDefaultCacheSettings(): CacheSettings {
     return {
       cache_ttl_backup: 5 * 60 * 1000,
       cache_ttl_channels: 5 * 60 * 1000,
       cache_ttl_templates: 5 * 60 * 1000,
       cache_ttl_groups: 5 * 60 * 1000,
       cache_ttl_scheduled: 5 * 60 * 1000,
+    };
+  }
+
+  /** 获取默认AI设置 */
+  getDefaultAISettings(): AISettings {
+    return {
       ai_model: 'workers-ai',
       ai_enabled: true,
       ai_provider: 'workers-ai',
@@ -191,22 +245,71 @@ export class UserService {
     };
   }
 
-  /** 保存用户设置 */
-  async saveUserSettings(userId: string, settings: UserSettings): Promise<void> {
+  /** 获取默认设置（兼容旧接口） */
+  getDefaultSettings(): UserSettings {
+    return { ...this.getDefaultCacheSettings(), ...this.getDefaultAISettings() };
+  }
+
+  /** 保存缓存设置 */
+  async saveCacheSettings(userId: string, settings: CacheSettings): Promise<void> {
     this.checkDB();
     const now = new Date().toISOString();
     const settingsJson = JSON.stringify(settings);
 
     try {
-      await this.env.DB.prepare('UPDATE users SET settings = ?, updated_at = ? WHERE id = ?')
+      await this.env.DB.prepare('UPDATE users SET cache_settings = ?, updated_at = ? WHERE id = ?')
         .bind(settingsJson, now, userId)
         .run();
     } catch (error) {
       console.warn(
-        '[UserService] Failed to save settings, table may not have settings column:',
+        '[UserService] Failed to save cache settings, table may not have cache_settings column:',
         error
       );
     }
+  }
+
+  /** 保存AI设置 */
+  async saveAISettings(userId: string, settings: AISettings): Promise<void> {
+    this.checkDB();
+    const now = new Date().toISOString();
+    const settingsJson = JSON.stringify(settings);
+
+    try {
+      await this.env.DB.prepare('UPDATE users SET ai_settings = ?, updated_at = ? WHERE id = ?')
+        .bind(settingsJson, now, userId)
+        .run();
+    } catch (error) {
+      console.warn(
+        '[UserService] Failed to save AI settings, table may not have ai_settings column:',
+        error
+      );
+    }
+  }
+
+  /** 保存用户设置（兼容旧接口） */
+  async saveUserSettings(userId: string, settings: UserSettings): Promise<void> {
+    // 分别保存缓存设置和AI设置
+    const cacheSettings: CacheSettings = {
+      cache_ttl_backup: settings.cache_ttl_backup,
+      cache_ttl_channels: settings.cache_ttl_channels,
+      cache_ttl_templates: settings.cache_ttl_templates,
+      cache_ttl_groups: settings.cache_ttl_groups,
+      cache_ttl_scheduled: settings.cache_ttl_scheduled,
+    };
+
+    const aiSettings: AISettings = {
+      ai_model: settings.ai_model,
+      ai_enabled: settings.ai_enabled,
+      ai_provider: settings.ai_provider,
+      ai_api_key: settings.ai_api_key,
+      ai_api_url: settings.ai_api_url,
+      ai_model_name: settings.ai_model_name,
+      custom_ai_providers: settings.custom_ai_providers,
+      ai_provider_configs: settings.ai_provider_configs,
+    };
+
+    await this.saveCacheSettings(userId, cacheSettings);
+    await this.saveAISettings(userId, aiSettings);
   }
 
   /** 删除用户（慎用） */

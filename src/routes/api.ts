@@ -780,9 +780,9 @@ adminApi.put('/me/settings/cache', async (c) => {
     cache_ttl_scheduled?: number;
   }>();
 
-  const currentSettings = await svc.getUserSettings(user.id);
-  const newSettings = {
-    ...currentSettings,
+  const currentCacheSettings = await svc.getCacheSettings(user.id);
+  const newCacheSettings = {
+    ...currentCacheSettings,
     cache_ttl_backup: body.cache_ttl_backup,
     cache_ttl_channels: body.cache_ttl_channels,
     cache_ttl_templates: body.cache_ttl_templates,
@@ -790,18 +790,9 @@ adminApi.put('/me/settings/cache', async (c) => {
     cache_ttl_scheduled: body.cache_ttl_scheduled,
   };
 
-  await svc.saveUserSettings(user.id, newSettings);
+  await svc.saveCacheSettings(user.id, newCacheSettings);
 
-  // 只返回缓存相关字段
-  const responseSettingsCache = {
-    cache_ttl_backup: newSettings.cache_ttl_backup,
-    cache_ttl_channels: newSettings.cache_ttl_channels,
-    cache_ttl_templates: newSettings.cache_ttl_templates,
-    cache_ttl_groups: newSettings.cache_ttl_groups,
-    cache_ttl_scheduled: newSettings.cache_ttl_scheduled,
-  };
-
-  return c.json({ success: true, message: '缓存设置已保存', settings: responseSettingsCache });
+  return c.json({ success: true, message: '缓存设置已保存', settings: newCacheSettings });
 });
 
 /** 保存AI设置（仅AI相关字段） */
@@ -825,9 +816,9 @@ adminApi.put('/me/settings/ai', async (c) => {
     ai_provider_configs?: Record<string, { api_key?: string; api_url?: string; model_name?: string }>;
   }>();
 
-  const currentSettings = await svc.getUserSettings(user.id);
-  const newSettings = {
-    ...currentSettings,
+  const currentAISettings = await svc.getAISettings(user.id);
+  const newAISettings = {
+    ...currentAISettings,
     ai_model: body.ai_model,
     ai_enabled: body.ai_enabled,
     ai_provider: body.ai_provider,
@@ -838,21 +829,9 @@ adminApi.put('/me/settings/ai', async (c) => {
     ai_provider_configs: body.ai_provider_configs,
   };
 
-  await svc.saveUserSettings(user.id, newSettings);
+  await svc.saveAISettings(user.id, newAISettings);
 
-  // 只返回AI相关字段
-  const responseSettingsAI = {
-    ai_model: newSettings.ai_model,
-    ai_enabled: newSettings.ai_enabled,
-    ai_provider: newSettings.ai_provider,
-    ai_api_key: newSettings.ai_api_key,
-    ai_api_url: newSettings.ai_api_url,
-    ai_model_name: newSettings.ai_model_name,
-    custom_ai_providers: newSettings.custom_ai_providers,
-    ai_provider_configs: newSettings.ai_provider_configs,
-  };
-
-  return c.json({ success: true, message: 'AI设置已保存', settings: responseSettingsAI });
+  return c.json({ success: true, message: 'AI设置已保存', settings: newAISettings });
 });
 
 /** 上传头像文件 */
