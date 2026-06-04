@@ -302,6 +302,8 @@ function getDefaultModelNameForProvider(provider: string) {
       return 'gpt-4';
     case 'anthropic':
       return 'claude-3-opus';
+    case 'workers-ai':
+      return '@cf/meta/llama-3-8b-instruct';
     case 'custom':
       return 'gpt-4';
     default:
@@ -320,44 +322,21 @@ function updateCacheSettings() {
   });
 }
 
-async function selectProvider(provider: string) {
-  // 如果正在保存，等待完成
+function selectProvider(provider: string) {
+  // 如果正在保存配置，等待完成
   if (isSavingSettings.value) return;
   
+  // 保存当前提供商的配置（防止丢失未保存的配置）
   const oldProvider = userSettings.value.ai_provider;
-  
-  // 保存旧提供商的配置
   if (oldProvider) {
     saveProviderConfig(oldProvider);
   }
   
-  // 立即更新选中的提供商
+  // 切换到新提供商
   userSettings.value.ai_provider = provider as any;
   
   // 加载新提供商的配置
   loadProviderConfig(provider);
-  
-  // 立即发送请求保存提供商选择（不保存配置细节）
-  isSavingSettings.value = true;
-  
-  // 显式创建请求数据，确保使用正确的提供商
-  const requestData = {
-    ai_provider: provider,
-    ai_provider_configs: userSettings.value.ai_provider_configs,
-    custom_ai_providers: userSettings.value.custom_ai_providers,
-  };
-  
-  try {
-    await saveUserSettings(accessToken.value, requestData);
-  } catch {
-    // 失败时回滚到旧提供商
-    userSettings.value.ai_provider = oldProvider as any;
-    if (oldProvider) {
-      loadProviderConfig(oldProvider);
-    }
-  } finally {
-    isSavingSettings.value = false;
-  }
 }
 
 function getProviderConfigTitle() {
