@@ -323,35 +323,33 @@ function updateCacheSettings() {
 }
 
 async function selectProvider(provider: string) {
-  // 如果正在保存配置，等待完成
+  // 如果正在保存，等待完成
   if (isSavingSettings.value) return;
   
-  // 保存当前提供商的配置（防止丢失未保存的配置）
   const oldProvider = userSettings.value.ai_provider;
+  
+  // 先保存旧提供商的配置（内存中）
   if (oldProvider) {
     saveProviderConfig(oldProvider);
   }
   
-  // 切换到新提供商
-  userSettings.value.ai_provider = provider as any;
+  // 先构建请求数据
+  const requestData: Record<string, any> = {};
+  requestData.ai_provider = provider;  // 直接用参数，确保正确
+  requestData.ai_provider_configs = userSettings.value.ai_provider_configs;
+  requestData.custom_ai_providers = userSettings.value.custom_ai_providers;
   
-  // 加载新提供商的配置
-  loadProviderConfig(provider);
-  
-  // 只保存 ai_provider，告诉服务器我们选择了这个AI
+  // 先发送请求
   isSavingSettings.value = true;
   try {
-    await saveUserSettings(accessToken.value, {
-      ai_provider: provider,
-      ai_provider_configs: userSettings.value.ai_provider_configs,
-      custom_ai_providers: userSettings.value.custom_ai_providers,
-    });
+    await saveUserSettings(accessToken.value, requestData);
+    
+    // 请求成功后再更新本地状态
+    userSettings.value.ai_provider = provider as any;
+    loadProviderConfig(provider);
   } catch {
-    // 失败时回滚
-    userSettings.value.ai_provider = oldProvider as any;
-    if (oldProvider) {
-      loadProviderConfig(oldProvider);
-    }
+    // 失败时什么都不做，保持原样
+    showToast('切换失败，请重试', 'error');
   } finally {
     isSavingSettings.value = false;
   }
