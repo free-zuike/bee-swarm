@@ -202,6 +202,16 @@ async function loadUserSettings() {
     const result = await getUserSettings(accessToken.value);
     if (result.success) {
       userSettings.value = result.settings;
+      
+      // 确保 ai_provider_configs 存在
+      if (!userSettings.value.ai_provider_configs) {
+        userSettings.value.ai_provider_configs = {};
+      }
+      
+      // 如果当前提供商有配置，加载到临时字段用于绑定
+      const currentProvider = userSettings.value.ai_provider || 'workers-ai';
+      loadProviderConfig(currentProvider);
+      
       updateCacheSettings();
     }
   } catch {
@@ -209,18 +219,36 @@ async function loadUserSettings() {
   }
 }
 
-function updateCacheSettings() {
-  apiCache.setCustomTtl({
-    cache_ttl_backup: userSettings.value.cache_ttl_backup,
-    cache_ttl_channels: userSettings.value.cache_ttl_channels,
-    cache_ttl_templates: userSettings.value.cache_ttl_templates,
-    cache_ttl_groups: userSettings.value.cache_ttl_groups,
-    cache_ttl_scheduled: userSettings.value.cache_ttl_scheduled,
-  });
+// 保存当前提供商的配置
+function saveProviderConfig(provider: string) {
+  if (!userSettings.value.ai_provider_configs) {
+    userSettings.value.ai_provider_configs = {};
+  }
+  
+  userSettings.value.ai_provider_configs[provider as keyof typeof userSettings.value.ai_provider_configs] = {
+    api_key: userSettings.value.ai_api_key,
+    api_url: userSettings.value.ai_api_url,
+    model_name: userSettings.value.ai_model_name,
+  };
 }
 
-function getDefaultApiUrl() {
-  const provider = userSettings.value.ai_provider;
+// 加载提供商的配置
+function loadProviderConfig(provider: string) {
+  const config = userSettings.value.ai_provider_configs?.[provider as keyof typeof userSettings.value.ai_provider_configs];
+  
+  if (config) {
+    userSettings.value.ai_api_key = config.api_key || '';
+    userSettings.value.ai_api_url = config.api_url || getDefaultApiUrlForProvider(provider);
+    userSettings.value.ai_model_name = config.model_name || getDefaultModelNameForProvider(provider);
+  } else {
+    // 如果没有保存过该提供商的配置，使用默认值
+    userSettings.value.ai_api_key = '';
+    userSettings.value.ai_api_url = getDefaultApiUrlForProvider(provider);
+    userSettings.value.ai_model_name = getDefaultModelNameForProvider(provider);
+  }
+}
+
+function getDefaultApiUrlForProvider(provider: string) {
   switch (provider) {
     case 'openai':
       return 'https://api.openai.com/v1/chat/completions';
@@ -235,41 +263,44 @@ function getDefaultApiUrl() {
   }
 }
 
-function getDefaultModelName() {
-  const provider = userSettings.value.ai_provider;
+function getDefaultModelNameForProvider(provider: string) {
   switch (provider) {
     case 'openai':
-      return 'gpt-4o';
+      return 'gpt-4';
     case 'azure-openai':
-      return '';
+      return 'gpt-4';
     case 'anthropic':
-      return 'claude-3-5-sonnet-20240620';
+      return 'claude-3-opus';
     case 'custom':
-      return '';
+      return 'gpt-4';
     default:
       return '';
   }
 }
 
-function handleProviderChange() {
-  // 切换提供商时不清空已设置的值，由用户自行管理
-  // 只清空不适用于新提供商的配置（如 workers-ai 不需要 api_key）
+function updateCacheSettings() {
+  apiCache.setCustomTtl({
+    cache_ttl_backup: userSettings.value.cache_ttl_backup,
+    cache_ttl_channels: userSettings.value.cache_ttl_channels,
+    cache_ttl_templates: userSettings.value.cache_ttl_templates,
+    cache_ttl_groups: userSettings.value.cache_ttl_groups,
+    cache_ttl_scheduled: userSettings.value.cache_ttl_scheduled,
+  });
 }
 
 function selectProvider(provider: string) {
   const oldProvider = userSettings.value.ai_provider;
-  userSettings.value.ai_provider = provider as any;
   
-  // 只有当切换到 workers-ai 时才清空其他配置
-  // 切换到其他提供商时保留已有配置
-  if (provider === 'workers-ai') {
-    // workers-ai 不需要这些配置，清空避免混淆
-    userSettings.value.ai_api_key = '';
-    userSettings.value.ai_api_url = '';
-    userSettings.value.ai_model_name = '';
+  // 保存旧提供商的配置
+  if (oldProvider) {
+    saveProviderConfig(oldProvider);
   }
   
-  handleProviderChange();
+  // 切换到新提供商
+  userSettings.value.ai_provider = provider as any;
+  
+  // 加载新提供商的配置
+  loadProviderConfig(provider);
 }
 
 function getProviderConfigTitle() {
@@ -312,6 +343,11 @@ async function handleSaveSettings() {
         return;
       }
     }
+  }
+
+  // 保存当前提供商的配置到 ai_provider_configs
+  if (userSettings.value.ai_provider) {
+    saveProviderConfig(userSettings.value.ai_provider);
   }
 
   isSavingSettings.value = true;

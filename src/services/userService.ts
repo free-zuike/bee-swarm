@@ -2,6 +2,12 @@ import type { Env } from '../types';
 
 export type UserRole = 'admin' | 'user' | 'viewer';
 
+export interface AIProviderConfig {
+  api_key?: string;
+  api_url?: string;
+  model_name?: string;
+}
+
 export interface UserSettings {
   cache_ttl_backup?: number;
   cache_ttl_channels?: number;
@@ -11,6 +17,15 @@ export interface UserSettings {
   ai_model?: string;
   ai_enabled?: boolean;
   ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+  // 每个AI提供商独立的配置
+  ai_provider_configs?: {
+    'workers-ai'?: AIProviderConfig;
+    'openai'?: AIProviderConfig;
+    'azure-openai'?: AIProviderConfig;
+    'anthropic'?: AIProviderConfig;
+    'custom'?: AIProviderConfig;
+  };
+  // 兼容性字段（保持与旧版本兼容）
   ai_api_key?: string;
   ai_api_url?: string;
   ai_model_name?: string;
