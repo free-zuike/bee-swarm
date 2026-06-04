@@ -1777,9 +1777,9 @@ function handleResend(record: PushHistoryRecord) {
 }
 
 .container {
-  max-width: 960px;
-  margin: 24px auto;
-  padding: 0 24px;
+  width: 100%;
+  margin: 24px 0;
+  padding: 0;
 }
 
 /* ==================== Tab 导航 ==================== */
@@ -2591,8 +2591,7 @@ function handleResend(record: PushHistoryRecord) {
   max-height: calc(100vh - 120px);
   overflow: hidden;
   width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 0 16px;
 }
 
 .settings-sidebar {
