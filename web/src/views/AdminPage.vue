@@ -2679,11 +2679,8 @@ function handleResend(record: PushHistoryRecord) {
 
 .settings-content {
   flex: 1;
-  background: var(--bg-secondary, #f5f5f5);
-  border-radius: 12px;
-  padding: 24px;
-  min-height: 400px;
-  overflow: visible;
+  background: transparent;
+  padding: 0;
 }
 
 .settings-content.dark {
@@ -2694,7 +2691,7 @@ function handleResend(record: PushHistoryRecord) {
   animation: fadeIn 0.2s ease;
   background: var(--bg-secondary, #f5f5f5);
   border-radius: 12px;
-  padding: 24px;
+  padding: 16px;
 }
 
 .settings-card {
