@@ -219,6 +219,48 @@ function updateCacheSettings() {
   });
 }
 
+function getDefaultApiUrl() {
+  const provider = userSettings.value.ai_provider;
+  switch (provider) {
+    case 'openai':
+      return 'https://api.openai.com/v1/chat/completions';
+    case 'azure-openai':
+      return 'https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-name}/chat/completions?api-version=2024-02-15-preview';
+    case 'anthropic':
+      return 'https://api.anthropic.com/v1/messages';
+    case 'custom':
+      return 'https://api.example.com/v1/chat/completions';
+    default:
+      return '';
+  }
+}
+
+function getDefaultModelName() {
+  const provider = userSettings.value.ai_provider;
+  switch (provider) {
+    case 'openai':
+      return 'gpt-4o';
+    case 'azure-openai':
+      return '';
+    case 'anthropic':
+      return 'claude-3-5-sonnet-20240620';
+    case 'custom':
+      return '';
+    default:
+      return '';
+  }
+}
+
+function handleProviderChange() {
+  const provider = userSettings.value.ai_provider;
+  if (!userSettings.value.ai_api_url) {
+    userSettings.value.ai_api_url = getDefaultApiUrl();
+  }
+  if (!userSettings.value.ai_model_name) {
+    userSettings.value.ai_model_name = getDefaultModelName();
+  }
+}
+
 async function handleSaveSettings() {
   if (isSavingSettings.value) return;
 
@@ -1121,7 +1163,7 @@ function handleResend(record: PushHistoryRecord) {
           <!-- 缓存设置 -->
           <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel">
             <h3>🗄️ {{ t('label.cache_settings') }}</h3>
-            <div class="settings-card">
+            <div class="settings-card cache-settings">
               <div class="setting-item">
                 <label>{{ t('label.cache_ttl_backup') }}</label>
                 <input
@@ -1195,7 +1237,7 @@ function handleResend(record: PushHistoryRecord) {
           <!-- AI 设置 -->
           <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel">
             <h3>🤖 {{ t('label.ai_settings') }}</h3>
-            <div class="settings-card">
+            <div class="settings-card ai-settings">
               <div class="setting-item">
                 <label>{{ t('label.ai_enabled') }}</label>
                 <label class="toggle">
@@ -1209,6 +1251,7 @@ function handleResend(record: PushHistoryRecord) {
                   v-model="userSettings.ai_provider"
                   class="input-sm"
                   :class="{ dark: isDark }"
+                  @change="handleProviderChange"
                 >
                   <option value="workers-ai">Cloudflare Workers AI</option>
                   <option value="openai">OpenAI</option>
@@ -1227,14 +1270,14 @@ function handleResend(record: PushHistoryRecord) {
                   :placeholder="t('placeholder.ai_api_key')"
                 />
               </div>
-              <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
+              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
                 <label>{{ t('label.ai_api_url') }}</label>
                 <input
                   type="url"
                   v-model="userSettings.ai_api_url"
                   class="input-sm"
                   :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.ai_api_url')"
+                  :placeholder="getDefaultApiUrl()"
                 />
               </div>
               <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
@@ -1244,7 +1287,7 @@ function handleResend(record: PushHistoryRecord) {
                   v-model="userSettings.ai_model_name"
                   class="input-sm"
                   :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.ai_model_name')"
+                  :placeholder="getDefaultModelName()"
                 />
               </div>
               <button
@@ -2691,11 +2734,12 @@ function handleResend(record: PushHistoryRecord) {
 
 .settings-card {
   background: var(--bg-panel, #ffffff);
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   width: 100%;
   box-sizing: border-box;
+  border: 1px solid var(--border-color, #e8e8e8);
 }
 
 .settings-panel.dark .settings-card {
@@ -2854,6 +2898,130 @@ function handleResend(record: PushHistoryRecord) {
   display: flex;
   gap: 12px;
   margin-top: 20px;
+}
+
+/* ==================== AI 设置和缓存设置优化样式 ==================== */
+.settings-card.ai-settings {
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.settings-card.cache-settings {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.settings-panel.dark .settings-card.ai-settings {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+}
+
+.settings-panel.dark .settings-card.cache-settings {
+  background: linear-gradient(135deg, #451a03 0%, #713f12 100%);
+}
+
+/* 设置项优化 */
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-color, #e8e8e8);
+  gap: 20px;
+}
+
+.setting-item:last-of-type {
+  border-bottom: none;
+}
+
+.setting-item label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+  flex-shrink: 0;
+}
+
+.setting-item .toggle {
+  margin-left: auto;
+}
+
+.setting-item .input-sm,
+.setting-item select {
+  flex: 1;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a2e);
+  transition: all 0.2s;
+}
+
+.setting-item .input-sm:focus,
+.setting-item select:focus {
+  outline: none;
+  border-color: var(--primary-color, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.setting-item .unit {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.settings-panel.dark .setting-item label {
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.settings-panel.dark .setting-item .input-sm,
+.settings-panel.dark .setting-item select {
+  background: var(--bg-dark-primary, #16162a);
+  border-color: var(--border-dark-color, #333);
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.settings-card .btn-primary {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-card .btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.settings-card .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-card .btn-secondary {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-color, #e0e0e0);
+  color: var(--text-primary, #1a1a2e);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-card .btn-secondary:hover {
+  background: var(--bg-secondary, #f5f5f5);
 }
 
 /* ==================== 可折叠设置面板样式 ==================== */

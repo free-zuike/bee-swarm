@@ -23,8 +23,9 @@
       <div v-else class="user-list">
         <div v-for="user in users" :key="user.id" class="user-card">
           <div class="user-avatar">
-            <span class="avatar-initial">{{ user.email.charAt(0).toUpperCase() }}</span>
-          </div>
+              <img v-if="user.avatar_url" :src="user.avatar_url" :alt="user.email" class="avatar-image" />
+              <span v-else class="avatar-initial">{{ user.email.charAt(0).toUpperCase() }}</span>
+            </div>
           <div class="user-main">
             <div class="user-top">
               <div class="user-name-row">
@@ -204,6 +205,7 @@ import { ref, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useAuth } from '@/stores/auth';
 import { usePermission } from '@/composables/usePermission';
+import { useGlobalToast } from '@/composables/useToast';
 import {
   getUsers,
   createUser as apiCreateUser,
@@ -217,6 +219,7 @@ import {
 const t = useTranslation();
 const authStore = useAuth();
 const { currentUserId } = usePermission();
+const { showToast } = useGlobalToast();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -271,16 +274,16 @@ const closeCreateModal = () => {
 
 const createUser = async () => {
   if (!createForm.value.email) {
-    alert('请输入邮箱地址');
+    showToast(t('users.emailRequired'), 'error');
     return;
   }
   if (!createForm.value.password) {
-    alert('请输入密码');
+    showToast(t('users.passwordRequired'), 'error');
     return;
   }
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(createForm.value.email)) {
-    alert('请输入有效的邮箱地址');
+    showToast(t('users.invalidEmail'), 'error');
     return;
   }
   saving.value = true;
@@ -288,9 +291,10 @@ const createUser = async () => {
     await apiCreateUser(authStore.accessToken, createForm.value);
     await loadUsers();
     closeCreateModal();
+    showToast(t('users.createSuccess'), 'success');
   } catch (err: unknown) {
     console.error('创建用户失败:', err);
-    alert('创建用户失败，请稍后重试');
+    showToast(t('users.createFailed'), 'error');
   } finally {
     saving.value = false;
   }
@@ -517,6 +521,13 @@ onMounted(() => {
   color: white;
   font-size: 20px;
   font-weight: 700;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  object-fit: cover;
 }
 
 .user-main {
