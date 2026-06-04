@@ -317,14 +317,15 @@ function updateCacheSettings() {
 }
 
 function selectProvider(provider: string) {
+  // 立即切换到新提供商
   const oldProvider = userSettings.value.ai_provider;
   
-  // 保存旧提供商的配置
+  // 保存旧提供商的配置到本地（不保存到服务器）
   if (oldProvider) {
     saveProviderConfig(oldProvider);
   }
   
-  // 切换到新提供商
+  // 更新选中的提供商
   userSettings.value.ai_provider = provider as any;
   
   // 加载新提供商的配置
