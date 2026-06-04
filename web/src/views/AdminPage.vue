@@ -1397,7 +1397,7 @@ function handleResend(record: PushHistoryRecord) {
                     v-model="userSettings.ai_api_url"
                     class="input-sm"
                     :class="{ dark: isDark }"
-                    :placeholder="getDefaultApiUrl()"
+                    :placeholder="getDefaultApiUrlForProvider(userSettings.ai_provider || 'openai')"
                   />
                 </div>
                 <div class="setting-item">
@@ -1407,7 +1407,7 @@ function handleResend(record: PushHistoryRecord) {
                     v-model="userSettings.ai_model_name"
                     class="input-sm"
                     :class="{ dark: isDark }"
-                    :placeholder="getDefaultModelName()"
+                    :placeholder="getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')"
                   />
                 </div>
               </div>
