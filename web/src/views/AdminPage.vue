@@ -33,7 +33,8 @@ import {
   uploadAvatar,
   getAvatarStorageStatus,
   getUserSettings,
-  saveUserSettings,
+  saveCacheSettings,
+  saveAISettings,
   apiCache,
 } from '@/api';
 import type { BackupEndpoint, UserSettings } from '@/api';
@@ -344,7 +345,7 @@ async function selectProvider(provider: string) {
   // 先发送请求
   isSavingSettings.value = true;
   try {
-    await saveUserSettings(accessToken.value, requestData);
+    await saveAISettings(accessToken.value, requestData);
     
     // 请求成功后再更新本地状态
     userSettings.value.ai_provider = provider as any;
@@ -467,7 +468,7 @@ async function handleSaveCacheSettings() {
   isSavingSettings.value = true;
   try {
     // 只保存缓存相关设置，不发送AI设置
-    const result = await saveUserSettings(accessToken.value, {
+    const result = await saveCacheSettings(accessToken.value, {
       cache_ttl_backup: userSettings.value.cache_ttl_backup,
       cache_ttl_channels: userSettings.value.cache_ttl_channels,
       cache_ttl_templates: userSettings.value.cache_ttl_templates,
@@ -525,7 +526,7 @@ async function handleSaveAISettings() {
   isSavingSettings.value = true;
   try {
     // 只保存AI相关设置，不发送缓存设置
-    const result = await saveUserSettings(accessToken.value, {
+    const result = await saveAISettings(accessToken.value, {
       ai_enabled: userSettings.value.ai_enabled,
       ai_provider: userSettings.value.ai_provider,
       ai_model: userSettings.value.ai_provider,

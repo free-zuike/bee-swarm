@@ -1038,6 +1038,45 @@ export async function saveUserSettings(
   });
 }
 
+// 保存缓存设置
+export async function saveCacheSettings(
+  token: string,
+  settings: {
+    cache_ttl_backup?: number;
+    cache_ttl_channels?: number;
+    cache_ttl_templates?: number;
+    cache_ttl_groups?: number;
+    cache_ttl_scheduled?: number;
+  }
+): Promise<{ success: boolean; message: string; settings: UserSettings }> {
+  return tokenRequest(`${BASE}/admin/me/settings/cache`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+}
+
+// 保存AI设置
+export async function saveAISettings(
+  token: string,
+  settings: {
+    ai_model?: string;
+    ai_enabled?: boolean;
+    ai_provider?: string;
+    ai_api_key?: string;
+    ai_api_url?: string;
+    ai_model_name?: string;
+    custom_ai_providers?: CustomAIProvider[];
+    ai_provider_configs?: Record<string, AIProviderConfig>;
+  }
+): Promise<{ success: boolean; message: string; settings: UserSettings }> {
+  return tokenRequest(`${BASE}/admin/me/settings/ai`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+}
+
 // -------------------------------------------
 // AI 相关接口
 // -------------------------------------------

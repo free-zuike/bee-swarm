@@ -762,6 +762,78 @@ adminApi.put('/me/settings', async (c) => {
   return c.json({ success: true, message: '设置已保存', settings: newSettings });
 });
 
+/** 保存缓存设置（仅缓存相关字段） */
+adminApi.put('/me/settings/cache', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const body = await c.req.json<{
+    cache_ttl_backup?: number;
+    cache_ttl_channels?: number;
+    cache_ttl_templates?: number;
+    cache_ttl_groups?: number;
+    cache_ttl_scheduled?: number;
+  }>();
+
+  const currentSettings = await svc.getUserSettings(user.id);
+  const newSettings = {
+    ...currentSettings,
+    cache_ttl_backup: body.cache_ttl_backup,
+    cache_ttl_channels: body.cache_ttl_channels,
+    cache_ttl_templates: body.cache_ttl_templates,
+    cache_ttl_groups: body.cache_ttl_groups,
+    cache_ttl_scheduled: body.cache_ttl_scheduled,
+  };
+
+  await svc.saveUserSettings(user.id, newSettings);
+
+  return c.json({ success: true, message: '缓存设置已保存', settings: newSettings });
+});
+
+/** 保存AI设置（仅AI相关字段） */
+adminApi.put('/me/settings/ai', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const body = await c.req.json<{
+    ai_model?: string;
+    ai_enabled?: boolean;
+    ai_provider?: string;
+    ai_api_key?: string;
+    ai_api_url?: string;
+    ai_model_name?: string;
+    custom_ai_providers?: Array<{ id: string; name: string; icon: string }>;
+    ai_provider_configs?: Record<string, { api_key?: string; api_url?: string; model_name?: string }>;
+  }>();
+
+  const currentSettings = await svc.getUserSettings(user.id);
+  const newSettings = {
+    ...currentSettings,
+    ai_model: body.ai_model,
+    ai_enabled: body.ai_enabled,
+    ai_provider: body.ai_provider,
+    ai_api_key: body.ai_api_key,
+    ai_api_url: body.ai_api_url,
+    ai_model_name: body.ai_model_name,
+    custom_ai_providers: body.custom_ai_providers,
+    ai_provider_configs: body.ai_provider_configs,
+  };
+
+  await svc.saveUserSettings(user.id, newSettings);
+
+  return c.json({ success: true, message: 'AI设置已保存', settings: newSettings });
+});
+
 /** 上传头像文件 */
 adminApi.post('/me/avatar/upload', async (c) => {
   const env = c.env as Env;
