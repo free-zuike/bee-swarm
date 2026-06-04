@@ -166,6 +166,7 @@ const avatarInput = ref('');
 const useAvatarAsPopup = ref(0);
 const isSaving = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFile = ref<File | null>(null);
 const showAvatarModal = ref(false);
 
 function closeAvatarModal() {
@@ -180,6 +181,7 @@ async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (file) {
+    selectedFile.value = file;
     const reader = new FileReader();
     reader.onload = (e) => {
       avatarInput.value = e.target?.result as string;
@@ -191,10 +193,32 @@ async function handleFileUpload(event: Event) {
 async function handleSaveAvatar() {
   isSaving.value = true;
   try {
-    if (avatarInput.value) {
-      userAvatar.value = avatarInput.value;
+    let newAvatarUrl = userAvatar.value;
+    
+    // 如果有选择文件，先上传文件
+    if (selectedFile.value) {
+      const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
+      newAvatarUrl = uploadResult.avatar_url;
+    } else if (avatarInput.value && avatarInput.value.startsWith('http')) {
+      // 如果是 URL，直接使用
+      newAvatarUrl = avatarInput.value;
+    } else if (avatarInput.value) {
+      // 如果是 data URL，直接使用
+      newAvatarUrl = avatarInput.value;
     }
+
+    // 更新头像设置
+    const updateResult = await updateAvatar(accessToken.value, {
+      avatar_url: newAvatarUrl,
+      use_avatar_as_popup: useAvatarAsPopup.value,
+    });
+
+    userAvatar.value = updateResult.avatar_url;
+    useAvatarAsPopup.value = updateResult.use_avatar_as_popup;
+    selectedFile.value = null;
+    
     showToast(t('message.avatar_saved'), 'success');
+    closeAvatarModal();
   } catch (error) {
     showToast(t('message.save_failed'), 'error');
   } finally {
@@ -202,9 +226,24 @@ async function handleSaveAvatar() {
   }
 }
 
-function deleteAvatar() {
-  userAvatar.value = '';
-  avatarInput.value = '';
+async function deleteAvatar() {
+  isSaving.value = true;
+  try {
+    await updateAvatar(accessToken.value, {
+      avatar_url: '',
+      use_avatar_as_popup: useAvatarAsPopup.value,
+    });
+    
+    userAvatar.value = '';
+    avatarInput.value = '';
+    selectedFile.value = null;
+    
+    showToast(t('message.avatar_deleted'), 'success');
+  } catch (error) {
+    showToast(t('message.save_failed'), 'error');
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 function handleAvatarError() {
