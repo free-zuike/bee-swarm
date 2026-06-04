@@ -138,6 +138,12 @@ const userSettings = ref<UserSettings>({
   ai_model_name: '',
 });
 const isSavingSettings = ref(false);
+const expandedSections = reactive({
+  theme: false,
+  apiKey: false,
+  cache: false,
+  ai: false,
+});
 
 async function loadUserSettings() {
   try {
@@ -1130,179 +1136,201 @@ function handleResend(record: PushHistoryRecord) {
     <div class="container">
       <!-- 设置面板 -->
       <div v-if="showSettings" class="tab-content">
-        <!-- 主题选择面板 -->
-        <div class="panel" :class="{ dark: isDark }">
-          <h3>{{ t('theme.settings') }}</h3>
-          <div class="theme-options">
-            <button
-              v-for="theme in [
-                { value: 'light', label: t('theme.light'), icon: '☀️' },
-                { value: 'dark', label: t('theme.dark'), icon: '🌙' },
-                { value: 'auto', label: t('theme.auto'), icon: '🌓' },
-              ]"
-              :key="theme.value"
-              class="theme-option"
-              :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
-              @click="themeStore.setTheme(theme.value as any)"
-            >
-              <span class="theme-icon">{{ theme.icon }}</span>
-              <span class="theme-label">{{ theme.label }}</span>
-              <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- API Key 面板 -->
-        <div class="panel" :class="{ dark: isDark }">
-          <div class="api-key-panel" :class="{ dark: isDark }">
-            <h3>{{ t('label.api_key') }}</h3>
-            <p class="hint">{{ t('hint.api_key') }}</p>
-            <div v-if="apiKey" class="api-key-display">
-              <code :class="{ dark: isDark }">{{ apiKey }}</code>
-              <button
-                class="btn btn-sm btn-icon"
-                :class="{ dark: isDark }"
-                @click="copyApiKey"
-                :title="t('button.copy_api_key')"
-              >
-                📋
-              </button>
-              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
-                {{ t('button.refresh') }}
-              </button>
-            </div>
-            <div v-else>
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
-                {{ t('button.generate_api_key') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
         <!-- 用户配置面板 -->
         <div class="panel" :class="{ dark: isDark }">
           <h3>⚙️ {{ t('label.settings') }}</h3>
           
-          <!-- 缓存设置 -->
-          <div class="settings-section">
-            <h4>🗄️ {{ t('label.cache_settings') }}</h4>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_backup') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_backup"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_channels') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_channels"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_templates') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_templates"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_groups') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_groups"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <div class="setting-item">
-              <label>{{ t('label.cache_ttl_scheduled') }}</label>
-              <input
-                type="number"
-                v-model.number="userSettings.cache_ttl_scheduled"
-                min="0"
-                step="60000"
-                class="input-sm"
-                :class="{ dark: isDark }"
-              />
-              <span class="unit">ms</span>
-            </div>
-            <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="handleClearCache">
-              🗑️ {{ t('button.clear_cache') }}
+          <!-- 主题设置 - 可折叠 -->
+          <div class="collapsible-section">
+            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.theme = !expandedSections.theme">
+              <span class="section-icon">🎨</span>
+              <span class="section-title">{{ t('theme.settings') }}</span>
+              <span class="section-arrow">{{ expandedSections.theme ? '▼' : '▶' }}</span>
             </button>
+            <div v-if="expandedSections.theme" class="collapsible-content">
+              <div class="theme-options">
+                <button
+                  v-for="theme in [
+                    { value: 'light', label: t('theme.light'), icon: '☀️' },
+                    { value: 'dark', label: t('theme.dark'), icon: '🌙' },
+                    { value: 'auto', label: t('theme.auto'), icon: '🌓' },
+                  ]"
+                  :key="theme.value"
+                  class="theme-option"
+                  :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
+                  @click="themeStore.setTheme(theme.value as any)"
+                >
+                  <span class="theme-icon">{{ theme.icon }}</span>
+                  <span class="theme-label">{{ theme.label }}</span>
+                  <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <!-- AI 设置 -->
-          <div class="settings-section">
-            <h4>🤖 {{ t('label.ai_settings') }}</h4>
-            <div class="setting-item">
-              <label>{{ t('label.ai_enabled') }}</label>
-              <label class="toggle">
+          <!-- API Key 设置 - 可折叠 -->
+          <div class="collapsible-section">
+            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.apiKey = !expandedSections.apiKey">
+              <span class="section-icon">🔑</span>
+              <span class="section-title">{{ t('label.api_key') }}</span>
+              <span class="section-arrow">{{ expandedSections.apiKey ? '▼' : '▶' }}</span>
+            </button>
+            <div v-if="expandedSections.apiKey" class="collapsible-content api-key-content">
+              <p class="hint">{{ t('hint.api_key') }}</p>
+              <div v-if="apiKey" class="api-key-display">
+                <code :class="{ dark: isDark }">{{ apiKey }}</code>
+                <button
+                  class="btn btn-sm btn-icon"
+                  :class="{ dark: isDark }"
+                  @click="copyApiKey"
+                  :title="t('button.copy_api_key')"
+                >
+                  📋
+                </button>
+                <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
+                  {{ t('button.refresh') }}
+                </button>
+              </div>
+              <div v-else>
+                <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
+                  {{ t('button.generate_api_key') }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 缓存设置 - 可折叠 -->
+          <div class="collapsible-section">
+            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.cache = !expandedSections.cache">
+              <span class="section-icon">🗄️</span>
+              <span class="section-title">{{ t('label.cache_settings') }}</span>
+              <span class="section-arrow">{{ expandedSections.cache ? '▼' : '▶' }}</span>
+            </button>
+            <div v-if="expandedSections.cache" class="collapsible-content">
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_backup') }}</label>
                 <input
-                  type="checkbox"
-                  v-model="userSettings.ai_enabled"
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_backup"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
                 />
-                <span class="slider"></span>
-              </label>
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_channels') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_channels"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_templates') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_templates"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_groups') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_groups"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.cache_ttl_scheduled') }}</label>
+                <input
+                  type="number"
+                  v-model.number="userSettings.cache_ttl_scheduled"
+                  min="0"
+                  step="60000"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                />
+                <span class="unit">ms</span>
+              </div>
+              <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="handleClearCache">
+                🗑️ {{ t('button.clear_cache') }}
+              </button>
             </div>
-            <div class="setting-item">
-              <label>{{ t('label.ai_provider') }}</label>
-              <select v-model="userSettings.ai_provider" class="input-sm" :class="{ dark: isDark }">
-                <option value="workers-ai">Cloudflare Workers AI</option>
-                <option value="openai">OpenAI</option>
-                <option value="azure-openai">Azure OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="custom">Custom API</option>
-              </select>
-            </div>
-            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-              <label>{{ t('label.ai_api_key') }}</label>
-              <input
-                type="password"
-                v-model="userSettings.ai_api_key"
-                class="input-sm"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.ai_api_key')"
-              />
-            </div>
-            <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
-              <label>{{ t('label.ai_api_url') }}</label>
-              <input
-                type="url"
-                v-model="userSettings.ai_api_url"
-                class="input-sm"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.ai_api_url')"
-              />
-            </div>
-            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-              <label>{{ t('label.ai_model_name') }}</label>
-              <input
-                type="text"
-                v-model="userSettings.ai_model_name"
-                class="input-sm"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.ai_model_name')"
-              />
+          </div>
+
+          <!-- AI 设置 - 可折叠 -->
+          <div class="collapsible-section">
+            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.ai = !expandedSections.ai">
+              <span class="section-icon">🤖</span>
+              <span class="section-title">{{ t('label.ai_settings') }}</span>
+              <span class="section-arrow">{{ expandedSections.ai ? '▼' : '▶' }}</span>
+            </button>
+            <div v-if="expandedSections.ai" class="collapsible-content">
+              <div class="setting-item">
+                <label>{{ t('label.ai_enabled') }}</label>
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    v-model="userSettings.ai_enabled"
+                  />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="setting-item">
+                <label>{{ t('label.ai_provider') }}</label>
+                <select v-model="userSettings.ai_provider" class="input-sm" :class="{ dark: isDark }">
+                  <option value="workers-ai">Cloudflare Workers AI</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="azure-openai">Azure OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="custom">Custom API</option>
+                </select>
+              </div>
+              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+                <label>{{ t('label.ai_api_key') }}</label>
+                <input
+                  type="password"
+                  v-model="userSettings.ai_api_key"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.ai_api_key')"
+                />
+              </div>
+              <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
+                <label>{{ t('label.ai_api_url') }}</label>
+                <input
+                  type="url"
+                  v-model="userSettings.ai_api_url"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.ai_api_url')"
+                />
+              </div>
+              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+                <label>{{ t('label.ai_model_name') }}</label>
+                <input
+                  type="text"
+                  v-model="userSettings.ai_model_name"
+                  class="input-sm"
+                  :class="{ dark: isDark }"
+                  :placeholder="t('placeholder.ai_model_name')"
+                />
+              </div>
             </div>
           </div>
 
@@ -2547,5 +2575,152 @@ function handleResend(record: PushHistoryRecord) {
   color: #667eea;
   font-size: 20px;
   font-weight: bold;
+}
+
+/* ==================== 可折叠设置面板样式 ==================== */
+.collapsible-section {
+  margin-top: 16px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.collapsible-header:hover {
+  background: var(--bg-tertiary, #e8e8e8);
+}
+
+.collapsible-header.dark {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.collapsible-header.dark:hover {
+  background: var(--bg-tertiary, #4a4a4a);
+}
+
+.section-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.section-title {
+  flex: 1;
+  text-align: left;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.collapsible-header.dark .section-title {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.section-arrow {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  transition: transform 0.2s;
+}
+
+.collapsible-content {
+  padding: 12px 16px;
+  background: var(--bg-panel, white);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.collapsible-section:first-child {
+  margin-top: 8px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.setting-item:last-child {
+  margin-bottom: 0;
+}
+
+.setting-item label {
+  width: 180px;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.dark .setting-item label {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.setting-item .unit {
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  margin-left: 4px;
+}
+
+.dark .setting-item .unit {
+  color: var(--text-secondary, #888);
+}
+
+.setting-item .toggle {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+}
+
+.setting-item .toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.setting-item .toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 26px;
+}
+
+.setting-item .toggle .slider:before {
+  position: absolute;
+  content: '';
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.setting-item .toggle input:checked + .slider {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.setting-item .toggle input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.api-key-content {
+  padding-bottom: 8px;
 }
 </style>
