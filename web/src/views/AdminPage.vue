@@ -174,6 +174,10 @@ function closeAvatarModal() {
 }
 
 function triggerFileUpload() {
+  // 重置文件输入框，确保每次都触发文件选择都能生效
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
   fileInput.value?.click();
 }
 
@@ -765,6 +769,19 @@ watch(activeTab, (newTab, oldTab) => {
   }
   if (newTab === 'history') {
     loadHistory();
+  }
+});
+
+// ==================== 设置标签页切换 ====================
+watch(activeSettingsTab, (newTab) => {
+  // 当切换到头像设置时，初始化 avatarInput 为当前的 userAvatar
+  if (newTab === 'avatar') {
+    avatarInput.value = userAvatar.value;
+    selectedFile.value = null;
+    // 重置文件输入框
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
   }
 });
 
