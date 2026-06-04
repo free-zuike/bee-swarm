@@ -320,11 +320,13 @@ function updateCacheSettings() {
   });
 }
 
-function selectProvider(provider: string) {
-  // 立即切换到新提供商
+async function selectProvider(provider: string) {
+  // 如果正在保存，等待完成
+  if (isSavingSettings.value) return;
+  
   const oldProvider = userSettings.value.ai_provider;
   
-  // 保存旧提供商的配置到本地（不保存到服务器）
+  // 保存旧提供商的配置
   if (oldProvider) {
     saveProviderConfig(oldProvider);
   }
@@ -334,6 +336,24 @@ function selectProvider(provider: string) {
   
   // 加载新提供商的配置
   loadProviderConfig(provider);
+  
+  // 立即发送请求保存提供商选择（不保存配置细节）
+  isSavingSettings.value = true;
+  try {
+    await saveUserSettings(accessToken.value, {
+      ai_provider: provider,
+      ai_provider_configs: userSettings.value.ai_provider_configs,
+      custom_ai_providers: userSettings.value.custom_ai_providers,
+    });
+  } catch {
+    // 失败时回滚到旧提供商
+    userSettings.value.ai_provider = oldProvider as any;
+    if (oldProvider) {
+      loadProviderConfig(oldProvider);
+    }
+  } finally {
+    isSavingSettings.value = false;
+  }
 }
 
 function getProviderConfigTitle() {
@@ -4133,5 +4153,41 @@ function handleResend(record: PushHistoryRecord) {
   margin-top: 8px;
   display: flex;
   justify-content: flex-start;
+}
+
+/* Form group input styles for AI provider config */
+.form-group input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a2e);
+  transition: all 0.2s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-color, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-group input::placeholder {
+  color: var(--text-secondary, #999);
+}
+
+.ai-provider-content.dark .form-group input {
+  background: var(--bg-dark-primary, #16162a);
+  border-color: var(--border-dark-color, #333);
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.ai-provider-content.dark .form-group input::placeholder {
+  color: var(--text-dark-secondary, #666);
+}
+
+.ai-provider-content.dark .form-group input:focus {
+  border-color: var(--primary-color, #6366f1);
 }
 </style>
