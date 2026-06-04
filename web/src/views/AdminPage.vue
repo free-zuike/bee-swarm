@@ -146,6 +146,10 @@ const activeSettingsTab = ref<string>('theme');
 const showAddProviderModal = ref(false);
 const newProviderName = ref('');
 const newProviderIcon = ref('🤖');
+const showEditProviderModal = ref(false);
+const editingProviderId = ref('');
+const editingProviderName = ref('');
+const editingProviderIcon = ref('🤖');
 const availableIcons = ['🤖', '🧠', '⚡', '🔧', '🌟', '🎯', '🚀', '💡', '🔥', '✨'];
 
 // 预定义的提供商列表
@@ -383,6 +387,37 @@ function addCustomProvider() {
   showAddProviderModal.value = false;
 
   showToast('自定义提供商添加成功', 'success');
+}
+
+function startEditProvider(providerId: string, event: Event) {
+  event.stopPropagation();
+  
+  const provider = userSettings.value.custom_ai_providers?.find(p => p.id === providerId);
+  if (provider) {
+    editingProviderId.value = providerId;
+    editingProviderName.value = provider.name;
+    editingProviderIcon.value = provider.icon;
+    showEditProviderModal.value = true;
+  }
+}
+
+function saveEditProvider() {
+  if (!editingProviderName.value.trim()) {
+    showToast('请输入提供商名称', 'error');
+    return;
+  }
+  
+  const provider = userSettings.value.custom_ai_providers?.find(p => p.id === editingProviderId.value);
+  if (provider) {
+    provider.name = editingProviderName.value.trim();
+    provider.icon = editingProviderIcon.value;
+    showToast('提供商信息已更新', 'success');
+  }
+  
+  showEditProviderModal.value = false;
+  editingProviderId.value = '';
+  editingProviderName.value = '';
+  editingProviderIcon.value = '🤖';
 }
 
 function deleteCustomProvider(providerId: string, event: Event) {
@@ -1233,6 +1268,58 @@ function handleResend(record: PushHistoryRecord) {
         </div>
       </div>
     </Teleport>
+    
+    <!-- 编辑自定义 AI 提供商模态框 -->
+    <Teleport to="body">
+      <div v-if="showEditProviderModal" class="modal-overlay" @click.self="showEditProviderModal = false">
+        <div class="modal-content" :class="{ dark: isDark }">
+          <div class="modal-header">
+            <h3>编辑自定义 AI 提供商</h3>
+            <button class="modal-close" @click="showEditProviderModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <!-- 提供商名称输入 -->
+            <div class="form-group">
+              <label>提供商名称</label>
+              <input
+                v-model="editingProviderName"
+                type="text"
+                class="form-input"
+                :class="{ dark: isDark }"
+                placeholder="例如：My AI Service"
+                autofocus
+              />
+            </div>
+
+            <!-- 图标选择 -->
+            <div class="form-group">
+              <label>选择图标</label>
+              <div class="icon-selector">
+                <button
+                  v-for="icon in availableIcons"
+                  :key="icon"
+                  class="icon-option"
+                  :class="{ active: editingProviderIcon === icon, dark: isDark }"
+                  @click="editingProviderIcon = icon"
+                >
+                  {{ icon }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="modal-actions">
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showEditProviderModal = false">
+                取消
+              </button>
+              <button class="btn btn-primary" @click="saveEditProvider">
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <!-- 轻提示 Toast -->
     <transition name="toast">
       <div v-if="toast" class="toast" :class="toast.type">
@@ -1522,7 +1609,9 @@ function handleResend(record: PushHistoryRecord) {
                       <div class="provider-name">{{ provider.name }}</div>
                       <div class="provider-desc">{{ provider.desc }}</div>
                     </div>
-                    <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+                    <div class="provider-check">
+                      <span v-if="userSettings.ai_provider === provider.id">✓</span>
+                    </div>
                   </div>
                   
                   <!-- 自定义提供商 -->
@@ -1540,6 +1629,14 @@ function handleResend(record: PushHistoryRecord) {
                     </div>
                     <div class="provider-actions">
                       <button
+                        class="edit-provider-btn"
+                        @click="startEditProvider(provider.id, $event)"
+                        :class="{ dark: isDark }"
+                        title="编辑提供商"
+                      >
+                        ✏️
+                      </button>
+                      <button
                         class="delete-provider-btn"
                         @click="deleteCustomProvider(provider.id, $event)"
                         :class="{ dark: isDark }"
@@ -1548,7 +1645,9 @@ function handleResend(record: PushHistoryRecord) {
                         🗑️
                       </button>
                     </div>
-                    <div v-if="userSettings.ai_provider === provider.id" class="provider-check">✓</div>
+                    <div class="provider-check">
+                      <span v-if="userSettings.ai_provider === provider.id">✓</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3924,12 +4023,33 @@ function handleResend(record: PushHistoryRecord) {
   color: #667eea;
   font-weight: bold;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .provider-item .provider-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.provider-item .edit-provider-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.provider-item .edit-provider-btn:hover {
+  opacity: 1;
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .provider-item .delete-provider-btn {
