@@ -1663,22 +1663,26 @@ function handleResend(record: PushHistoryRecord) {
                 </label>
               </div>
 
-              <!-- 操作按钮 -->
-              <div style="display: flex; gap: 10px; margin-top: 20px;">
+              <!-- 操作按钮 - 重新创建 -->
+              <div class="modal-actions" style="display: flex; align-items: center; gap: 12px; margin-top: 24px;">
+                <!-- 删除按钮 -->
                 <button
-                  v-show="userAvatar"
+                  v-if="userAvatar"
+                  type="button"
                   class="btn btn-danger"
-                  :style="{ flex: '1', height: '40px', minWidth: '100px' }"
                   :class="{ dark: isDark }"
+                  style="flex: 1; height: 44px; min-height: 44px; padding: 0 16px;"
                   @click="deleteAvatar"
                 >
                   {{ t('button.delete_avatar') }}
                 </button>
+                <!-- 保存按钮 -->
                 <button
+                  type="button"
                   class="btn btn-primary"
-                  :style="{ flex: '1', height: '40px', minWidth: '100px' }"
                   :class="{ dark: isDark }"
                   :disabled="isSaving"
+                  style="flex: 1; height: 44px; min-height: 44px; padding: 0 16px;"
                   @click="handleSaveAvatar"
                 >
                   {{ isSaving ? t('label.saving') : t('button.save') }}
