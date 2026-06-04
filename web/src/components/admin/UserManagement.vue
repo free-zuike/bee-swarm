@@ -401,10 +401,10 @@ onMounted(() => {
   background: var(--bg-panel, white);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 180px);
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
 }
 
 .panel-header {

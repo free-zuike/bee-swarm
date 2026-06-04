@@ -2673,7 +2673,7 @@ function handleResend(record: PushHistoryRecord) {
   flex: 1;
   background: transparent;
   padding: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .settings-content.dark {
