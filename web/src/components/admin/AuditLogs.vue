@@ -188,6 +188,9 @@ onMounted(() => {
 <style scoped>
 .audit-logs {
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel {
@@ -196,7 +199,7 @@ onMounted(() => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 200px);
+  height: 100%;
   overflow: hidden;
 }
 
@@ -206,6 +209,7 @@ onMounted(() => {
   align-items: center;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .panel-header h2 {
@@ -227,6 +231,7 @@ onMounted(() => {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .filter-group {

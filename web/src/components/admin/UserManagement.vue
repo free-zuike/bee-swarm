@@ -395,6 +395,9 @@ onMounted(() => {
 <style scoped>
 .user-management {
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel {
@@ -403,7 +406,7 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 200px);
+  height: 100%;
   overflow: hidden;
 }
 
@@ -418,6 +421,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 16px;
   padding-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .panel-header h2 {
@@ -470,7 +474,6 @@ onMounted(() => {
   gap: 12px;
   overflow-y: auto;
   flex: 1;
-  min-height: 200px;
 }
 
 .user-card {
