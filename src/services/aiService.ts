@@ -5,7 +5,7 @@
 import type { Env, PushChannel } from '../types';
 import { PushService } from './push';
 import { executeAllBackups } from './backup';
-import { loadUserChannelSettings } from './dispatcher';
+import { loadUserChannelSettings, CHANNEL_DEFINITIONS } from './dispatcher';
 import type { UserSettings } from './userService';
 
 /**
@@ -445,7 +445,6 @@ ${JSON.stringify(tools, null, 2)}
 
       case 'listChannels': {
         const settings = await loadUserChannelSettings(username, this.env);
-        const { CHANNEL_DEFINITIONS } = await import('../services/dispatcher');
         const channels = CHANNEL_DEFINITIONS.map((ch) => {
           const channelPrefix = `channel:${ch.id}:`;
           const isConfigured = Object.keys(settings).some((key) => key.startsWith(channelPrefix));
