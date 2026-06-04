@@ -1,100 +1,99 @@
-
-&lt;template&gt;
-  &lt;div class="audit-logs"&gt;
-    &lt;div class="panel-header"&gt;
-      &lt;div class="header-actions"&gt;
-        &lt;button class="btn btn-secondary btn-sm" @click="clearFilters"&gt;
+<template>
+  <div class="audit-logs">
+    <div class="panel-header">
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" @click="clearFilters">
           {{ t('button.reset') }}
-        &lt;/button&gt;
-        &lt;button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading"&gt;
+        </button>
+        <button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading">
           {{ t('audit.clearAll') }}
-        &lt;/button&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
+        </button>
+      </div>
+    </div>
 
-    &lt;div class="filter-bar"&gt;
-      &lt;div class="filter-group"&gt;
-        &lt;label&gt;{{ t('audit.action') }}&lt;/label&gt;
-        &lt;select v-model="filterAction" class="filter-select"&gt;
-          &lt;option value=""&gt;{{ t('label.all') }}&lt;/option&gt;
-          &lt;option value="login"&gt;{{ t('audit.login') }}&lt;/option&gt;
-          &lt;option value="register"&gt;{{ t('audit.register') }}&lt;/option&gt;
-          &lt;option value="user_created"&gt;{{ t('audit.userCreated') }}&lt;/option&gt;
-          &lt;option value="user_deleted"&gt;{{ t('audit.userDeleted') }}&lt;/option&gt;
-          &lt;option value="user_role_updated"&gt;{{ t('audit.userRoleUpdated') }}&lt;/option&gt;
-          &lt;option value="user_disabled"&gt;{{ t('audit.userDisabled') }}&lt;/option&gt;
-          &lt;option value="user_enabled"&gt;{{ t('audit.userEnabled') }}&lt;/option&gt;
-        &lt;/select&gt;
-      &lt;/div&gt;
-      &lt;div class="filter-group"&gt;
-        &lt;label&gt;{{ t('audit.startDate') }}&lt;/label&gt;
-        &lt;input v-model="filterStartDate" type="date" class="filter-input" /&gt;
-      &lt;/div&gt;
-      &lt;div class="filter-group"&gt;
-        &lt;label&gt;{{ t('audit.endDate') }}&lt;/label&gt;
-        &lt;input v-model="filterEndDate" type="date" class="filter-input" /&gt;
-      &lt;/div&gt;
-      &lt;button class="btn btn-primary btn-sm" @click="loadLogs"&gt;
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>{{ t('audit.action') }}</label>
+        <select v-model="filterAction" class="filter-select">
+          <option value="">{{ t('label.all') }}</option>
+          <option value="login">{{ t('audit.login') }}</option>
+          <option value="register">{{ t('audit.register') }}</option>
+          <option value="user_created">{{ t('audit.userCreated') }}</option>
+          <option value="user_deleted">{{ t('audit.userDeleted') }}</option>
+          <option value="user_role_updated">{{ t('audit.userRoleUpdated') }}</option>
+          <option value="user_disabled">{{ t('audit.userDisabled') }}</option>
+          <option value="user_enabled">{{ t('audit.userEnabled') }}</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>{{ t('audit.startDate') }}</label>
+        <input v-model="filterStartDate" type="date" class="filter-input" />
+      </div>
+      <div class="filter-group">
+        <label>{{ t('audit.endDate') }}</label>
+        <input v-model="filterEndDate" type="date" class="filter-input" />
+      </div>
+      <button class="btn btn-primary btn-sm" @click="loadLogs">
         {{ t('button.search') }}
-      &lt;/button&gt;
-    &lt;/div&gt;
+      </button>
+    </div>
 
-    &lt;div class="log-content"&gt;
-      &lt;div v-if="loading" class="loading-state"&gt;
-        &lt;div class="spinner"&gt;&lt;/div&gt;
-        &lt;span&gt;{{ t('label.loading') }}&lt;/span&gt;
-      &lt;/div&gt;
+    <div class="log-content">
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <span>{{ t('label.loading') }}</span>
+      </div>
 
-      &lt;div v-else-if="logs.length === 0" class="empty-state"&gt;
-        &lt;div class="empty-icon"&gt;&lt;/div&gt;
-        &lt;p&gt;{{ t('audit.empty') }}&lt;/p&gt;
-      &lt;/div&gt;
+      <div v-else-if="logs.length === 0" class="empty-state">
+        <div class="empty-icon"></div>
+        <p>{{ t('audit.empty') }}</p>
+      </div>
 
-      &lt;div v-else class="log-list"&gt;
-        &lt;div v-for="log in logs" :key="log.id" class="log-card"&gt;
-          &lt;div class="log-avatar"&gt;
-            &lt;span class="avatar-initial"&gt;{{ getInitial(log.userId) }}&lt;/span&gt;
-          &lt;/div&gt;
-          &lt;div class="log-main"&gt;
-            &lt;div class="log-header"&gt;
-              &lt;span :class="['log-action', `log-action-${log.action}`]"&gt;
+      <div v-else class="log-list">
+        <div v-for="log in logs" :key="log.id" class="log-card">
+          <div class="log-avatar">
+            <span class="avatar-initial">{{ getInitial(log.userId) }}</span>
+          </div>
+          <div class="log-main">
+            <div class="log-header">
+              <span :class="['log-action', `log-action-${log.action}`]">
                 {{ getActionName(log.action) }}
-              &lt;/span&gt;
-              &lt;span class="log-user"&gt;{{ log.userId }}&lt;/span&gt;
-              &lt;span class="log-time"&gt;{{ formatTime(log.timestamp || log.created_at) }}&lt;/span&gt;
-            &lt;/div&gt;
-            &lt;div v-if="log.metadata &amp;&amp; Object.keys(log.metadata).length &gt; 0" class="log-meta"&gt;
-              &lt;pre&gt;{{ JSON.stringify(log.metadata, null, 2) }}&lt;/pre&gt;
-            &lt;/div&gt;
-          &lt;/div&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
+              </span>
+              <span class="log-user">{{ log.userId }}</span>
+              <span class="log-time">{{ formatTime(log.timestamp || log.created_at) }}</span>
+            </div>
+            <div v-if="log.metadata && Object.keys(log.metadata).length > 0" class="log-meta">
+              <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    &lt;!-- 清除日志确认弹窗 --&gt;
-    &lt;div v-if="showClearModal" class="modal-overlay" @click.self="closeClearModal"&gt;
-      &lt;div class="modal modal-danger"&gt;
-        &lt;div class="modal-header"&gt;
-          &lt;h3&gt;{{ t('audit.clearAllConfirm') }}&lt;/h3&gt;
-          &lt;button class="modal-close" @click="closeClearModal"&gt;✕&lt;/button&gt;
-        &lt;/div&gt;
-        &lt;div class="modal-body"&gt;
-          &lt;p&gt;{{ t('audit.clearAllWarning') }}&lt;/p&gt;
-        &lt;/div&gt;
-        &lt;div class="modal-footer"&gt;
-          &lt;button class="btn btn-secondary" @click="closeClearModal" :disabled="saving"&gt;
+    <!-- 清除日志确认弹窗 -->
+    <div v-if="showClearModal" class="modal-overlay" @click.self="closeClearModal">
+      <div class="modal modal-danger">
+        <div class="modal-header">
+          <h3>{{ t('audit.clearAllConfirm') }}</h3>
+          <button class="modal-close" @click="closeClearModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>{{ t('audit.clearAllWarning') }}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeClearModal" :disabled="saving">
             {{ t('button.cancel') }}
-          &lt;/button&gt;
-          &lt;button class="btn btn-danger" @click="clearLogs" :disabled="saving"&gt;
+          </button>
+          <button class="btn btn-danger" @click="clearLogs" :disabled="saving">
             {{ saving ? t('label.processing') : t('audit.clearAll') }}
-          &lt;/button&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-  &lt;/div&gt;
-&lt;/template&gt;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
-&lt;script setup lang="ts"&gt;
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useAuth } from '@/stores/auth';
@@ -105,21 +104,21 @@ const authStore = useAuth();
 
 const loading = ref(false);
 const saving = ref(false);
-const logs = ref&lt;any[]&gt;([]);
+const logs = ref<any[]>([]);
 const filterAction = ref('');
 const filterStartDate = ref('');
 const filterEndDate = ref('');
 const showClearModal = ref(false);
 
-const formatTime = (timeStr: string) =&gt; {
+const formatTime = (timeStr: string) => {
   if (!timeStr) return '';
   const date = new Date(timeStr);
   if (isNaN(date.getTime())) return timeStr;
   return date.toLocaleString();
 };
 
-const getActionName = (action: string) =&gt; {
-  const actionNames: Record&lt;string, string&gt; = {
+const getActionName = (action: string) => {
+  const actionNames: Record<string, string> = {
     login: t('audit.login'),
     register: t('audit.register'),
     user_created: t('audit.userCreated'),
@@ -131,12 +130,12 @@ const getActionName = (action: string) =&gt; {
   return actionNames[action] || action;
 };
 
-const getInitial = (str: string) =&gt; {
+const getInitial = (str: string) => {
   if (!str) return '?';
   return str.charAt(0).toUpperCase();
 };
 
-const loadLogs = async () =&gt; {
+const loadLogs = async () => {
   loading.value = true;
   try {
     const data = await getAuditLogs(authStore.accessToken, {
@@ -152,22 +151,22 @@ const loadLogs = async () =&gt; {
   }
 };
 
-const clearFilters = () =&gt; {
+const clearFilters = () => {
   filterAction.value = '';
   filterStartDate.value = '';
   filterEndDate.value = '';
   loadLogs();
 };
 
-const confirmClearLogs = () =&gt; {
+const confirmClearLogs = () => {
   showClearModal.value = true;
 };
 
-const closeClearModal = () =&gt; {
+const closeClearModal = () => {
   showClearModal.value = false;
 };
 
-const clearLogs = async () =&gt; {
+const clearLogs = async () => {
   saving.value = true;
   try {
     await clearAuditLogs(authStore.accessToken);
@@ -180,12 +179,12 @@ const clearLogs = async () =&gt; {
   }
 };
 
-onMounted(() =&gt; {
+onMounted(() => {
   loadLogs();
 });
-&lt;/script&gt;
+</script>
 
-&lt;style scoped&gt;
+<style scoped>
 .audit-logs {
   width: 100%;
 }
@@ -525,5 +524,4 @@ onMounted(() =&gt; {
   padding: 6px 12px;
   font-size: 13px;
 }
-&lt;/style&gt;
-
+</style>
