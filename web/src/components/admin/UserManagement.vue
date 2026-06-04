@@ -270,7 +270,19 @@ const closeCreateModal = () => {
 };
 
 const createUser = async () => {
-  if (!createForm.value.email || !createForm.value.password) return;
+  if (!createForm.value.email) {
+    alert('请输入邮箱地址');
+    return;
+  }
+  if (!createForm.value.password) {
+    alert('请输入密码');
+    return;
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(createForm.value.email)) {
+    alert('请输入有效的邮箱地址');
+    return;
+  }
   saving.value = true;
   try {
     await apiCreateUser(authStore.accessToken, createForm.value);
@@ -278,6 +290,7 @@ const createUser = async () => {
     closeCreateModal();
   } catch (err: unknown) {
     console.error('创建用户失败:', err);
+    alert('创建用户失败，请稍后重试');
   } finally {
     saving.value = false;
   }
@@ -457,7 +470,7 @@ onMounted(() => {
   gap: 12px;
   overflow-y: auto;
   flex: 1;
-  min-height: 0;
+  min-height: 200px;
 }
 
 .user-card {
