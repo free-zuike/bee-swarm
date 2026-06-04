@@ -1338,60 +1338,46 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- 数据备份 -->
-          <div v-else-if="activeSettingsTab === 'backup'" class="settings-panel">
-            <h3>💾 {{ t('label.backup_settings') }}</h3>
-            <div class="settings-card">
-              <BackupManager
-                ref="backupManagerRef"
-                :access-token="accessToken"
-                @load-endpoints="handleLoadEndpoints"
-                @add-endpoint="handleAddEndpoint"
-                @update-endpoint="handleUpdateEndpoint"
-                @delete-endpoint="handleDeleteEndpoint"
-                @test-endpoint="handleTestEndpoint"
-                @list-backups="handleListBackups"
-                @restore-backup="handleRestoreBackup"
-                @delete-backup="handleDeleteBackup"
-                @download-backup="handleDownloadBackup"
-                @batch-delete-backups="handleBatchDeleteBackups"
-                @backup-all="handleBackupAll"
-                @backup-single="handleBackupSingle"
-              />
-            </div>
-          </div>
+          <BackupManager
+            v-else-if="activeSettingsTab === 'backup'"
+            ref="backupManagerRef"
+            :access-token="accessToken"
+            @load-endpoints="handleLoadEndpoints"
+            @add-endpoint="handleAddEndpoint"
+            @update-endpoint="handleUpdateEndpoint"
+            @delete-endpoint="handleDeleteEndpoint"
+            @test-endpoint="handleTestEndpoint"
+            @list-backups="handleListBackups"
+            @restore-backup="handleRestoreBackup"
+            @delete-backup="handleDeleteBackup"
+            @download-backup="handleDownloadBackup"
+            @batch-delete-backups="handleBatchDeleteBackups"
+            @backup-all="handleBackupAll"
+            @backup-single="handleBackupSingle"
+          />
 
           <!-- 渠道设置 -->
-          <div v-else-if="activeSettingsTab === 'channels'" class="settings-panel">
-            <h3>⚙️ {{ t('label.channel_settings') }}</h3>
-            <div class="settings-card">
-              <ChannelSettingsPanel
-                ref="channelSettingsRef"
-                :channels="channels"
-                :channel-definitions="channelDefinitions"
-                :channel-settings="channelSettings"
-                :access-token="accessToken"
-                @save="handleSaveChannel"
-                @test="handleTestChannel"
-                @toggle-enabled="handleToggleChannelEnabled"
-              />
-            </div>
-          </div>
+          <ChannelSettingsPanel
+            v-else-if="activeSettingsTab === 'channels'"
+            ref="channelSettingsRef"
+            :channels="channels"
+            :channel-definitions="channelDefinitions"
+            :channel-settings="channelSettings"
+            :access-token="accessToken"
+            @save="handleSaveChannel"
+            @test="handleTestChannel"
+            @toggle-enabled="handleToggleChannelEnabled"
+          />
 
           <!-- 用户管理 -->
-          <div v-else-if="activeSettingsTab === 'users' && hasPermission('users:manage')" class="settings-panel">
-            <h3>👥 {{ t('users.title') }}</h3>
-            <div class="settings-card">
-              <UserManagement />
-            </div>
-          </div>
+          <UserManagement
+            v-else-if="activeSettingsTab === 'users' && hasPermission('users:manage')"
+          />
 
           <!-- 审计日志 -->
-          <div v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')" class="settings-panel">
-            <h3>📋 {{ t('audit.title') }}</h3>
-            <div class="settings-card">
-              <AuditLogs />
-            </div>
-          </div>
+          <AuditLogs
+            v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')"
+          />
         </div>
       </div>
 
