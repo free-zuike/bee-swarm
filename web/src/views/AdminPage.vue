@@ -138,14 +138,65 @@ const userSettings = ref<UserSettings>({
   ai_model_name: '',
 });
 const isSavingSettings = ref(false);
-const expandedSections = reactive({
-  theme: false,
-  apiKey: false,
-  cache: false,
-  ai: false,
-  backup: false,
-  channels: false,
-});
+const activeSettingsTab = ref<string>('theme');
+
+const userAvatar = ref('');
+const avatarInput = ref('');
+const useAvatarAsPopup = ref(0);
+const isSaving = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+
+function triggerFileUpload() {
+  fileInput.value?.click();
+}
+
+async function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      avatarInput.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function handleSaveAvatar() {
+  isSaving.value = true;
+  try {
+    if (avatarInput.value) {
+      userAvatar.value = avatarInput.value;
+    }
+    showToast(t('message.avatar_saved'), 'success');
+  } catch (error) {
+    showToast(t('message.save_failed'), 'error');
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+function deleteAvatar() {
+  userAvatar.value = '';
+  avatarInput.value = '';
+}
+
+function hasPermission(permission: string): boolean {
+  const permissions = currentUser.value?.permissions || [];
+  return permissions.includes(permission);
+}
+
+const settingsMenu = [
+  { id: 'theme', icon: '🎨', label: 'theme.settings' },
+  { id: 'apiKey', icon: '🔑', label: 'label.api_key' },
+  { id: 'cache', icon: '🗄️', label: 'label.cache_settings' },
+  { id: 'ai', icon: '🤖', label: 'label.ai_settings' },
+  { id: 'avatar', icon: '🖼️', label: 'label.avatar_settings' },
+  { id: 'backup', icon: '💾', label: 'label.backup_settings' },
+  { id: 'channels', icon: '📡', label: 'label.channel_settings' },
+  { id: 'users', icon: '👥', label: 'tab.users', permission: 'users:manage' },
+  { id: 'audit', icon: '📋', label: 'tab.audit', permission: 'users:manage' },
+];
 
 async function loadUserSettings() {
   try {
@@ -1142,288 +1193,330 @@ function handleResend(record: PushHistoryRecord) {
     </header>
 
     <div class="container">
-      <!-- 设置面板 -->
-      <div v-if="showSettings" class="tab-content">
-        <!-- 用户配置面板 -->
-        <div class="panel" :class="{ dark: isDark }">
+      <!-- 设置面板 - 左右布局 -->
+      <div v-if="showSettings" class="settings-layout">
+        <!-- 左侧菜单 -->
+        <div class="settings-sidebar" :class="{ dark: isDark }">
           <h3>⚙️ {{ t('label.settings') }}</h3>
-
-          <!-- 主题设置 - 可折叠 -->
-          <div class="collapsible-section">
+          <div class="settings-menu">
             <button
-              class="collapsible-header"
-              :class="{ dark: isDark }"
-              @click="expandedSections.theme = !expandedSections.theme"
+              v-for="item in settingsMenu"
+              :key="item.id"
+              v-show="!item.permission || hasPermission(item.permission)"
+              class="settings-menu-item"
+              :class="{ active: activeSettingsTab === item.id, dark: isDark }"
+              @click="activeSettingsTab = item.id"
             >
-              <span class="section-icon">🎨</span>
-              <span class="section-title">{{ t('theme.settings') }}</span>
-              <span class="section-arrow">{{ expandedSections.theme ? '▼' : '▶' }}</span>
+              <span class="menu-icon">{{ item.icon }}</span>
+              <span class="menu-label">{{ t(item.label) }}</span>
             </button>
-            <div v-if="expandedSections.theme" class="collapsible-content">
-              <div class="theme-options">
-                <button
-                  v-for="theme in [
-                    { value: 'light', label: t('theme.light'), icon: '☀️' },
-                    { value: 'dark', label: t('theme.dark'), icon: '🌙' },
-                    { value: 'auto', label: t('theme.auto'), icon: '🌓' },
-                  ]"
-                  :key="theme.value"
-                  class="theme-option"
-                  :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
-                  @click="themeStore.setTheme(theme.value as any)"
-                >
-                  <span class="theme-icon">{{ theme.icon }}</span>
-                  <span class="theme-label">{{ theme.label }}</span>
-                  <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
-                </button>
-              </div>
-            </div>
           </div>
+        </div>
 
-          <!-- API Key 设置 - 可折叠 -->
-          <div class="collapsible-section">
-            <button
-              class="collapsible-header"
-              :class="{ dark: isDark }"
-              @click="expandedSections.apiKey = !expandedSections.apiKey"
-            >
-              <span class="section-icon">🔑</span>
-              <span class="section-title">{{ t('label.api_key') }}</span>
-              <span class="section-arrow">{{ expandedSections.apiKey ? '▼' : '▶' }}</span>
-            </button>
-            <div v-if="expandedSections.apiKey" class="collapsible-content api-key-content">
-              <p class="hint">{{ t('hint.api_key') }}</p>
-              <div v-if="apiKey" class="api-key-display">
-                <code :class="{ dark: isDark }">{{ apiKey }}</code>
-                <button
-                  class="btn btn-sm btn-icon"
-                  :class="{ dark: isDark }"
-                  @click="copyApiKey"
-                  :title="t('button.copy_api_key')"
-                >
-                  📋
-                </button>
-                <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
-                  {{ t('button.refresh') }}
-                </button>
-              </div>
-              <div v-else>
-                <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
-                  {{ t('button.generate_api_key') }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 缓存设置 - 可折叠 -->
-          <div class="collapsible-section">
-            <button
-              class="collapsible-header"
-              :class="{ dark: isDark }"
-              @click="expandedSections.cache = !expandedSections.cache"
-            >
-              <span class="section-icon">🗄️</span>
-              <span class="section-title">{{ t('label.cache_settings') }}</span>
-              <span class="section-arrow">{{ expandedSections.cache ? '▼' : '▶' }}</span>
-            </button>
-            <div v-if="expandedSections.cache" class="collapsible-content">
-              <div class="setting-item">
-                <label>{{ t('label.cache_ttl_backup') }}</label>
-                <input
-                  type="number"
-                  v-model.number="userSettings.cache_ttl_backup"
-                  min="0"
-                  step="60000"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                />
-                <span class="unit">ms</span>
-              </div>
-              <div class="setting-item">
-                <label>{{ t('label.cache_ttl_channels') }}</label>
-                <input
-                  type="number"
-                  v-model.number="userSettings.cache_ttl_channels"
-                  min="0"
-                  step="60000"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                />
-                <span class="unit">ms</span>
-              </div>
-              <div class="setting-item">
-                <label>{{ t('label.cache_ttl_templates') }}</label>
-                <input
-                  type="number"
-                  v-model.number="userSettings.cache_ttl_templates"
-                  min="0"
-                  step="60000"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                />
-                <span class="unit">ms</span>
-              </div>
-              <div class="setting-item">
-                <label>{{ t('label.cache_ttl_groups') }}</label>
-                <input
-                  type="number"
-                  v-model.number="userSettings.cache_ttl_groups"
-                  min="0"
-                  step="60000"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                />
-                <span class="unit">ms</span>
-              </div>
-              <div class="setting-item">
-                <label>{{ t('label.cache_ttl_scheduled') }}</label>
-                <input
-                  type="number"
-                  v-model.number="userSettings.cache_ttl_scheduled"
-                  min="0"
-                  step="60000"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                />
-                <span class="unit">ms</span>
-              </div>
+        <!-- 右侧内容 -->
+        <div class="settings-content" :class="{ dark: isDark }">
+          <!-- 主题设置 -->
+          <div v-if="activeSettingsTab === 'theme'" class="settings-panel">
+            <h3>🎨 {{ t('theme.settings') }}</h3>
+            <div class="theme-options">
               <button
-                class="btn btn-sm btn-secondary"
+                v-for="theme in [
+                  { value: 'light', label: t('theme.light'), icon: '☀️' },
+                  { value: 'dark', label: t('theme.dark'), icon: '🌙' },
+                  { value: 'auto', label: t('theme.auto'), icon: '🌓' },
+                ]"
+                :key="theme.value"
+                class="theme-option"
+                :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
+                @click="themeStore.setTheme(theme.value as any)"
+              >
+                <span class="theme-icon">{{ theme.icon }}</span>
+                <span class="theme-label">{{ theme.label }}</span>
+                <span v-if="themeStore.currentTheme === theme.value" class="theme-check">✓</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- API Key 设置 -->
+          <div v-else-if="activeSettingsTab === 'apiKey'" class="settings-panel">
+            <h3>🔑 {{ t('label.api_key') }}</h3>
+            <p class="hint">{{ t('hint.api_key') }}</p>
+            <div v-if="apiKey" class="api-key-display">
+              <code :class="{ dark: isDark }">{{ apiKey }}</code>
+              <button
+                class="btn btn-sm btn-icon"
                 :class="{ dark: isDark }"
-                @click="handleClearCache"
+                @click="copyApiKey"
+                :title="t('button.copy_api_key')"
               >
-                🗑️ {{ t('button.clear_cache') }}
+                📋
+              </button>
+              <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
+                {{ t('button.refresh') }}
+              </button>
+            </div>
+            <div v-else>
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
+                {{ t('button.generate_api_key') }}
               </button>
             </div>
           </div>
 
-          <!-- AI 设置 - 可折叠 -->
-          <div class="collapsible-section">
+          <!-- 缓存设置 -->
+          <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel">
+            <h3>🗄️ {{ t('label.cache_settings') }}</h3>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_backup') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_backup"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_channels') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_channels"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_templates') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_templates"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_groups') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_groups"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.cache_ttl_scheduled') }}</label>
+              <input
+                type="number"
+                v-model.number="userSettings.cache_ttl_scheduled"
+                min="0"
+                step="60000"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              />
+              <span class="unit">ms</span>
+            </div>
             <button
-              class="collapsible-header"
+              class="btn btn-sm btn-secondary"
               :class="{ dark: isDark }"
-              @click="expandedSections.ai = !expandedSections.ai"
+              @click="handleClearCache"
             >
-              <span class="section-icon">🤖</span>
-              <span class="section-title">{{ t('label.ai_settings') }}</span>
-              <span class="section-arrow">{{ expandedSections.ai ? '▼' : '▶' }}</span>
+              🗑️ {{ t('button.clear_cache') }}
             </button>
-            <div v-if="expandedSections.ai" class="collapsible-content">
-              <div class="setting-item">
-                <label>{{ t('label.ai_enabled') }}</label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="userSettings.ai_enabled" />
-                  <span class="slider"></span>
-                </label>
+          </div>
+
+          <!-- AI 设置 -->
+          <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel">
+            <h3>🤖 {{ t('label.ai_settings') }}</h3>
+            <div class="setting-item">
+              <label>{{ t('label.ai_enabled') }}</label>
+              <label class="toggle">
+                <input type="checkbox" v-model="userSettings.ai_enabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>{{ t('label.ai_provider') }}</label>
+              <select
+                v-model="userSettings.ai_provider"
+                class="input-sm"
+                :class="{ dark: isDark }"
+              >
+                <option value="workers-ai">Cloudflare Workers AI</option>
+                <option value="openai">OpenAI</option>
+                <option value="azure-openai">Azure OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="custom">Custom API</option>
+              </select>
+            </div>
+            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+              <label>{{ t('label.ai_api_key') }}</label>
+              <input
+                type="password"
+                v-model="userSettings.ai_api_key"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.ai_api_key')"
+              />
+            </div>
+            <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
+              <label>{{ t('label.ai_api_url') }}</label>
+              <input
+                type="url"
+                v-model="userSettings.ai_api_url"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.ai_api_url')"
+              />
+            </div>
+            <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
+              <label>{{ t('label.ai_model_name') }}</label>
+              <input
+                type="text"
+                v-model="userSettings.ai_model_name"
+                class="input-sm"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.ai_model_name')"
+              />
+            </div>
+            <button
+              class="btn btn-primary btn-sm"
+              :class="{ dark: isDark, loading: isSavingSettings }"
+              @click="handleSaveSettings"
+            >
+              {{ t('button.save_settings') }}
+            </button>
+          </div>
+
+          <!-- 头像设置 -->
+          <div v-else-if="activeSettingsTab === 'avatar'" class="settings-panel">
+            <h3>🖼️ {{ t('label.avatar_settings') }}</h3>
+            
+            <!-- 当前头像预览 -->
+            <div class="avatar-preview-section">
+              <div class="avatar-preview">
+                <img v-if="userAvatar" :src="userAvatar" class="preview-image" />
+                <span v-else class="preview-placeholder">{{ roleIcon }}</span>
               </div>
-              <div class="setting-item">
-                <label>{{ t('label.ai_provider') }}</label>
-                <select
-                  v-model="userSettings.ai_provider"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                >
-                  <option value="workers-ai">Cloudflare Workers AI</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="azure-openai">Azure OpenAI</option>
-                  <option value="anthropic">Anthropic</option>
-                  <option value="custom">Custom API</option>
-                </select>
-              </div>
-              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-                <label>{{ t('label.ai_api_key') }}</label>
+            </div>
+
+            <!-- 文件上传 -->
+            <div class="form-group">
+              <label>{{ t('label.upload_avatar') }}</label>
+              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
                 <input
-                  type="password"
-                  v-model="userSettings.ai_api_key"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.ai_api_key')"
+                  ref="fileInput"
+                  type="file"
+                  accept="image/*"
+                  class="file-input"
+                  @change="handleFileUpload"
                 />
+                <span class="upload-icon">📤</span>
+                <span class="upload-text">{{ t('label.click_to_upload') }}</span>
+                <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
               </div>
-              <div v-if="userSettings.ai_provider === 'custom'" class="setting-item">
-                <label>{{ t('label.ai_api_url') }}</label>
+            </div>
+
+            <!-- 头像URL输入 -->
+            <div class="form-group">
+              <label>{{ t('label.avatar_url') }}</label>
+              <input
+                v-model="avatarInput"
+                type="url"
+                class="form-input"
+                :class="{ dark: isDark }"
+                :placeholder="t('placeholder.avatar_url')"
+              />
+            </div>
+
+            <!-- 悬浮窗设置 -->
+            <div class="form-group">
+              <label class="checkbox-label">
                 <input
-                  type="url"
-                  v-model="userSettings.ai_api_url"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.ai_api_url')"
+                  v-model="useAvatarAsPopup"
+                  type="checkbox"
+                  :true-value="1"
+                  :false-value="0"
                 />
-              </div>
-              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-                <label>{{ t('label.ai_model_name') }}</label>
-                <input
-                  type="text"
-                  v-model="userSettings.ai_model_name"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.ai_model_name')"
-                />
-              </div>
+                <span>{{ t('label.use_avatar_as_popup') }}</span>
+              </label>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="modal-actions">
               <button
-                class="btn btn-primary btn-sm"
-                :class="{ dark: isDark, loading: isSavingSettings }"
-                @click="handleSaveSettings"
+                v-if="userAvatar"
+                class="btn btn-danger"
+                :class="{ dark: isDark }"
+                @click="deleteAvatar"
               >
-                {{ t('button.save_settings') }}
+                {{ t('button.delete_avatar') }}
+              </button>
+              <button
+                class="btn btn-primary"
+                :disabled="isSaving"
+                @click="handleSaveAvatar"
+              >
+                {{ isSaving ? t('label.saving') : t('button.save') }}
               </button>
             </div>
           </div>
 
-          <!-- 数据备份 - 可折叠 -->
-          <div class="collapsible-section">
-            <button
-              class="collapsible-header"
-              :class="{ dark: isDark }"
-              @click="expandedSections.backup = !expandedSections.backup"
-            >
-              <span class="section-icon">💾</span>
-              <span class="section-title">{{ t('label.backup_settings') }}</span>
-              <span class="section-arrow">{{ expandedSections.backup ? '▼' : '▶' }}</span>
-            </button>
-            <div v-if="expandedSections.backup" class="collapsible-content">
-              <BackupManager
-                ref="backupManagerRef"
-                :access-token="accessToken"
-                @load-endpoints="handleLoadEndpoints"
-                @add-endpoint="handleAddEndpoint"
-                @update-endpoint="handleUpdateEndpoint"
-                @delete-endpoint="handleDeleteEndpoint"
-                @test-endpoint="handleTestEndpoint"
-                @list-backups="handleListBackups"
-                @restore-backup="handleRestoreBackup"
-                @delete-backup="handleDeleteBackup"
-                @download-backup="handleDownloadBackup"
-                @batch-delete-backups="handleBatchDeleteBackups"
-                @backup-all="handleBackupAll"
-                @backup-single="handleBackupSingle"
-              />
-            </div>
+          <!-- 数据备份 -->
+          <div v-else-if="activeSettingsTab === 'backup'" class="settings-panel">
+            <h3>💾 {{ t('label.backup_settings') }}</h3>
+            <BackupManager
+              ref="backupManagerRef"
+              :access-token="accessToken"
+              @load-endpoints="handleLoadEndpoints"
+              @add-endpoint="handleAddEndpoint"
+              @update-endpoint="handleUpdateEndpoint"
+              @delete-endpoint="handleDeleteEndpoint"
+              @test-endpoint="handleTestEndpoint"
+              @list-backups="handleListBackups"
+              @restore-backup="handleRestoreBackup"
+              @delete-backup="handleDeleteBackup"
+              @download-backup="handleDownloadBackup"
+              @batch-delete-backups="handleBatchDeleteBackups"
+              @backup-all="handleBackupAll"
+              @backup-single="handleBackupSingle"
+            />
           </div>
 
-          <!-- 渠道设置 - 可折叠 -->
-          <div class="collapsible-section">
-            <button
-              class="collapsible-header"
-              :class="{ dark: isDark }"
-              @click="expandedSections.channels = !expandedSections.channels"
-            >
-              <span class="section-icon">📡</span>
-              <span class="section-title">{{ t('label.channel_settings') }}</span>
-              <span class="section-arrow">{{ expandedSections.channels ? '▼' : '▶' }}</span>
-            </button>
-            <div v-if="expandedSections.channels" class="collapsible-content">
-              <ChannelSettingsPanel
-                ref="channelSettingsRef"
-                :channels="channels"
-                :channel-definitions="channelDefinitions"
-                :channel-settings="channelSettings"
-                :access-token="accessToken"
-                @save="handleSaveChannel"
-                @test="handleTestChannel"
-                @toggle-enabled="handleToggleChannelEnabled"
-              />
-            </div>
+          <!-- 渠道设置 -->
+          <div v-else-if="activeSettingsTab === 'channels'" class="settings-panel">
+            <h3>📡 {{ t('label.channel_settings') }}</h3>
+            <ChannelSettingsPanel
+              ref="channelSettingsRef"
+              :channels="channels"
+              :channel-definitions="channelDefinitions"
+              :channel-settings="channelSettings"
+              :access-token="accessToken"
+              @save="handleSaveChannel"
+              @test="handleTestChannel"
+              @toggle-enabled="handleToggleChannelEnabled"
+            />
+          </div>
+
+          <!-- 用户管理 -->
+          <div v-else-if="activeSettingsTab === 'users' && hasPermission('users:manage')" class="settings-panel">
+            <h3>👥 {{ t('tab.users') }}</h3>
+            <UserManagement />
+          </div>
+
+          <!-- 审计日志 -->
+          <div v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')" class="settings-panel">
+            <h3>📋 {{ t('tab.audit') }}</h3>
+            <AuditLogs />
           </div>
         </div>
       </div>
@@ -2631,6 +2724,257 @@ function handleResend(record: PushHistoryRecord) {
   color: #667eea;
   font-size: 20px;
   font-weight: bold;
+}
+
+/* ==================== 左右布局设置面板样式 ==================== */
+.settings-layout {
+  display: flex;
+  gap: 20px;
+  min-height: calc(100vh - 120px);
+}
+
+.settings-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 12px;
+  padding: 16px;
+  position: sticky;
+  top: 20px;
+  height: fit-content;
+}
+
+.settings-sidebar.dark {
+  background: var(--bg-dark-secondary, #1e1e2e);
+}
+
+.settings-sidebar h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.settings-sidebar.dark h3 {
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.settings-menu-item:hover {
+  background: var(--bg-hover, #e8e8e8);
+  color: var(--text-primary, #1a1a2e);
+}
+
+.settings-menu-item.dark:hover {
+  background: var(--bg-dark-hover, #2a2a3e);
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.settings-menu-item.active {
+  background: var(--primary-color, #6366f1);
+  color: #ffffff;
+}
+
+.settings-menu-item.active.dark {
+  background: var(--primary-color, #6366f1);
+}
+
+.menu-icon {
+  font-size: 18px;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.settings-content {
+  flex: 1;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 12px;
+  padding: 24px;
+  min-height: 400px;
+}
+
+.settings-content.dark {
+  background: var(--bg-dark-secondary, #1e1e2e);
+}
+
+.settings-panel {
+  animation: fadeIn 0.2s ease;
+}
+
+.settings-panel h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.settings-panel.dark h3 {
+  color: var(--text-dark-primary, #ffffff);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 头像设置样式 */
+.avatar-preview-section {
+  margin-bottom: 20px;
+}
+
+.avatar-preview {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: var(--bg-primary, #ffffff);
+  border: 2px solid var(--border-color, #e0e0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar-preview.dark {
+  background: var(--bg-dark-primary, #16162a);
+  border-color: var(--border-dark-color, #333);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-placeholder {
+  font-size: 48px;
+}
+
+.upload-area {
+  border: 2px dashed var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-primary, #ffffff);
+}
+
+.upload-area:hover {
+  border-color: var(--primary-color, #6366f1);
+  background: var(--bg-hover, #f0f0ff);
+}
+
+.upload-area.dark {
+  background: var(--bg-dark-primary, #16162a);
+  border-color: var(--border-dark-color, #333);
+}
+
+.upload-area.dark:hover {
+  border-color: var(--primary-color, #6366f1);
+  background: var(--bg-dark-hover, #2a2a3e);
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 4px;
+}
+
+.upload-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.form-group.dark label {
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.form-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a2e);
+}
+
+.form-input.dark {
+  background: var(--bg-dark-primary, #16162a);
+  border-color: var(--border-dark-color, #333);
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 /* ==================== 可折叠设置面板样式 ==================== */
