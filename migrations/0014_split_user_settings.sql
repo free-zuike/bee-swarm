@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users_new (
   updated_at TEXT NOT NULL
 );
 
--- 复制数据 - 拆分原 settings 为 cache_settings 和 ai_settings
+-- 复制数据 - 从旧的settings字段或新字段提取数据
 INSERT INTO users_new (
   id, email, password, token, token_expires_at, refresh_token, refresh_token_expires_at,
   apikey, apikey_expires_at, role, disabled, disabled_reason, avatar_url, use_avatar_as_popup,
@@ -36,11 +36,10 @@ INSERT INTO users_new (
 SELECT
   id, email, password, token, token_expires_at, refresh_token, refresh_token_expires_at,
   apikey, apikey_expires_at, role, disabled, disabled_reason, avatar_url, use_avatar_as_popup,
-  -- 优先尝试从新字段读取，如果不存在则从旧字段拆分
-  CASE
-    WHEN cache_settings IS NOT NULL AND cache_settings != '' AND cache_settings != '{}' THEN
-      cache_settings
-    WHEN settings IS NOT NULL AND settings != '' THEN
+  -- 获取缓存设置
+  COALESCE(
+    CASE WHEN cache_settings IS NOT NULL AND cache_settings != '' AND cache_settings != '{}' THEN cache_settings END,
+    CASE WHEN settings IS NOT NULL AND settings != '' THEN
       json_object(
         'cache_ttl_backup', json_extract(settings, '$.cache_ttl_backup'),
         'cache_ttl_channels', json_extract(settings, '$.cache_ttl_channels'),
@@ -48,13 +47,13 @@ SELECT
         'cache_ttl_groups', json_extract(settings, '$.cache_ttl_groups'),
         'cache_ttl_scheduled', json_extract(settings, '$.cache_ttl_scheduled')
       )
-    ELSE '{}'
-  END AS cache_settings,
-  -- 优先尝试从新字段读取，如果不存在则从旧字段拆分
-  CASE
-    WHEN ai_settings IS NOT NULL AND ai_settings != '' AND ai_settings != '{}' THEN
-      ai_settings
-    WHEN settings IS NOT NULL AND settings != '' THEN
+    END,
+    '{}'
+  ),
+  -- 获取AI设置
+  COALESCE(
+    CASE WHEN ai_settings IS NOT NULL AND ai_settings != '' AND ai_settings != '{}' THEN ai_settings END,
+    CASE WHEN settings IS NOT NULL AND settings != '' THEN
       json_object(
         'ai_model', json_extract(settings, '$.ai_model'),
         'ai_enabled', json_extract(settings, '$.ai_enabled'),
@@ -65,8 +64,9 @@ SELECT
         'custom_ai_providers', json_extract(settings, '$.custom_ai_providers'),
         'ai_provider_configs', json_extract(settings, '$.ai_provider_configs')
       )
-    ELSE '{}'
-  END AS ai_settings,
+    END,
+    '{}'
+  ),
   created_at, updated_at
 FROM users;
 

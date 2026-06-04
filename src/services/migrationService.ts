@@ -17,12 +17,12 @@ export class MigrationService {
       return;
     }
 
-    await this.migration0013AddUserSettings();
+    await this.migrationAddCacheAndAISettings();
   }
 
-  private async migration0013AddUserSettings(): Promise<void> {
+  private async migrationAddCacheAndAISettings(): Promise<void> {
     try {
-      // 检查 users 表是否已经有 settings 列
+      // 检查 users 表的列
       const result = await this.env.DB.prepare('PRAGMA table_info(users)').all<{
         cid: number;
         name: string;
@@ -32,21 +32,29 @@ export class MigrationService {
         pk: number;
       }>();
 
-      const hasSettingsColumn = result.results.some((col) => col.name === 'settings');
+      const columns = result.results.map((col) => col.name);
 
-      if (hasSettingsColumn) {
-        console.log('[Migration] users table already has settings column');
+      // 如果已经有 cache_settings 和 ai_settings 列，跳过
+      if (columns.includes('cache_settings') && columns.includes('ai_settings')) {
+        console.log('[Migration] users table already has cache_settings and ai_settings columns');
         return;
       }
 
-      console.log('[Migration] Adding settings column to users table');
+      console.log('[Migration] Adding cache_settings and ai_settings columns to users table');
 
-      // 添加 settings 列
-      await this.env.DB.prepare("ALTER TABLE users ADD COLUMN settings TEXT DEFAULT '{}'").run();
+      // 添加 cache_settings 列
+      if (!columns.includes('cache_settings')) {
+        await this.env.DB.prepare("ALTER TABLE users ADD COLUMN cache_settings TEXT DEFAULT '{}'").run();
+      }
 
-      console.log('[Migration] Successfully added settings column');
+      // 添加 ai_settings 列
+      if (!columns.includes('ai_settings')) {
+        await this.env.DB.prepare("ALTER TABLE users ADD COLUMN ai_settings TEXT DEFAULT '{}'").run();
+      }
+
+      console.log('[Migration] Successfully added cache_settings and ai_settings columns');
     } catch (error) {
-      console.error('[Migration] Failed to add settings column:', error);
+      console.error('[Migration] Failed to add cache_settings and ai_settings columns:', error);
     }
   }
 }
