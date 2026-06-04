@@ -387,6 +387,13 @@ onMounted(() => {
   line-height: 1;
 }
 
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
 .log-main {
   flex: 1;
   min-width: 0;

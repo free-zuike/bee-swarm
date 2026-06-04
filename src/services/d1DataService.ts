@@ -72,31 +72,34 @@ export async function getAuditLogs(
   try {
     const limit = options.limit || 50;
     const offset = options.offset || 0;
-    let query = 'SELECT * FROM audit_logs';
+    // 关联用户表获取头像
+    let query = `SELECT al.id, al.user_id, al.action, al.data, al.created_at, u.avatar_url
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.email`;
     const bindings: any[] = [];
 
     if (userId) {
-      query += ' WHERE user_id = ?';
+      query += ' WHERE al.user_id = ?';
       bindings.push(userId);
     }
 
     if (options.action) {
-      query += userId ? ' AND action = ?' : ' WHERE action = ?';
+      query += userId ? ' AND al.action = ?' : ' WHERE al.action = ?';
       bindings.push(options.action);
     }
 
     if (options.startDate) {
-      query += userId || options.action ? ' AND created_at >= ?' : ' WHERE created_at >= ?';
+      query += userId || options.action ? ' AND al.created_at >= ?' : ' WHERE al.created_at >= ?';
       bindings.push(options.startDate);
     }
 
     if (options.endDate) {
       const hasWhere = userId || options.action || options.startDate;
-      query += hasWhere ? ' AND created_at <= ?' : ' WHERE created_at <= ?';
+      query += hasWhere ? ' AND al.created_at <= ?' : ' WHERE al.created_at <= ?';
       bindings.push(options.endDate);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
     const result = await env
@@ -108,7 +111,8 @@ export async function getAuditLogs(
       userId: row.user_id,
       action: row.action as AuditAction,
       data: JSON.parse(row.data || '{}'),
-      createdAt: row.created_at,
+      timestamp: row.created_at,
+      avatar_url: row.avatar_url || '',
     }));
   } catch (error) {
     console.error('[D1] getAuditLogs error:', error);

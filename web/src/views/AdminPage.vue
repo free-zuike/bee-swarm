@@ -258,6 +258,27 @@ function handleProviderChange() {
   userSettings.value.ai_model_name = getDefaultModelName();
 }
 
+function selectProvider(provider: string) {
+  userSettings.value.ai_provider = provider as any;
+  handleProviderChange();
+}
+
+function getProviderConfigTitle() {
+  const provider = userSettings.value.ai_provider;
+  switch (provider) {
+    case 'openai':
+      return 'OpenAI 配置';
+    case 'azure-openai':
+      return 'Azure OpenAI 配置';
+    case 'anthropic':
+      return 'Anthropic Claude 配置';
+    case 'custom':
+      return '自定义 API 配置';
+    default:
+      return '';
+  }
+}
+
 async function handleSaveSettings() {
   if (isSavingSettings.value) return;
 
@@ -1234,7 +1255,7 @@ function handleResend(record: PushHistoryRecord) {
           <!-- AI 设置 -->
           <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel">
             <h3>🤖 {{ t('label.ai_settings') }}</h3>
-            <div class="settings-card ai-settings">
+            <div class="settings-card">
               <div class="setting-item">
                 <label>{{ t('label.ai_enabled') }}</label>
                 <label class="toggle">
@@ -1242,51 +1263,110 @@ function handleResend(record: PushHistoryRecord) {
                   <span class="slider"></span>
                 </label>
               </div>
-              <div class="setting-item">
-                <label>{{ t('label.ai_provider') }}</label>
-                <select
-                  v-model="userSettings.ai_provider"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  @change="handleProviderChange"
+              
+              <!-- AI 提供商选择 -->
+              <div class="ai-provider-list">
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'workers-ai', dark: isDark }"
+                  @click="selectProvider('workers-ai')"
                 >
-                  <option value="workers-ai">Cloudflare Workers AI</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="azure-openai">Azure OpenAI</option>
-                  <option value="anthropic">Anthropic</option>
-                  <option value="custom">Custom API</option>
-                </select>
+                  <div class="provider-icon">☁️</div>
+                  <div class="provider-info">
+                    <div class="provider-name">Cloudflare Workers AI</div>
+                    <div class="provider-desc">使用 Cloudflare Workers AI，无需额外配置</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'workers-ai'" class="provider-check">✓</div>
+                </div>
+                
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'openai', dark: isDark }"
+                  @click="selectProvider('openai')"
+                >
+                  <div class="provider-icon">🧠</div>
+                  <div class="provider-info">
+                    <div class="provider-name">OpenAI</div>
+                    <div class="provider-desc">使用 OpenAI GPT 模型，需要 API Key</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'openai'" class="provider-check">✓</div>
+                </div>
+                
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'azure-openai', dark: isDark }"
+                  @click="selectProvider('azure-openai')"
+                >
+                  <div class="provider-icon">🔷</div>
+                  <div class="provider-info">
+                    <div class="provider-name">Azure OpenAI</div>
+                    <div class="provider-desc">使用 Azure OpenAI 服务，需要完整配置</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'azure-openai'" class="provider-check">✓</div>
+                </div>
+                
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'anthropic', dark: isDark }"
+                  @click="selectProvider('anthropic')"
+                >
+                  <div class="provider-icon">🤖</div>
+                  <div class="provider-info">
+                    <div class="provider-name">Anthropic Claude</div>
+                    <div class="provider-desc">使用 Claude 模型，需要 API Key</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'anthropic'" class="provider-check">✓</div>
+                </div>
+                
+                <div 
+                  class="ai-provider-card"
+                  :class="{ active: userSettings.ai_provider === 'custom', dark: isDark }"
+                  @click="selectProvider('custom')"
+                >
+                  <div class="provider-icon">⚙️</div>
+                  <div class="provider-info">
+                    <div class="provider-name">自定义 API</div>
+                    <div class="provider-desc">使用自定义 OpenAI 兼容 API</div>
+                  </div>
+                  <div v-if="userSettings.ai_provider === 'custom'" class="provider-check">✓</div>
+                </div>
               </div>
-              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-                <label>{{ t('label.ai_api_key') }}</label>
-                <input
-                  type="password"
-                  v-model="userSettings.ai_api_key"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.ai_api_key')"
-                />
+              
+              <!-- 提供商配置 -->
+              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="provider-config">
+                <div class="config-title">{{ getProviderConfigTitle() }}</div>
+                <div class="setting-item">
+                  <label>{{ t('label.ai_api_key') }}</label>
+                  <input
+                    type="password"
+                    v-model="userSettings.ai_api_key"
+                    class="input-sm"
+                    :class="{ dark: isDark }"
+                    :placeholder="t('placeholder.ai_api_key')"
+                  />
+                </div>
+                <div v-if="userSettings.ai_provider === 'azure-openai' || userSettings.ai_provider === 'custom'" class="setting-item">
+                  <label>{{ t('label.ai_api_url') }}</label>
+                  <input
+                    type="url"
+                    v-model="userSettings.ai_api_url"
+                    class="input-sm"
+                    :class="{ dark: isDark }"
+                    :placeholder="getDefaultApiUrl()"
+                  />
+                </div>
+                <div class="setting-item">
+                  <label>{{ t('label.ai_model_name') }}</label>
+                  <input
+                    type="text"
+                    v-model="userSettings.ai_model_name"
+                    class="input-sm"
+                    :class="{ dark: isDark }"
+                    :placeholder="getDefaultModelName()"
+                  />
+                </div>
               </div>
-              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-                <label>{{ t('label.ai_api_url') }}</label>
-                <input
-                  type="url"
-                  v-model="userSettings.ai_api_url"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  :placeholder="getDefaultApiUrl()"
-                />
-              </div>
-              <div v-if="userSettings.ai_provider !== 'workers-ai'" class="setting-item">
-                <label>{{ t('label.ai_model_name') }}</label>
-                <input
-                  type="text"
-                  v-model="userSettings.ai_model_name"
-                  class="input-sm"
-                  :class="{ dark: isDark }"
-                  :placeholder="getDefaultModelName()"
-                />
-              </div>
+              
               <button
                 class="btn btn-primary btn-sm"
                 :class="{ dark: isDark, loading: isSavingSettings }"
@@ -2897,15 +2977,7 @@ function handleResend(record: PushHistoryRecord) {
   margin-top: 20px;
 }
 
-/* ==================== AI 设置样式 ==================== */
-.settings-card.ai-settings {
-  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
-  border-color: rgba(99, 102, 241, 0.2);
-}
-
-.settings-panel.dark .settings-card.ai-settings {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-}
+/* ==================== 设置项样式 ==================== */
 
 /* 设置项优化 */
 .setting-item {
@@ -3157,5 +3229,121 @@ function handleResend(record: PushHistoryRecord) {
 
 .api-key-content {
   padding-bottom: 8px;
+}
+
+/* ==================== AI 提供商卡片样式 ==================== */
+.ai-provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.ai-provider-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-panel, white);
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-provider-card:hover {
+  border-color: #667eea;
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.ai-provider-card.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.ai-provider-card.dark {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: var(--border-color, #3c3c3c);
+}
+
+.ai-provider-card.dark:hover {
+  border-color: #667eea;
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.ai-provider-card.dark.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+}
+
+.provider-icon {
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.provider-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.provider-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 4px;
+}
+
+.ai-provider-card.dark .provider-name {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.provider-desc {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.ai-provider-card.dark .provider-desc {
+  color: var(--text-secondary, #999);
+}
+
+.provider-check {
+  font-size: 20px;
+  color: #667eea;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.provider-config {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.provider-config.dark {
+  background: var(--bg-secondary, #3c3c3c);
+  border-color: var(--border-color, #4c4c4c);
+}
+
+.config-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.provider-config.dark .config-title {
+  color: var(--text-primary, #e0e0e0);
+  border-bottom-color: var(--border-color, #4c4c4c);
 }
 </style>
