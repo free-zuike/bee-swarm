@@ -2581,10 +2581,13 @@ function handleResend(record: PushHistoryRecord) {
   min-height: calc(100vh - 120px);
   max-height: calc(100vh - 120px);
   overflow: hidden;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .settings-sidebar {
-  width: 220px;
+  width: 180px;
   flex-shrink: 0;
   background: var(--bg-secondary, #f5f5f5);
   border-radius: 12px;

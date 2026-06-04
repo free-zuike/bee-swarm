@@ -24,7 +24,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.logout': '退出',
     'button.refresh': '重新生成',
     'button.generate_api_key': '生成 API Key',
-    'label.api_key': '🔑 API Key',
+    'label.api_key': 'API Key',
     'hint.api_key':
       '使用 API Key 调用推送接口，无需暴露账号密码。刷新将生成新 Key，旧 Key 立即失效。',
     'tab.push': '推送消息',
@@ -740,7 +740,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.logout': 'Logout',
     'button.refresh': 'Regenerate',
     'button.generate_api_key': 'Generate API Key',
-    'label.api_key': '🔑 API Key',
+    'label.api_key': 'API Key',
     'hint.api_key':
       'Use API Key to call push API without exposing credentials. Refresh to generate new Key, old Key will be invalid immediately.',
     'tab.push': 'Push Message',
