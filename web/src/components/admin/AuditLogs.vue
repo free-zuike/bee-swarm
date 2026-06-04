@@ -188,7 +188,8 @@ onMounted(() => {
 <style scoped>
 .audit-logs {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -199,7 +200,8 @@ onMounted(() => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -317,6 +319,7 @@ onMounted(() => {
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .log-card::before {

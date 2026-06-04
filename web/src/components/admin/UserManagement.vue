@@ -395,7 +395,8 @@ onMounted(() => {
 <style scoped>
 .user-management {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -406,7 +407,8 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -487,6 +489,7 @@ onMounted(() => {
   border: 1px solid #f0f0f0;
   transition: all 0.25s ease;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .user-card:hover {
