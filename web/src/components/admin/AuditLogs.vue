@@ -40,31 +40,33 @@
         </button>
       </div>
 
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <span>{{ t('label.loading') }}</span>
-      </div>
+      <div class="log-content">
+        <div v-if="loading" class="loading-state">
+          <div class="spinner"></div>
+          <span>{{ t('label.loading') }}</span>
+        </div>
 
-      <div v-else-if="logs.length === 0" class="empty-state">
-        <div class="empty-icon"></div>
-        <p>{{ t('audit.empty') }}</p>
-      </div>
+        <div v-else-if="logs.length === 0" class="empty-state">
+          <div class="empty-icon"></div>
+          <p>{{ t('audit.empty') }}</p>
+        </div>
 
-      <div v-else class="log-list">
-        <div v-for="log in logs" :key="log.id" class="log-card">
-          <div class="log-avatar">
-            <span class="avatar-initial">{{ getInitial(log.userId) }}</span>
-          </div>
-          <div class="log-main">
-            <div class="log-header">
-              <span :class="['log-action', `log-action-${log.action}`]">
-                {{ getActionName(log.action) }}
-              </span>
-              <span class="log-user">{{ log.userId }}</span>
-              <span class="log-time">{{ formatTime(log.timestamp || log.created_at) }}</span>
+        <div v-else class="log-list">
+          <div v-for="log in logs" :key="log.id" class="log-card">
+            <div class="log-avatar">
+              <span class="avatar-initial">{{ getInitial(log.userId) }}</span>
             </div>
-            <div v-if="log.metadata && Object.keys(log.metadata).length > 0" class="log-meta">
-              <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
+            <div class="log-main">
+              <div class="log-header">
+                <span :class="['log-action', `log-action-${log.action}`]">
+                  {{ getActionName(log.action) }}
+                </span>
+                <span class="log-user">{{ log.userId }}</span>
+                <span class="log-time">{{ formatTime(log.timestamp || log.created_at) }}</span>
+              </div>
+              <div v-if="log.metadata && Object.keys(log.metadata).length > 0" class="log-meta">
+                <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
+              </div>
             </div>
           </div>
         </div>
@@ -195,6 +197,9 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 200px);
 }
 
 .panel-header {
@@ -287,6 +292,11 @@ onMounted(() => {
 .empty-icon {
   font-size: 64px;
   opacity: 0.3;
+}
+
+.log-content {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .log-list {
