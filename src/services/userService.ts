@@ -8,6 +8,12 @@ export interface AIProviderConfig {
   model_name?: string;
 }
 
+export interface CustomAIProvider {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 export interface UserSettings {
   cache_ttl_backup?: number;
   cache_ttl_channels?: number;
@@ -16,15 +22,11 @@ export interface UserSettings {
   cache_ttl_scheduled?: number;
   ai_model?: string;
   ai_enabled?: boolean;
-  ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+  ai_provider?: string;
+  // 自定义AI提供商列表
+  custom_ai_providers?: CustomAIProvider[];
   // 每个AI提供商独立的配置
-  ai_provider_configs?: {
-    'workers-ai'?: AIProviderConfig;
-    'openai'?: AIProviderConfig;
-    'azure-openai'?: AIProviderConfig;
-    'anthropic'?: AIProviderConfig;
-    'custom'?: AIProviderConfig;
-  };
+  ai_provider_configs?: Record<string, AIProviderConfig>;
   // 兼容性字段（保持与旧版本兼容）
   ai_api_key?: string;
   ai_api_url?: string;

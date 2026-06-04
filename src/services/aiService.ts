@@ -47,7 +47,7 @@ export interface AIExecuteResponse {
   error?: string;
 }
 
-type AIProvider = 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';
+type AIProvider = string;
 
 /**
  * AI 服务类
@@ -64,7 +64,11 @@ export class AIService {
       return !!this.env.AI;
     }
     if (!settings.ai_enabled) return false;
-    switch (settings.ai_provider) {
+    
+    const provider = settings.ai_provider || 'workers-ai';
+    
+    // 检查是否是预定义的提供商
+    switch (provider) {
       case 'workers-ai':
         return !!this.env.AI;
       case 'openai':
@@ -73,7 +77,8 @@ export class AIService {
       case 'custom':
         return !!(settings.ai_api_key && settings.ai_api_url);
       default:
-        return !!this.env.AI;
+        // 对于自定义提供商，检查是否有 API key 和 URL
+        return !!(settings.ai_api_key && settings.ai_api_url);
     }
   }
 
@@ -83,6 +88,7 @@ export class AIService {
   ): Promise<string> {
     const provider = settings.ai_provider || 'workers-ai';
 
+    // 检查是否是预定义的提供商
     switch (provider) {
       case 'workers-ai': {
         if (!this.env.AI) {
@@ -199,7 +205,37 @@ export class AIService {
       }
 
       default:
-        throw new Error(`不支持的 AI 提供商: ${provider}`);
+        // 对于自定义提供商，使用 OpenAI 兼容的 API 格式
+        const apiUrl = settings.ai_api_url || 'https://api.openai.com/v1/chat/completions';
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name || 'gpt-4o';
+
+        if (!apiKey) {
+          throw new Error('API key 未配置');
+        }
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`AI API error: ${response.status} ${errorText}`);
+        }
+
+        const data = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        return data.choices?.[0]?.message?.content || '';
     }
   }
 
