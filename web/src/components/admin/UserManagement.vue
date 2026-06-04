@@ -389,6 +389,9 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 180px);
 }
 
 .panel-header {
@@ -452,6 +455,9 @@ onMounted(() => {
   padding: 20px;
   display: grid;
   gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .user-card {

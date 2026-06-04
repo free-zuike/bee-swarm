@@ -195,6 +195,9 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 180px);
 }
 
 .panel-header {
@@ -293,6 +296,9 @@ onMounted(() => {
   padding: 24px;
   display: grid;
   gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .log-card {
