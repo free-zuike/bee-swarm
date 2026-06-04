@@ -381,32 +381,79 @@ export class AIService {
 可用工具：
 ${JSON.stringify(tools, null, 2)}
 
-当用户请求执行某个操作时：
-1. 分析用户意图
-2. 如果需要调用工具，输出 JSON 格式的工具调用，格式如下：
+=== 工具调用规则 ===
+当用户请求执行某个操作时，请严格按照以下步骤：
+
+1. 分析用户意图，判断需要调用哪个工具
+2. 如果需要调用工具，**只输出**如下格式的 JSON，不要有任何其他文本：
    {"tool":"工具名称","params":{"参数名":"参数值"}}
+
 3. 如果不需要调用工具（如回答问题、聊天），直接用自然语言回复用户
 
 请用中文回答用户问题。
 
-注意：
-- 工具名称必须完全匹配
+=== 重要注意事项 ===
+- 工具名称必须完全匹配列表中的名称
 - 参数名必须完全匹配
+- 工具调用必须是纯 JSON，不要用 markdown 包裹，不要有任何解释性文本
+- 如果需要调用 listTemplates，params 应该是空对象 {}
 - 如果没有合适的工具或无法理解请求，直接用自然语言回复
 `;
   }
 
   private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
     try {
+      // 尝试多种 JSON 提取方式
+      let jsonStr = null;
+      
+      // 方式1: 直接匹配整个 JSON 对象
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.tool && typeof parsed.params === 'object') {
-          return parsed;
+        jsonStr = jsonMatch[0];
+      } 
+      // 方式2: 尝试匹配 markdown 代码块中的 JSON
+      else if (content.includes('```')) {
+        const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (codeBlockMatch) {
+          jsonStr = codeBlockMatch[1];
         }
       }
+      
+      if (!jsonStr) {
+        return null;
+      }
+      
+      const parsed = JSON.parse(jsonStr);
+      
+      // 兼容多种格式
+      if (parsed.tool) {
+        return { 
+          tool: parsed.tool, 
+          params: parsed.params || {} 
+        };
+      } else if (parsed.name) {
+        // 兼容 OpenAI 风格的工具调用格式
+        return { 
+          tool: parsed.name, 
+          params: parsed.arguments || {} 
+        };
+      } else if (parsed.function_name) {
+        // 兼容另一种常见格式
+        return { 
+          tool: parsed.function_name, 
+          params: parsed.parameters || {} 
+        };
+      } else if (parsed.action) {
+        // 兼容 LangChain 风格
+        return { 
+          tool: parsed.action, 
+          params: parsed.action_input || {} 
+        };
+      }
+      
       return null;
-    } catch {
+    } catch (error) {
+      console.error('[AI Service] 解析工具调用失败:', error, '原始内容:', content);
       return null;
     }
   }
