@@ -199,7 +199,6 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 200px);
 }
 
 .panel-header {

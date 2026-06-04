@@ -2032,22 +2032,23 @@ function handleResend(record: PushHistoryRecord) {
 }
 
 .api-key-display code {
-  background: var(--bg-panel, #e9ecef);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-family: monospace;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
   word-break: break-all;
   flex: 1;
-  font-size: 13px;
-  color: var(--text-primary, #1a1a2e);
-  transition:
-    background 0.3s,
-    color 0.3s;
+  font-size: 14px;
+  color: #e2e8f0;
+  font-weight: 500;
+  letter-spacing: 1px;
+  border: 1px solid #334155;
 }
 
 .api-key-display code.dark {
-  background: var(--bg-panel, #2d2d2d);
-  color: var(--text-primary, #e0e0e0);
+  background: linear-gradient(135deg, #0f172a 0%, #1e1e2e 100%);
+  color: #e0e0e0;
+  border-color: #404040;
 }
 
 .hint {
