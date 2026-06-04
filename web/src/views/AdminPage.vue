@@ -143,6 +143,8 @@ const expandedSections = reactive({
   apiKey: false,
   cache: false,
   ai: false,
+  backup: false,
+  channels: false,
 });
 
 async function loadUserSettings() {
@@ -1334,6 +1336,54 @@ function handleResend(record: PushHistoryRecord) {
             </div>
           </div>
 
+          <!-- 数据备份 - 可折叠 -->
+          <div class="collapsible-section">
+            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.backup = !expandedSections.backup">
+              <span class="section-icon">💾</span>
+              <span class="section-title">{{ t('label.backup_settings') }}</span>
+              <span class="section-arrow">{{ expandedSections.backup ? '▼' : '▶' }}</span>
+            </button>
+            <div v-if="expandedSections.backup" class="collapsible-content">
+              <BackupManager
+                ref="backupManagerRef"
+                :access-token="accessToken"
+                @load-endpoints="handleLoadEndpoints"
+                @add-endpoint="handleAddEndpoint"
+                @update-endpoint="handleUpdateEndpoint"
+                @delete-endpoint="handleDeleteEndpoint"
+                @test-endpoint="handleTestEndpoint"
+                @list-backups="handleListBackups"
+                @restore-backup="handleRestoreBackup"
+                @delete-backup="handleDeleteBackup"
+                @download-backup="handleDownloadBackup"
+                @batch-delete-backups="handleBatchDeleteBackups"
+                @backup-all="handleBackupAll"
+                @backup-single="handleBackupSingle"
+              />
+            </div>
+          </div>
+
+          <!-- 渠道设置 - 可折叠 -->
+          <div class="collapsible-section">
+            <button class="collapsible-header" :class="{ dark: isDark }" @click="expandedSections.channels = !expandedSections.channels">
+              <span class="section-icon">📡</span>
+              <span class="section-title">{{ t('label.channel_settings') }}</span>
+              <span class="section-arrow">{{ expandedSections.channels ? '▼' : '▶' }}</span>
+            </button>
+            <div v-if="expandedSections.channels" class="collapsible-content">
+              <ChannelSettingsPanel
+                ref="channelSettingsRef"
+                :channels="channels"
+                :channel-definitions="channelDefinitions"
+                :channel-settings="channelSettings"
+                :access-token="accessToken"
+                @save="handleSaveChannel"
+                @test="handleTestChannel"
+                @toggle-enabled="handleToggleChannelEnabled"
+              />
+            </div>
+          </div>
+
           <button
             class="btn btn-primary"
             :class="{ dark: isDark, loading: isSavingSettings }"
@@ -1342,38 +1392,6 @@ function handleResend(record: PushHistoryRecord) {
             {{ t('button.save_settings') }}
           </button>
         </div>
-
-        <!-- 数据备份面板（多备份端） -->
-        <div class="panel" :class="{ dark: isDark }">
-          <BackupManager
-            ref="backupManagerRef"
-            :access-token="accessToken"
-            @load-endpoints="handleLoadEndpoints"
-            @add-endpoint="handleAddEndpoint"
-            @update-endpoint="handleUpdateEndpoint"
-            @delete-endpoint="handleDeleteEndpoint"
-            @test-endpoint="handleTestEndpoint"
-            @list-backups="handleListBackups"
-            @restore-backup="handleRestoreBackup"
-            @delete-backup="handleDeleteBackup"
-            @download-backup="handleDownloadBackup"
-            @batch-delete-backups="handleBatchDeleteBackups"
-            @backup-all="handleBackupAll"
-            @backup-single="handleBackupSingle"
-          />
-        </div>
-
-        <!-- 渠道设置 -->
-        <ChannelSettingsPanel
-          ref="channelSettingsRef"
-          :channels="channels"
-          :channel-definitions="channelDefinitions"
-          :channel-settings="channelSettings"
-          :access-token="accessToken"
-          @save="handleSaveChannel"
-          @test="handleTestChannel"
-          @toggle-enabled="handleToggleChannelEnabled"
-        />
       </div>
 
       <!-- 推送/历史 Tab（当设置面板关闭时显示） -->

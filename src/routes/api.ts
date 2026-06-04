@@ -745,6 +745,10 @@ adminApi.put('/me/settings', async (c) => {
     cache_ttl_scheduled?: number;
     ai_model?: string;
     ai_enabled?: boolean;
+    ai_provider?: string;
+    ai_api_key?: string;
+    ai_api_url?: string;
+    ai_model_name?: string;
   }>();
 
   const currentSettings = await svc.getUserSettings(user.id);
