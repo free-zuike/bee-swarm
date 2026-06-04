@@ -322,7 +322,7 @@ function updateCacheSettings() {
   });
 }
 
-function selectProvider(provider: string) {
+async function selectProvider(provider: string) {
   // 如果正在保存配置，等待完成
   if (isSavingSettings.value) return;
   
@@ -337,6 +337,24 @@ function selectProvider(provider: string) {
   
   // 加载新提供商的配置
   loadProviderConfig(provider);
+  
+  // 只保存 ai_provider，告诉服务器我们选择了这个AI
+  isSavingSettings.value = true;
+  try {
+    await saveUserSettings(accessToken.value, {
+      ai_provider: provider,
+      ai_provider_configs: userSettings.value.ai_provider_configs,
+      custom_ai_providers: userSettings.value.custom_ai_providers,
+    });
+  } catch {
+    // 失败时回滚
+    userSettings.value.ai_provider = oldProvider as any;
+    if (oldProvider) {
+      loadProviderConfig(oldProvider);
+    }
+  } finally {
+    isSavingSettings.value = false;
+  }
 }
 
 function getProviderConfigTitle() {
