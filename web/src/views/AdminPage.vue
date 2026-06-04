@@ -2606,7 +2606,9 @@ function handleResend(record: PushHistoryRecord) {
   display: flex;
   gap: 20px;
   width: 100%;
+  height: calc(100vh - 80px);
   padding: 0 16px;
+  overflow: hidden;
 }
 
 .settings-sidebar {
@@ -2615,6 +2617,7 @@ function handleResend(record: PushHistoryRecord) {
   background: var(--bg-secondary, #f5f5f5);
   border-radius: 12px;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .settings-sidebar.dark {
@@ -2684,6 +2687,7 @@ function handleResend(record: PushHistoryRecord) {
   flex: 1;
   background: transparent;
   padding: 0;
+  overflow-y: auto;
 }
 
 .settings-content.dark {
