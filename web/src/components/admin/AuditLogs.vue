@@ -1,44 +1,45 @@
 <template>
   <div class="audit-logs">
-    <div class="panel-header">
-      <div class="header-actions">
-        <button class="btn btn-secondary btn-sm" @click="clearFilters">
-          {{ t('button.reset') }}
-        </button>
-        <button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading">
-          {{ t('audit.clearAll') }}
-        </button>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📋 {{ t('audit.title') }}</h2>
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-sm" @click="clearFilters">
+            {{ t('button.reset') }}
+          </button>
+          <button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading">
+            {{ t('audit.clearAll') }}
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div class="filter-bar">
-      <div class="filter-group">
-        <label>{{ t('audit.action') }}</label>
-        <select v-model="filterAction" class="filter-select">
-          <option value="">{{ t('label.all') }}</option>
-          <option value="login">{{ t('audit.login') }}</option>
-          <option value="register">{{ t('audit.register') }}</option>
-          <option value="user_created">{{ t('audit.userCreated') }}</option>
-          <option value="user_deleted">{{ t('audit.userDeleted') }}</option>
-          <option value="user_role_updated">{{ t('audit.userRoleUpdated') }}</option>
-          <option value="user_disabled">{{ t('audit.userDisabled') }}</option>
-          <option value="user_enabled">{{ t('audit.userEnabled') }}</option>
-        </select>
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label>{{ t('audit.action') }}</label>
+          <select v-model="filterAction" class="filter-select">
+            <option value="">{{ t('label.all') }}</option>
+            <option value="login">{{ t('audit.login') }}</option>
+            <option value="register">{{ t('audit.register') }}</option>
+            <option value="user_created">{{ t('audit.userCreated') }}</option>
+            <option value="user_deleted">{{ t('audit.userDeleted') }}</option>
+            <option value="user_role_updated">{{ t('audit.userRoleUpdated') }}</option>
+            <option value="user_disabled">{{ t('audit.userDisabled') }}</option>
+            <option value="user_enabled">{{ t('audit.userEnabled') }}</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>{{ t('audit.startDate') }}</label>
+          <input v-model="filterStartDate" type="date" class="filter-input" />
+        </div>
+        <div class="filter-group">
+          <label>{{ t('audit.endDate') }}</label>
+          <input v-model="filterEndDate" type="date" class="filter-input" />
+        </div>
+        <button class="btn btn-primary btn-sm" @click="loadLogs">
+          {{ t('button.search') }}
+        </button>
       </div>
-      <div class="filter-group">
-        <label>{{ t('audit.startDate') }}</label>
-        <input v-model="filterStartDate" type="date" class="filter-input" />
-      </div>
-      <div class="filter-group">
-        <label>{{ t('audit.endDate') }}</label>
-        <input v-model="filterEndDate" type="date" class="filter-input" />
-      </div>
-      <button class="btn btn-primary btn-sm" @click="loadLogs">
-        {{ t('button.search') }}
-      </button>
-    </div>
 
-    <div class="log-content">
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
         <span>{{ t('label.loading') }}</span>
@@ -194,59 +195,67 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: 12px;
 }
 
 .filter-bar {
   display: flex;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  flex: 1;
   min-width: 160px;
 }
 
 .filter-group label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
 }
 
-.filter-select,
-.filter-input {
-  padding: 8px 12px;
-  border: 1px solid var(--border-color, #d1d5db);
+.filter-input,
+.filter-select {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 14px;
-  background: var(--bg-primary, white);
-  color: var(--text-primary, #111827);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.2s;
 }
 
-.log-content {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-  max-height: calc(100vh - 220px);
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .loading-state,
@@ -255,16 +264,16 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
-  gap: 12px;
-  color: var(--text-secondary, #6b7280);
+  padding: 60px 24px;
+  gap: 16px;
+  color: var(--text-secondary);
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-color, #e5e7eb);
-  border-top-color: var(--primary-color, #6366f1);
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -275,120 +284,242 @@ onMounted(() => {
   }
 }
 
+.empty-icon {
+  font-size: 64px;
+  opacity: 0.3;
+}
+
 .log-list {
-  display: flex;
-  flex-direction: column;
+  padding: 24px;
+  display: grid;
+  gap: 12px;
 }
 
 .log-card {
   display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, #f3f4f6);
-  transition: background 0.2s;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.log-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .log-card:hover {
-  background: var(--bg-secondary, #f9fafb);
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
+  transform: translateY(-1px);
+}
+
+.log-card:hover::before {
+  opacity: 1;
 }
 
 .log-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
   flex-shrink: 0;
 }
 
 .avatar-initial {
   color: white;
-  font-weight: 600;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .log-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .log-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .log-action {
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .log-action-login {
   background: #dbeafe;
-  color: #1e40af;
+  color: #1d4ed8;
 }
 
 .log-action-register {
-  background: #dcfce7;
-  color: #166534;
+  background: #d1fae5;
+  color: #047857;
 }
 
 .log-action-user_created {
-  background: #dcfce7;
-  color: #166534;
+  background: #ede9fe;
+  color: #4f46e5;
 }
 
 .log-action-user_deleted {
   background: #fee2e2;
-  color: #991b1b;
+  color: #dc2626;
 }
 
 .log-action-user_role_updated {
   background: #fef3c7;
-  color: #92400e;
+  color: #b45309;
 }
 
 .log-action-user_disabled {
   background: #fee2e2;
-  color: #991b1b;
+  color: #b91c1c;
 }
 
 .log-action-user_enabled {
-  background: #dcfce7;
-  color: #166534;
+  background: #d1fae5;
+  color: #047857;
+}
+
+.log-action-push_sent {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.log-action-push_failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-action-channel_updated {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-channel_deleted {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-action-template_created {
+  background: #ede9fe;
+  color: #4f46e5;
+}
+
+.log-action-template_updated {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-template_deleted {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-action-scheduled_push_created {
+  background: #ede9fe;
+  color: #4f46e5;
+}
+
+.log-action-scheduled_push_cancelled {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.log-action-scheduled_push_rescheduled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-logout {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.log-action-backup_created {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.log-action-backup_restored {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.log-action-settings_updated {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .log-user {
-  font-weight: 500;
-  color: var(--text-primary, #111827);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.log-user::before {
+  content: '@';
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 12px;
 }
 
 .log-time {
   font-size: 12px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .log-meta {
-  background: var(--bg-secondary, #f3f4f6);
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-top: 8px;
+  background: var(--bg-primary);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-top: 4px;
+  overflow-x: auto;
 }
 
 .log-meta pre {
   margin: 0;
   font-size: 12px;
-  font-family: monospace;
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
-  color: var(--text-secondary, #4b5563);
+  font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  line-height: 1.5;
 }
 
 .modal-overlay {
@@ -399,93 +530,67 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 20px;
 }
 
 .modal {
-  background: var(--bg-primary, white);
+  background: var(--bg-primary);
   border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  max-width: 400px;
-  width: 90%;
-  animation: modalIn 0.2s ease-out;
-}
-
-@keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.modal-danger {
-  border: 2px solid #fee2e2;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #111827);
+  color: var(--text-primary);
 }
 
 .modal-close {
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
+  padding: 4px;
   line-height: 1;
-  padding: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.modal-close:hover {
-  background: var(--bg-secondary, #f3f4f6);
 }
 
 .modal-body {
-  padding: 20px;
-}
-
-.modal-body p {
-  margin: 0;
-  color: var(--text-secondary, #6b7280);
+  padding: 24px;
+  overflow-y: auto;
 }
 
 .modal-footer {
   display: flex;
-  gap: 12px;
   justify-content: flex-end;
-  padding: 16px 20px;
-  border-top: 1px solid var(--border-color, #e5e7eb);
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border-color);
 }
 
 .btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-radius: 6px;
-  font-weight: 500;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  border: none;
   transition: all 0.2s;
+  border: none;
 }
 
 .btn:disabled {
@@ -494,21 +599,22 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: var(--primary-color, #6366f1);
+  background: #667eea;
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #4f46e5;
+  filter: brightness(1.1);
 }
 
 .btn-secondary {
-  background: var(--bg-secondary, #f3f4f6);
-  color: var(--text-primary, #111827);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--border-color, #e5e7eb);
+  background: var(--border-color);
 }
 
 .btn-danger {
@@ -517,11 +623,17 @@ onMounted(() => {
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #dc2626;
+  filter: brightness(1.1);
 }
 
 .btn-sm {
   padding: 6px 12px;
   font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .filter-bar {
+    flex-direction: column;
+  }
 }
 </style>

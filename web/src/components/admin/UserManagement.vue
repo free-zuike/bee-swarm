@@ -1,26 +1,27 @@
 <template>
   <div class="user-management">
-    <div class="panel-header">
-      <div class="header-actions">
-        <button class="btn btn-primary" @click="openCreateModal" :disabled="loading">
-          + {{ t('users.create') }}
-        </button>
+    <div class="panel">
+      <div class="panel-header">
+        <h2>👥 {{ t('users.title') }}</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" @click="openCreateModal" :disabled="loading">
+            + {{ t('users.create') }}
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div class="user-content">
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <span>{{ t('label.loading') }}</span>
-        </div>
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <span>{{ t('label.loading') }}</span>
+      </div>
 
-        <div v-else-if="users.length === 0" class="empty-state">
-          <div class="empty-icon">👥</div>
-          <p>{{ t('users.empty') }}</p>
-        </div>
+      <div v-else-if="users.length === 0" class="empty-state">
+        <div class="empty-icon">👥</div>
+        <p>{{ t('users.empty') }}</p>
+      </div>
 
-        <div v-else class="user-list">
-          <div v-for="user in users" :key="user.id" class="user-card">
+      <div v-else class="user-list">
+        <div v-for="user in users" :key="user.id" class="user-card">
           <div class="user-avatar">
             <span class="avatar-initial">{{ user.email.charAt(0).toUpperCase() }}</span>
           </div>
@@ -388,8 +389,6 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .panel-header {
@@ -447,12 +446,6 @@ onMounted(() => {
 .empty-icon {
   font-size: 64px;
   opacity: 0.3;
-}
-
-.user-content {
-  overflow-y: auto;
-  flex: 1;
-  max-height: calc(100vh - 150px);
 }
 
 .user-list {
