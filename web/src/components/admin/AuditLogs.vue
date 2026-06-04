@@ -1,100 +1,100 @@
-<template>
-  <div class="audit-logs">
-    <div class="panel-header">
-      <div class="header-actions">
-        <button class="btn btn-secondary btn-sm" @click="clearFilters">
+
+&lt;template&gt;
+  &lt;div class="audit-logs"&gt;
+    &lt;div class="panel-header"&gt;
+      &lt;div class="header-actions"&gt;
+        &lt;button class="btn btn-secondary btn-sm" @click="clearFilters"&gt;
           {{ t('button.reset') }}
-        </button>
-        <button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading">
+        &lt;/button&gt;
+        &lt;button class="btn btn-danger btn-sm" @click="confirmClearLogs" :disabled="loading"&gt;
           {{ t('audit.clearAll') }}
-        </button>
-      </div>
-    </div>
+        &lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
 
-    <div class="filter-bar">
-        <div class="filter-group">
-          <label>{{ t('audit.action') }}</label>
-          <select v-model="filterAction" class="filter-select">
-            <option value="">{{ t('label.all') }}</option>
-            <option value="login">{{ t('audit.login') }}</option>
-            <option value="register">{{ t('audit.register') }}</option>
-            <option value="user_created">{{ t('audit.userCreated') }}</option>
-            <option value="user_deleted">{{ t('audit.userDeleted') }}</option>
-            <option value="user_role_updated">{{ t('audit.userRoleUpdated') }}</option>
-            <option value="user_disabled">{{ t('audit.userDisabled') }}</option>
-            <option value="user_enabled">{{ t('audit.userEnabled') }}</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>{{ t('audit.startDate') }}</label>
-          <input v-model="filterStartDate" type="date" class="filter-input" />
-        </div>
-        <div class="filter-group">
-          <label>{{ t('audit.endDate') }}</label>
-          <input v-model="filterEndDate" type="date" class="filter-input" />
-        </div>
-        <button class="btn btn-primary btn-sm" @click="loadLogs">
-          {{ t('button.search') }}
-        </button>
-      </div>
+    &lt;div class="filter-bar"&gt;
+      &lt;div class="filter-group"&gt;
+        &lt;label&gt;{{ t('audit.action') }}&lt;/label&gt;
+        &lt;select v-model="filterAction" class="filter-select"&gt;
+          &lt;option value=""&gt;{{ t('label.all') }}&lt;/option&gt;
+          &lt;option value="login"&gt;{{ t('audit.login') }}&lt;/option&gt;
+          &lt;option value="register"&gt;{{ t('audit.register') }}&lt;/option&gt;
+          &lt;option value="user_created"&gt;{{ t('audit.userCreated') }}&lt;/option&gt;
+          &lt;option value="user_deleted"&gt;{{ t('audit.userDeleted') }}&lt;/option&gt;
+          &lt;option value="user_role_updated"&gt;{{ t('audit.userRoleUpdated') }}&lt;/option&gt;
+          &lt;option value="user_disabled"&gt;{{ t('audit.userDisabled') }}&lt;/option&gt;
+          &lt;option value="user_enabled"&gt;{{ t('audit.userEnabled') }}&lt;/option&gt;
+        &lt;/select&gt;
+      &lt;/div&gt;
+      &lt;div class="filter-group"&gt;
+        &lt;label&gt;{{ t('audit.startDate') }}&lt;/label&gt;
+        &lt;input v-model="filterStartDate" type="date" class="filter-input" /&gt;
+      &lt;/div&gt;
+      &lt;div class="filter-group"&gt;
+        &lt;label&gt;{{ t('audit.endDate') }}&lt;/label&gt;
+        &lt;input v-model="filterEndDate" type="date" class="filter-input" /&gt;
+      &lt;/div&gt;
+      &lt;button class="btn btn-primary btn-sm" @click="loadLogs"&gt;
+        {{ t('button.search') }}
+      &lt;/button&gt;
+    &lt;/div&gt;
 
-      <div class="log-content">
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <span>{{ t('label.loading') }}</span>
-        </div>
+    &lt;div class="log-content"&gt;
+      &lt;div v-if="loading" class="loading-state"&gt;
+        &lt;div class="spinner"&gt;&lt;/div&gt;
+        &lt;span&gt;{{ t('label.loading') }}&lt;/span&gt;
+      &lt;/div&gt;
 
-        <div v-else-if="logs.length === 0" class="empty-state">
-          <div class="empty-icon"></div>
-          <p>{{ t('audit.empty') }}</p>
-        </div>
+      &lt;div v-else-if="logs.length === 0" class="empty-state"&gt;
+        &lt;div class="empty-icon"&gt;&lt;/div&gt;
+        &lt;p&gt;{{ t('audit.empty') }}&lt;/p&gt;
+      &lt;/div&gt;
 
-        <div v-else class="log-list">
-          <div v-for="log in logs" :key="log.id" class="log-card">
-            <div class="log-avatar">
-              <span class="avatar-initial">{{ getInitial(log.userId) }}</span>
-            </div>
-            <div class="log-main">
-              <div class="log-header">
-                <span :class="['log-action', `log-action-${log.action}`]">
-                  {{ getActionName(log.action) }}
-                </span>
-                <span class="log-user">{{ log.userId }}</span>
-                <span class="log-time">{{ formatTime(log.timestamp || log.created_at) }}</span>
-              </div>
-              <div v-if="log.metadata && Object.keys(log.metadata).length > 0" class="log-meta">
-                <pre>{{ JSON.stringify(log.metadata, null, 2) }}</pre>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      &lt;div v-else class="log-list"&gt;
+        &lt;div v-for="log in logs" :key="log.id" class="log-card"&gt;
+          &lt;div class="log-avatar"&gt;
+            &lt;span class="avatar-initial"&gt;{{ getInitial(log.userId) }}&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;div class="log-main"&gt;
+            &lt;div class="log-header"&gt;
+              &lt;span :class="['log-action', `log-action-${log.action}`]"&gt;
+                {{ getActionName(log.action) }}
+              &lt;/span&gt;
+              &lt;span class="log-user"&gt;{{ log.userId }}&lt;/span&gt;
+              &lt;span class="log-time"&gt;{{ formatTime(log.timestamp || log.created_at) }}&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div v-if="log.metadata &amp;&amp; Object.keys(log.metadata).length &gt; 0" class="log-meta"&gt;
+              &lt;pre&gt;{{ JSON.stringify(log.metadata, null, 2) }}&lt;/pre&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
 
-    <!-- 清除日志确认弹窗 -->
-    <div v-if="showClearModal" class="modal-overlay" @click.self="closeClearModal">
-      <div class="modal modal-danger">
-        <div class="modal-header">
-          <h3>{{ t('audit.clearAllConfirm') }}</h3>
-          <button class="modal-close" @click="closeClearModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <p>{{ t('audit.clearAllWarning') }}</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeClearModal" :disabled="saving">
+    &lt;!-- 清除日志确认弹窗 --&gt;
+    &lt;div v-if="showClearModal" class="modal-overlay" @click.self="closeClearModal"&gt;
+      &lt;div class="modal modal-danger"&gt;
+        &lt;div class="modal-header"&gt;
+          &lt;h3&gt;{{ t('audit.clearAllConfirm') }}&lt;/h3&gt;
+          &lt;button class="modal-close" @click="closeClearModal"&gt;✕&lt;/button&gt;
+        &lt;/div&gt;
+        &lt;div class="modal-body"&gt;
+          &lt;p&gt;{{ t('audit.clearAllWarning') }}&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div class="modal-footer"&gt;
+          &lt;button class="btn btn-secondary" @click="closeClearModal" :disabled="saving"&gt;
             {{ t('button.cancel') }}
-          </button>
-          <button class="btn btn-danger" @click="clearLogs" :disabled="saving">
+          &lt;/button&gt;
+          &lt;button class="btn btn-danger" @click="clearLogs" :disabled="saving"&gt;
             {{ saving ? t('label.processing') : t('audit.clearAll') }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
 
-<script setup lang="ts">
+&lt;script setup lang="ts"&gt;
 import { ref, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useAuth } from '@/stores/auth';
@@ -105,21 +105,21 @@ const authStore = useAuth();
 
 const loading = ref(false);
 const saving = ref(false);
-const logs = ref<any[]>([]);
+const logs = ref&lt;any[]&gt;([]);
 const filterAction = ref('');
 const filterStartDate = ref('');
 const filterEndDate = ref('');
 const showClearModal = ref(false);
 
-const formatTime = (timeStr: string) => {
+const formatTime = (timeStr: string) =&gt; {
   if (!timeStr) return '';
   const date = new Date(timeStr);
   if (isNaN(date.getTime())) return timeStr;
   return date.toLocaleString();
 };
 
-const getActionName = (action: string) => {
-  const actionNames: Record<string, string> = {
+const getActionName = (action: string) =&gt; {
+  const actionNames: Record&lt;string, string&gt; = {
     login: t('audit.login'),
     register: t('audit.register'),
     user_created: t('audit.userCreated'),
@@ -131,12 +131,12 @@ const getActionName = (action: string) => {
   return actionNames[action] || action;
 };
 
-const getInitial = (str: string) => {
+const getInitial = (str: string) =&gt; {
   if (!str) return '?';
   return str.charAt(0).toUpperCase();
 };
 
-const loadLogs = async () => {
+const loadLogs = async () =&gt; {
   loading.value = true;
   try {
     const data = await getAuditLogs(authStore.accessToken, {
@@ -152,22 +152,22 @@ const loadLogs = async () => {
   }
 };
 
-const clearFilters = () => {
+const clearFilters = () =&gt; {
   filterAction.value = '';
   filterStartDate.value = '';
   filterEndDate.value = '';
   loadLogs();
 };
 
-const confirmClearLogs = () => {
+const confirmClearLogs = () =&gt; {
   showClearModal.value = true;
 };
 
-const closeClearModal = () => {
+const closeClearModal = () =&gt; {
   showClearModal.value = false;
 };
 
-const clearLogs = async () => {
+const clearLogs = async () =&gt; {
   saving.value = true;
   try {
     await clearAuditLogs(authStore.accessToken);
@@ -180,12 +180,12 @@ const clearLogs = async () => {
   }
 };
 
-onMounted(() => {
+onMounted(() =&gt; {
   loadLogs();
 });
-</script>
+&lt;/script&gt;
 
-<style scoped>
+&lt;style scoped&gt;
 .audit-logs {
   width: 100%;
 }
@@ -204,61 +204,50 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.panel-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .filter-bar {
   display: flex;
-  gap: 16px;
-  padding: 20px 24px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  padding: 16px 20px;
   flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex: 1;
+  gap: 4px;
   min-width: 160px;
 }
 
 .filter-group label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #6b7280);
 }
 
-.filter-input,
-.filter-select {
-  padding: 10px 14px;
-  border: 1px solid var(--border-color);
+.filter-select,
+.filter-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #d1d5db);
   border-radius: 6px;
   font-size: 14px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  transition: all 0.2s;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #111827);
 }
 
-.filter-input:focus,
-.filter-select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+.log-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .loading-state,
@@ -267,16 +256,16 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 24px;
-  gap: 16px;
-  color: var(--text-secondary);
+  padding: 48px 24px;
+  gap: 12px;
+  color: var(--text-secondary, #6b7280);
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border-color);
-  border-top-color: #667eea;
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color, #e5e7eb);
+  border-top-color: var(--primary-color, #6366f1);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -287,247 +276,120 @@ onMounted(() => {
   }
 }
 
-.empty-icon {
-  font-size: 64px;
-  opacity: 0.3;
-}
-
-.log-content {
-  overflow-y: auto;
-  flex: 1;
-}
-
 .log-list {
-  padding: 24px;
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
 .log-card {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 18px 20px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  transition: all 0.25s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.log-card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #f3f4f6);
+  transition: background 0.2s;
 }
 
 .log-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
-  transform: translateY(-1px);
-}
-
-.log-card:hover::before {
-  opacity: 1;
+  background: var(--bg-secondary, #f9fafb);
 }
 
 .log-avatar {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
   flex-shrink: 0;
 }
 
 .avatar-initial {
   color: white;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
+  font-weight: 600;
+  font-size: 16px;
 }
 
 .log-main {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .log-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
 .log-action {
-  padding: 4px 12px;
-  border-radius: 999px;
+  padding: 2px 8px;
+  border-radius: 4px;
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-  white-space: nowrap;
+  font-weight: 500;
 }
 
 .log-action-login {
   background: #dbeafe;
-  color: #1d4ed8;
+  color: #1e40af;
 }
 
 .log-action-register {
-  background: #d1fae5;
-  color: #047857;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .log-action-user_created {
-  background: #ede9fe;
-  color: #4f46e5;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .log-action-user_deleted {
   background: #fee2e2;
-  color: #dc2626;
+  color: #991b1b;
 }
 
 .log-action-user_role_updated {
   background: #fef3c7;
-  color: #b45309;
+  color: #92400e;
 }
 
 .log-action-user_disabled {
   background: #fee2e2;
-  color: #b91c1c;
+  color: #991b1b;
 }
 
 .log-action-user_enabled {
-  background: #d1fae5;
-  color: #047857;
-}
-
-.log-action-push_sent {
-  background: #d1fae5;
-  color: #047857;
-}
-
-.log-action-push_failed {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.log-action-channel_updated {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.log-action-channel_deleted {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.log-action-template_created {
-  background: #ede9fe;
-  color: #4f46e5;
-}
-
-.log-action-template_updated {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.log-action-template_deleted {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.log-action-scheduled_push_created {
-  background: #ede9fe;
-  color: #4f46e5;
-}
-
-.log-action-scheduled_push_cancelled {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.log-action-scheduled_push_rescheduled {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.log-action-logout {
-  background: #f3f4f6;
-  color: #4b5563;
-}
-
-.log-action-backup_created {
-  background: #d1fae5;
-  color: #047857;
-}
-
-.log-action-backup_restored {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.log-action-settings_updated {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .log-user {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.log-user::before {
-  content: '@';
-  color: var(--text-secondary);
-  font-weight: 400;
-  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #111827);
 }
 
 .log-time {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #6b7280);
   margin-left: auto;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 .log-meta {
-  background: var(--bg-primary);
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  margin-top: 4px;
-  overflow-x: auto;
+  background: var(--bg-secondary, #f3f4f6);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 8px;
 }
 
 .log-meta pre {
   margin: 0;
   font-size: 12px;
-  color: var(--text-secondary);
+  font-family: monospace;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
-  line-height: 1.5;
+  color: var(--text-secondary, #4b5563);
 }
 
 .modal-overlay {
@@ -538,67 +400,93 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
 }
 
 .modal {
-  background: var(--bg-primary);
+  background: var(--bg-primary, white);
   border-radius: 12px;
-  width: 100%;
-  max-width: 480px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+  animation: modalIn 0.2s ease-out;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-danger {
+  border: 2px solid #fee2e2;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-primary, #111827);
 }
 
 .modal-close {
-  background: transparent;
+  background: none;
   border: none;
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
-  color: var(--text-secondary);
-  padding: 4px;
+  color: var(--text-secondary, #6b7280);
   line-height: 1;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: var(--bg-secondary, #f3f4f6);
 }
 
 .modal-body {
-  padding: 24px;
-  overflow-y: auto;
+  padding: 20px;
+}
+
+.modal-body p {
+  margin: 0;
+  color: var(--text-secondary, #6b7280);
 }
 
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid var(--border-color);
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 6px;
-  font-size: 14px;
   font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
+  transition: all 0.2s;
 }
 
 .btn:disabled {
@@ -607,22 +495,21 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: #667eea;
+  background: var(--primary-color, #6366f1);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: #4f46e5;
 }
 
 .btn-secondary {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: var(--bg-secondary, #f3f4f6);
+  color: var(--text-primary, #111827);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--border-color);
+  background: var(--border-color, #e5e7eb);
 }
 
 .btn-danger {
@@ -631,17 +518,12 @@ onMounted(() => {
 }
 
 .btn-danger:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: #dc2626;
 }
 
 .btn-sm {
   padding: 6px 12px;
   font-size: 13px;
 }
+&lt;/style&gt;
 
-@media (max-width: 768px) {
-  .filter-bar {
-    flex-direction: column;
-  }
-}
-</style>
