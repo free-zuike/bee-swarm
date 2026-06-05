@@ -1803,7 +1803,12 @@ function handleResend(record: PushHistoryRecord) {
               <div class="avatar-preview-section">
                 <div class="avatar-preview">
                   <img 
-                    v-if="userAvatar" 
+                    v-if="avatarInput" 
+                    :src="avatarInput" 
+                    class="preview-image" 
+                  />
+                  <img 
+                    v-else-if="userAvatar" 
                     :src="userAvatar" 
                     class="preview-image" 
                     @error="handleAvatarError"
