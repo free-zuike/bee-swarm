@@ -355,7 +355,23 @@ export class AIService {
         parameters: tool.parameters,
       }));
 
+      // 如果没有可用工具，返回提示
+      if (tools.length === 0) {
+        console.warn('[AI Service] 没有可用的 AI 工具');
+        return { 
+          success: false, 
+          result: '没有可用的工具，请联系管理员配置 AI 工具', 
+          error: '工具列表为空' 
+        };
+      }
+
       const systemPrompt = this.buildToolSystemPrompt(tools);
+
+      console.log('[AI Service] === 开始 AI 命令执行 ===');
+      console.log('[AI Service] 查询:', query);
+      console.log('[AI Service] 提供商:', settings.ai_provider);
+      console.log('[AI Service] 模型:', settings.ai_model_name);
+      console.log('[AI Service] 可用工具:', tools.map((t) => t.name));
 
       const aiContent = await this.callAI(
         [
@@ -366,27 +382,29 @@ export class AIService {
       );
 
       console.log('[AI Service] === 收到 AI 响应 ===');
-      console.log('[AI Service] 提供商:', settings.ai_provider);
-      console.log('[AI Service] 模型:', settings.ai_model_name);
-      console.log(
-        '[AI Service] 工具列表:',
-        tools.map((t) => t.name)
-      );
       console.log('[AI Service] 原始响应:', aiContent);
 
       const toolCall = this.parseToolCall(aiContent);
 
       if (toolCall) {
-        console.log('[AI Service] 解析成功，工具调用:', toolCall);
+        console.log('[AI Service] 解析成功，工具调用:', toolCall.tool, toolCall.params);
         const result = await this.executeTool(toolCall, userId, username);
         console.log('[AI Service] 工具执行结果:', result);
         return result;
       } else {
-        console.log('[AI Service] 未解析到工具调用，直接返回 AI 响应');
-        return { success: true, result: aiContent };
+        console.log('[AI Service] 未解析到工具调用，AI 可能直接回复');
+        // 检查是否是对话性回复而非工具调用
+        if (aiContent.length > 0 && aiContent.length < 200) {
+          return { success: true, result: aiContent };
+        }
+        return { 
+          success: false, 
+          result: '无法理解您的请求，请尝试更明确的表达', 
+          error: '未识别到有效的工具调用' 
+        };
       }
     } catch (error) {
-      console.error('[AI Service] Error executing command:', error);
+      console.error('[AI Service] 执行命令时发生错误:', error);
       return { success: false, result: '执行命令时发生错误', error: (error as Error).message };
     }
   }
@@ -401,11 +419,11 @@ export class AIService {
 ${toolsList}
 
 重要规则：
-1. 当用户询问"列出"、"查询"、"获取"、"展示"时，必须调用对应的工具
+1. 当用户询问"列出"、"查询"、"获取"、"展示"、"显示"时，必须调用对应的工具
 2. 只需要调用一个工具，不要多个
-3. 直接输出 JSON 格式，不要任何解释：
-   {"tool":"工具名","params":{}}
-4. 如果用户询问的内容没有对应的工具，用中文回复
+3. 直接输出纯JSON格式，不要任何解释，不要markdown代码块：
+   {"tool":"工具名","params":{"参数名":"参数值"}}
+4. 如果用户询问的内容没有对应的工具，用中文简单回复
 5. 工具返回的是数据，不是让你再调工具`;
   }
 
