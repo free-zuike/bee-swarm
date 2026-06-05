@@ -54,27 +54,18 @@ export async function archivePushHistory(
       records: records.results,
     };
 
-    const success = await r2.uploadObject(
-      archiveKey,
-      JSON.stringify(archiveData, null, 2),
-      'application/json'
-    );
+    await r2.uploadBackup(archiveKey, JSON.stringify(archiveData, null, 2), 'application/json');
 
-    if (success) {
-      // 3. 删除已归档的记录
-      const ids = records.results.map((r) => r.id as string);
-      const placeholders = ids.map(() => '?').join(',');
-      await env
-        .DB!.prepare(`DELETE FROM push_history WHERE id IN (${placeholders})`)
-        .bind(...ids)
-        .run();
+    // 3. 删除已归档的记录
+    const ids = records.results.map((r) => r.id as string);
+    const placeholders = ids.map(() => '?').join(',');
+    await env
+      .DB!.prepare(`DELETE FROM push_history WHERE id IN (${placeholders})`)
+      .bind(...ids)
+      .run();
 
-      archived = ids.length;
-      console.log(`[Archive] Archived ${archived} push history records to ${archiveKey}`);
-    } else {
-      failed = records.results.length;
-      console.error('[Archive] Failed to upload to R2');
-    }
+    archived = ids.length;
+    console.log(`[Archive] Archived ${archived} push history records to ${archiveKey}`);
   } catch (err) {
     console.error('[Archive] Error archiving push history:', err);
   }
@@ -94,7 +85,7 @@ export async function restoreArchivedData(
     throw new Error('R2 storage not available');
   }
 
-  const content = await r2.getObject(archiveKey);
+  const content = await r2.downloadBackup(archiveKey);
   if (!content) {
     throw new Error('Archive not found');
   }
@@ -153,13 +144,13 @@ export async function listArchives(
     return [];
   }
 
-  const archives = await r2.listObjects(`archives/${username}/`);
+  const archives = await r2.listBackups(`archives/${username}/`);
 
   return archives
     .filter((a) => a.key.endsWith('.json'))
     .map((a) => ({
       key: a.key,
       size: a.size || 0,
-      archivedAt: a.lastModified || '',
+      archivedAt: a.uploadedAt || '',
     }));
 }

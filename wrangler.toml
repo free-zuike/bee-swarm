@@ -99,3 +99,23 @@ head_sampling_rate = 1
 [ai]
 binding = "AI"
 
+# ------------------------------------------
+# 可选：启用以下服务需要额外配置
+# ------------------------------------------
+
+# KV 命名空间（分布式限流）
+# 创建命令：npx wrangler kv:namespace create bee-swarm-rate-limit
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "your-kv-id"
+
+# Durable Objects（健康检查持久化、WebSocket）
+# [[durable_objects.bindings]]
+# name = "HEALTH_TRACKER"
+# class_name = "HealthTrackerDO"
+
+# Vectorize 向量搜索（模板语义搜索）
+# 创建命令：npx wrangler vectorize create bee-swarm-templates --dimensions=1024 --metric=cosine
+# [[vectorize]]
+# binding = "VECTORIZE_INDEX"
+# index_name = "bee-swarm-templates"

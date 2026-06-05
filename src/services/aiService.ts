@@ -358,10 +358,10 @@ export class AIService {
       // 如果没有可用工具，返回提示
       if (tools.length === 0) {
         console.warn('[AI Service] 没有可用的 AI 工具');
-        return { 
-          success: false, 
-          result: '没有可用的工具，请联系管理员配置 AI 工具', 
-          error: '工具列表为空' 
+        return {
+          success: false,
+          result: '没有可用的工具，请联系管理员配置 AI 工具',
+          error: '工具列表为空',
         };
       }
 
@@ -371,7 +371,10 @@ export class AIService {
       console.log('[AI Service] 查询:', query);
       console.log('[AI Service] 提供商:', settings.ai_provider);
       console.log('[AI Service] 模型:', settings.ai_model_name);
-      console.log('[AI Service] 可用工具:', tools.map((t) => t.name));
+      console.log(
+        '[AI Service] 可用工具:',
+        tools.map((t) => t.name)
+      );
 
       const aiContent = await this.callAI(
         [
@@ -397,10 +400,10 @@ export class AIService {
         if (aiContent.length > 0 && aiContent.length < 200) {
           return { success: true, result: aiContent };
         }
-        return { 
-          success: false, 
-          result: '无法理解您的请求，请尝试更明确的表达', 
-          error: '未识别到有效的工具调用' 
+        return {
+          success: false,
+          result: '无法理解您的请求，请尝试更明确的表达',
+          error: '未识别到有效的工具调用',
         };
       }
     } catch (error) {

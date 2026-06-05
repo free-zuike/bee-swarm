@@ -133,14 +133,14 @@ export class SystemSettingsService {
   /** 获取 CORS 允许的来源列表 */
   async getCORSConfig(): Promise<string[]> {
     const settings = await this.getAllSettings();
-    
+
     // 合并数据库配置和环境变量配置
     const dbOrigins = settings.cors_allowed_origins || [];
     const envOrigins = this.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) || [];
-    
+
     // 去重并返回
     const allOrigins = [...new Set([...dbOrigins, ...envOrigins])];
-    
+
     return allOrigins;
   }
 }
