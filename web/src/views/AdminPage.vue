@@ -188,15 +188,15 @@ async function loadAITools() {
 // 生成工具提示词（与后端 buildToolSystemPrompt 保持一致）
 function getToolPrompt(tool: any): string {
   const paramsStr = tool.parameters && tool.parameters.length > 0
-    ? tool.parameters.map((p: any) => `- ${p.name} (${p.type})${p.required ? ' *' : ''}: ${p.description}`).join('\n')
-    : '无参数';
+    ? JSON.stringify(tool.parameters.map((p: any) => ({
+        name: p.name,
+        type: p.type,
+        description: p.description,
+        required: p.required
+      })))
+    : '[]';
   
-  return `工具名称：${tool.name}
-描述：${tool.description}
-参数：
-${paramsStr}
-
-调用格式：{"tool":"${tool.name}","params":{}}`;
+  return `{"name":"${tool.name}","description":"${tool.description}","parameters":${paramsStr}}`;
 }
 
 function editTool(tool: any) {
@@ -556,6 +556,44 @@ function isCustomProvider(providerId: string) {
   return !!userSettings.value.custom_ai_providers?.find(p => p.id === providerId);
 }
 
+async function saveCustomProviders() {
+  if (isSavingSettings.value) return;
+  
+  // 保存当前提供商的配置（如果有的话）
+  if (userSettings.value.ai_provider) {
+    saveProviderConfig(userSettings.value.ai_provider);
+  }
+  
+  isSavingSettings.value = true;
+  try {
+    // 只保存自定义提供商相关设置，不做其他验证
+    const result = await saveAISettings(accessToken.value, {
+      ai_enabled: userSettings.value.ai_enabled,
+      ai_provider: userSettings.value.ai_provider,
+      ai_model: userSettings.value.ai_provider,
+      ai_api_key: userSettings.value.ai_api_key,
+      ai_api_url: userSettings.value.ai_api_url,
+      ai_model_name: userSettings.value.ai_model_name,
+      ai_provider_configs: userSettings.value.ai_provider_configs,
+      custom_ai_providers: userSettings.value.custom_ai_providers,
+      ai_tools: aiTools.value.map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters || [],
+        enabled: t.enabled
+      }))
+    });
+    if (result.success) {
+      showToast('设置已保存', 'success');
+    }
+  } catch (err: unknown) {
+    showToast(getErrorMessage(err, '保存失败'), 'error');
+  } finally {
+    isSavingSettings.value = false;
+  }
+}
+
 function addCustomProvider() {
   if (!newProviderName.value.trim()) {
     showToast('请输入提供商名称', 'error');
@@ -580,6 +618,9 @@ function addCustomProvider() {
   newProviderIcon.value = '🤖';
   showAddProviderModal.value = false;
 
+  // 保存到后端
+  saveCustomProviders();
+  
   showToast('自定义提供商添加成功', 'success');
 }
 
@@ -605,13 +646,17 @@ function saveEditProvider() {
   if (provider) {
     provider.name = editingProviderName.value.trim();
     provider.icon = editingProviderIcon.value;
-    showToast('提供商信息已更新', 'success');
   }
   
   showEditProviderModal.value = false;
   editingProviderId.value = '';
   editingProviderName.value = '';
   editingProviderIcon.value = '🤖';
+  
+  // 保存到后端
+  saveCustomProviders();
+  
+  showToast('提供商信息已更新', 'success');
 }
 
 function deleteCustomProvider(providerId: string, event: Event) {
@@ -630,6 +675,9 @@ function deleteCustomProvider(providerId: string, event: Event) {
   if (userSettings.value.ai_provider_configs) {
     delete userSettings.value.ai_provider_configs[providerId];
   }
+  
+  // 保存到后端
+  saveCustomProviders();
 
   showToast('自定义提供商删除成功', 'success');
 }

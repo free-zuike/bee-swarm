@@ -255,6 +255,8 @@ export class UserService {
       ai_api_key: '',
       ai_api_url: '',
       ai_model_name: '',
+      custom_ai_providers: [],
+      ai_provider_configs: {},
       ai_tools: this.getDefaultAITools(),
     };
   }
@@ -390,6 +392,7 @@ export class UserService {
       ai_model_name: settings.ai_model_name,
       custom_ai_providers: settings.custom_ai_providers,
       ai_provider_configs: settings.ai_provider_configs,
+      ai_tools: (settings as any).ai_tools,
     };
 
     await this.saveCacheSettings(userId, cacheSettings);
