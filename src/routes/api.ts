@@ -897,9 +897,6 @@ adminApi.post('/me/avatar/upload', async (c) => {
       avatarUrl = `data:${file.type};base64,${base64}`;
     }
 
-    // 更新用户头像 URL
-    await svc.updateUser(user.id, { avatar_url: avatarUrl });
-
     return c.json({
       success: true,
       message: '头像上传成功',
