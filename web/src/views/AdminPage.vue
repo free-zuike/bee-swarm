@@ -396,6 +396,9 @@ async function loadUserSettings() {
         userSettings.value.custom_ai_providers = [];
       }
       
+      console.log('加载的用户设置:', userSettings.value);
+      console.log('自定义提供商:', userSettings.value.custom_ai_providers);
+      
       // 如果当前提供商有配置，加载到临时字段用于绑定
       const currentProvider = userSettings.value.ai_provider || 'workers-ai';
       loadProviderConfig(currentProvider);
@@ -594,6 +597,27 @@ async function saveCustomProviders() {
   }
 }
 
+function addTestProvider() {
+  const testProvider = {
+    id: `test-${Date.now()}`,
+    name: '测试提供商 ' + new Date().toLocaleTimeString(),
+    icon: '🧪'
+  };
+  
+  if (!userSettings.value.custom_ai_providers) {
+    userSettings.value.custom_ai_providers = [];
+  }
+  
+  userSettings.value.custom_ai_providers.push(testProvider);
+  console.log('添加测试提供商:', testProvider);
+  console.log('当前自定义提供商列表:', userSettings.value.custom_ai_providers);
+  
+  // 保存到后端
+  saveCustomProviders();
+  
+  showToast('测试提供商添加成功!', 'success');
+}
+
 function addCustomProvider() {
   if (!newProviderName.value.trim()) {
     showToast('请输入提供商名称', 'error');
@@ -612,6 +636,9 @@ function addCustomProvider() {
     userSettings.value.custom_ai_providers = [];
   }
   userSettings.value.custom_ai_providers.push(newProvider);
+
+  console.log('添加自定义提供商:', newProvider);
+  console.log('当前自定义提供商列表:', userSettings.value.custom_ai_providers);
 
   // 重置表单
   newProviderName.value = '';
@@ -1950,13 +1977,22 @@ function handleResend(record: PushHistoryRecord) {
               <div class="ai-provider-sidebar" :class="{ dark: isDark }">
                 <div class="sidebar-header">
                   <span class="sidebar-title">AI 提供商</span>
-                  <button
-                    class="btn-add-provider"
-                    @click="showAddProviderModal = true"
-                    title="添加自定义提供商"
-                  >
-                    <span>+</span>
-                  </button>
+                  <div style="display:flex;gap:8px;">
+                    <button
+                      class="btn-add-provider"
+                      @click="addTestProvider"
+                      title="添加测试提供商"
+                    >
+                      <span>🧪</span>
+                    </button>
+                    <button
+                      class="btn-add-provider"
+                      @click="showAddProviderModal = true"
+                      title="添加自定义提供商"
+                    >
+                      <span>+</span>
+                    </button>
+                  </div>
                 </div>
                 
                 <div class="provider-list">
