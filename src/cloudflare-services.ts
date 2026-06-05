@@ -54,6 +54,13 @@ export {
   ErrorBoundaryService,
   handleGlobalError,
 } from './services/errorBoundaryService';
+export {
+  WebhookSignatureService,
+  getSignatureService,
+} from './services/webhookSignatureService';
+export { BatchOperationService } from './services/batchOperationService';
+export { AdminAlertService } from './services/adminAlertService';
+export { UndoService } from './services/undoService';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
