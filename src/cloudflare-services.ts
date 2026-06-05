@@ -36,6 +36,24 @@ export { archiveOldDataToR2, retrieveArchiveFromR2, listArchivesFromR2 } from '.
 export { getUserConfigWithCache, invalidateUserConfigCache, invalidateAllUserCaches } from './services/userConfigCache';
 export { PermissionService } from './services/permissionService';
 export { AIService } from './services/aiService';
+export { SetupWizardService } from './services/setupWizardService';
+export { FrontendCacheService, getCacheService as getFrontendCacheService, cache } from './services/frontendCacheService';
+export {
+  getAPIVersions,
+  getVersionInfo,
+  getCurrentVersionInfo,
+  isVersionDeprecated,
+  isVersionExpired,
+  getVersionHeaders,
+  APIVersionConverter,
+  createVersionMiddleware,
+  versionCompatible,
+  CURRENT_API_VERSION,
+} from './services/apiVersionService';
+export {
+  ErrorBoundaryService,
+  handleGlobalError,
+} from './services/errorBoundaryService';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
