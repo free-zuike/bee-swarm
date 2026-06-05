@@ -28,6 +28,7 @@ import { MigrationService } from './services/migrationService';
 import { cleanupExpiredData } from './services/cleanupService';
 import { archiveOldDataToR2 } from './services/r2ArchiveService';
 import { SystemSettingsService } from './services/systemSettingsService';
+import { EnhancedQueueService } from './services/enhancedQueueService';
 import { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -175,30 +176,12 @@ export default {
   ): Promise<void> {
     console.log(`[Queue] Processing ${batch.messages.length} messages`);
 
-    const queueService = new QueueService(env);
-
-    await queueService.processBatch(batch, async (message: PushQueueMessage) => {
-      console.log(`[Queue] Processing push request: ${message.requestId}`);
-
-      try {
-        const results = await dispatchPushWithOptions(
-          message.payload,
-          message.payload.channels || [],
-          message.userId,
-          env
-        );
-
-        console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
-
-        // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
-      } catch (error) {
-        console.error(
-          `[Queue] Failed to process message ${message.requestId}:`,
-          (error as Error).message
-        );
-        throw error;
-      }
-    });
+    try {
+      const enhancedQueueService = new EnhancedQueueService(env);
+      await enhancedQueueService.processBatch(batch);
+    } catch (error) {
+      console.error('[Queue] Error processing batch:', (error as Error).message);
+    }
 
     console.log(`[Queue] Batch processing complete`);
   },

@@ -31,6 +31,9 @@ export {
   D1AnalyticsService,
   PushStatisticsCollector,
 } from './services/analyticsService';
+export { EnhancedQueueService } from './services/enhancedQueueService';
+export { archiveOldDataToR2, retrieveArchiveFromR2, listArchivesFromR2 } from './services/r2ArchiveService';
+export { getUserConfigWithCache, invalidateUserConfigCache, invalidateAllUserCaches } from './services/userConfigCache';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
