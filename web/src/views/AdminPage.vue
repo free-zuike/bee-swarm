@@ -1077,19 +1077,25 @@ async function handlePush(
         loadHistory();
       }, 2000);
     } else {
-      pushResults.value = result.results || [];
-
-      const successCount = result.results?.filter((r: PushResult) => r.success).length || 0;
-      const totalCount = result.results?.length || 0;
-
-      if (successCount === totalCount && totalCount > 0) {
-        showToast(t('msg.push_success', { count: successCount }), 'success');
-      } else if (successCount > 0) {
-        showToast(t('msg.push_partial', { success: successCount, total: totalCount }), 'warning');
-      } else if (totalCount > 0) {
-        showToast(t('msg.push_failed'), 'error');
+      if (!result.success) {
+        // 推送失败（如队列不可用）
+        pushResults.value = [{ channel: 'system', success: false, message: result.message || t('msg.push_failed') }];
+        showToast(result.message || t('msg.push_failed'), 'error');
       } else {
-        showToast(t('success.push'), 'success');
+        pushResults.value = result.results || [];
+
+        const successCount = result.results?.filter((r: PushResult) => r.success).length || 0;
+        const totalCount = result.results?.length || 0;
+
+        if (successCount === totalCount && totalCount > 0) {
+          showToast(t('msg.push_success', { count: successCount }), 'success');
+        } else if (successCount > 0) {
+          showToast(t('msg.push_partial', { success: successCount, total: totalCount }), 'warning');
+        } else if (totalCount > 0) {
+          showToast(t('msg.push_failed'), 'error');
+        } else {
+          showToast(t('success.push'), 'success');
+        }
       }
 
       await loadHistory();
