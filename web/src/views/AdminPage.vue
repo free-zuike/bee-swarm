@@ -188,16 +188,12 @@ async function loadAITools() {
 // 生成工具提示词（与后端 buildToolSystemPrompt 保持一致）
 function getToolPrompt(tool: any): string {
   const paramsStr = tool.parameters && tool.parameters.length > 0
-    ? `参数：${JSON.stringify(tool.parameters.map((p: any) => ({
-        name: p.name,
-        type: p.type,
-        description: p.description,
-        required: p.required
-      })))}`
-    : '此工具不需要参数';
+    ? tool.parameters.map((p: any) => `- ${p.name} (${p.type})${p.required ? ' *' : ''}: ${p.description}`).join('\n')
+    : '无参数';
   
   return `工具名称：${tool.name}
 描述：${tool.description}
+参数：
 ${paramsStr}
 
 调用格式：{"tool":"${tool.name}","params":{}}`;
@@ -4346,21 +4342,26 @@ function handleResend(record: PushHistoryRecord) {
 
 /* AI 工具栏样式 */
 .tools-list {
-  max-height: 400px;
+  max-height: 450px;
   overflow-y: auto;
 }
 
 .tool-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
-  gap: 16px;
+  background: var(--bg-primary, white);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e0e0e0);
+  transition: all 0.2s ease;
+}
+
+.tool-item:hover {
+  border-color: #e0e7ff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
 }
 
 .tool-item:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .tool-info {
@@ -4389,7 +4390,7 @@ function handleResend(record: PushHistoryRecord) {
 .tool-desc {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .tool-actions {
@@ -4402,14 +4403,16 @@ function handleResend(record: PushHistoryRecord) {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px 10px;
   font-size: 16px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
+  opacity: 0.5;
+  transition: all 0.2s;
+  border-radius: 6px;
 }
 
 .btn-icon:hover {
   opacity: 1;
+  background: var(--bg-secondary, #f0f0f0);
 }
 
 /* 工具详情展开样式 */
@@ -4431,14 +4434,15 @@ function handleResend(record: PushHistoryRecord) {
 
 .tool-details {
   width: 100%;
-  padding: 12px 16px 12px 32px;
-  background: var(--bg-secondary, #f8f9fa);
-  border-top: 1px dashed var(--border-color, #e0e0e0);
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border-top: 2px solid #e0e7ff;
   margin-top: 8px;
+  border-radius: 0 0 8px 8px;
 }
 
 .detail-section {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .detail-section:last-child {
@@ -4447,11 +4451,19 @@ function handleResend(record: PushHistoryRecord) {
 
 .detail-title {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
+  font-weight: 700;
+  color: #6366f1;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-title::before {
+  content: '▸';
+  font-size: 10px;
 }
 
 .detail-content {
@@ -4462,23 +4474,24 @@ function handleResend(record: PushHistoryRecord) {
 .prompt-preview {
   display: block;
   background: var(--bg-primary, white);
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color, #e0e0e0);
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid #e0e7ff;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--text-primary);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .param-item {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e0e7ff;
 }
 
 .param-item:last-child {
@@ -4489,22 +4502,25 @@ function handleResend(record: PushHistoryRecord) {
   font-family: monospace;
   font-weight: 600;
   color: #6366f1;
+  font-size: 13px;
 }
 
 .param-type {
   font-size: 11px;
   color: white;
   background: #64748b;
-  padding: 1px 6px;
-  border-radius: 3px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .param-required {
   font-size: 10px;
   color: #ef4444;
   background: #fef2f2;
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 3px;
+  font-weight: 600;
 }
 
 .param-desc {
@@ -4512,6 +4528,7 @@ function handleResend(record: PushHistoryRecord) {
   color: var(--text-secondary);
   flex: 1;
   min-width: 100%;
+  margin-top: 4px;
 }
 
 .card-header {
