@@ -330,6 +330,8 @@ function getDefaultApiUrlForProvider(provider: string) {
       return 'https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-name}/chat/completions?api-version=2024-02-15-preview';
     case 'anthropic':
       return 'https://api.anthropic.com/v1/messages';
+    case 'workers-ai':
+      return '';
     case 'custom':
       return 'https://api.example.com/v1/chat/completions';
     default:
