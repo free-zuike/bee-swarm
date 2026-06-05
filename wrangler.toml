@@ -24,6 +24,11 @@ run_worker_first = true
 # ------------------------------------------
 # Cron Trigger（定时任务）
 # ------------------------------------------
+# 每小时触发一次，代码中执行：
+# 1. 定时推送检查
+# 2. 自动数据清理（清理 30 天前的推送历史和 90 天前的审计日志）
+# 3. 旧归档清理（可选）
+# ------------------------------------------
 [triggers]
 crons = ["0 * * * *"]
 
@@ -38,11 +43,13 @@ migrations_dir = "migrations"
 
 # ------------------------------------------
 # R2 存储（存储备份文件、头像等）
+# 使用单个存储桶，通过文件夹路径区分不同类型的文件
 # ------------------------------------------
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "bee-swarm-storage"
 
+# R2 CORS 配置，允许跨域访问头像等静态资源
 cors_rules = [
   { allowed_origins = ["*"], allowed_methods = ["GET", "HEAD"], allowed_headers = ["*"], max_age_seconds = 3600 }
 ]
@@ -60,36 +67,12 @@ max_batch_size = 10
 max_retries = 3
 
 # ------------------------------------------
-# Durable Objects（健康检查持久化、WebSocket、分布式锁）
-# 免费额度：1 million 请求/月
-# ------------------------------------------
-[[durable_objects.bindings]]
-name = "HEALTH_TRACKER"
-class_name = "HealthTrackerDO"
-
-[[durable_objects.bindings]]
-name = "WS_MANAGER"
-class_name = "WebSocketManagerDO"
-
-[[durable_objects.bindings]]
-name = "TASK_LOCK"
-class_name = "DistributedLockDO"
-
-[[migrations]]
-tag = "v1"
-new_classes = ["HealthTrackerDO", "WebSocketManagerDO", "DistributedLockDO"]
-
-# ------------------------------------------
-# Workers AI
-# ------------------------------------------
-[ai]
-binding = "AI"
-
-# ------------------------------------------
 # 环境变量配置
 # ------------------------------------------
 [vars]
+# 可选：指定管理员邮箱，该邮箱注册自动成为管理员
 # ADMIN_EMAIL = "admin@example.com"
+# 可选：Turnstile 站点密钥（用于前端显示反爬虫组件）
 # TURNSTILE_SITE_KEY = "your-site-key"
 
 # ------------------------------------------
@@ -109,3 +92,10 @@ invocation_logs = true
 enabled = true
 persist = true
 head_sampling_rate = 1
+
+# ------------------------------------------
+# Workers AI
+# ------------------------------------------
+[ai]
+binding = "AI"
+
