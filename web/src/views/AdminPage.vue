@@ -382,7 +382,10 @@ async function selectProvider(provider: string) {
   // 先加载新提供商的配置，确保发送正确的默认值
   const config = userSettings.value.ai_provider_configs?.[provider as keyof typeof userSettings.value.ai_provider_configs];
   const apiKey = config?.api_key || '';
-  const apiUrl = config?.api_url || getDefaultApiUrlForProvider(provider);
+  
+  // workers-ai 不需要 API URL（Cloudflare 内置服务）
+  const isWorkersAI = provider === 'workers-ai';
+  const apiUrl = isWorkersAI ? '' : (config?.api_url || getDefaultApiUrlForProvider(provider));
   const modelName = config?.model_name || getDefaultModelNameForProvider(provider);
   
   // 只保存AI相关设置，不包含缓存设置
