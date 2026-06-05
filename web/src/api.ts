@@ -137,23 +137,29 @@ function clearAuthAndRedirect() {
 
 export async function register(
   email: string,
-  password: string
+  password: string,
+  turnstileToken?: string
 ): Promise<{ success: boolean; message: string }> {
+  const body: { email: string; password: string; turnstileToken?: string } = { email, password };
+  if (turnstileToken) body.turnstileToken = turnstileToken;
   return request(`${BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(body),
   });
 }
 
 export async function login(
   email: string,
-  password: string
+  password: string,
+  turnstileToken?: string
 ): Promise<{ success: boolean; message: string; email: string }> {
+  const body: { email: string; password: string; turnstileToken?: string } = { email, password };
+  if (turnstileToken) body.turnstileToken = turnstileToken;
   return request(`${BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(body),
   });
 }
 

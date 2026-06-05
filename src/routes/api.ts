@@ -43,15 +43,58 @@ api.use('/*', cors());
 // 公开接口
 // ============================================
 
+// Turnstile 配置端点（公开）
+api.get('/turnstile/config', async (c) => {
+  const env = c.env as Env;
+  if (env.TURNSTILE_SITE_KEY) {
+    return c.json({ success: true, siteKey: env.TURNSTILE_SITE_KEY });
+  }
+  return c.json({ success: false, message: 'Turnstile 未配置' });
+});
+
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
   message: '注册操作过于频繁，请稍后再试',
 });
 
+// Turnstile 验证函数
+async function verifyTurnstile(token: string, secretKey: string, ip?: string): Promise<boolean> {
+  try {
+    const formData = new URLSearchParams();
+    formData.append('secret', secretKey);
+    formData.append('response', token);
+    if (ip) formData.append('remoteip', ip);
+
+    const result = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const outcome = await result.json() as { success: boolean };
+    return outcome.success;
+  } catch {
+    return false;
+  }
+}
+
 api.post('/register', registerLimiter, validateBody(schemas.register), async (c) => {
-  const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
-  const { email, password } = body;
+  const body = (c as ValidatedContext).validatedBody as { email: string; password: string; turnstileToken?: string };
+  const { email, password, turnstileToken } = body;
+  const env = c.env as Env;
+
+  // 如果配置了 Turnstile，验证 token
+  if (env.TURNSTILE_SECRET_KEY) {
+    if (!turnstileToken) {
+      return c.json({ success: false, message: '请完成人机验证' }, 400);
+    }
+    const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
+    const valid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    if (!valid) {
+      return c.json({ success: false, message: '人机验证失败，请重试' }, 400);
+    }
+  }
+
   const userService = new UserService(c.env);
 
   const existing = await userService.findByEmail(email);
@@ -82,8 +125,22 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
 });
 
 api.post('/login', validateBody(schemas.login), async (c) => {
-  const body = (c as ValidatedContext).validatedBody as { email: string; password: string };
-  const { email, password } = body;
+  const body = (c as ValidatedContext).validatedBody as { email: string; password: string; turnstileToken?: string };
+  const { email, password, turnstileToken } = body;
+  const env = c.env as Env;
+
+  // 如果配置了 Turnstile，验证 token
+  if (env.TURNSTILE_SECRET_KEY) {
+    if (!turnstileToken) {
+      return c.json({ success: false, message: '请完成人机验证' }, 400);
+    }
+    const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
+    const valid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    if (!valid) {
+      return c.json({ success: false, message: '人机验证失败，请重试' }, 400);
+    }
+  }
+
   const userService = new UserService(c.env);
 
   const user = await userService.findByEmail(email);

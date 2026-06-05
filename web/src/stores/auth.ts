@@ -55,12 +55,12 @@ export const useAuthStore = defineStore('auth', () => {
     authError.value = error;
   };
 
-  const doLogin = async (authEmail: string, authPassword: string) => {
+  const doLogin = async (authEmail: string, authPassword: string, turnstileToken?: string) => {
     isAuthenticating.value = true;
     authError.value = null;
 
     try {
-      await login(authEmail, authPassword);
+      await login(authEmail, authPassword, turnstileToken);
       const tokenData = await getToken(authEmail, authPassword);
       email.value = authEmail;
       accessToken.value = tokenData.token;
@@ -76,13 +76,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  const doRegister = async (authEmail: string, authPassword: string) => {
+  const doRegister = async (authEmail: string, authPassword: string, turnstileToken?: string) => {
     isAuthenticating.value = true;
     authError.value = null;
 
     try {
-      await register(authEmail, authPassword);
-      return await doLogin(authEmail, authPassword);
+      await register(authEmail, authPassword, turnstileToken);
+      return await doLogin(authEmail, authPassword, turnstileToken);
     } catch (error: unknown) {
       authError.value = (error as { message?: string })?.message || t('error.register_failed');
       return false;

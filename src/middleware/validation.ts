@@ -111,11 +111,13 @@ export const schemas = {
       .regex(/[a-z]/, '密码至少包含一个小写字母')
       .regex(/[A-Z]/, '密码至少包含一个大写字母')
       .regex(/[0-9]/, '密码至少包含一个数字'),
+    turnstileToken: z.string().optional(),
   }),
 
   login: z.object({
     email: z.string().email('请输入有效的邮箱地址'),
     password: z.string().min(1, '请输入密码'),
+    turnstileToken: z.string().optional(),
   }),
 
   apikey: z.object({

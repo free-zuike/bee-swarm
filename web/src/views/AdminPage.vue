@@ -1010,8 +1010,8 @@ watch(activeSettingsTab, (newTab) => {
 });
 
 // ==================== 认证函数 ====================
-async function doLogin(authEmail: string, authPassword: string) {
-  const success = await authStore.doLogin(authEmail, authPassword);
+async function doLogin(authEmail: string, authPassword: string, turnstileToken?: string) {
+  const success = await authStore.doLogin(authEmail, authPassword, turnstileToken);
   if (success) {
     await loadCurrentUser(accessToken.value);
     await loadChannels();
@@ -1021,8 +1021,8 @@ async function doLogin(authEmail: string, authPassword: string) {
   }
 }
 
-async function doRegister(authEmail: string, authPassword: string) {
-  const success = await authStore.doRegister(authEmail, authPassword);
+async function doRegister(authEmail: string, authPassword: string, turnstileToken?: string) {
+  const success = await authStore.doRegister(authEmail, authPassword, turnstileToken);
   if (success) {
     await loadCurrentUser(accessToken.value);
     await loadChannels();

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 const t = useTranslation();
@@ -11,8 +11,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  login: [email: string, password: string];
-  register: [email: string, password: string];
+  login: [email: string, password: string, turnstileToken?: string];
+  register: [email: string, password: string, turnstileToken?: string];
 }>();
 
 const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset'>('login');
@@ -23,6 +23,84 @@ const resetToken = ref('');
 const localError = ref('');
 const isProcessing = ref(false);
 const resetEmail = ref('');
+
+// Turnstile 人机验证
+const turnstileToken = ref('');
+const turnstileWidgetId = ref<string | null>(null);
+const turnstileSiteKey = ref<string | null>(null);
+const showTurnstile = ref(false);
+
+// 加载 Turnstile 脚本并初始化
+onMounted(async () => {
+  // 从后端获取 Turnstile Site Key
+  try {
+    const response = await fetch('/api/turnstile/config');
+    const data = await response.json();
+    if (data.success && data.siteKey) {
+      turnstileSiteKey.value = data.siteKey;
+      showTurnstile.value = true;
+      
+      // 加载 Turnstile 脚本
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+      
+      // 等待脚本加载完成后渲染 widget
+      script.onload = () => {
+        renderTurnstile();
+      };
+    }
+  } catch {
+    // Turnstile 未配置，跳过
+    console.log('Turnstile 未配置');
+  }
+});
+
+// 渲染 Turnstile widget
+function renderTurnstile() {
+  if (!turnstileSiteKey.value || !window.turnstile) return;
+  
+  const container = document.getElementById('turnstile-container');
+  if (!container) return;
+  
+  // 清除旧的 widget
+  if (turnstileWidgetId.value) {
+    window.turnstile.remove(turnstileWidgetId.value);
+  }
+  
+  // 渲染新的 widget
+  turnstileWidgetId.value = window.turnstile.render('#turnstile-container', {
+    sitekey: turnstileSiteKey.value,
+    theme: 'light',
+    callback: (token: string) => {
+      turnstileToken.value = token;
+    },
+    'expired-callback': () => {
+      turnstileToken.value = '';
+    },
+    'error-callback': () => {
+      turnstileToken.value = '';
+      localError.value = '人机验证失败，请刷新页面重试';
+    }
+  });
+}
+
+// 切换模式时重置 Turnstile
+watch(authMode, () => {
+  if (showTurnstile.value && window.turnstile && turnstileWidgetId.value) {
+    window.turnstile.reset(turnstileWidgetId.value);
+    turnstileToken.value = '';
+  }
+});
+
+// 清理 Turnstile widget
+onUnmounted(() => {
+  if (turnstileWidgetId.value && window.turnstile) {
+    window.turnstile.remove(turnstileWidgetId.value);
+  }
+});
 
 function switchMode(mode: 'login' | 'register' | 'forgot' | 'enterToken' | 'reset') {
   authMode.value = mode;
@@ -35,7 +113,14 @@ function doLogin() {
     localError.value = t('error.required', { field: t('label.email') + t('label.password') });
     return;
   }
-  emit('login', authEmail.value.trim(), authPassword.value);
+  
+  // 如果启用了 Turnstile，检查是否完成验证
+  if (showTurnstile.value && !turnstileToken.value) {
+    localError.value = '请完成人机验证';
+    return;
+  }
+  
+  emit('login', authEmail.value.trim(), authPassword.value, turnstileToken.value);
 }
 
 function doRegister() {
@@ -52,7 +137,14 @@ function doRegister() {
     localError.value = t('error.password_match');
     return;
   }
-  emit('register', authEmail.value.trim(), authPassword.value);
+  
+  // 如果启用了 Turnstile，检查是否完成验证
+  if (showTurnstile.value && !turnstileToken.value) {
+    localError.value = '请完成人机验证';
+    return;
+  }
+  
+  emit('register', authEmail.value.trim(), authPassword.value, turnstileToken.value);
 }
 
 async function doForgotPassword() {
@@ -190,6 +282,7 @@ const isResetMode = computed(() => {
           autocomplete="current-password"
           @keydown.enter="doLogin"
         />
+        <div v-if="showTurnstile" id="turnstile-container" class="turnstile-widget"></div>
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isAuthing">
           {{ isAuthing ? t('label.logging_in') : t('button.login') }}
@@ -271,6 +364,7 @@ const isResetMode = computed(() => {
           autocomplete="new-password"
           @keydown.enter="doRegister"
         />
+        <div v-if="showTurnstile" id="turnstile-container" class="turnstile-widget"></div>
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isAuthing">
           {{ isAuthing ? t('label.registering') : t('button.register') }}
@@ -426,6 +520,12 @@ const isResetMode = computed(() => {
   background: var(--bg-secondary, #f5f5f5);
   border-radius: 6px;
   text-align: left;
+}
+
+.turnstile-widget {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
