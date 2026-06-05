@@ -64,6 +64,19 @@ export interface CacheSettings {
   cache_ttl_scheduled?: number;
 }
 
+export interface AITool {
+  id: string;
+  name: string;
+  description: string;
+  parameters: Array<{
+    name: string;
+    type: string;
+    description: string;
+    required: boolean;
+  }>;
+  enabled: boolean;
+}
+
 export interface AISettings {
   ai_model?: string;
   ai_enabled?: boolean;
@@ -73,6 +86,7 @@ export interface AISettings {
   ai_model_name?: string;
   custom_ai_providers?: CustomAIProvider[];
   ai_provider_configs?: Record<string, AIProviderConfig>;
+  ai_tools?: AITool[];
 }
 
 export class UserService {
@@ -241,7 +255,78 @@ export class UserService {
       ai_api_key: '',
       ai_api_url: '',
       ai_model_name: '',
+      ai_tools: this.getDefaultAITools(),
     };
+  }
+
+  /** 获取默认AI工具列表 */
+  getDefaultAITools(): AITool[] {
+    return [
+      {
+        id: 'listTemplates',
+        name: 'listTemplates',
+        description: '获取模板列表',
+        parameters: [],
+        enabled: true,
+      },
+      {
+        id: 'listGroups',
+        name: 'listGroups',
+        description: '获取分组列表',
+        parameters: [],
+        enabled: true,
+      },
+      {
+        id: 'listScheduledTasks',
+        name: 'listScheduledTasks',
+        description: '获取定时任务列表',
+        parameters: [],
+        enabled: true,
+      },
+      {
+        id: 'runBackup',
+        name: 'runBackup',
+        description: '执行备份',
+        parameters: [],
+        enabled: true,
+      },
+      {
+        id: 'listChannels',
+        name: 'listChannels',
+        description: '获取已配置的渠道列表',
+        parameters: [],
+        enabled: true,
+      },
+    ];
+  }
+
+  /** 获取用户配置的AI工具列表（合并默认工具和自定义工具） */
+  getUserAITools(settings: AISettings): AITool[] {
+    const defaultTools = this.getDefaultAITools();
+    const userTools = settings.ai_tools || [];
+    
+    // 合并默认工具和自定义工具
+    const toolMap = new Map<string, AITool>();
+    
+    // 添加默认工具
+    for (const tool of defaultTools) {
+      toolMap.set(tool.id, tool);
+    }
+    
+    // 覆盖/添加用户自定义工具
+    for (const tool of userTools) {
+      if (tool.name.startsWith('custom_')) {
+        toolMap.set(tool.id, tool);
+      } else {
+        // 对于默认工具，只更新 enabled 状态
+        const existing = toolMap.get(tool.id);
+        if (existing) {
+          existing.enabled = tool.enabled;
+        }
+      }
+    }
+    
+    return Array.from(toolMap.values()).filter(t => t.enabled);
   }
 
   /** 获取默认设置（兼容旧接口） */

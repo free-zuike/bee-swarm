@@ -1056,6 +1056,20 @@ export async function saveCacheSettings(
   });
 }
 
+export interface AITool {
+  id: string;
+  name: string;
+  description: string;
+  parameters: Array<{
+    name: string;
+    type: string;
+    description: string;
+    required: boolean;
+  }>;
+  enabled: boolean;
+  isDefault?: boolean;
+}
+
 // 保存AI设置
 export async function saveAISettings(
   token: string,
@@ -1068,6 +1082,7 @@ export async function saveAISettings(
     ai_model_name?: string;
     custom_ai_providers?: CustomAIProvider[];
     ai_provider_configs?: Record<string, AIProviderConfig>;
+    ai_tools?: AITool[];
   }
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
   return tokenRequest(`${BASE}/admin/me/settings/ai`, token, {
@@ -1075,6 +1090,11 @@ export async function saveAISettings(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
+}
+
+// 获取 AI 工具列表
+export async function getAITools(token: string): Promise<{ success: boolean; tools: AITool[] }> {
+  return tokenRequest(`${BASE}/admin/me/ai/tools`, token);
 }
 
 // -------------------------------------------

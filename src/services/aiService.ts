@@ -6,7 +6,7 @@ import type { Env, PushChannel } from '../types';
 import { PushService } from './push';
 import { executeAllBackups } from './backup';
 import { loadUserChannelSettings, CHANNEL_DEFINITIONS } from './dispatcher';
-import type { UserSettings } from './userService';
+import type { UserSettings, AITool } from './userService';
 
 /**
  * AI 生成消息请求
@@ -341,7 +341,15 @@ export class AIService {
       }
 
       const { query, userId, username } = request;
-      const tools = this.getAvailableTools();
+      
+      // 获取用户配置的 AI 工具
+      const userTools = userService.getUserAITools(settings);
+      const tools = userTools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      }));
+      
       const systemPrompt = this.buildToolSystemPrompt(tools);
 
       const aiContent = await this.callAI(
@@ -355,6 +363,7 @@ export class AIService {
       console.log('[AI Service] === 收到 AI 响应 ===');
       console.log('[AI Service] 提供商:', settings.ai_provider);
       console.log('[AI Service] 模型:', settings.ai_model_name);
+      console.log('[AI Service] 工具列表:', tools.map(t => t.name));
       console.log('[AI Service] 原始响应:', aiContent);
 
       const toolCall = this.parseToolCall(aiContent);
@@ -374,74 +383,11 @@ export class AIService {
     }
   }
 
-  private getAvailableTools() {
-    return [
-      {
-        name: 'createTemplate',
-        description: '创建推送模板',
-        parameters: [
-          { name: 'name', type: 'string', description: '模板名称', required: true },
-          { name: 'title', type: 'string', description: '推送标题', required: true },
-          { name: 'content', type: 'string', description: '推送内容', required: false },
-          { name: 'url', type: 'string', description: '跳转链接', required: false },
-          { name: 'category', type: 'string', description: '分类', required: false },
-        ],
-      },
-      {
-        name: 'listTemplates',
-        description: '获取模板列表',
-        parameters: [],
-      },
-      {
-        name: 'createGroup',
-        description: '创建渠道分组',
-        parameters: [
-          { name: 'name', type: 'string', description: '分组名称', required: true },
-          {
-            name: 'channels',
-            type: 'string[]',
-            description: '渠道列表，用逗号分隔',
-            required: true,
-          },
-        ],
-      },
-      {
-        name: 'listGroups',
-        description: '获取分组列表',
-        parameters: [],
-      },
-      {
-        name: 'deleteGroup',
-        description: '删除分组',
-        parameters: [{ name: 'id', type: 'string', description: '分组ID', required: true }],
-      },
-      {
-        name: 'listScheduledTasks',
-        description: '获取定时任务列表',
-        parameters: [],
-      },
-      {
-        name: 'runBackup',
-        description: '执行备份',
-        parameters: [],
-      },
-      {
-        name: 'listChannels',
-        description: '获取已配置的渠道列表',
-        parameters: [],
-      },
-    ];
-  }
-
   private buildToolSystemPrompt(tools: unknown[]): string {
-    const queryTools = tools.filter((t: any) => 
-      t.name.startsWith('list') || t.name === 'runBackup'
-    );
-    
     return `你是一个助手，可以帮助用户查询推送服务的数据。
 
-查询工具：
-${JSON.stringify(queryTools)}
+可用工具：
+${JSON.stringify(tools)}
 
 规则：
 1. 用户询问"列出"、"查询"、"获取"时，调用对应工具并返回结果

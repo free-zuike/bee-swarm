@@ -818,6 +818,18 @@ adminApi.put('/me/settings/ai', async (c) => {
     ai_model_name?: string;
     custom_ai_providers?: Array<{ id: string; name: string; icon: string }>;
     ai_provider_configs?: Record<string, { api_key?: string; api_url?: string; model_name?: string }>;
+    ai_tools?: Array<{
+      id: string;
+      name: string;
+      description: string;
+      parameters: Array<{
+        name: string;
+        type: string;
+        description: string;
+        required: boolean;
+      }>;
+      enabled: boolean;
+    }>;
   }>();
 
   const currentAISettings = await svc.getAISettings(user.id);
@@ -831,11 +843,55 @@ adminApi.put('/me/settings/ai', async (c) => {
     ai_model_name: body.ai_model_name,
     custom_ai_providers: body.custom_ai_providers,
     ai_provider_configs: body.ai_provider_configs,
+    ai_tools: body.ai_tools,
   };
 
   await svc.saveAISettings(user.id, newAISettings);
 
   return c.json({ success: true, message: 'AI设置已保存', settings: newAISettings });
+});
+
+/** 获取 AI 工具列表（包含默认工具和用户自定义工具） */
+adminApi.get('/me/ai/tools', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const settings = await svc.getAISettings(user.id);
+  const userTools = settings.ai_tools || [];
+  const defaultTools = svc.getDefaultAITools();
+  
+  // 合并默认工具和用户自定义工具
+  const toolMap = new Map<string, any>();
+  
+  // 添加默认工具
+  for (const tool of defaultTools) {
+    const userTool = userTools.find((t) => t.id === tool.id);
+    toolMap.set(tool.id, {
+      ...tool,
+      enabled: userTool ? userTool.enabled : tool.enabled,
+      isDefault: true,
+    });
+  }
+  
+  // 添加用户自定义工具
+  for (const tool of userTools) {
+    if (tool.name.startsWith('custom_')) {
+      toolMap.set(tool.id, {
+        ...tool,
+        isDefault: false,
+      });
+    }
+  }
+
+  return c.json({ 
+    success: true, 
+    tools: Array.from(toolMap.values()) 
+  });
 });
 
 /** 上传头像文件 */

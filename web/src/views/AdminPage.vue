@@ -35,6 +35,7 @@ import {
   getUserSettings,
   saveCacheSettings,
   saveAISettings,
+  getAITools,
   apiCache,
 } from '@/api';
 import type { BackupEndpoint, UserSettings } from '@/api';
@@ -160,6 +161,105 @@ const predefinedProviders = [
   { id: 'azure-openai', name: 'Azure OpenAI', icon: '🔷', desc: '使用 Azure OpenAI 服务，需要完整配置' },
   { id: 'anthropic', name: 'Anthropic Claude', icon: '🤖', desc: '使用 Claude 模型，需要 API Key' },
 ];
+
+// ==================== AI 工具栏相关 ====================
+const aiTools = ref<any[]>([]);
+const showAddToolModal = ref(false);
+const showEditToolModal = ref(false);
+const newToolName = ref('');
+const newToolDescription = ref('');
+const newToolParams = ref('');
+const editingToolId = ref('');
+const editingTool = ref<any>(null);
+
+const availableParamTypes = ['string', 'number', 'boolean', 'array', 'object'];
+
+async function loadAITools() {
+  try {
+    const result = await getAITools(accessToken.value);
+    if (result.success) {
+      aiTools.value = result.tools;
+    }
+  } catch (err) {
+    console.error('加载 AI 工具失败:', err);
+  }
+}
+
+function editTool(tool: any) {
+  editingToolId.value = tool.id;
+  editingTool.value = { ...tool };
+  showEditToolModal.value = true;
+}
+
+function deleteTool(toolId: string) {
+  aiTools.value = aiTools.value.filter(t => t.id !== toolId);
+  saveAITools();
+}
+
+async function handleToggleTool(tool: any) {
+  await saveAITools();
+}
+
+async function saveAITools() {
+  try {
+    const customTools = aiTools.value.filter(t => !t.isDefault);
+    const result = await saveAISettings(accessToken.value, {
+      ai_tools: aiTools.value.map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters || [],
+        enabled: t.enabled,
+      })),
+    });
+    if (result.success) {
+      showToast('AI 工具已保存', 'success');
+    }
+  } catch (err) {
+    console.error('保存 AI 工具失败:', err);
+    showToast('保存失败', 'error');
+  }
+}
+
+function addTool() {
+  if (!newToolName.value.trim()) {
+    showToast('请输入工具名称', 'error');
+    return;
+  }
+
+  const tool = {
+    id: `custom_${Date.now()}`,
+    name: newToolName.value.trim(),
+    description: newToolDescription.value.trim(),
+    parameters: [],
+    enabled: true,
+    isDefault: false,
+  };
+
+  aiTools.value.push(tool);
+  newToolName.value = '';
+  newToolDescription.value = '';
+  showAddToolModal.value = false;
+  
+  saveAITools();
+  showToast('工具添加成功', 'success');
+}
+
+function updateTool() {
+  if (!editingTool.value) return;
+  
+  const index = aiTools.value.findIndex(t => t.id === editingToolId.value);
+  if (index !== -1) {
+    aiTools.value[index] = { ...editingTool.value };
+  }
+  
+  showEditToolModal.value = false;
+  editingToolId.value = '';
+  editingTool.value = null;
+  
+  saveAITools();
+  showToast('工具更新成功', 'success');
+}
 
 const userAvatar = ref('');
 const avatarInput = ref('');
@@ -746,6 +846,7 @@ onMounted(async () => {
           await loadHistory();
           await loadUserAvatar();
           await loadUserSettings();
+          await loadAITools();
           pageState.value = 'dashboard';
           return;
         } catch {
@@ -762,6 +863,7 @@ onMounted(async () => {
         await loadHistory();
         await loadUserAvatar();
         await loadUserSettings();
+        await loadAITools();
         pageState.value = 'dashboard';
         return;
       }
@@ -797,6 +899,10 @@ watch(activeSettingsTab, (newTab) => {
     if (fileInput.value) {
       fileInput.value.value = '';
     }
+  }
+  // 当切换到 AI 设置时，加载 AI 工具列表
+  if (newTab === 'ai' && aiTools.value.length === 0) {
+    loadAITools();
   }
 });
 
@@ -1805,6 +1911,62 @@ function handleResend(record: PushHistoryRecord) {
                       {{ t('button.save_settings') }}
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI 工具栏设置 -->
+            <div class="settings-card" style="margin-top: 20px;">
+              <div class="card-header">
+                <h4>🔧 AI 工具栏</h4>
+                <button class="btn btn-sm btn-primary" @click="showAddToolModal = true">
+                  添加工具
+                </button>
+              </div>
+              
+              <div class="tools-list">
+                <div 
+                  v-for="tool in aiTools" 
+                  :key="tool.id" 
+                  class="tool-item"
+                >
+                  <div class="tool-info">
+                    <div class="tool-name">
+                      {{ tool.name }}
+                      <span v-if="tool.isDefault" class="tool-badge">默认</span>
+                    </div>
+                    <div class="tool-desc">{{ tool.description }}</div>
+                  </div>
+                  <div class="tool-actions">
+                    <label class="toggle">
+                      <input 
+                        type="checkbox" 
+                        v-model="tool.enabled"
+                        @change="handleToggleTool(tool)"
+                      />
+                      <span class="slider"></span>
+                    </label>
+                    <button 
+                      v-if="!tool.isDefault"
+                      class="btn-icon" 
+                      @click="editTool(tool)"
+                      title="编辑"
+                    >
+                      ✏️
+                    </button>
+                    <button 
+                      v-if="!tool.isDefault"
+                      class="btn-icon" 
+                      @click="deleteTool(tool.id)"
+                      title="删除"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+                
+                <div v-if="aiTools.length === 0" class="empty-state">
+                  暂无可用工具
                 </div>
               </div>
             </div>
@@ -4037,6 +4199,88 @@ function handleResend(record: PushHistoryRecord) {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+}
+
+/* AI 工具栏样式 */
+.tools-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  gap: 16px;
+}
+
+.tool-item:last-child {
+  border-bottom: none;
+}
+
+.tool-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.tool-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.btn-icon:hover {
+  opacity: 1;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary);
 }
 
 .provider-item {
