@@ -515,6 +515,13 @@ async function selectProvider(provider: string) {
     ai_model_name: modelName,
     ai_provider_configs: userSettings.value.ai_provider_configs,
     custom_ai_providers: userSettings.value.custom_ai_providers,
+    ai_tools: aiTools.value.map(t => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters || [],
+      enabled: t.enabled
+    }))
   };
   
   // 先发送请求
@@ -782,6 +789,13 @@ async function handleSaveAISettings() {
       ai_model_name: userSettings.value.ai_model_name,
       ai_provider_configs: userSettings.value.ai_provider_configs,
       custom_ai_providers: userSettings.value.custom_ai_providers,
+      ai_tools: aiTools.value.map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters || [],
+        enabled: t.enabled
+      }))
     });
     if (result.success) {
       showToast(result.message, 'success');
