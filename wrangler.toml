@@ -60,15 +60,6 @@ max_batch_size = 10
 max_retries = 3
 
 # ------------------------------------------
-# KV 命名空间（分布式限流）
-# 免费额度：100,000 次读取/天，1,000 次写入/天
-# 创建命令：npx wrangler kv:namespace create bee-swarm-rate-limit
-# ------------------------------------------
-[[kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "${KV_RATE_LIMIT_ID}"
-
-# ------------------------------------------
 # Durable Objects（健康检查持久化、WebSocket、分布式锁）
 # 免费额度：1 million 请求/月
 # ------------------------------------------
@@ -87,15 +78,6 @@ class_name = "DistributedLockDO"
 [[migrations]]
 tag = "v1"
 new_classes = ["HealthTrackerDO", "WebSocketManagerDO", "DistributedLockDO"]
-
-# ------------------------------------------
-# Vectorize 向量搜索（模板语义搜索）
-# 免费额度：30 million 向量维度/月
-# 创建命令：npx wrangler vectorize create bee-swarm-templates --dimensions=1024 --metric=cosine
-# ------------------------------------------
-[[vectorize]]
-binding = "VECTORIZE_INDEX"
-index_name = "bee-swarm-templates"
 
 # ------------------------------------------
 # Workers AI
