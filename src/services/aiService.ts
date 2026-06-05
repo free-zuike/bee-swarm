@@ -485,7 +485,9 @@ ${JSON.stringify(tools)}
     username: string
   ): Promise<AIExecuteResponse> {
     const { tool, params } = toolCall;
-    const pushService = new PushService(this.env, username);
+    
+    // 使用 userId 确保权限正确
+    const pushService = new PushService(this.env, userId);
 
     switch (tool) {
       case 'createTemplate': {
@@ -537,6 +539,7 @@ ${JSON.stringify(tools)}
       }
 
       case 'runBackup': {
+        // runBackup 需要 username 用于存储路径
         const result = await executeAllBackups(this.env, username);
         const successCount = result.filter((r: { success: boolean }) => r.success).length;
         const failCount = result.length - successCount;
