@@ -26,7 +26,10 @@ import {
 import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
 import { cleanupExpiredData } from './services/cleanupService';
+import { archiveOldDataToR2 } from './services/r2ArchiveService';
 import { SystemSettingsService } from './services/systemSettingsService';
+import { EnhancedQueueService } from './services/enhancedQueueService';
+import { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -173,30 +176,12 @@ export default {
   ): Promise<void> {
     console.log(`[Queue] Processing ${batch.messages.length} messages`);
 
-    const queueService = new QueueService(env);
-
-    await queueService.processBatch(batch, async (message: PushQueueMessage) => {
-      console.log(`[Queue] Processing push request: ${message.requestId}`);
-
-      try {
-        const results = await dispatchPushWithOptions(
-          message.payload,
-          message.payload.channels || [],
-          message.userId,
-          env
-        );
-
-        console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
-
-        // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
-      } catch (error) {
-        console.error(
-          `[Queue] Failed to process message ${message.requestId}:`,
-          (error as Error).message
-        );
-        throw error;
-      }
-    });
+    try {
+      const enhancedQueueService = new EnhancedQueueService(env);
+      await enhancedQueueService.processBatch(batch);
+    } catch (error) {
+      console.error('[Queue] Error processing batch:', (error as Error).message);
+    }
 
     console.log(`[Queue] Batch processing complete`);
   },
@@ -221,6 +206,17 @@ export default {
         console.log('[Cron] Cleanup completed:', cleanupResult);
       } else {
         console.log('[Cron] Auto cleanup is disabled');
+      }
+
+      // 尝试将旧数据归档到 R2（如果 R2 配置了）
+      if (env.BUCKET) {
+        console.log('[Cron] Starting R2 data archive...');
+        const archiveResult = await archiveOldDataToR2(env, {
+          archiveRetentionDays: 90, // 90 天以上的数据归档到 R2
+        });
+        console.log('[Cron] Archive completed:', archiveResult);
+      } else {
+        console.log('[Cron] R2 not configured, skipping archive');
       }
 
       let processedUsers = 0;
@@ -254,6 +250,9 @@ export default {
     }
   },
 };
+
+// 导出 Durable Objects
+export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO };
 
 /**
  * 处理单个用户的任务

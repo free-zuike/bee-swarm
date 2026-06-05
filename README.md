@@ -14,6 +14,10 @@
 | 后端 | Hono | 轻量高性能 Web 框架 |
 | 部署 | Cloudflare Workers | 边缘计算，单一部署 |
 | 数据库 | Cloudflare D1 | 轻量 SQLite 数据库 |
+| **KV 存储** | **Cloudflare KV** | **分布式限流** |
+| **向量搜索** | **Cloudflare Vectorize** | **模板智能推荐** |
+| **持久化** | **Durable Objects** | **健康追踪、分布式锁** |
+| **分析** | **Cloudflare Analytics Engine** | **推送统计分析** |
 
 ## 📁 项目架构
 
@@ -225,3 +229,43 @@ curl -X POST "https://你的域名/api/admin/push?password=密码" \
 
 - [架构设计](./docs/architecture.md)
 - [配置指南](./docs/configuration.md)
+
+## ☁️ Cloudflare 服务增强（可选，完全免费）
+
+我们已集成了多个 Cloudflare 免费服务，进一步增强系统功能：
+
+| 功能 | Cloudflare 服务 | 免费额度 | 说明 |
+|------|----------------|---------|------|
+| 分布式限流 | KV 存储 | 100,000 读/天，1,000 写/天 | 跨 Workers 实例统一限流 |
+| 智能推荐 | Vectorize + Workers AI | 30,000,000 向量维度/月 | 模板语义搜索和智能推荐 |
+| 健康追踪 | Durable Objects | 1,000,000 请求/月 | 持久化健康检查数据 |
+| 分布式锁 | Durable Objects | 1,000,000 请求/月 | 防重复执行的分布式锁 |
+| 数据分析 | Analytics Engine + D1 | 10,000,000 数据点/月 | 推送统计收集和分析 |
+| 安全增强 | 定制中间件 | - | 暴力破解防护、IP 信誉检查 |
+
+### 启用步骤
+
+所有服务都是**可选启用**的，默认情况下会优雅降级：
+
+1. 创建所需的 Cloudflare 资源（详见文档）
+2. 更新 `wrangler.toml` 配置
+3. 部署后即可使用
+
+### 相关文档
+
+- [Cloudflare 服务使用指南](./docs/CLOUDFLARE_SERVICES.md) - 详细说明和配置步骤
+- [Cloudflare API 文档](./docs/CLOUDFLARE_API.md) - 新增 API 端点说明
+- [集成总结](./docs/CLOUDFLARE_INTEGRATION_SUMMARY.md) - 架构和功能概述
+- [完整总结](./docs/CLOUDFLARE_COMPLETE_SUMMARY.md) - 项目完成报告
+
+### 新增 API 端点
+
+所有端点路径以 `/api/cloudflare` 开头，需要认证：
+
+- 健康检查：`POST /health/check`, `GET /health/summary`
+- 模板搜索：`GET /templates/search`, `GET /templates/recommend/:id`, `POST /templates/embed`
+- 数据分析：`GET /analytics/summary`, `GET /analytics/trend`, `POST /analytics/push`
+- 分布式锁：`POST /lock/acquire`, `POST /lock/release`
+- 服务状态：`GET /status`
+
+详细文档请查看 [Cloudflare API 文档](./docs/CLOUDFLARE_API.md)。
