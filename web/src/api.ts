@@ -1349,6 +1349,10 @@ export interface SystemSettings {
   turnstile_enabled?: boolean;
   turnstile_site_key?: string;
   turnstile_secret_key?: string;
+  cleanup_enabled?: boolean;
+  cleanup_push_history_days?: number;
+  cleanup_audit_log_days?: number;
+  cleanup_batch_size?: number;
 }
 
 export async function getSystemSettings(token: string): Promise<{ success: boolean; settings: SystemSettings }> {

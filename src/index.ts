@@ -26,6 +26,7 @@ import {
 import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
 import { cleanupExpiredData } from './services/cleanupService';
+import { SystemSettingsService } from './services/systemSettingsService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -197,13 +198,21 @@ export default {
 
     try {
       // 自动清理过期数据（每小时执行一次）
-      console.log('[Cron] Starting automatic data cleanup...');
-      const cleanupResult = await cleanupExpiredData(env, {
-        pushHistoryRetentionDays: 30,
-        auditLogRetentionDays: 90,
-        batchSize: 100,
-      });
-      console.log('[Cron] Cleanup completed:', cleanupResult);
+      const systemSettings = new SystemSettingsService(env);
+      await systemSettings.ensureTable();
+      const cleanupConfig = await systemSettings.getCleanupConfig();
+      
+      if (cleanupConfig.enabled) {
+        console.log('[Cron] Starting automatic data cleanup...');
+        const cleanupResult = await cleanupExpiredData(env, {
+          pushHistoryRetentionDays: cleanupConfig.pushHistoryDays,
+          auditLogRetentionDays: cleanupConfig.auditLogDays,
+          batchSize: cleanupConfig.batchSize,
+        });
+        console.log('[Cron] Cleanup completed:', cleanupResult);
+      } else {
+        console.log('[Cron] Auto cleanup is disabled');
+      }
 
       let processedUsers = 0;
       const maxUsersPerCron = 500;

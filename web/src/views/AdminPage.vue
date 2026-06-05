@@ -152,6 +152,10 @@ const systemSettings = ref<SystemSettings>({
   turnstile_enabled: false,
   turnstile_site_key: '',
   turnstile_secret_key: '',
+  cleanup_enabled: true,
+  cleanup_push_history_days: 30,
+  cleanup_audit_log_days: 90,
+  cleanup_batch_size: 100,
 });
 const isSavingSettings = ref(false);
 const isSavingSystemSettings = ref(false);
@@ -169,15 +173,6 @@ const isLoadingStats = ref(false);
 const isCleaningUp = ref(false);
 const isArchiving = ref(false);
 const isRestoring = ref(false);
-
-// 清理配置
-const cleanupConfig = ref({
-  pushHistoryRetentionDays: 30,
-  auditLogRetentionDays: 90,
-});
-const archiveConfig = ref({
-  archiveAfterDays: 30,
-});
 
 // ==================== 自定义 AI 提供商相关 ====================
 const showAddProviderModal = ref(false);
@@ -456,6 +451,10 @@ async function loadSystemSettings() {
         turnstile_enabled: result.settings.turnstile_enabled ?? false,
         turnstile_site_key: result.settings.turnstile_site_key ?? '',
         turnstile_secret_key: result.settings.turnstile_secret_key ?? '',
+        cleanup_enabled: result.settings.cleanup_enabled ?? true,
+        cleanup_push_history_days: result.settings.cleanup_push_history_days ?? 30,
+        cleanup_audit_log_days: result.settings.cleanup_audit_log_days ?? 90,
+        cleanup_batch_size: result.settings.cleanup_batch_size ?? 100,
       };
     }
   } catch {
@@ -505,13 +504,16 @@ async function loadArchives() {
 
 async function handleCleanup() {
   if (isCleaningUp.value) return;
-  if (!confirm(`确定要清理 ${cleanupConfig.value.pushHistoryRetentionDays} 天前的推送历史和 ${cleanupConfig.value.auditLogRetentionDays} 天前的审计日志吗？`)) {
+  if (!confirm(`确定要清理 ${systemSettings.value.cleanup_push_history_days || 30} 天前的推送历史和 ${systemSettings.value.cleanup_audit_log_days || 90} 天前的审计日志吗？`)) {
     return;
   }
   
   isCleaningUp.value = true;
   try {
-    const result = await cleanupDatabase(accessToken.value, cleanupConfig.value);
+    const result = await cleanupDatabase(accessToken.value, {
+      pushHistoryRetentionDays: systemSettings.value.cleanup_push_history_days,
+      auditLogRetentionDays: systemSettings.value.cleanup_audit_log_days,
+    });
     if (result.success) {
       showToast(`已清理 ${result.pushHistoryDeleted} 条推送历史和 ${result.auditLogsDeleted} 条审计日志`, 'success');
       await loadDatabaseStats();
@@ -2562,10 +2564,34 @@ function handleResend(record: PushHistoryRecord) {
               <div class="setting-hint" v-if="systemSettings.turnstile_enabled">
                 需要在 Cloudflare Turnstile 中配置您的域名，获取 Site Key 和 Secret Key
               </div>
-              <button class="btn btn-primary" @click="handleSaveSystemSettings" :disabled="isSavingSystemSettings">
-                {{ isSavingSystemSettings ? '保存中...' : '保存设置' }}
-              </button>
             </div>
+
+            <!-- 自动清理设置 -->
+            <div class="settings-card">
+              <h4>🧹 自动数据清理</h4>
+              <div class="setting-item">
+                <label>启用自动清理</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="systemSettings.cleanup_enabled" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="setting-item" v-if="systemSettings.cleanup_enabled">
+                <label>推送历史保留天数</label>
+                <input type="number" v-model.number="systemSettings.cleanup_push_history_days" min="1" max="365" class="input-sm" />
+              </div>
+              <div class="setting-item" v-if="systemSettings.cleanup_enabled">
+                <label>审计日志保留天数</label>
+                <input type="number" v-model.number="systemSettings.cleanup_audit_log_days" min="1" max="365" class="input-sm" />
+              </div>
+              <div class="setting-hint" v-if="systemSettings.cleanup_enabled">
+                自动清理将在每小时执行一次，删除超过指定天数的记录
+              </div>
+            </div>
+
+            <button class="btn btn-primary" @click="handleSaveSystemSettings" :disabled="isSavingSystemSettings">
+              {{ isSavingSystemSettings ? '保存中...' : '保存设置' }}
+            </button>
           </div>
 
           <!-- 用户管理 -->
@@ -2604,32 +2630,20 @@ function handleResend(record: PushHistoryRecord) {
               </button>
             </div>
 
-            <!-- 数据清理 -->
+            <!-- 手动清理（使用系统设置中的配置） -->
             <div class="settings-card">
-              <h4>🧹 数据清理</h4>
-              <div class="setting-item">
-                <label>推送历史保留天数</label>
-                <input type="number" v-model.number="cleanupConfig.pushHistoryRetentionDays" min="1" max="365" class="input-sm" />
-              </div>
-              <div class="setting-item">
-                <label>审计日志保留天数</label>
-                <input type="number" v-model.number="cleanupConfig.auditLogRetentionDays" min="1" max="365" class="input-sm" />
-              </div>
+              <h4>🧹 手动清理</h4>
               <div class="setting-hint">
-                清理将删除超过指定天数的记录。此操作不可恢复，请谨慎操作。
+                使用系统设置中的配置进行清理。自动清理每小时执行一次。
               </div>
               <button class="btn btn-warning" @click="handleCleanup" :disabled="isCleaningUp">
-                {{ isCleaningUp ? '清理中...' : '🗑️ 清理过期数据' }}
+                {{ isCleaningUp ? '清理中...' : '🗑️ 立即清理' }}
               </button>
             </div>
 
             <!-- 数据归档 -->
             <div class="settings-card">
               <h4>📦 数据归档</h4>
-              <div class="setting-item">
-                <label>归档超过天数的历史</label>
-                <input type="number" v-model.number="archiveConfig.archiveAfterDays" min="1" max="365" class="input-sm" />
-              </div>
               <div class="setting-hint">
                 归档将旧数据移动到 R2 存储，释放数据库空间。归档数据可以随时恢复。
               </div>

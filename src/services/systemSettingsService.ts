@@ -4,6 +4,10 @@ export interface SystemSettings {
   turnstile_enabled?: boolean;
   turnstile_site_key?: string;
   turnstile_secret_key?: string;
+  cleanup_enabled?: boolean;
+  cleanup_push_history_days?: number;
+  cleanup_audit_log_days?: number;
+  cleanup_batch_size?: number;
 }
 
 export class SystemSettingsService {
@@ -99,6 +103,19 @@ export class SystemSettingsService {
       enabled,
       siteKey: enabled ? siteKey : undefined,
       secretKey: enabled ? secretKey : undefined,
+    };
+  }
+
+  /** 获取清理配置 */
+  async getCleanupConfig(): Promise<{ enabled: boolean; pushHistoryDays: number; auditLogDays: number; batchSize: number }> {
+    const settings = await this.getAllSettings();
+    
+    // 默认值
+    return {
+      enabled: settings.cleanup_enabled ?? true,
+      pushHistoryDays: settings.cleanup_push_history_days ?? 30,
+      auditLogDays: settings.cleanup_audit_log_days ?? 90,
+      batchSize: settings.cleanup_batch_size ?? 100,
     };
   }
 }
