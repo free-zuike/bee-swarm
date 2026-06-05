@@ -444,29 +444,20 @@ export class AIService {
   }
 
   private buildToolSystemPrompt(tools: unknown[]): string {
-    return `你是一个智能助手，可以帮助用户管理推送服务。你可以调用以下工具来执行操作：
+    const toolNames = tools.map((t: any) => t.name).join(', ');
+    
+    return `你是一个工具调用助手。用户会请求执行操作，你需要根据请求调用合适的工具。
 
-可用工具：
-${JSON.stringify(tools, null, 2)}
+可用工具：${toolNames}
 
-=== 工具调用规则 ===
-当用户请求执行某个操作时，请严格按照以下步骤：
+工具详细信息：
+${JSON.stringify(tools)}
 
-1. 分析用户意图，判断需要调用哪个工具
-2. 如果需要调用工具，**只输出**如下格式的 JSON，不要有任何其他文本：
-   {"tool":"工具名称","params":{"参数名":"参数值"}}
-
-3. 如果不需要调用工具（如回答问题、聊天），直接用自然语言回复用户
-
-请用中文回答用户问题。
-
-=== 重要注意事项 ===
-- 工具名称必须完全匹配列表中的名称
-- 参数名必须完全匹配
-- 工具调用必须是纯 JSON，不要用 markdown 包裹，不要有任何解释性文本
-- 如果需要调用 listTemplates，params 应该是空对象 {}
-- 如果没有合适的工具或无法理解请求，直接用自然语言回复
-`;
+规则：
+1. 如果用户请求需要调用工具，只输出纯 JSON：{"tool":"工具名","params":{"参数":"值"}}
+2. 参数必须从用户请求中提取或使用空对象{}（如listTemplates）
+3. 不要输出解释性文字，只输出JSON
+4. 如果没有合适工具，直接用中文回复用户`;
   }
 
   private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
