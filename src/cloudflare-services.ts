@@ -62,6 +62,10 @@ export { BatchOperationService } from './services/batchOperationService';
 export { AdminAlertService } from './services/adminAlertService';
 export { UndoService } from './services/undoService';
 export { BackupValidationService } from './services/backupValidationService';
+export { TemplateVersionService } from './services/templateVersionService';
+export { CircuitBreakerService } from './services/circuitBreakerService';
+export { StructuredLogger, get_logger, configure_logger } from './services/structuredLogger';
+export { IncrementalBackupService } from './services/incrementalBackupService';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
