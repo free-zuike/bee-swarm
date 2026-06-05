@@ -61,6 +61,7 @@ export {
 export { BatchOperationService } from './services/batchOperationService';
 export { AdminAlertService } from './services/adminAlertService';
 export { UndoService } from './services/undoService';
+export { BackupValidationService } from './services/backupValidationService';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
