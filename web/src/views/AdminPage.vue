@@ -379,8 +379,12 @@ async function selectProvider(provider: string) {
   
   // 只保存AI相关设置，不包含缓存设置
   const requestData = {
+    ai_enabled: userSettings.value.ai_enabled,
     ai_provider: provider,
     ai_model: provider,
+    ai_api_key: userSettings.value.ai_api_key,
+    ai_api_url: userSettings.value.ai_api_url,
+    ai_model_name: userSettings.value.ai_model_name,
     ai_provider_configs: userSettings.value.ai_provider_configs,
     custom_ai_providers: userSettings.value.custom_ai_providers,
   };
