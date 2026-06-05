@@ -1660,7 +1660,7 @@ function handleResend(record: PushHistoryRecord) {
         :class="{ dark: isDark, active: showFabMenu }"
         @click="showFabMenu = !showFabMenu"
       >
-        <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" />
+        <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" @error="handleAvatarError" />
         <span v-else>👤</span>
       </button>
 
