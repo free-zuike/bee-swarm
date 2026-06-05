@@ -46,10 +46,13 @@ export class MigrationService {
       console.log('[Migration] Migrating users table to remove settings column');
 
       // 1. 备份数据
-      await this.env.DB.prepare('CREATE TABLE IF NOT EXISTS users_backup_20240604_auto AS SELECT * FROM users').run();
+      await this.env.DB.prepare(
+        'CREATE TABLE IF NOT EXISTS users_backup_20240604_auto AS SELECT * FROM users'
+      ).run();
 
       // 2. 创建新表结构（不含旧的 settings 字段）
-      await this.env.DB.prepare(`
+      await this.env.DB.prepare(
+        `
         CREATE TABLE IF NOT EXISTS users_new (
           id TEXT PRIMARY KEY,
           email TEXT UNIQUE NOT NULL,
@@ -70,10 +73,12 @@ export class MigrationService {
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
-      `).run();
+      `
+      ).run();
 
       // 3. 复制数据并拆分 settings
-      await this.env.DB.prepare(`
+      await this.env.DB.prepare(
+        `
         INSERT INTO users_new (
           id, email, password, token, token_expires_at, refresh_token, refresh_token_expires_at,
           apikey, apikey_expires_at, role, disabled, disabled_reason, avatar_url, use_avatar_as_popup,
@@ -113,7 +118,8 @@ export class MigrationService {
           ),
           created_at, updated_at
         FROM users
-      `).run();
+      `
+      ).run();
 
       // 4. 替换原表
       await this.env.DB.prepare('DROP TABLE users').run();

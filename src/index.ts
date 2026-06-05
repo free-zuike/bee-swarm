@@ -201,7 +201,7 @@ export default {
       const systemSettings = new SystemSettingsService(env);
       await systemSettings.ensureTable();
       const cleanupConfig = await systemSettings.getCleanupConfig();
-      
+
       if (cleanupConfig.enabled) {
         console.log('[Cron] Starting automatic data cleanup...');
         const cleanupResult = await cleanupExpiredData(env, {

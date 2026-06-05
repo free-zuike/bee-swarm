@@ -39,14 +39,14 @@ onMounted(async () => {
     if (data.success && data.siteKey) {
       turnstileSiteKey.value = data.siteKey;
       showTurnstile.value = true;
-      
+
       // 加载 Turnstile 脚本
       const script = document.createElement('script');
       script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
-      
+
       // 等待脚本加载完成后渲染 widget
       script.onload = () => {
         renderTurnstile();
@@ -61,15 +61,15 @@ onMounted(async () => {
 // 渲染 Turnstile widget
 function renderTurnstile() {
   if (!turnstileSiteKey.value || !window.turnstile) return;
-  
+
   const container = document.getElementById('turnstile-container');
   if (!container) return;
-  
+
   // 清除旧的 widget
   if (turnstileWidgetId.value) {
     window.turnstile.remove(turnstileWidgetId.value);
   }
-  
+
   // 渲染新的 widget
   turnstileWidgetId.value = window.turnstile.render('#turnstile-container', {
     sitekey: turnstileSiteKey.value,
@@ -83,7 +83,7 @@ function renderTurnstile() {
     'error-callback': () => {
       turnstileToken.value = '';
       localError.value = '人机验证失败，请刷新页面重试';
-    }
+    },
   });
 }
 
@@ -113,13 +113,13 @@ function doLogin() {
     localError.value = t('error.required', { field: t('label.email') + t('label.password') });
     return;
   }
-  
+
   // 如果启用了 Turnstile，检查是否完成验证
   if (showTurnstile.value && !turnstileToken.value) {
     localError.value = '请完成人机验证';
     return;
   }
-  
+
   emit('login', authEmail.value.trim(), authPassword.value, turnstileToken.value);
 }
 
@@ -137,13 +137,13 @@ function doRegister() {
     localError.value = t('error.password_match');
     return;
   }
-  
+
   // 如果启用了 Turnstile，检查是否完成验证
   if (showTurnstile.value && !turnstileToken.value) {
     localError.value = '请完成人机验证';
     return;
   }
-  
+
   emit('register', authEmail.value.trim(), authPassword.value, turnstileToken.value);
 }
 

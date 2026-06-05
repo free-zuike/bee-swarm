@@ -31,7 +31,6 @@ import {
   backupSingleEndpoint,
   updateAvatar,
   uploadAvatar,
-  getAvatarStorageStatus,
   getUserSettings,
   saveCacheSettings,
   saveAISettings,
@@ -45,7 +44,13 @@ import {
   restoreArchive,
   apiCache,
 } from '@/api';
-import type { BackupEndpoint, UserSettings, SystemSettings, DatabaseStats, ArchiveInfo } from '@/api';
+import type {
+  BackupEndpoint,
+  UserSettings,
+  SystemSettings,
+  DatabaseStats,
+  ArchiveInfo,
+} from '@/api';
 import type {
   ChannelConfig,
   ChannelDefinition,
@@ -186,9 +191,19 @@ const availableIcons = ['🤖', '🧠', '⚡', '🔧', '🌟', '🎯', '🚀', '
 
 // 预定义的提供商列表
 const predefinedProviders = [
-  { id: 'workers-ai', name: 'Cloudflare Workers AI', icon: '☁️', desc: '使用 Cloudflare Workers AI，无需额外配置' },
+  {
+    id: 'workers-ai',
+    name: 'Cloudflare Workers AI',
+    icon: '☁️',
+    desc: '使用 Cloudflare Workers AI，无需额外配置',
+  },
   { id: 'openai', name: 'OpenAI', icon: '🧠', desc: '使用 OpenAI GPT 模型，需要 API Key' },
-  { id: 'azure-openai', name: 'Azure OpenAI', icon: '🔷', desc: '使用 Azure OpenAI 服务，需要完整配置' },
+  {
+    id: 'azure-openai',
+    name: 'Azure OpenAI',
+    icon: '🔷',
+    desc: '使用 Azure OpenAI 服务，需要完整配置',
+  },
   { id: 'anthropic', name: 'Anthropic Claude', icon: '🤖', desc: '使用 Claude 模型，需要 API Key' },
 ];
 
@@ -198,11 +213,8 @@ const showAddToolModal = ref(false);
 const showEditToolModal = ref(false);
 const newToolName = ref('');
 const newToolDescription = ref('');
-const newToolParams = ref('');
 const editingToolId = ref('');
 const editingTool = ref<any>(null);
-
-const availableParamTypes = ['string', 'number', 'boolean', 'array', 'object'];
 
 async function loadAITools() {
   try {
@@ -217,15 +229,18 @@ async function loadAITools() {
 
 // 生成工具提示词（与后端 buildToolSystemPrompt 保持一致）
 function getToolPrompt(tool: any): string {
-  const paramsStr = tool.parameters && tool.parameters.length > 0
-    ? JSON.stringify(tool.parameters.map((p: any) => ({
-        name: p.name,
-        type: p.type,
-        description: p.description,
-        required: p.required
-      })))
-    : '[]';
-  
+  const paramsStr =
+    tool.parameters && tool.parameters.length > 0
+      ? JSON.stringify(
+          tool.parameters.map((p: any) => ({
+            name: p.name,
+            type: p.type,
+            description: p.description,
+            required: p.required,
+          }))
+        )
+      : '[]';
+
   return `{"name":"${tool.name}","description":"${tool.description}","parameters":${paramsStr}}`;
 }
 
@@ -236,19 +251,18 @@ function editTool(tool: any) {
 }
 
 function deleteTool(toolId: string) {
-  aiTools.value = aiTools.value.filter(t => t.id !== toolId);
+  aiTools.value = aiTools.value.filter((t) => t.id !== toolId);
   saveAITools();
 }
 
-async function handleToggleTool(tool: any) {
+async function handleToggleTool(_tool: any) {
   await saveAITools();
 }
 
 async function saveAITools() {
   try {
-    const customTools = aiTools.value.filter(t => !t.isDefault);
     const result = await saveAISettings(accessToken.value, {
-      ai_tools: aiTools.value.map(t => ({
+      ai_tools: aiTools.value.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
@@ -284,23 +298,23 @@ function addTool() {
   newToolName.value = '';
   newToolDescription.value = '';
   showAddToolModal.value = false;
-  
+
   saveAITools();
   showToast('工具添加成功', 'success');
 }
 
 function updateTool() {
   if (!editingTool.value) return;
-  
-  const index = aiTools.value.findIndex(t => t.id === editingToolId.value);
+
+  const index = aiTools.value.findIndex((t) => t.id === editingToolId.value);
   if (index !== -1) {
     aiTools.value[index] = { ...editingTool.value };
   }
-  
+
   showEditToolModal.value = false;
   editingToolId.value = '';
   editingTool.value = null;
-  
+
   saveAITools();
   showToast('工具更新成功', 'success');
 }
@@ -342,7 +356,7 @@ async function handleSaveAvatar() {
   isSaving.value = true;
   try {
     let newAvatarUrl = userAvatar.value;
-    
+
     // 如果有选择文件，先上传文件
     if (selectedFile.value) {
       const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
@@ -364,10 +378,10 @@ async function handleSaveAvatar() {
     userAvatar.value = updateResult.avatar_url;
     useAvatarAsPopup.value = updateResult.use_avatar_as_popup;
     selectedFile.value = null;
-    
+
     showToast(t('message.avatar_saved'), 'success');
     closeAvatarModal();
-  } catch (error) {
+  } catch (_error) {
     showToast(t('message.save_failed'), 'error');
   } finally {
     isSaving.value = false;
@@ -381,13 +395,13 @@ async function deleteAvatar() {
       avatar_url: '',
       use_avatar_as_popup: useAvatarAsPopup.value,
     });
-    
+
     userAvatar.value = '';
     avatarInput.value = '';
     selectedFile.value = null;
-    
+
     showToast(t('message.avatar_deleted'), 'success');
-  } catch (error) {
+  } catch (_error) {
     showToast(t('message.save_failed'), 'error');
   } finally {
     isSaving.value = false;
@@ -417,24 +431,24 @@ async function loadUserSettings() {
     const result = await getUserSettings(accessToken.value);
     if (result.success) {
       userSettings.value = result.settings;
-      
+
       // 确保 ai_provider_configs 存在
       if (!userSettings.value.ai_provider_configs) {
         userSettings.value.ai_provider_configs = {};
       }
-      
+
       // 确保 custom_ai_providers 存在
       if (!userSettings.value.custom_ai_providers) {
         userSettings.value.custom_ai_providers = [];
       }
-      
+
       console.log('加载的用户设置:', userSettings.value);
       console.log('自定义提供商:', userSettings.value.custom_ai_providers);
-      
+
       // 如果当前提供商有配置，加载到临时字段用于绑定
       const currentProvider = userSettings.value.ai_provider || 'workers-ai';
       loadProviderConfig(currentProvider);
-      
+
       updateCacheSettings();
     }
   } catch {
@@ -504,10 +518,14 @@ async function loadArchives() {
 
 async function handleCleanup() {
   if (isCleaningUp.value) return;
-  if (!confirm(`确定要清理 ${systemSettings.value.cleanup_push_history_days || 30} 天前的推送历史和 ${systemSettings.value.cleanup_audit_log_days || 90} 天前的审计日志吗？`)) {
+  if (
+    !confirm(
+      `确定要清理 ${systemSettings.value.cleanup_push_history_days || 30} 天前的推送历史和 ${systemSettings.value.cleanup_audit_log_days || 90} 天前的审计日志吗？`
+    )
+  ) {
     return;
   }
-  
+
   isCleaningUp.value = true;
   try {
     const result = await cleanupDatabase(accessToken.value, {
@@ -515,7 +533,10 @@ async function handleCleanup() {
       auditLogRetentionDays: systemSettings.value.cleanup_audit_log_days,
     });
     if (result.success) {
-      showToast(`已清理 ${result.pushHistoryDeleted} 条推送历史和 ${result.auditLogsDeleted} 条审计日志`, 'success');
+      showToast(
+        `已清理 ${result.pushHistoryDeleted} 条推送历史和 ${result.auditLogsDeleted} 条审计日志`,
+        'success'
+      );
       await loadDatabaseStats();
     }
   } catch (err) {
@@ -527,13 +548,14 @@ async function handleCleanup() {
 
 async function handleArchive() {
   if (isArchiving.value) return;
-  if (!confirm(`确定要归档 ${archiveConfig.value.archiveAfterDays} 天前的推送历史到 R2 吗？`)) {
+  const archiveAfterDays = 30;
+  if (!confirm(`确定要归档 ${archiveAfterDays} 天前的推送历史到 R2 吗？`)) {
     return;
   }
-  
+
   isArchiving.value = true;
   try {
-    const result = await archiveDatabase(accessToken.value, archiveConfig.value);
+    const result = await archiveDatabase(accessToken.value, { archiveAfterDays });
     if (result.success) {
       showToast(`已归档 ${result.archived} 条记录`, 'success');
       await loadDatabaseStats();
@@ -551,7 +573,7 @@ async function handleRestore(archiveKey: string) {
   if (!confirm('确定要恢复这个归档吗？恢复的记录将重新添加到数据库。')) {
     return;
   }
-  
+
   isRestoring.value = true;
   try {
     const result = await restoreArchive(accessToken.value, archiveKey);
@@ -571,8 +593,10 @@ function saveProviderConfig(provider: string) {
   if (!userSettings.value.ai_provider_configs) {
     userSettings.value.ai_provider_configs = {};
   }
-  
-  userSettings.value.ai_provider_configs[provider as keyof typeof userSettings.value.ai_provider_configs] = {
+
+  userSettings.value.ai_provider_configs[
+    provider as keyof typeof userSettings.value.ai_provider_configs
+  ] = {
     api_key: userSettings.value.ai_api_key,
     api_url: userSettings.value.ai_api_url,
     model_name: userSettings.value.ai_model_name,
@@ -581,12 +605,16 @@ function saveProviderConfig(provider: string) {
 
 // 加载提供商的配置
 function loadProviderConfig(provider: string) {
-  const config = userSettings.value.ai_provider_configs?.[provider as keyof typeof userSettings.value.ai_provider_configs];
-  
+  const config =
+    userSettings.value.ai_provider_configs?.[
+      provider as keyof typeof userSettings.value.ai_provider_configs
+    ];
+
   if (config) {
     userSettings.value.ai_api_key = config.api_key || '';
     userSettings.value.ai_api_url = config.api_url || getDefaultApiUrlForProvider(provider);
-    userSettings.value.ai_model_name = config.model_name || getDefaultModelNameForProvider(provider);
+    userSettings.value.ai_model_name =
+      config.model_name || getDefaultModelNameForProvider(provider);
   } else {
     // 如果没有保存过该提供商的配置，使用默认值
     userSettings.value.ai_api_key = '';
@@ -644,23 +672,26 @@ function updateCacheSettings() {
 async function selectProvider(provider: string) {
   // 如果正在保存，等待完成
   if (isSavingSettings.value) return;
-  
+
   const oldProvider = userSettings.value.ai_provider;
-  
+
   // 先保存旧提供商的配置（内存中）
   if (oldProvider) {
     saveProviderConfig(oldProvider);
   }
-  
+
   // 先加载新提供商的配置，确保发送正确的默认值
-  const config = userSettings.value.ai_provider_configs?.[provider as keyof typeof userSettings.value.ai_provider_configs];
+  const config =
+    userSettings.value.ai_provider_configs?.[
+      provider as keyof typeof userSettings.value.ai_provider_configs
+    ];
   const apiKey = config?.api_key || '';
-  
+
   // workers-ai 不需要 API URL（Cloudflare 内置服务）
   const isWorkersAI = provider === 'workers-ai';
-  const apiUrl = isWorkersAI ? '' : (config?.api_url || getDefaultApiUrlForProvider(provider));
+  const apiUrl = isWorkersAI ? '' : config?.api_url || getDefaultApiUrlForProvider(provider);
   const modelName = config?.model_name || getDefaultModelNameForProvider(provider);
-  
+
   // 只保存AI相关设置，不包含缓存设置
   const requestData = {
     ai_enabled: userSettings.value.ai_enabled,
@@ -671,20 +702,20 @@ async function selectProvider(provider: string) {
     ai_model_name: modelName,
     ai_provider_configs: userSettings.value.ai_provider_configs,
     custom_ai_providers: userSettings.value.custom_ai_providers,
-    ai_tools: aiTools.value.map(t => ({
+    ai_tools: aiTools.value.map((t) => ({
       id: t.id,
       name: t.name,
       description: t.description,
       parameters: t.parameters || [],
-      enabled: t.enabled
-    }))
+      enabled: t.enabled,
+    })),
   };
-  
+
   // 先发送请求
   isSavingSettings.value = true;
   try {
     await saveAISettings(accessToken.value, requestData);
-    
+
     // 请求成功后再更新本地状态
     userSettings.value.ai_provider = provider as any;
     loadProviderConfig(provider);
@@ -699,7 +730,7 @@ async function selectProvider(provider: string) {
 function getProviderConfigTitle() {
   const provider = userSettings.value.ai_provider;
   // 检查是否是自定义提供商
-  const customProvider = userSettings.value.custom_ai_providers?.find(p => p.id === provider);
+  const customProvider = userSettings.value.custom_ai_providers?.find((p) => p.id === provider);
   if (customProvider) {
     return `${customProvider.name} 配置`;
   }
@@ -719,17 +750,17 @@ function getProviderConfigTitle() {
 
 // ==================== 自定义提供商管理函数 ====================
 function isCustomProvider(providerId: string) {
-  return !!userSettings.value.custom_ai_providers?.find(p => p.id === providerId);
+  return !!userSettings.value.custom_ai_providers?.find((p) => p.id === providerId);
 }
 
 async function saveCustomProviders() {
   if (isSavingSettings.value) return;
-  
+
   // 保存当前提供商的配置（如果有的话）
   if (userSettings.value.ai_provider) {
     saveProviderConfig(userSettings.value.ai_provider);
   }
-  
+
   isSavingSettings.value = true;
   try {
     // 只保存自定义提供商相关设置，不做其他验证
@@ -742,13 +773,13 @@ async function saveCustomProviders() {
       ai_model_name: userSettings.value.ai_model_name,
       ai_provider_configs: userSettings.value.ai_provider_configs,
       custom_ai_providers: userSettings.value.custom_ai_providers,
-      ai_tools: aiTools.value.map(t => ({
+      ai_tools: aiTools.value.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
         parameters: t.parameters || [],
-        enabled: t.enabled
-      }))
+        enabled: t.enabled,
+      })),
     });
     if (result.success) {
       showToast('设置已保存', 'success');
@@ -764,20 +795,20 @@ function addTestProvider() {
   const testProvider = {
     id: `test-${Date.now()}`,
     name: '测试提供商 ' + new Date().toLocaleTimeString(),
-    icon: '🧪'
+    icon: '🧪',
   };
-  
+
   if (!userSettings.value.custom_ai_providers) {
     userSettings.value.custom_ai_providers = [];
   }
-  
+
   userSettings.value.custom_ai_providers.push(testProvider);
   console.log('添加测试提供商:', testProvider);
   console.log('当前自定义提供商列表:', userSettings.value.custom_ai_providers);
-  
+
   // 保存到后端
   saveCustomProviders();
-  
+
   showToast('测试提供商添加成功!', 'success');
 }
 
@@ -810,14 +841,14 @@ function addCustomProvider() {
 
   // 保存到后端
   saveCustomProviders();
-  
+
   showToast('自定义提供商添加成功', 'success');
 }
 
 function startEditProvider(providerId: string, event: Event) {
   event.stopPropagation();
-  
-  const provider = userSettings.value.custom_ai_providers?.find(p => p.id === providerId);
+
+  const provider = userSettings.value.custom_ai_providers?.find((p) => p.id === providerId);
   if (provider) {
     editingProviderId.value = providerId;
     editingProviderName.value = provider.name;
@@ -831,27 +862,29 @@ function saveEditProvider() {
     showToast('请输入提供商名称', 'error');
     return;
   }
-  
-  const provider = userSettings.value.custom_ai_providers?.find(p => p.id === editingProviderId.value);
+
+  const provider = userSettings.value.custom_ai_providers?.find(
+    (p) => p.id === editingProviderId.value
+  );
   if (provider) {
     provider.name = editingProviderName.value.trim();
     provider.icon = editingProviderIcon.value;
   }
-  
+
   showEditProviderModal.value = false;
   editingProviderId.value = '';
   editingProviderName.value = '';
   editingProviderIcon.value = '🤖';
-  
+
   // 保存到后端
   saveCustomProviders();
-  
+
   showToast('提供商信息已更新', 'success');
 }
 
 function deleteCustomProvider(providerId: string, event: Event) {
   event.stopPropagation();
-  
+
   // 检查是否是当前选中的提供商
   if (userSettings.value.ai_provider === providerId) {
     showToast('无法删除当前正在使用的提供商', 'error');
@@ -859,13 +892,14 @@ function deleteCustomProvider(providerId: string, event: Event) {
   }
 
   // 从列表中删除
-  userSettings.value.custom_ai_providers = userSettings.value.custom_ai_providers?.filter(p => p.id !== providerId) || [];
-  
+  userSettings.value.custom_ai_providers =
+    userSettings.value.custom_ai_providers?.filter((p) => p.id !== providerId) || [];
+
   // 删除相关配置
   if (userSettings.value.ai_provider_configs) {
     delete userSettings.value.ai_provider_configs[providerId];
   }
-  
+
   // 保存到后端
   saveCustomProviders();
 
@@ -919,9 +953,11 @@ async function handleSaveAISettings() {
         return;
       }
       // 对于 azure-openai 和所有自定义提供商，需要 API URL
-      if ((userSettings.value.ai_provider === 'azure-openai' || 
-           isCustomProvider(userSettings.value.ai_provider)) && 
-          !userSettings.value.ai_api_url?.trim()) {
+      if (
+        (userSettings.value.ai_provider === 'azure-openai' ||
+          isCustomProvider(userSettings.value.ai_provider)) &&
+        !userSettings.value.ai_api_url?.trim()
+      ) {
         showToast('请输入 API URL', 'error');
         return;
       }
@@ -945,13 +981,13 @@ async function handleSaveAISettings() {
       ai_model_name: userSettings.value.ai_model_name,
       ai_provider_configs: userSettings.value.ai_provider_configs,
       custom_ai_providers: userSettings.value.custom_ai_providers,
-      ai_tools: aiTools.value.map(t => ({
+      ai_tools: aiTools.value.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
         parameters: t.parameters || [],
-        enabled: t.enabled
-      }))
+        enabled: t.enabled,
+      })),
     });
     if (result.success) {
       showToast(result.message, 'success');
@@ -1020,10 +1056,6 @@ async function copyApiKey() {
     showToast(t('msg.copy_failed'), 'error');
   }
 }
-
-
-
-
 
 async function loadUserAvatar() {
   try {
@@ -1324,7 +1356,9 @@ async function handlePush(
     } else {
       if (!result.success) {
         // 推送失败（如队列不可用）
-        pushResults.value = [{ channel: 'system', success: false, message: result.message || t('msg.push_failed') }];
+        pushResults.value = [
+          { channel: 'system', success: false, message: result.message || t('msg.push_failed') },
+        ];
         showToast(result.message || t('msg.push_failed'), 'error');
       } else {
         pushResults.value = result.results || [];
@@ -1684,7 +1718,11 @@ function handleResend(record: PushHistoryRecord) {
 
     <!-- 添加自定义 AI 提供商模态框 -->
     <Teleport to="body">
-      <div v-if="showAddProviderModal" class="modal-overlay" @click.self="showAddProviderModal = false">
+      <div
+        v-if="showAddProviderModal"
+        class="modal-overlay"
+        @click.self="showAddProviderModal = false"
+      >
         <div class="modal-content" :class="{ dark: isDark }">
           <div class="modal-header">
             <h3>添加自定义 AI 提供商</h3>
@@ -1722,21 +1760,27 @@ function handleResend(record: PushHistoryRecord) {
 
             <!-- 操作按钮 -->
             <div class="modal-actions">
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showAddProviderModal = false">
+              <button
+                class="btn btn-secondary"
+                :class="{ dark: isDark }"
+                @click="showAddProviderModal = false"
+              >
                 取消
               </button>
-              <button class="btn btn-primary" @click="addCustomProvider">
-                添加
-              </button>
+              <button class="btn btn-primary" @click="addCustomProvider">添加</button>
             </div>
           </div>
         </div>
       </div>
     </Teleport>
-    
+
     <!-- 编辑自定义 AI 提供商模态框 -->
     <Teleport to="body">
-      <div v-if="showEditProviderModal" class="modal-overlay" @click.self="showEditProviderModal = false">
+      <div
+        v-if="showEditProviderModal"
+        class="modal-overlay"
+        @click.self="showEditProviderModal = false"
+      >
         <div class="modal-content" :class="{ dark: isDark }">
           <div class="modal-header">
             <h3>编辑自定义 AI 提供商</h3>
@@ -1774,12 +1818,14 @@ function handleResend(record: PushHistoryRecord) {
 
             <!-- 操作按钮 -->
             <div class="modal-actions">
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showEditProviderModal = false">
+              <button
+                class="btn btn-secondary"
+                :class="{ dark: isDark }"
+                @click="showEditProviderModal = false"
+              >
                 取消
               </button>
-              <button class="btn btn-primary" @click="saveEditProvider">
-                保存
-              </button>
+              <button class="btn btn-primary" @click="saveEditProvider">保存</button>
             </div>
           </div>
         </div>
@@ -1822,12 +1868,14 @@ function handleResend(record: PushHistoryRecord) {
 
             <!-- 操作按钮 -->
             <div class="modal-actions">
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showAddToolModal = false">
+              <button
+                class="btn btn-secondary"
+                :class="{ dark: isDark }"
+                @click="showAddToolModal = false"
+              >
                 取消
               </button>
-              <button class="btn btn-primary" @click="addTool">
-                添加
-              </button>
+              <button class="btn btn-primary" @click="addTool">添加</button>
             </div>
           </div>
         </div>
@@ -1870,12 +1918,14 @@ function handleResend(record: PushHistoryRecord) {
 
             <!-- 操作按钮 -->
             <div class="modal-actions">
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showEditToolModal = false">
+              <button
+                class="btn btn-secondary"
+                :class="{ dark: isDark }"
+                @click="showEditToolModal = false"
+              >
                 取消
               </button>
-              <button class="btn btn-primary" @click="updateTool">
-                保存
-              </button>
+              <button class="btn btn-primary" @click="updateTool">保存</button>
             </div>
           </div>
         </div>
@@ -1998,7 +2048,11 @@ function handleResend(record: PushHistoryRecord) {
               "
             >
               <span class="menu-icon">{{ item.icon }}</span>
-              <span class="menu-label">{{ item.label === '系统设置' || item.label === '数据库管理' ? item.label : t(item.label) }}</span>
+              <span class="menu-label">{{
+                item.label === '系统设置' || item.label === '数据库管理'
+                  ? item.label
+                  : t(item.label)
+              }}</span>
             </button>
           </div>
         </div>
@@ -2149,14 +2203,14 @@ function handleResend(record: PushHistoryRecord) {
                 </label>
               </div>
             </div>
-            
+
             <!-- AI 提供商布局 -->
             <div class="ai-provider-layout">
               <!-- 左边：AI 提供商列表 -->
               <div class="ai-provider-sidebar" :class="{ dark: isDark }">
                 <div class="sidebar-header">
                   <span class="sidebar-title">AI 提供商</span>
-                  <div style="display:flex;gap:8px;">
+                  <div style="display: flex; gap: 8px">
                     <button
                       class="btn-add-provider"
                       @click="addTestProvider"
@@ -2173,7 +2227,7 @@ function handleResend(record: PushHistoryRecord) {
                     </button>
                   </div>
                 </div>
-                
+
                 <div class="provider-list">
                   <!-- 预定义提供商 -->
                   <div
@@ -2192,7 +2246,7 @@ function handleResend(record: PushHistoryRecord) {
                       <span v-if="userSettings.ai_provider === provider.id">✓</span>
                     </div>
                   </div>
-                  
+
                   <!-- 自定义提供商 -->
                   <div
                     v-for="provider in userSettings.custom_ai_providers"
@@ -2230,18 +2284,18 @@ function handleResend(record: PushHistoryRecord) {
                   </div>
                 </div>
               </div>
-              
+
               <!-- 右边：提供商配置 -->
               <div class="ai-provider-content" :class="{ dark: isDark }">
                 <div v-if="!userSettings.ai_provider" class="provider-empty-state">
                   <p>请选择一个 AI 提供商进行配置</p>
                 </div>
-                
+
                 <div v-else class="provider-config-form">
                   <div class="config-header">
                     <h4>{{ getProviderConfigTitle() }}</h4>
                   </div>
-                  
+
                   <!-- API Key - 除了workers-ai都需要 -->
                   <div v-if="userSettings.ai_provider !== 'workers-ai'" class="form-group">
                     <label>{{ t('label.ai_api_key') }}</label>
@@ -2253,10 +2307,13 @@ function handleResend(record: PushHistoryRecord) {
                       :placeholder="t('placeholder.ai_api_key')"
                     />
                   </div>
-                  
+
                   <!-- API URL - azure-openai和自定义提供商需要 -->
                   <div
-                    v-if="userSettings.ai_provider === 'azure-openai' || isCustomProvider(userSettings.ai_provider)"
+                    v-if="
+                      userSettings.ai_provider === 'azure-openai' ||
+                      isCustomProvider(userSettings.ai_provider)
+                    "
                     class="form-group"
                   >
                     <label>{{ t('label.ai_api_url') }}</label>
@@ -2265,10 +2322,12 @@ function handleResend(record: PushHistoryRecord) {
                       v-model="userSettings.ai_api_url"
                       class="input-sm"
                       :class="{ dark: isDark }"
-                      :placeholder="getDefaultApiUrlForProvider(userSettings.ai_provider || 'openai')"
+                      :placeholder="
+                        getDefaultApiUrlForProvider(userSettings.ai_provider || 'openai')
+                      "
                     />
                   </div>
-                  
+
                   <!-- 模型名称 - 所有提供商都需要 -->
                   <div class="form-group">
                     <label>{{ t('label.ai_model_name') }}</label>
@@ -2277,10 +2336,12 @@ function handleResend(record: PushHistoryRecord) {
                       v-model="userSettings.ai_model_name"
                       class="input-sm"
                       :class="{ dark: isDark }"
-                      :placeholder="getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')"
+                      :placeholder="
+                        getDefaultModelNameForProvider(userSettings.ai_provider || 'openai')
+                      "
                     />
                   </div>
-                  
+
                   <div class="form-actions">
                     <button
                       class="btn btn-primary btn-sm"
@@ -2295,20 +2356,16 @@ function handleResend(record: PushHistoryRecord) {
             </div>
 
             <!-- AI 工具栏设置 -->
-            <div class="settings-card" style="margin-top: 20px;">
+            <div class="settings-card" style="margin-top: 20px">
               <div class="card-header">
                 <h4>🔧 AI 工具栏</h4>
                 <button class="btn btn-sm btn-primary" @click="showAddToolModal = true">
                   添加工具
                 </button>
               </div>
-              
+
               <div class="tools-list">
-                <div 
-                  v-for="tool in aiTools" 
-                  :key="tool.id" 
-                  class="tool-item"
-                >
+                <div v-for="tool in aiTools" :key="tool.id" class="tool-item">
                   <div class="tool-main" @click="tool.expanded = !tool.expanded">
                     <div class="tool-info">
                       <div class="tool-name">
@@ -2320,24 +2377,24 @@ function handleResend(record: PushHistoryRecord) {
                     </div>
                     <div class="tool-actions" @click.stop>
                       <label class="toggle">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           v-model="tool.enabled"
                           @change="handleToggleTool(tool)"
                         />
                         <span class="slider"></span>
                       </label>
-                      <button 
+                      <button
                         v-if="!tool.isDefault"
-                        class="btn-icon" 
+                        class="btn-icon"
                         @click="editTool(tool)"
                         title="编辑"
                       >
                         ✏️
                       </button>
-                      <button 
+                      <button
                         v-if="!tool.isDefault"
-                        class="btn-icon" 
+                        class="btn-icon"
                         @click="deleteTool(tool.id)"
                         title="删除"
                       >
@@ -2345,7 +2402,7 @@ function handleResend(record: PushHistoryRecord) {
                       </button>
                     </div>
                   </div>
-                  
+
                   <!-- 展开的详细信息 -->
                   <div v-if="tool.expanded" class="tool-details">
                     <div class="detail-section">
@@ -2354,15 +2411,14 @@ function handleResend(record: PushHistoryRecord) {
                         <code class="prompt-preview">{{ getToolPrompt(tool) }}</code>
                       </div>
                     </div>
-                    
-                    <div v-if="tool.parameters && tool.parameters.length > 0" class="detail-section">
+
+                    <div
+                      v-if="tool.parameters && tool.parameters.length > 0"
+                      class="detail-section"
+                    >
                       <div class="detail-title">参数列表</div>
                       <div class="detail-content">
-                        <div 
-                          v-for="param in tool.parameters" 
-                          :key="param.name"
-                          class="param-item"
-                        >
+                        <div v-for="param in tool.parameters" :key="param.name" class="param-item">
                           <span class="param-name">{{ param.name }}</span>
                           <span class="param-type">{{ param.type }}</span>
                           <span v-if="param.required" class="param-required">必填</span>
@@ -2372,10 +2428,8 @@ function handleResend(record: PushHistoryRecord) {
                     </div>
                   </div>
                 </div>
-                
-                <div v-if="aiTools.length === 0" class="empty-state">
-                  暂无可用工具
-                </div>
+
+                <div v-if="aiTools.length === 0" class="empty-state">暂无可用工具</div>
               </div>
             </div>
           </div>
@@ -2387,15 +2441,11 @@ function handleResend(record: PushHistoryRecord) {
               <!-- 当前头像预览 -->
               <div class="avatar-preview-section">
                 <div class="avatar-preview">
-                  <img 
-                    v-if="avatarInput" 
-                    :src="avatarInput" 
-                    class="preview-image" 
-                  />
-                  <img 
-                    v-else-if="userAvatar" 
-                    :src="userAvatar" 
-                    class="preview-image" 
+                  <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
+                  <img
+                    v-else-if="userAvatar"
+                    :src="userAvatar"
+                    class="preview-image"
                     @error="handleAvatarError"
                   />
                   <span v-else class="preview-placeholder">{{ roleIcon }}</span>
@@ -2445,7 +2495,17 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <!-- 操作按钮 - 重新创建 -->
-              <div style="display: flex; flex-direction: row; align-items: stretch; justify-content: space-between; gap: 12px; margin-top: 24px; width: 100%;">
+              <div
+                style="
+                  display: flex;
+                  flex-direction: row;
+                  align-items: stretch;
+                  justify-content: space-between;
+                  gap: 12px;
+                  margin-top: 24px;
+                  width: 100%;
+                "
+              >
                 <!-- 删除按钮 -->
                 <button
                   v-if="userAvatar"
@@ -2467,7 +2527,7 @@ function handleResend(record: PushHistoryRecord) {
                     boxSizing: 'border-box !important',
                     lineHeight: '48px !important',
                     background: '#ef4444 !important',
-                    color: 'white !important'
+                    color: 'white !important',
                   }"
                   :class="{ dark: isDark }"
                   @click="deleteAvatar"
@@ -2496,7 +2556,7 @@ function handleResend(record: PushHistoryRecord) {
                     lineHeight: '48px !important',
                     background: isSaving ? '#94a3b8 !important' : '#3b82f6 !important',
                     color: 'white !important',
-                    opacity: isSaving ? '0.6 !important' : '1 !important'
+                    opacity: isSaving ? '0.6 !important' : '1 !important',
                   }"
                   :class="{ dark: isDark }"
                   @click="handleSaveAvatar"
@@ -2540,9 +2600,12 @@ function handleResend(record: PushHistoryRecord) {
           />
 
           <!-- 系统设置 -->
-          <div v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')" class="settings-panel">
+          <div
+            v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')"
+            class="settings-panel"
+          >
             <h3>⚙️ 系统设置</h3>
-            
+
             <!-- Turnstile 人机验证设置 -->
             <div class="settings-card">
               <h4>Turnstile 人机验证</h4>
@@ -2555,11 +2618,19 @@ function handleResend(record: PushHistoryRecord) {
               </div>
               <div class="setting-item" v-if="systemSettings.turnstile_enabled">
                 <label>Site Key</label>
-                <input type="text" v-model="systemSettings.turnstile_site_key" placeholder="输入 Turnstile Site Key" />
+                <input
+                  type="text"
+                  v-model="systemSettings.turnstile_site_key"
+                  placeholder="输入 Turnstile Site Key"
+                />
               </div>
               <div class="setting-item" v-if="systemSettings.turnstile_enabled">
                 <label>Secret Key</label>
-                <input type="password" v-model="systemSettings.turnstile_secret_key" placeholder="输入 Turnstile Secret Key" />
+                <input
+                  type="password"
+                  v-model="systemSettings.turnstile_secret_key"
+                  placeholder="输入 Turnstile Secret Key"
+                />
               </div>
               <div class="setting-hint" v-if="systemSettings.turnstile_enabled">
                 需要在 Cloudflare Turnstile 中配置您的域名，获取 Site Key 和 Secret Key
@@ -2578,18 +2649,34 @@ function handleResend(record: PushHistoryRecord) {
               </div>
               <div class="setting-item" v-if="systemSettings.cleanup_enabled">
                 <label>推送历史保留天数</label>
-                <input type="number" v-model.number="systemSettings.cleanup_push_history_days" min="1" max="365" class="input-sm" />
+                <input
+                  type="number"
+                  v-model.number="systemSettings.cleanup_push_history_days"
+                  min="1"
+                  max="365"
+                  class="input-sm"
+                />
               </div>
               <div class="setting-item" v-if="systemSettings.cleanup_enabled">
                 <label>审计日志保留天数</label>
-                <input type="number" v-model.number="systemSettings.cleanup_audit_log_days" min="1" max="365" class="input-sm" />
+                <input
+                  type="number"
+                  v-model.number="systemSettings.cleanup_audit_log_days"
+                  min="1"
+                  max="365"
+                  class="input-sm"
+                />
               </div>
               <div class="setting-hint" v-if="systemSettings.cleanup_enabled">
                 自动清理将在每小时执行一次，删除超过指定天数的记录
               </div>
             </div>
 
-            <button class="btn btn-primary" @click="handleSaveSystemSettings" :disabled="isSavingSystemSettings">
+            <button
+              class="btn btn-primary"
+              @click="handleSaveSystemSettings"
+              :disabled="isSavingSystemSettings"
+            >
               {{ isSavingSystemSettings ? '保存中...' : '保存设置' }}
             </button>
           </div>
@@ -2600,19 +2687,26 @@ function handleResend(record: PushHistoryRecord) {
           />
 
           <!-- 数据库管理 -->
-          <div v-else-if="activeSettingsTab === 'database' && hasPermission('users:manage')" class="settings-panel">
+          <div
+            v-else-if="activeSettingsTab === 'database' && hasPermission('users:manage')"
+            class="settings-panel"
+          >
             <h3>🗃️ 数据库管理</h3>
-            
+
             <!-- 数据库统计 -->
             <div class="settings-card">
               <h4>📊 数据库统计</h4>
               <div class="stats-grid" v-if="!isLoadingStats">
                 <div class="stat-item">
-                  <span class="stat-value">{{ databaseStats.pushHistoryCount.toLocaleString() }}</span>
+                  <span class="stat-value">{{
+                    databaseStats.pushHistoryCount.toLocaleString()
+                  }}</span>
                   <span class="stat-label">推送历史记录</span>
                 </div>
                 <div class="stat-item">
-                  <span class="stat-value">{{ databaseStats.auditLogsCount.toLocaleString() }}</span>
+                  <span class="stat-value">{{
+                    databaseStats.auditLogsCount.toLocaleString()
+                  }}</span>
                   <span class="stat-label">审计日志</span>
                 </div>
                 <div class="stat-item">
@@ -2625,7 +2719,11 @@ function handleResend(record: PushHistoryRecord) {
                 </div>
               </div>
               <div v-else class="loading">加载中...</div>
-              <button class="btn btn-secondary" @click="loadDatabaseStats" :disabled="isLoadingStats">
+              <button
+                class="btn btn-secondary"
+                @click="loadDatabaseStats"
+                :disabled="isLoadingStats"
+              >
                 🔄 刷新统计
               </button>
             </div>
@@ -2633,9 +2731,7 @@ function handleResend(record: PushHistoryRecord) {
             <!-- 手动清理（使用系统设置中的配置） -->
             <div class="settings-card">
               <h4>🧹 手动清理</h4>
-              <div class="setting-hint">
-                使用系统设置中的配置进行清理。自动清理每小时执行一次。
-              </div>
+              <div class="setting-hint">使用系统设置中的配置进行清理。自动清理每小时执行一次。</div>
               <button class="btn btn-warning" @click="handleCleanup" :disabled="isCleaningUp">
                 {{ isCleaningUp ? '清理中...' : '🗑️ 立即清理' }}
               </button>
@@ -2659,9 +2755,15 @@ function handleResend(record: PushHistoryRecord) {
                 <div v-for="archive in archives" :key="archive.key" class="archive-item">
                   <div class="archive-info">
                     <span class="archive-key">{{ archive.key }}</span>
-                    <span class="archive-meta">{{ (archive.size / 1024).toFixed(1) }} KB | {{ archive.archivedAt }}</span>
+                    <span class="archive-meta"
+                      >{{ (archive.size / 1024).toFixed(1) }} KB | {{ archive.archivedAt }}</span
+                    >
                   </div>
-                  <button class="btn btn-small" @click="handleRestore(archive.key)" :disabled="isRestoring">
+                  <button
+                    class="btn btn-small"
+                    @click="handleRestore(archive.key)"
+                    :disabled="isRestoring"
+                  >
                     恢复
                   </button>
                 </div>
@@ -2670,9 +2772,7 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- 审计日志 -->
-          <AuditLogs
-            v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')"
-          />
+          <AuditLogs v-else-if="activeSettingsTab === 'audit' && hasPermission('users:manage')" />
         </div>
       </div>
 
@@ -4145,7 +4245,7 @@ function handleResend(record: PushHistoryRecord) {
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 18px;
   height: 18px;
 }

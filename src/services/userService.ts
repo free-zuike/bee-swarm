@@ -165,9 +165,20 @@ export class UserService {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
-        id, email, hashedPassword, role, now, now,
-        1, 'workers-ai', 'workers-ai',
-        defaultTTL, defaultTTL, defaultTTL, defaultTTL, defaultTTL
+        id,
+        email,
+        hashedPassword,
+        role,
+        now,
+        now,
+        1,
+        'workers-ai',
+        'workers-ai',
+        defaultTTL,
+        defaultTTL,
+        defaultTTL,
+        defaultTTL,
+        defaultTTL
       )
       .run();
 
@@ -427,13 +438,13 @@ export class UserService {
   getUserAITools(settings: AISettings): AITool[] {
     const defaultTools = this.getDefaultAITools();
     const userTools = settings.ai_tools || [];
-    
+
     const toolMap = new Map<string, AITool>();
-    
+
     for (const tool of defaultTools) {
       toolMap.set(tool.id, tool);
     }
-    
+
     for (const tool of userTools) {
       if (tool.name.startsWith('custom_')) {
         toolMap.set(tool.id, tool);
@@ -444,8 +455,8 @@ export class UserService {
         }
       }
     }
-    
-    return Array.from(toolMap.values()).filter(t => t.enabled);
+
+    return Array.from(toolMap.values()).filter((t) => t.enabled);
   }
 
   getDefaultSettings(): UserSettings {

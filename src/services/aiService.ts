@@ -64,9 +64,9 @@ export class AIService {
       return !!this.env.AI;
     }
     if (!settings.ai_enabled) return false;
-    
+
     const provider = settings.ai_provider || 'workers-ai';
-    
+
     // 检查是否是预定义的提供商
     switch (provider) {
       case 'workers-ai':
@@ -207,28 +207,33 @@ export class AIService {
       default:
         const apiKey = settings.ai_api_key;
         const model = settings.ai_model_name;
-        const customProviderName = settings.custom_ai_providers?.find(
-          p => p.id === settings.ai_provider
-        )?.name?.toLowerCase() || '';
+        const customProviderName =
+          settings.custom_ai_providers
+            ?.find((p) => p.id === settings.ai_provider)
+            ?.name?.toLowerCase() || '';
 
         if (!apiKey) {
           throw new Error('API key 未配置');
         }
 
         // 检测是否是 Gemini API
-        const isGemini = customProviderName.includes('gemini') || 
-                         (model && model.toLowerCase().includes('gemini')) ||
-                         (settings.ai_api_url && settings.ai_api_url.includes('generativelanguage.googleapis.com'));
+        const isGemini =
+          customProviderName.includes('gemini') ||
+          (model && model.toLowerCase().includes('gemini')) ||
+          (settings.ai_api_url &&
+            settings.ai_api_url.includes('generativelanguage.googleapis.com'));
 
         if (isGemini) {
           // Gemini API 格式
           const geminiModel = model || 'gemini-1.5-flash';
-          const apiUrl = settings.ai_api_url || `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
-          
+          const apiUrl =
+            settings.ai_api_url ||
+            `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
+
           // 转换消息格式
-          const geminiContents = messages.map(msg => ({
+          const geminiContents = messages.map((msg) => ({
             role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
+            parts: [{ text: msg.content }],
           }));
 
           const response = await fetch(`${apiUrl}?key=${apiKey}`, {
@@ -240,7 +245,7 @@ export class AIService {
               contents: geminiContents,
               generationConfig: {
                 temperature: 0.7,
-              }
+              },
             }),
           });
 
@@ -252,9 +257,9 @@ export class AIService {
           const data = (await response.json()) as {
             candidates?: Array<{
               content?: {
-                parts?: Array<{ text?: string }>
-              }
-            }>
+                parts?: Array<{ text?: string }>;
+              };
+            }>;
           };
           return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
@@ -341,15 +346,15 @@ export class AIService {
       }
 
       const { query, userId, username } = request;
-      
+
       // 获取用户配置的 AI 工具
       const userTools = userService.getUserAITools(settings);
-      const tools = userTools.map(tool => ({
+      const tools = userTools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         parameters: tool.parameters,
       }));
-      
+
       const systemPrompt = this.buildToolSystemPrompt(tools);
 
       const aiContent = await this.callAI(
@@ -363,7 +368,10 @@ export class AIService {
       console.log('[AI Service] === 收到 AI 响应 ===');
       console.log('[AI Service] 提供商:', settings.ai_provider);
       console.log('[AI Service] 模型:', settings.ai_model_name);
-      console.log('[AI Service] 工具列表:', tools.map(t => t.name));
+      console.log(
+        '[AI Service] 工具列表:',
+        tools.map((t) => t.name)
+      );
       console.log('[AI Service] 原始响应:', aiContent);
 
       const toolCall = this.parseToolCall(aiContent);
@@ -384,7 +392,9 @@ export class AIService {
   }
 
   private buildToolSystemPrompt(tools: unknown[]): string {
-    const toolsList = tools.map(t => `- ${(t as any).name}: ${(t as any).description}`).join('\n');
+    const toolsList = tools
+      .map((t) => `- ${(t as any).name}: ${(t as any).description}`)
+      .join('\n');
     return `你是一个推送服务助手，帮助用户管理模板、分组、定时任务等。
 
 可用工具：
@@ -406,7 +416,7 @@ ${toolsList}
       if (simpleMatch) {
         const toolName = simpleMatch[1];
         let params = {};
-        
+
         if (simpleMatch[2]) {
           try {
             params = JSON.parse(simpleMatch[2]);
@@ -414,18 +424,18 @@ ${toolsList}
             // 如果参数解析失败，就用空对象
           }
         }
-        
+
         return { tool: toolName, params };
       }
-      
+
       // 方式2: 尝试多种 JSON 提取方式
       let jsonStr = null;
-      
+
       // 方式2a: 直接匹配整个 JSON 对象
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         jsonStr = jsonMatch[0];
-      } 
+      }
       // 方式2b: 尝试匹配 markdown 代码块中的 JSON
       else if (content.includes('```')) {
         const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
@@ -433,48 +443,48 @@ ${toolsList}
           jsonStr = codeBlockMatch[1];
         }
       }
-      
+
       if (!jsonStr) {
         return null;
       }
-      
+
       const parsed = JSON.parse(jsonStr);
-      
+
       // 兼容多种 JSON 格式
       if (parsed.tool) {
-        return { 
-          tool: parsed.tool, 
-          params: parsed.params || {} 
+        return {
+          tool: parsed.tool,
+          params: parsed.params || {},
         };
       } else if (parsed.name) {
         // 兼容 OpenAI 风格的工具调用格式
-        return { 
-          tool: parsed.name, 
-          params: parsed.arguments || {} 
+        return {
+          tool: parsed.name,
+          params: parsed.arguments || {},
         };
       } else if (parsed.function_name) {
         // 兼容另一种常见格式
-        return { 
-          tool: parsed.function_name, 
-          params: parsed.parameters || {} 
+        return {
+          tool: parsed.function_name,
+          params: parsed.parameters || {},
         };
       } else if (parsed.action) {
         // 兼容 LangChain 风格
-        return { 
-          tool: parsed.action, 
-          params: parsed.action_input || {} 
+        return {
+          tool: parsed.action,
+          params: parsed.action_input || {},
         };
       } else if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
         // 兼容 workers-ai 返回的格式: {"tools":[{"Name":"listTemplates","params":{}}]}
         const toolCall = parsed.tools[0];
         if (toolCall.Name || toolCall.name) {
-          return { 
-            tool: toolCall.Name || toolCall.name, 
-            params: toolCall.params || {} 
+          return {
+            tool: toolCall.Name || toolCall.name,
+            params: toolCall.params || {},
           };
         }
       }
-      
+
       return null;
     } catch (error) {
       console.error('[AI Service] 解析工具调用失败:', error, '原始内容:', content);
@@ -488,7 +498,7 @@ ${toolsList}
     username: string
   ): Promise<AIExecuteResponse> {
     const { tool, params } = toolCall;
-    
+
     // 使用 userId 确保权限正确
     const pushService = new PushService(this.env, userId);
 

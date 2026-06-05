@@ -53,7 +53,12 @@
       <div v-else class="log-list">
         <div v-for="log in logs" :key="log.id" class="log-card">
           <div class="log-avatar">
-            <img v-if="log.avatar_url" :src="log.avatar_url" :alt="log.userId" class="avatar-image" />
+            <img
+              v-if="log.avatar_url"
+              :src="log.avatar_url"
+              :alt="log.userId"
+              class="avatar-image"
+            />
             <span v-else class="avatar-initial">{{ getInitial(log.userId) }}</span>
           </div>
           <div class="log-main">

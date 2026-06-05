@@ -51,7 +51,7 @@ api.get('/turnstile/config', async (c) => {
   const systemSettings = new SystemSettingsService(c.env);
   await systemSettings.ensureTable();
   const turnstileConfig = await systemSettings.getTurnstileConfig();
-  
+
   if (turnstileConfig.enabled && turnstileConfig.siteKey) {
     return c.json({ success: true, siteKey: turnstileConfig.siteKey });
   }
@@ -77,7 +77,7 @@ async function verifyTurnstile(token: string, secretKey: string, ip?: string): P
       body: formData,
     });
 
-    const outcome = await result.json() as { success: boolean };
+    const outcome = (await result.json()) as { success: boolean };
     return outcome.success;
   } catch {
     return false;
@@ -85,14 +85,18 @@ async function verifyTurnstile(token: string, secretKey: string, ip?: string): P
 }
 
 api.post('/register', registerLimiter, validateBody(schemas.register), async (c) => {
-  const body = (c as ValidatedContext).validatedBody as { email: string; password: string; turnstileToken?: string };
+  const body = (c as ValidatedContext).validatedBody as {
+    email: string;
+    password: string;
+    turnstileToken?: string;
+  };
   const { email, password, turnstileToken } = body;
 
   // 如果配置了 Turnstile，验证 token
   const systemSettings = new SystemSettingsService(c.env);
   await systemSettings.ensureTable();
   const turnstileConfig = await systemSettings.getTurnstileConfig();
-  
+
   if (turnstileConfig.enabled && turnstileConfig.secretKey) {
     if (!turnstileToken) {
       return c.json({ success: false, message: '请完成人机验证' }, 400);
@@ -134,14 +138,18 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
 });
 
 api.post('/login', validateBody(schemas.login), async (c) => {
-  const body = (c as ValidatedContext).validatedBody as { email: string; password: string; turnstileToken?: string };
+  const body = (c as ValidatedContext).validatedBody as {
+    email: string;
+    password: string;
+    turnstileToken?: string;
+  };
   const { email, password, turnstileToken } = body;
 
   // 如果配置了 Turnstile，验证 token
   const systemSettings = new SystemSettingsService(c.env);
   await systemSettings.ensureTable();
   const turnstileConfig = await systemSettings.getTurnstileConfig();
-  
+
   if (turnstileConfig.enabled && turnstileConfig.secretKey) {
     if (!turnstileToken) {
       return c.json({ success: false, message: '请完成人机验证' }, 400);
@@ -421,15 +429,15 @@ adminApi.get('/system/settings', async (c) => {
   const username = c.get('username');
   const userService = new UserService(c.env);
   const user = await userService.findByEmail(username);
-  
+
   if (!user || user.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const systemSettings = new SystemSettingsService(c.env);
   await systemSettings.ensureTable();
   const settings = await systemSettings.getAllSettings();
-  
+
   return c.json({ success: true, settings });
 });
 
@@ -437,22 +445,22 @@ adminApi.put('/system/settings', async (c) => {
   const username = c.get('username');
   const userService = new UserService(c.env);
   const user = await userService.findByEmail(username);
-  
+
   if (!user || user.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const body = await c.req.json();
   const systemSettings = new SystemSettingsService(c.env);
   await systemSettings.ensureTable();
   await systemSettings.saveSettings(body);
-  
+
   // 记录审计日志
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('system_settings_updated', {});
   } catch {}
-  
+
   return c.json({ success: true, message: '系统设置已保存' });
 });
 
@@ -464,11 +472,11 @@ adminApi.put('/system/settings', async (c) => {
 adminApi.get('/database/stats', async (c) => {
   const userService = new UserService(c.env);
   const currentUser = await userService.findByEmail(c.get('username'));
-  
+
   if (!currentUser || currentUser.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const stats = await getDatabaseStats(c.env);
   return c.json({ success: true, stats });
 });
@@ -477,24 +485,24 @@ adminApi.get('/database/stats', async (c) => {
 adminApi.post('/database/cleanup', async (c) => {
   const userService = new UserService(c.env);
   const currentUser = await userService.findByEmail(c.get('username'));
-  
+
   if (!currentUser || currentUser.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const body = await c.req.json().catch(() => ({}));
   const result = await cleanupExpiredData(c.env, {
     pushHistoryRetentionDays: body.pushHistoryRetentionDays || 30,
     auditLogRetentionDays: body.auditLogRetentionDays || 90,
     batchSize: body.batchSize || 100,
   });
-  
+
   // 记录审计日志
   try {
     const auditLogger = createAuditLogger(c.env, currentUser.email);
     await auditLogger.log('database_cleanup', result);
   } catch {}
-  
+
   return c.json({ success: true, ...result });
 });
 
@@ -503,23 +511,23 @@ adminApi.post('/database/archive', async (c) => {
   const username = c.get('username');
   const userService = new UserService(c.env);
   const currentUser = await userService.findByEmail(username);
-  
+
   if (!currentUser || currentUser.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const body = await c.req.json().catch(() => ({}));
   const result = await archivePushHistory(c.env, username, {
     archiveAfterDays: body.archiveAfterDays || 30,
     batchSize: body.batchSize || 50,
   });
-  
+
   // 记录审计日志
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('database_archive', result);
   } catch {}
-  
+
   return c.json({ success: true, ...result });
 });
 
@@ -528,11 +536,11 @@ adminApi.get('/database/archives', async (c) => {
   const username = c.get('username');
   const userService = new UserService(c.env);
   const currentUser = await userService.findByEmail(username);
-  
+
   if (!currentUser || currentUser.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const archives = await listArchives(c.env, username);
   return c.json({ success: true, archives });
 });
@@ -543,19 +551,19 @@ adminApi.post('/database/archives/:key/restore', async (c) => {
   const archiveKey = c.req.param('key');
   const userService = new UserService(c.env);
   const currentUser = await userService.findByEmail(username);
-  
+
   if (!currentUser || currentUser.role !== 'admin') {
     return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
   }
-  
+
   const result = await restoreArchivedData(c.env, username, decodeURIComponent(archiveKey));
-  
+
   // 记录审计日志
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('database_archive_restore', { archiveKey, restored: result.restored });
   } catch {}
-  
+
   return c.json({ success: true, ...result });
 });
 
@@ -1031,7 +1039,10 @@ adminApi.put('/me/settings/ai', async (c) => {
     ai_api_url?: string;
     ai_model_name?: string;
     custom_ai_providers?: Array<{ id: string; name: string; icon: string }>;
-    ai_provider_configs?: Record<string, { api_key?: string; api_url?: string; model_name?: string }>;
+    ai_provider_configs?: Record<
+      string,
+      { api_key?: string; api_url?: string; model_name?: string }
+    >;
     ai_tools?: Array<{
       id: string;
       name: string;
@@ -1078,10 +1089,10 @@ adminApi.get('/me/ai/tools', async (c) => {
   const settings = await svc.getAISettings(user.id);
   const userTools = settings.ai_tools || [];
   const defaultTools = svc.getDefaultAITools();
-  
+
   // 合并默认工具和用户自定义工具
   const toolMap = new Map<string, any>();
-  
+
   // 添加默认工具
   for (const tool of defaultTools) {
     const userTool = userTools.find((t) => t.id === tool.id);
@@ -1091,7 +1102,7 @@ adminApi.get('/me/ai/tools', async (c) => {
       isDefault: true,
     });
   }
-  
+
   // 添加用户自定义工具
   for (const tool of userTools) {
     if (tool.name.startsWith('custom_')) {
@@ -1102,9 +1113,9 @@ adminApi.get('/me/ai/tools', async (c) => {
     }
   }
 
-  return c.json({ 
-    success: true, 
-    tools: Array.from(toolMap.values()) 
+  return c.json({
+    success: true,
+    tools: Array.from(toolMap.values()),
   });
 });
 

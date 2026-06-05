@@ -1355,7 +1355,9 @@ export interface SystemSettings {
   cleanup_batch_size?: number;
 }
 
-export async function getSystemSettings(token: string): Promise<{ success: boolean; settings: SystemSettings }> {
+export async function getSystemSettings(
+  token: string
+): Promise<{ success: boolean; settings: SystemSettings }> {
   return tokenRequest(`${BASE}/admin/system/settings`, token);
 }
 
@@ -1363,11 +1365,15 @@ export async function saveSystemSettings(
   token: string,
   settings: Partial<SystemSettings>
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest<{ success: boolean; message: string }>(`${BASE}/admin/system/settings`, token, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/system/settings`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/system/settings`, token);
   return result;
 }
@@ -1389,13 +1395,19 @@ export interface ArchiveInfo {
   archivedAt: string;
 }
 
-export async function getDatabaseStats(token: string): Promise<{ success: boolean; stats: DatabaseStats }> {
+export async function getDatabaseStats(
+  token: string
+): Promise<{ success: boolean; stats: DatabaseStats }> {
   return tokenRequest(`${BASE}/admin/database/stats`, token);
 }
 
 export async function cleanupDatabase(
   token: string,
-  options?: { pushHistoryRetentionDays?: number; auditLogRetentionDays?: number; batchSize?: number }
+  options?: {
+    pushHistoryRetentionDays?: number;
+    auditLogRetentionDays?: number;
+    batchSize?: number;
+  }
 ): Promise<{ success: boolean; pushHistoryDeleted: number; auditLogsDeleted: number }> {
   return tokenRequest<{ success: boolean; pushHistoryDeleted: number; auditLogsDeleted: number }>(
     `${BASE}/admin/database/cleanup`,
@@ -1423,7 +1435,9 @@ export async function archiveDatabase(
   );
 }
 
-export async function getArchives(token: string): Promise<{ success: boolean; archives: ArchiveInfo[] }> {
+export async function getArchives(
+  token: string
+): Promise<{ success: boolean; archives: ArchiveInfo[] }> {
   return tokenRequest(`${BASE}/admin/database/archives`, token);
 }
 

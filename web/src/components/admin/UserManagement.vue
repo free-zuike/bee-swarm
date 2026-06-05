@@ -23,9 +23,14 @@
       <div v-else class="user-list">
         <div v-for="user in users" :key="user.id" class="user-card">
           <div class="user-avatar">
-              <img v-if="user.avatar_url" :src="user.avatar_url" :alt="user.email" class="avatar-image" />
-              <span v-else class="avatar-initial">{{ user.email.charAt(0).toUpperCase() }}</span>
-            </div>
+            <img
+              v-if="user.avatar_url"
+              :src="user.avatar_url"
+              :alt="user.email"
+              class="avatar-image"
+            />
+            <span v-else class="avatar-initial">{{ user.email.charAt(0).toUpperCase() }}</span>
+          </div>
           <div class="user-main">
             <div class="user-top">
               <div class="user-name-row">

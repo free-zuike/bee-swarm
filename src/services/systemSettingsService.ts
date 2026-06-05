@@ -57,16 +57,21 @@ export class SystemSettingsService {
       `INSERT INTO system_settings (key, value, updated_at) 
        VALUES (?, ?, ?) 
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    ).bind(key, value, now).run();
+    )
+      .bind(key, value, now)
+      .run();
   }
 
   /** 获取所有系统设置 */
   async getAllSettings(): Promise<SystemSettings> {
     this.checkDB();
     try {
-      const results = await this.env.DB.prepare('SELECT key, value FROM system_settings').all<{ key: string; value: string }>();
+      const results = await this.env.DB.prepare('SELECT key, value FROM system_settings').all<{
+        key: string;
+        value: string;
+      }>();
       const settings: SystemSettings = {};
-      
+
       for (const row of results.results || []) {
         try {
           settings[row.key as keyof SystemSettings] = JSON.parse(row.value);
@@ -74,7 +79,7 @@ export class SystemSettingsService {
           settings[row.key as keyof SystemSettings] = row.value as any;
         }
       }
-      
+
       return settings;
     } catch {
       return {};
@@ -93,12 +98,12 @@ export class SystemSettingsService {
   /** 获取 Turnstile 配置 */
   async getTurnstileConfig(): Promise<{ enabled: boolean; siteKey?: string; secretKey?: string }> {
     const settings = await this.getAllSettings();
-    
+
     // 如果未在数据库中配置，回退到环境变量
     const enabled = settings.turnstile_enabled ?? !!this.env.TURNSTILE_SECRET_KEY;
     const siteKey = settings.turnstile_site_key || this.env.TURNSTILE_SITE_KEY;
     const secretKey = settings.turnstile_secret_key || this.env.TURNSTILE_SECRET_KEY;
-    
+
     return {
       enabled,
       siteKey: enabled ? siteKey : undefined,
@@ -107,9 +112,14 @@ export class SystemSettingsService {
   }
 
   /** 获取清理配置 */
-  async getCleanupConfig(): Promise<{ enabled: boolean; pushHistoryDays: number; auditLogDays: number; batchSize: number }> {
+  async getCleanupConfig(): Promise<{
+    enabled: boolean;
+    pushHistoryDays: number;
+    auditLogDays: number;
+    batchSize: number;
+  }> {
     const settings = await this.getAllSettings();
-    
+
     // 默认值
     return {
       enabled: settings.cleanup_enabled ?? true,

@@ -19,7 +19,10 @@ const DEFAULT_CONFIG: CleanupConfig = {
 };
 
 /** 清理过期数据 */
-export async function cleanupExpiredData(env: Env, config: Partial<CleanupConfig> = {}): Promise<{
+export async function cleanupExpiredData(
+  env: Env,
+  config: Partial<CleanupConfig> = {}
+): Promise<{
   pushHistoryDeleted: number;
   auditLogsDeleted: number;
 }> {
@@ -28,30 +31,38 @@ export async function cleanupExpiredData(env: Env, config: Partial<CleanupConfig
   let auditLogsDeleted = 0;
 
   // 计算过期时间戳
-  const pushHistoryCutoff = new Date(Date.now() - cfg.pushHistoryRetentionDays * 24 * 60 * 60 * 1000).toISOString();
-  const auditLogCutoff = new Date(Date.now() - cfg.auditLogRetentionDays * 24 * 60 * 60 * 1000).toISOString();
+  const pushHistoryCutoff = new Date(
+    Date.now() - cfg.pushHistoryRetentionDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const auditLogCutoff = new Date(
+    Date.now() - cfg.auditLogRetentionDays * 24 * 60 * 60 * 1000
+  ).toISOString();
 
   try {
     // 1. 清理推送历史（分批删除，避免锁表）
     let deletedThisBatch = 0;
     do {
-      const result = await env.DB!.prepare(
-        `DELETE FROM push_history 
+      const result = await env
+        .DB!.prepare(
+          `DELETE FROM push_history 
          WHERE created_at < ? 
          LIMIT ?`
-      ).bind(pushHistoryCutoff, cfg.batchSize).run();
-      
+        )
+        .bind(pushHistoryCutoff, cfg.batchSize)
+        .run();
+
       deletedThisBatch = result.meta?.changes || 0;
       pushHistoryDeleted += deletedThisBatch;
-      
+
       // 避免一次性删除太多
       if (deletedThisBatch > 0) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } while (deletedThisBatch >= cfg.batchSize);
 
-    console.log(`[Cleanup] Deleted ${pushHistoryDeleted} push history records older than ${cfg.pushHistoryRetentionDays} days`);
-
+    console.log(
+      `[Cleanup] Deleted ${pushHistoryDeleted} push history records older than ${cfg.pushHistoryRetentionDays} days`
+    );
   } catch (err) {
     console.error('[Cleanup] Error cleaning push_history:', err);
   }
@@ -60,22 +71,26 @@ export async function cleanupExpiredData(env: Env, config: Partial<CleanupConfig
     // 2. 清理审计日志（分批删除）
     let deletedThisBatch = 0;
     do {
-      const result = await env.DB!.prepare(
-        `DELETE FROM audit_logs 
+      const result = await env
+        .DB!.prepare(
+          `DELETE FROM audit_logs 
          WHERE created_at < ? 
          LIMIT ?`
-      ).bind(auditLogCutoff, cfg.batchSize).run();
-      
+        )
+        .bind(auditLogCutoff, cfg.batchSize)
+        .run();
+
       deletedThisBatch = result.meta?.changes || 0;
       auditLogsDeleted += deletedThisBatch;
-      
+
       if (deletedThisBatch > 0) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } while (deletedThisBatch >= cfg.batchSize);
 
-    console.log(`[Cleanup] Deleted ${auditLogsDeleted} audit logs older than ${cfg.auditLogRetentionDays} days`);
-
+    console.log(
+      `[Cleanup] Deleted ${auditLogsDeleted} audit logs older than ${cfg.auditLogRetentionDays} days`
+    );
   } catch (err) {
     console.error('[Cleanup] Error cleaning audit_logs:', err);
   }
@@ -100,9 +115,8 @@ export async function getDatabaseStats(env: Env): Promise<{
     // 估算大小（基于记录数粗略估算）
     const totalRecords = (pushHistory?.count || 0) + (auditLogs?.count || 0) + (users?.count || 0);
     const estimatedKB = Math.round(totalRecords * 0.5); // 假设每条记录约 0.5KB
-    const estimatedSize = estimatedKB > 1024 
-      ? `${(estimatedKB / 1024).toFixed(1)} MB` 
-      : `${estimatedKB} KB`;
+    const estimatedSize =
+      estimatedKB > 1024 ? `${(estimatedKB / 1024).toFixed(1)} MB` : `${estimatedKB} KB`;
 
     return {
       pushHistoryCount: pushHistory?.count || 0,
