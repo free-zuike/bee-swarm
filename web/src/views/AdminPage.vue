@@ -4394,6 +4394,101 @@ function handleResend(record: PushHistoryRecord) {
   min-height: 0;
 }
 
+.provider-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.provider-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+}
+
+.provider-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #ccc);
+  border-radius: 4px;
+}
+
+.provider-list::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.dark .provider-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.dark .provider-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #555);
+}
+
+.provider-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-panel, white);
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.provider-item:hover {
+  border-color: #667eea;
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.provider-item.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.provider-item.dark {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: var(--border-color, #3c3c3c);
+}
+
+.provider-item.dark:hover {
+  border-color: #667eea;
+  background: var(--bg-secondary, #3c3c3c);
+}
+
+.provider-item.dark.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+}
+
+.provider-item:last-child {
+  margin-bottom: 0;
+}
+
+.edit-provider-btn,
+.delete-provider-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+  opacity: 0.6;
+}
+
+.edit-provider-btn:hover,
+.delete-provider-btn:hover {
+  opacity: 1;
+  background: var(--bg-secondary, #f0f0f0);
+}
+
+.dark .edit-provider-btn:hover,
+.dark .delete-provider-btn:hover {
+  background: var(--bg-secondary, #444);
+}
+
 /* AI 工具栏样式 */
 .tools-list {
   max-height: 450px;
