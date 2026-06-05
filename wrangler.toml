@@ -45,6 +45,16 @@ migrations_dir = "migrations"
 binding = "BUCKET"
 bucket_name = "bee-swarm-storage"
 
+# R2 CORS 配置，允许跨域访问头像等静态资源
+cors_rules = [
+  {
+    allowed_origins = ["*"],
+    allowed_methods = ["GET", "HEAD"],
+    allowed_headers = ["*"],
+    max_age_seconds = 3600
+  }
+]
+
 # ------------------------------------------
 # Queues 队列（异步任务处理）
 # ------------------------------------------
