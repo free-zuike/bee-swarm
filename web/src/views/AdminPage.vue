@@ -38,9 +38,14 @@ import {
   getAITools,
   getSystemSettings,
   saveSystemSettings,
+  getDatabaseStats,
+  cleanupDatabase,
+  archiveDatabase,
+  getArchives,
+  restoreArchive,
   apiCache,
 } from '@/api';
-import type { BackupEndpoint, UserSettings, SystemSettings } from '@/api';
+import type { BackupEndpoint, UserSettings, SystemSettings, DatabaseStats, ArchiveInfo } from '@/api';
 import type {
   ChannelConfig,
   ChannelDefinition,
@@ -151,6 +156,28 @@ const systemSettings = ref<SystemSettings>({
 const isSavingSettings = ref(false);
 const isSavingSystemSettings = ref(false);
 const activeSettingsTab = ref<string>('theme');
+
+// ==================== 数据库管理相关 ====================
+const databaseStats = ref<DatabaseStats>({
+  pushHistoryCount: 0,
+  auditLogsCount: 0,
+  usersCount: 0,
+  estimatedSize: '0 KB',
+});
+const archives = ref<ArchiveInfo[]>([]);
+const isLoadingStats = ref(false);
+const isCleaningUp = ref(false);
+const isArchiving = ref(false);
+const isRestoring = ref(false);
+
+// 清理配置
+const cleanupConfig = ref({
+  pushHistoryRetentionDays: 30,
+  auditLogRetentionDays: 90,
+});
+const archiveConfig = ref({
+  archiveAfterDays: 30,
+});
 
 // ==================== 自定义 AI 提供商相关 ====================
 const showAddProviderModal = ref(false);
@@ -384,6 +411,7 @@ const settingsMenu = [
   { id: 'avatar', icon: '🖼️', label: 'label.avatar_settings' },
   { id: 'backup', icon: '💾', label: 'label.backup_settings' },
   { id: 'channels', icon: '📡', label: 'label.channel_settings' },
+  { id: 'database', icon: '🗃️', label: '数据库管理', permission: 'users:manage' },
   { id: 'system', icon: '⚙️', label: '系统设置', permission: 'users:manage' },
   { id: 'users', icon: '👥', label: 'tab.users', permission: 'users:manage' },
   { id: 'audit', icon: '📋', label: 'tab.audit', permission: 'users:manage' },
@@ -445,6 +473,94 @@ async function handleSaveSystemSettings() {
     showToast(getErrorMessage(err, '保存系统设置失败'), 'error');
   } finally {
     isSavingSystemSettings.value = false;
+  }
+}
+
+async function loadDatabaseStats() {
+  if (!isAdmin.value) return;
+  isLoadingStats.value = true;
+  try {
+    const result = await getDatabaseStats(accessToken.value);
+    if (result.success) {
+      databaseStats.value = result.stats;
+    }
+  } catch (err) {
+    console.error('加载数据库统计失败:', err);
+  } finally {
+    isLoadingStats.value = false;
+  }
+}
+
+async function loadArchives() {
+  if (!isAdmin.value) return;
+  try {
+    const result = await getArchives(accessToken.value);
+    if (result.success) {
+      archives.value = result.archives;
+    }
+  } catch (err) {
+    console.error('加载归档列表失败:', err);
+  }
+}
+
+async function handleCleanup() {
+  if (isCleaningUp.value) return;
+  if (!confirm(`确定要清理 ${cleanupConfig.value.pushHistoryRetentionDays} 天前的推送历史和 ${cleanupConfig.value.auditLogRetentionDays} 天前的审计日志吗？`)) {
+    return;
+  }
+  
+  isCleaningUp.value = true;
+  try {
+    const result = await cleanupDatabase(accessToken.value, cleanupConfig.value);
+    if (result.success) {
+      showToast(`已清理 ${result.pushHistoryDeleted} 条推送历史和 ${result.auditLogsDeleted} 条审计日志`, 'success');
+      await loadDatabaseStats();
+    }
+  } catch (err) {
+    showToast(getErrorMessage(err, '清理失败'), 'error');
+  } finally {
+    isCleaningUp.value = false;
+  }
+}
+
+async function handleArchive() {
+  if (isArchiving.value) return;
+  if (!confirm(`确定要归档 ${archiveConfig.value.archiveAfterDays} 天前的推送历史到 R2 吗？`)) {
+    return;
+  }
+  
+  isArchiving.value = true;
+  try {
+    const result = await archiveDatabase(accessToken.value, archiveConfig.value);
+    if (result.success) {
+      showToast(`已归档 ${result.archived} 条记录`, 'success');
+      await loadDatabaseStats();
+      await loadArchives();
+    }
+  } catch (err) {
+    showToast(getErrorMessage(err, '归档失败'), 'error');
+  } finally {
+    isArchiving.value = false;
+  }
+}
+
+async function handleRestore(archiveKey: string) {
+  if (isRestoring.value) return;
+  if (!confirm('确定要恢复这个归档吗？恢复的记录将重新添加到数据库。')) {
+    return;
+  }
+  
+  isRestoring.value = true;
+  try {
+    const result = await restoreArchive(accessToken.value, archiveKey);
+    if (result.success) {
+      showToast(`已恢复 ${result.restored} 条记录`, 'success');
+      await loadDatabaseStats();
+    }
+  } catch (err) {
+    showToast(getErrorMessage(err, '恢复失败'), 'error');
+  } finally {
+    isRestoring.value = false;
   }
 }
 
@@ -1873,10 +1989,14 @@ function handleResend(record: PushHistoryRecord) {
                 if (item.id === 'system') {
                   loadSystemSettings();
                 }
+                if (item.id === 'database') {
+                  loadDatabaseStats();
+                  loadArchives();
+                }
               "
             >
               <span class="menu-icon">{{ item.icon }}</span>
-              <span class="menu-label">{{ item.label === '系统设置' ? item.label : t(item.label) }}</span>
+              <span class="menu-label">{{ item.label === '系统设置' || item.label === '数据库管理' ? item.label : t(item.label) }}</span>
             </button>
           </div>
         </div>
@@ -2452,6 +2572,88 @@ function handleResend(record: PushHistoryRecord) {
           <UserManagement
             v-else-if="activeSettingsTab === 'users' && hasPermission('users:manage')"
           />
+
+          <!-- 数据库管理 -->
+          <div v-else-if="activeSettingsTab === 'database' && hasPermission('users:manage')" class="settings-panel">
+            <h3>🗃️ 数据库管理</h3>
+            
+            <!-- 数据库统计 -->
+            <div class="settings-card">
+              <h4>📊 数据库统计</h4>
+              <div class="stats-grid" v-if="!isLoadingStats">
+                <div class="stat-item">
+                  <span class="stat-value">{{ databaseStats.pushHistoryCount.toLocaleString() }}</span>
+                  <span class="stat-label">推送历史记录</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value">{{ databaseStats.auditLogsCount.toLocaleString() }}</span>
+                  <span class="stat-label">审计日志</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value">{{ databaseStats.usersCount.toLocaleString() }}</span>
+                  <span class="stat-label">用户数</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value">{{ databaseStats.estimatedSize }}</span>
+                  <span class="stat-label">估算大小</span>
+                </div>
+              </div>
+              <div v-else class="loading">加载中...</div>
+              <button class="btn btn-secondary" @click="loadDatabaseStats" :disabled="isLoadingStats">
+                🔄 刷新统计
+              </button>
+            </div>
+
+            <!-- 数据清理 -->
+            <div class="settings-card">
+              <h4>🧹 数据清理</h4>
+              <div class="setting-item">
+                <label>推送历史保留天数</label>
+                <input type="number" v-model.number="cleanupConfig.pushHistoryRetentionDays" min="1" max="365" class="input-sm" />
+              </div>
+              <div class="setting-item">
+                <label>审计日志保留天数</label>
+                <input type="number" v-model.number="cleanupConfig.auditLogRetentionDays" min="1" max="365" class="input-sm" />
+              </div>
+              <div class="setting-hint">
+                清理将删除超过指定天数的记录。此操作不可恢复，请谨慎操作。
+              </div>
+              <button class="btn btn-warning" @click="handleCleanup" :disabled="isCleaningUp">
+                {{ isCleaningUp ? '清理中...' : '🗑️ 清理过期数据' }}
+              </button>
+            </div>
+
+            <!-- 数据归档 -->
+            <div class="settings-card">
+              <h4>📦 数据归档</h4>
+              <div class="setting-item">
+                <label>归档超过天数的历史</label>
+                <input type="number" v-model.number="archiveConfig.archiveAfterDays" min="1" max="365" class="input-sm" />
+              </div>
+              <div class="setting-hint">
+                归档将旧数据移动到 R2 存储，释放数据库空间。归档数据可以随时恢复。
+              </div>
+              <button class="btn btn-primary" @click="handleArchive" :disabled="isArchiving">
+                {{ isArchiving ? '归档中...' : '📦 归档到 R2' }}
+              </button>
+            </div>
+
+            <!-- 归档列表 -->
+            <div class="settings-card" v-if="archives.length > 0">
+              <h4>📁 归档列表</h4>
+              <div class="archive-list">
+                <div v-for="archive in archives" :key="archive.key" class="archive-item">
+                  <div class="archive-info">
+                    <span class="archive-key">{{ archive.key }}</span>
+                    <span class="archive-meta">{{ (archive.size / 1024).toFixed(1) }} KB | {{ archive.archivedAt }}</span>
+                  </div>
+                  <button class="btn btn-small" @click="handleRestore(archive.key)" :disabled="isRestoring">
+                    恢复
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- 审计日志 -->
           <AuditLogs
@@ -5063,5 +5265,151 @@ function handleResend(record: PushHistoryRecord) {
 
 .ai-provider-content.dark .form-group input:focus {
   border-color: var(--primary-color, #6366f1);
+}
+
+/* ==================== 数据库管理样式 ==================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.dark .stat-item {
+  background: var(--bg-secondary, #2a2a3a);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.dark .stat-label {
+  color: var(--text-secondary, #999);
+}
+
+.settings-card .btn-secondary {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-card .btn-secondary:hover {
+  background: var(--bg-secondary, #ebebeb);
+}
+
+.dark .settings-card .btn-secondary {
+  background: var(--bg-secondary, #2a2a3a);
+  border-color: var(--border-color, #4c4c4c);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.dark .settings-card .btn-secondary:hover {
+  background: var(--bg-secondary, #3a3a4a);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dark .btn-small {
+  background: var(--bg-secondary, #2a2a3a);
+  border-color: var(--border-color, #4c4c4c);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.archive-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.archive-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.dark .archive-item {
+  background: var(--bg-secondary, #2a2a3a);
+}
+
+.archive-item:last-child {
+  margin-bottom: 0;
+}
+
+.archive-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.archive-key {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+  word-break: break-all;
+}
+
+.dark .archive-key {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.archive-meta {
+  font-size: 11px;
+  color: var(--text-secondary, #666);
+}
+
+.dark .archive-meta {
+  color: var(--text-secondary, #999);
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary, #666);
 }
 </style>

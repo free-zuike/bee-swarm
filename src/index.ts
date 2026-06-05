@@ -25,6 +25,7 @@ import {
 } from './services/d1DataService';
 import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
+import { cleanupExpiredData } from './services/cleanupService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -195,6 +196,15 @@ export default {
     const currentEpochMinute = Math.floor(now.getTime() / 60000);
 
     try {
+      // 自动清理过期数据（每小时执行一次）
+      console.log('[Cron] Starting automatic data cleanup...');
+      const cleanupResult = await cleanupExpiredData(env, {
+        pushHistoryRetentionDays: 30,
+        auditLogRetentionDays: 90,
+        batchSize: 100,
+      });
+      console.log('[Cron] Cleanup completed:', cleanupResult);
+
       let processedUsers = 0;
       const maxUsersPerCron = 500;
 

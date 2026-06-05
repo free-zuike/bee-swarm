@@ -28,6 +28,8 @@ import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
+import { cleanupExpiredData, getDatabaseStats } from '../services/cleanupService';
+import { archivePushHistory, listArchives, restoreArchivedData } from '../services/archiveService';
 import { AIService } from '../services/aiService';
 import { SystemSettingsService } from '../services/systemSettingsService';
 
@@ -452,6 +454,109 @@ adminApi.put('/system/settings', async (c) => {
   } catch {}
   
   return c.json({ success: true, message: '系统设置已保存' });
+});
+
+// ============================================
+// 数据库管理接口（需要 admin 权限）
+// ============================================
+
+// 获取数据库统计
+adminApi.get('/database/stats', async (c) => {
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(c.get('username'));
+  
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const stats = await getDatabaseStats(c.env);
+  return c.json({ success: true, stats });
+});
+
+// 执行数据清理
+adminApi.post('/database/cleanup', async (c) => {
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(c.get('username'));
+  
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const body = await c.req.json().catch(() => ({}));
+  const result = await cleanupExpiredData(c.env, {
+    pushHistoryRetentionDays: body.pushHistoryRetentionDays || 30,
+    auditLogRetentionDays: body.auditLogRetentionDays || 90,
+    batchSize: body.batchSize || 100,
+  });
+  
+  // 记录审计日志
+  try {
+    const auditLogger = createAuditLogger(c.env, currentUser.email);
+    await auditLogger.log('database_cleanup', result);
+  } catch {}
+  
+  return c.json({ success: true, ...result });
+});
+
+// 归档推送历史
+adminApi.post('/database/archive', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(username);
+  
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const body = await c.req.json().catch(() => ({}));
+  const result = await archivePushHistory(c.env, username, {
+    archiveAfterDays: body.archiveAfterDays || 30,
+    batchSize: body.batchSize || 50,
+  });
+  
+  // 记录审计日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('database_archive', result);
+  } catch {}
+  
+  return c.json({ success: true, ...result });
+});
+
+// 获取归档列表
+adminApi.get('/database/archives', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(username);
+  
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const archives = await listArchives(c.env, username);
+  return c.json({ success: true, archives });
+});
+
+// 恢复归档数据
+adminApi.post('/database/archives/:key/restore', async (c) => {
+  const username = c.get('username');
+  const archiveKey = c.req.param('key');
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(username);
+  
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const result = await restoreArchivedData(c.env, username, decodeURIComponent(archiveKey));
+  
+  // 记录审计日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('database_archive_restore', { archiveKey, restored: result.restored });
+  } catch {}
+  
+  return c.json({ success: true, ...result });
 });
 
 adminApi.get('/channels', async (c) => {

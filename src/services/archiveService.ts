@@ -2,7 +2,7 @@
 // 数据归档服务 - 将旧数据归档到 R2 存储
 // ============================================
 import type { Env } from '../types';
-import { R2StorageService } from './r2Service';
+import { R2StorageService } from './r2StorageService';
 
 export interface ArchiveConfig {
   /** 归档天数阈值 */

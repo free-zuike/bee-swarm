@@ -1367,3 +1367,69 @@ export async function saveSystemSettings(
   apiCache.invalidate(`${BASE}/admin/system/settings`, token);
   return result;
 }
+
+// -------------------------------------------
+// 数据库管理接口（管理员专用）
+// -------------------------------------------
+
+export interface DatabaseStats {
+  pushHistoryCount: number;
+  auditLogsCount: number;
+  usersCount: number;
+  estimatedSize: string;
+}
+
+export interface ArchiveInfo {
+  key: string;
+  size: number;
+  archivedAt: string;
+}
+
+export async function getDatabaseStats(token: string): Promise<{ success: boolean; stats: DatabaseStats }> {
+  return tokenRequest(`${BASE}/admin/database/stats`, token);
+}
+
+export async function cleanupDatabase(
+  token: string,
+  options?: { pushHistoryRetentionDays?: number; auditLogRetentionDays?: number; batchSize?: number }
+): Promise<{ success: boolean; pushHistoryDeleted: number; auditLogsDeleted: number }> {
+  return tokenRequest<{ success: boolean; pushHistoryDeleted: number; auditLogsDeleted: number }>(
+    `${BASE}/admin/database/cleanup`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    }
+  );
+}
+
+export async function archiveDatabase(
+  token: string,
+  options?: { archiveAfterDays?: number; batchSize?: number }
+): Promise<{ success: boolean; archived: number; failed: number }> {
+  return tokenRequest<{ success: boolean; archived: number; failed: number }>(
+    `${BASE}/admin/database/archive`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    }
+  );
+}
+
+export async function getArchives(token: string): Promise<{ success: boolean; archives: ArchiveInfo[] }> {
+  return tokenRequest(`${BASE}/admin/database/archives`, token);
+}
+
+export async function restoreArchive(
+  token: string,
+  archiveKey: string
+): Promise<{ success: boolean; restored: number }> {
+  return tokenRequest<{ success: boolean; restored: number }>(
+    `${BASE}/admin/database/archives/${encodeURIComponent(archiveKey)}/restore`,
+    token,
+    { method: 'POST' }
+  );
+}
