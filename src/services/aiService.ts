@@ -525,6 +525,15 @@ ${JSON.stringify(tools)}
           tool: parsed.action, 
           params: parsed.action_input || {} 
         };
+      } else if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
+        // 兼容 workers-ai 返回的格式: {"tools":[{"Name":"listTemplates","params":{}}]}
+        const toolCall = parsed.tools[0];
+        if (toolCall.Name || toolCall.name) {
+          return { 
+            tool: toolCall.Name || toolCall.name, 
+            params: toolCall.params || {} 
+          };
+        }
       }
       
       return null;
