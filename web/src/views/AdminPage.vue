@@ -185,6 +185,24 @@ async function loadAITools() {
   }
 }
 
+// 生成工具提示词（与后端 buildToolSystemPrompt 保持一致）
+function getToolPrompt(tool: any): string {
+  const paramsStr = tool.parameters && tool.parameters.length > 0
+    ? `参数：${JSON.stringify(tool.parameters.map((p: any) => ({
+        name: p.name,
+        type: p.type,
+        description: p.description,
+        required: p.required
+      })))}`
+    : '此工具不需要参数';
+  
+  return `工具名称：${tool.name}
+描述：${tool.description}
+${paramsStr}
+
+调用格式：{"tool":"${tool.name}","params":{}}`;
+}
+
 function editTool(tool: any) {
   editingToolId.value = tool.id;
   editingTool.value = { ...tool };
@@ -2026,38 +2044,67 @@ function handleResend(record: PushHistoryRecord) {
                   :key="tool.id" 
                   class="tool-item"
                 >
-                  <div class="tool-info">
-                    <div class="tool-name">
-                      {{ tool.name }}
-                      <span v-if="tool.isDefault" class="tool-badge">默认</span>
+                  <div class="tool-main" @click="tool.expanded = !tool.expanded">
+                    <div class="tool-info">
+                      <div class="tool-name">
+                        <span class="expand-icon">{{ tool.expanded ? '▼' : '▶' }}</span>
+                        {{ tool.name }}
+                        <span v-if="tool.isDefault" class="tool-badge">默认</span>
+                      </div>
+                      <div class="tool-desc">{{ tool.description }}</div>
                     </div>
-                    <div class="tool-desc">{{ tool.description }}</div>
+                    <div class="tool-actions" @click.stop>
+                      <label class="toggle">
+                        <input 
+                          type="checkbox" 
+                          v-model="tool.enabled"
+                          @change="handleToggleTool(tool)"
+                        />
+                        <span class="slider"></span>
+                      </label>
+                      <button 
+                        v-if="!tool.isDefault"
+                        class="btn-icon" 
+                        @click="editTool(tool)"
+                        title="编辑"
+                      >
+                        ✏️
+                      </button>
+                      <button 
+                        v-if="!tool.isDefault"
+                        class="btn-icon" 
+                        @click="deleteTool(tool.id)"
+                        title="删除"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
-                  <div class="tool-actions">
-                    <label class="toggle">
-                      <input 
-                        type="checkbox" 
-                        v-model="tool.enabled"
-                        @change="handleToggleTool(tool)"
-                      />
-                      <span class="slider"></span>
-                    </label>
-                    <button 
-                      v-if="!tool.isDefault"
-                      class="btn-icon" 
-                      @click="editTool(tool)"
-                      title="编辑"
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      v-if="!tool.isDefault"
-                      class="btn-icon" 
-                      @click="deleteTool(tool.id)"
-                      title="删除"
-                    >
-                      🗑️
-                    </button>
+                  
+                  <!-- 展开的详细信息 -->
+                  <div v-if="tool.expanded" class="tool-details">
+                    <div class="detail-section">
+                      <div class="detail-title">提示词</div>
+                      <div class="detail-content">
+                        <code class="prompt-preview">{{ getToolPrompt(tool) }}</code>
+                      </div>
+                    </div>
+                    
+                    <div v-if="tool.parameters && tool.parameters.length > 0" class="detail-section">
+                      <div class="detail-title">参数列表</div>
+                      <div class="detail-content">
+                        <div 
+                          v-for="param in tool.parameters" 
+                          :key="param.name"
+                          class="param-item"
+                        >
+                          <span class="param-name">{{ param.name }}</span>
+                          <span class="param-type">{{ param.type }}</span>
+                          <span v-if="param.required" class="param-required">必填</span>
+                          <span class="param-desc">{{ param.description }}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
@@ -4363,6 +4410,108 @@ function handleResend(record: PushHistoryRecord) {
 
 .btn-icon:hover {
   opacity: 1;
+}
+
+/* 工具详情展开样式 */
+.tool-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.expand-icon {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-right: 8px;
+  transition: transform 0.2s;
+}
+
+.tool-details {
+  width: 100%;
+  padding: 12px 16px 12px 32px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-top: 1px dashed var(--border-color, #e0e0e0);
+  margin-top: 8px;
+}
+
+.detail-section {
+  margin-bottom: 12px;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-content {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.prompt-preview {
+  display: block;
+  background: var(--bg-primary, white);
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-primary);
+}
+
+.param-item {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.param-item:last-child {
+  border-bottom: none;
+}
+
+.param-name {
+  font-family: monospace;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.param-type {
+  font-size: 11px;
+  color: white;
+  background: #64748b;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.param-required {
+  font-size: 10px;
+  color: #ef4444;
+  background: #fef2f2;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.param-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 100%;
 }
 
 .card-header {
