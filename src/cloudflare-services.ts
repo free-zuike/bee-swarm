@@ -34,6 +34,8 @@ export {
 export { EnhancedQueueService } from './services/enhancedQueueService';
 export { archiveOldDataToR2, retrieveArchiveFromR2, listArchivesFromR2 } from './services/r2ArchiveService';
 export { getUserConfigWithCache, invalidateUserConfigCache, invalidateAllUserCaches } from './services/userConfigCache';
+export { PermissionService } from './services/permissionService';
+export { AIService } from './services/aiService';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
