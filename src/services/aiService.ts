@@ -95,17 +95,7 @@ export class AIService {
           throw new Error('Workers AI 未配置');
         }
         const model = settings.ai_model_name || '@cf/meta/llama-3.1-8b-instruct';
-        
-        console.log('[AI Service] Workers AI 调用:', {
-          model,
-          messagesCount: messages.length,
-          systemPromptLength: messages.find(m => m.role === 'system')?.content.length || 0,
-        });
-        
         const response = await this.env.AI.run(model, { messages });
-        
-        console.log('[AI Service] Workers AI 原始响应:', JSON.stringify(response));
-        
         return response.response || '';
       }
 
@@ -444,20 +434,20 @@ export class AIService {
   }
 
   private buildToolSystemPrompt(tools: unknown[]): string {
-    const toolNames = tools.map((t: any) => t.name).join(', ');
+    const queryTools = tools.filter((t: any) => 
+      t.name.startsWith('list') || t.name === 'runBackup'
+    );
     
-    return `你是一个工具调用助手。用户会请求执行操作，你需要根据请求调用合适的工具。
+    return `你是一个助手，可以帮助用户查询推送服务的数据。
 
-可用工具：${toolNames}
-
-工具详细信息：
-${JSON.stringify(tools)}
+查询工具：
+${JSON.stringify(queryTools)}
 
 规则：
-1. 如果用户请求需要调用工具，只输出纯 JSON：{"tool":"工具名","params":{"参数":"值"}}
-2. 参数必须从用户请求中提取或使用空对象{}（如listTemplates）
-3. 不要输出解释性文字，只输出JSON
-4. 如果没有合适工具，直接用中文回复用户`;
+1. 用户询问"列出"、"查询"、"获取"时，调用对应工具并返回结果
+2. 格式：{"tool":"工具名","params":{}}
+3. 不要输出任何解释性文字，只输出JSON
+4. 如果无法执行，直接用中文回复`;
   }
 
   private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
