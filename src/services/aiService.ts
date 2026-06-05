@@ -95,7 +95,17 @@ export class AIService {
           throw new Error('Workers AI 未配置');
         }
         const model = settings.ai_model_name || '@cf/meta/llama-3.1-8b-instruct';
+        
+        console.log('[AI Service] Workers AI 调用:', {
+          model,
+          messagesCount: messages.length,
+          systemPromptLength: messages.find(m => m.role === 'system')?.content.length || 0,
+        });
+        
         const response = await this.env.AI.run(model, { messages });
+        
+        console.log('[AI Service] Workers AI 原始响应:', JSON.stringify(response));
+        
         return response.response || '';
       }
 
