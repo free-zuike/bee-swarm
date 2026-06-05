@@ -1,20 +1,53 @@
 // ============================================
-// AI 辅助服务
-// 利用 Workers AI 实现智能推荐和内容生成
+// AI 服务
+// 处理 Workers AI 相关功能，支持消息生成和工具调用
 // ============================================
-
-import type { Env } from '../types';
-import type { PushRequest } from '../../types';
+import type { Env, PushChannel } from '../types';
+import { PushService } from './push';
+import { executeAllBackups } from './backup';
+import { loadUserChannelSettings, CHANNEL_DEFINITIONS } from './dispatcher';
+import type { UserSettings, AITool } from './userService';
 
 /**
- * AI 服务配置
+ * AI 生成消息请求
  */
-const AI_CONFIG = {
-  embeddingModel: '@cf/baai/bge-small-en-v1.5',
-  textModel: '@cf/meta/llama-3.1-8b-instruct',
-  maxTokens: 512,
-  temperature: 0.7,
-};
+export interface AIGenerateRequest {
+  prompt: string;
+  type?: 'title' | 'body' | 'both';
+  language?: 'zh' | 'en';
+  userId?: string;
+}
+
+/**
+ * AI 生成消息响应
+ */
+export interface AIGenerateResponse {
+  title?: string;
+  body?: string;
+  success: boolean;
+  message?: string;
+}
+
+/**
+ * AI 工具调用请求
+ */
+export interface AIExecuteRequest {
+  query: string;
+  userId: string;
+  username: string;
+}
+
+/**
+ * AI 工具调用响应
+ */
+export interface AIExecuteResponse {
+  success: boolean;
+  result: string;
+  data?: unknown;
+  error?: string;
+}
+
+type AIProvider = string;
 
 /**
  * AI 服务类
@@ -26,319 +59,594 @@ export class AIService {
     this.env = env;
   }
 
-  /**
-   * 检查 AI 服务是否可用
-   */
-  isAvailable(): boolean {
-    return !!this.env.AI;
-  }
-
-  /**
-   * 生成内容摘要
-   * @param text 原始文本
-   * @param maxLength 最大长度
-   */
-  async generateSummary(text: string, maxLength: number = 100): Promise<string | null> {
-    if (!this.isAvailable()) {
-      return null;
+  isAvailable(settings?: UserSettings): boolean {
+    if (!settings) {
+      return !!this.env.AI;
     }
+    if (!settings.ai_enabled) return false;
 
-    try {
-      const prompt = `Summarize the following text in about ${maxLength} characters:\n\n${text}`;
+    const provider = settings.ai_provider || 'workers-ai';
 
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-      });
-
-      const summary = typeof response === 'string' ? response : JSON.stringify(response);
-      return summary.trim().substring(0, maxLength);
-    } catch (error) {
-      console.error('[AIService] Failed to generate summary:', error);
-      return null;
+    // 检查是否是预定义的提供商
+    switch (provider) {
+      case 'workers-ai':
+        return !!this.env.AI;
+      case 'openai':
+      case 'azure-openai':
+      case 'anthropic':
+      case 'custom':
+        return !!(settings.ai_api_key && settings.ai_api_url);
+      default:
+        // 对于自定义提供商，检查是否有 API key 和 URL
+        return !!(settings.ai_api_key && settings.ai_api_url);
     }
   }
 
-  /**
-   * 生成智能推送建议
-   * 根据历史推送数据生成优化建议
-   */
-  async generatePushSuggestions(
-    historyData: Array<{
-      title: string;
-      content: string;
-      channels: string[];
-      successRate: number;
-    }>
-  ): Promise<{ suggestions: string[] } | null> {
-    if (!this.isAvailable()) {
-      return null;
-    }
+  private async callAI(
+    messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    settings: UserSettings
+  ): Promise<string> {
+    const provider = settings.ai_provider || 'workers-ai';
 
-    try {
-      const historyText = historyData
-        .map(
-          (item, index) =>
-            `${index + 1}. Title: ${item.title}\nContent: ${item.content}\nChannels: ${item.channels.join(', ')}\nSuccess Rate: ${item.successRate}%`
-        )
-        .join('\n\n');
-
-      const prompt = `分析以下推送历史数据，给出改进建议：\n\n${historyText}\n\n请提供3-5条具体的优化建议。`;
-
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-      });
-
-      const result = typeof response === 'string' ? response : JSON.stringify(response);
-      const suggestions = result
-        .split('\n')
-        .filter((line: string) => line.trim())
-        .map((line: string) => line.trim())
-        .filter((line: string) => line.length > 5);
-
-      return { suggestions };
-    } catch (error) {
-      console.error('[AIService] Failed to generate suggestions:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 智能优化推送内容
-   * @param content 原始内容
-   * @param channel 目标渠道
-   */
-  async optimizeContent(content: string, channel: string): Promise<string | null> {
-    if (!this.isAvailable()) {
-      return null;
-    }
-
-    try {
-      const prompt = `请优化以下推送内容，使其更适合${channel}渠道：\n\n${content}\n\n请直接返回优化后的内容，不需要额外解释。`;
-
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-      });
-
-      return typeof response === 'string' ? response.trim() : null;
-    } catch (error) {
-      console.error('[AIService] Failed to optimize content:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 生成向量嵌入
-   * @param text 文本内容
-   */
-  async generateEmbedding(text: string): Promise<number[] | null> {
-    if (!this.isAvailable()) {
-      return null;
-    }
-
-    try {
-      const response = await this.env.AI.run(AI_CONFIG.embeddingModel, {
-        text,
-      });
-
-      if (Array.isArray(response)) {
-        return response as number[];
+    // 检查是否是预定义的提供商
+    switch (provider) {
+      case 'workers-ai': {
+        if (!this.env.AI) {
+          throw new Error('Workers AI 未配置');
+        }
+        const model = settings.ai_model_name || '@cf/meta/llama-3.1-8b-instruct';
+        const response = await this.env.AI.run(model, { messages });
+        return response.response || '';
       }
 
-      if (typeof response === 'object' && response !== null && 'embedding' in response) {
-        return (response as { embedding: number[] }).embedding;
-      }
+      case 'openai':
+      case 'custom': {
+        const apiUrl = settings.ai_api_url || 'https://api.openai.com/v1/chat/completions';
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name || 'gpt-4o';
 
-      return null;
-    } catch (error) {
-      console.error('[AIService] Failed to generate embedding:', error);
-      return null;
-    }
-  }
+        if (!apiKey) {
+          throw new Error('API key 未配置');
+        }
 
-  /**
-   * 智能生成推送标题
-   * @param content 内容
-   */
-  async generateTitle(content: string): Promise<string | null> {
-    if (!this.isAvailable()) {
-      return null;
-    }
-
-    try {
-      const prompt = `根据以下内容生成一个简洁的推送标题（不超过20字）：\n\n${content}\n\n请直接返回标题。`;
-
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt,
-        max_tokens: 30,
-        temperature: AI_CONFIG.temperature,
-      });
-
-      return typeof response === 'string' ? response.trim() : null;
-    } catch (error) {
-      console.error('[AIService] Failed to generate title:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 智能推荐发送时间
-   * @param userActivity 用户活动数据
-   */
-  async recommendSendTime(
-    userActivity: Array<{ hour: number; successRate: number; count: number }>
-  ): Promise<{ recommendedHours: number[]; reason: string } | null> {
-    if (!this.isAvailable()) {
-      return null;
-    }
-
-    try {
-      const activityText = userActivity
-        .map((item) => `${item.hour}时: 成功率${item.successRate}%, 次数${item.count}`)
-        .join('\n');
-
-      const prompt = `分析以下用户活动数据，推荐最佳推送时间：\n\n${activityText}\n\n请推荐2-3个最佳推送时段（以小时表示），并说明理由。`;
-
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-      });
-
-      const result = typeof response === 'string' ? response : JSON.stringify(response);
-      
-      // 提取推荐的小时
-      const hours = result.match(/(\d{1,2})时/g)?.map((h) => parseInt(h.replace('时', ''))) || [];
-      const uniqueHours = [...new Set(hours)].slice(0, 3);
-
-      return {
-        recommendedHours: uniqueHours.length > 0 ? uniqueHours : [9, 14, 19],
-        reason: result.trim(),
-      };
-    } catch (error) {
-      console.error('[AIService] Failed to recommend send time:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 检测敏感内容
-   * @param content 待检测内容
-   */
-  async detectSensitiveContent(content: string): Promise<{
-    isSensitive: boolean;
-    categories: string[];
-    confidence: number;
-  } | null> {
-    if (!this.isAvailable()) {
-      return null;
-    }
-
-    try {
-      const prompt = `分析以下内容是否包含敏感信息：\n\n${content}\n\n请判断是否敏感，并列出类别（如：政治、色情、暴力、广告等），以及置信度（0-100）。\n\n格式：敏感: [是/否], 类别: [类别列表], 置信度: [数字]`;
-
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt,
-        max_tokens: 100,
-        temperature: 0.3,
-      });
-
-      const result = typeof response === 'string' ? response : JSON.stringify(response);
-      
-      const isSensitiveMatch = result.match(/敏感:\s*(是|否)/);
-      const categoriesMatch = result.match(/类别:\s*\[([^\]]+)\]/);
-      const confidenceMatch = result.match(/置信度:\s*(\d+)/);
-
-      return {
-        isSensitive: isSensitiveMatch?.[1] === '是',
-        categories: categoriesMatch ? categoriesMatch[1].split('、').map((c: string) => c.trim()) : [],
-        confidence: confidenceMatch ? parseInt(confidenceMatch[1]) : 0,
-      };
-    } catch (error) {
-      console.error('[AIService] Failed to detect sensitive content:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 生成推送消息
-   */
-  async generateMessage(params: {
-    prompt: string;
-    type?: 'title' | 'body' | 'both';
-    language?: 'zh' | 'en';
-    userId?: string;
-  }): Promise<{ title?: string; body?: string; success: boolean; message?: string }> {
-    if (!this.isAvailable()) {
-      return { success: false, message: 'AI 服务不可用' };
-    }
-
-    try {
-      const { prompt, type = 'both', language = 'zh' } = params;
-      const results: { title?: string; body?: string } = {};
-
-      if (type === 'title' || type === 'both') {
-        const titlePrompt = language === 'zh'
-          ? `根据以下内容生成一个简短的推送标题（不超过20字）：\n\n${prompt}\n\n请直接返回标题。`
-          : `Generate a short push title (max 20 characters) for the following content:\n\n${prompt}\n\nReturn only the title.`;
-        
-        const titleResponse = await this.env.AI.run(AI_CONFIG.textModel, {
-          prompt: titlePrompt,
-          max_tokens: 30,
-          temperature: AI_CONFIG.temperature,
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.7,
+          }),
         });
-        
-        results.title = typeof titleResponse === 'string' ? titleResponse.trim() : undefined;
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+        }
+
+        const data = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        return data.choices?.[0]?.message?.content || '';
       }
 
-      if (type === 'body' || type === 'both') {
-        const bodyPrompt = language === 'zh'
-          ? `根据以下主题生成推送内容：\n\n${prompt}\n\n请生成详细的推送消息内容。`
-          : `Generate push content for the following topic:\n\n${prompt}\n\nGenerate detailed push message content.`;
-        
-        const bodyResponse = await this.env.AI.run(AI_CONFIG.textModel, {
-          prompt: bodyPrompt,
-          max_tokens: AI_CONFIG.maxTokens,
-          temperature: AI_CONFIG.temperature,
+      case 'azure-openai': {
+        const apiUrl = settings.ai_api_url;
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name;
+
+        if (!apiUrl || !apiKey || !model) {
+          throw new Error('Azure OpenAI 配置不完整');
+        }
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': apiKey,
+          },
+          body: JSON.stringify({
+            messages,
+            temperature: 0.7,
+          }),
         });
-        
-        results.body = typeof bodyResponse === 'string' ? bodyResponse.trim() : undefined;
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Azure OpenAI API error: ${response.status} ${errorText}`);
+        }
+
+        const data = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        return data.choices?.[0]?.message?.content || '';
       }
 
-      return { ...results, success: true };
-    } catch (error) {
-      console.error('[AIService] Failed to generate message:', error);
-      return { success: false, message: (error as Error).message };
+      case 'anthropic': {
+        const apiUrl = settings.ai_api_url || 'https://api.anthropic.com/v1/messages';
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name || 'claude-3-5-sonnet-20240620';
+
+        if (!apiKey) {
+          throw new Error('Anthropic API key 未配置');
+        }
+
+        const systemMessage = messages.find((m) => m.role === 'system');
+        const otherMessages = messages.filter((m) => m.role !== 'system');
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            messages: otherMessages,
+            system: systemMessage?.content,
+            max_tokens: 4096,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Anthropic API error: ${response.status} ${errorText}`);
+        }
+
+        const data = (await response.json()) as {
+          content?: Array<{ text?: string }>;
+        };
+        return data.content?.[0]?.text || '';
+      }
+
+      default:
+        const apiKey = settings.ai_api_key;
+        const model = settings.ai_model_name;
+        const customProviderName =
+          settings.custom_ai_providers
+            ?.find((p) => p.id === settings.ai_provider)
+            ?.name?.toLowerCase() || '';
+
+        if (!apiKey) {
+          throw new Error('API key 未配置');
+        }
+
+        // 检测是否是 Gemini API
+        const isGemini =
+          customProviderName.includes('gemini') ||
+          (model && model.toLowerCase().includes('gemini')) ||
+          (settings.ai_api_url &&
+            settings.ai_api_url.includes('generativelanguage.googleapis.com'));
+
+        if (isGemini) {
+          // Gemini API 格式
+          const geminiModel = model || 'gemini-1.5-flash';
+          const apiUrl =
+            settings.ai_api_url ||
+            `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
+
+          // 转换消息格式
+          const geminiContents = messages.map((msg) => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }],
+          }));
+
+          const response = await fetch(`${apiUrl}?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: geminiContents,
+              generationConfig: {
+                temperature: 0.7,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Gemini API error: ${response.status} ${errorText}`);
+          }
+
+          const data = (await response.json()) as {
+            candidates?: Array<{
+              content?: {
+                parts?: Array<{ text?: string }>;
+              };
+            }>;
+          };
+          return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+          // 对于其他自定义提供商，使用 OpenAI 兼容的 API 格式
+          const apiUrl = settings.ai_api_url || 'https://api.openai.com/v1/chat/completions';
+          const openaiModel = model || 'gpt-4o';
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: openaiModel,
+              messages,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`AI API error: ${response.status} ${errorText}`);
+          }
+
+          const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          return data.choices?.[0]?.message?.content || '';
+        }
     }
   }
 
-  /**
-   * 执行 AI 命令
-   */
-  async executeCommand(params: { query: string; userId?: string; username?: string }): Promise<{ result?: string; success: boolean; message?: string }> {
-    if (!this.isAvailable()) {
-      return { success: false, message: 'AI 服务不可用' };
-    }
-
+  async generateMessage(request: AIGenerateRequest): Promise<AIGenerateResponse> {
     try {
-      const response = await this.env.AI.run(AI_CONFIG.textModel, {
-        prompt: params.query,
-        max_tokens: AI_CONFIG.maxTokens,
-        temperature: AI_CONFIG.temperature,
-      });
-
-      return {
-        result: typeof response === 'string' ? response.trim() : JSON.stringify(response),
-        success: true,
+      let settings: UserSettings = {
+        ai_enabled: true,
+        ai_provider: 'workers-ai',
+        ai_model_name: '@cf/meta/llama-3.1-8b-instruct',
+        ai_api_key: '',
+        ai_api_url: '',
       };
+
+      // 如果有用户 ID，尝试获取用户设置
+      if (request.userId) {
+        const { UserService } = await import('./userService');
+        const userService = new UserService(this.env);
+        settings = await userService.getUserSettings(request.userId);
+      }
+
+      if (!this.isAvailable(settings)) {
+        return { success: false, message: 'AI 服务不可用，请先配置 AI' };
+      }
+
+      const { prompt, type = 'both', language = 'zh' } = request;
+      const systemPrompt = this.buildSystemPrompt(type, language);
+      const userPrompt = this.buildUserPrompt(prompt, type);
+
+      const aiContent = await this.callAI(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        settings
+      );
+
+      const result = this.parseAIResponse(aiContent, type);
+
+      return { ...result, success: true };
     } catch (error) {
-      console.error('[AIService] Failed to execute command:', error);
-      return { success: false, message: (error as Error).message };
+      console.error('[AI Service] Error generating message:', error);
+      return { success: false, message: `AI 生成失败: ${(error as Error).message}` };
     }
+  }
+
+  async executeCommand(request: AIExecuteRequest): Promise<AIExecuteResponse> {
+    try {
+      const { UserService } = await import('./userService');
+      const userService = new UserService(this.env);
+      const settings = await userService.getUserSettings(request.userId);
+
+      if (!this.isAvailable(settings)) {
+        return { success: false, result: 'AI 服务不可用', error: '请先配置 AI' };
+      }
+
+      const { query, userId, username } = request;
+
+      // 获取用户配置的 AI 工具
+      const userTools = userService.getUserAITools(settings);
+      const tools = userTools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      }));
+
+      // 如果没有可用工具，返回提示
+      if (tools.length === 0) {
+        console.warn('[AI Service] 没有可用的 AI 工具');
+        return { 
+          success: false, 
+          result: '没有可用的工具，请联系管理员配置 AI 工具', 
+          error: '工具列表为空' 
+        };
+      }
+
+      const systemPrompt = this.buildToolSystemPrompt(tools);
+
+      console.log('[AI Service] === 开始 AI 命令执行 ===');
+      console.log('[AI Service] 查询:', query);
+      console.log('[AI Service] 提供商:', settings.ai_provider);
+      console.log('[AI Service] 模型:', settings.ai_model_name);
+      console.log('[AI Service] 可用工具:', tools.map((t) => t.name));
+
+      const aiContent = await this.callAI(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query },
+        ],
+        settings
+      );
+
+      console.log('[AI Service] === 收到 AI 响应 ===');
+      console.log('[AI Service] 原始响应:', aiContent);
+
+      const toolCall = this.parseToolCall(aiContent);
+
+      if (toolCall) {
+        console.log('[AI Service] 解析成功，工具调用:', toolCall.tool, toolCall.params);
+        const result = await this.executeTool(toolCall, userId, username);
+        console.log('[AI Service] 工具执行结果:', result);
+        return result;
+      } else {
+        console.log('[AI Service] 未解析到工具调用，AI 可能直接回复');
+        // 检查是否是对话性回复而非工具调用
+        if (aiContent.length > 0 && aiContent.length < 200) {
+          return { success: true, result: aiContent };
+        }
+        return { 
+          success: false, 
+          result: '无法理解您的请求，请尝试更明确的表达', 
+          error: '未识别到有效的工具调用' 
+        };
+      }
+    } catch (error) {
+      console.error('[AI Service] 执行命令时发生错误:', error);
+      return { success: false, result: '执行命令时发生错误', error: (error as Error).message };
+    }
+  }
+
+  private buildToolSystemPrompt(tools: unknown[]): string {
+    const toolsList = tools
+      .map((t) => `- ${(t as any).name}: ${(t as any).description}`)
+      .join('\n');
+    return `你是一个推送服务助手，帮助用户管理模板、分组、定时任务等。
+
+可用工具：
+${toolsList}
+
+重要规则：
+1. 当用户询问"列出"、"查询"、"获取"、"展示"、"显示"时，必须调用对应的工具
+2. 只需要调用一个工具，不要多个
+3. 直接输出纯JSON格式，不要任何解释，不要markdown代码块：
+   {"tool":"工具名","params":{"参数名":"参数值"}}
+4. 如果用户询问的内容没有对应的工具，用中文简单回复
+5. 工具返回的是数据，不是让你再调工具`;
+  }
+
+  private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
+    try {
+      // 方式1: 尝试解析简单的 "工具名 {}" 格式
+      const simpleMatch = content.match(/^\s*(\w+)\s*(\{[\s\S]*\})?\s*$/);
+      if (simpleMatch) {
+        const toolName = simpleMatch[1];
+        let params = {};
+
+        if (simpleMatch[2]) {
+          try {
+            params = JSON.parse(simpleMatch[2]);
+          } catch {
+            // 如果参数解析失败，就用空对象
+          }
+        }
+
+        return { tool: toolName, params };
+      }
+
+      // 方式2: 尝试多种 JSON 提取方式
+      let jsonStr = null;
+
+      // 方式2a: 直接匹配整个 JSON 对象
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0];
+      }
+      // 方式2b: 尝试匹配 markdown 代码块中的 JSON
+      else if (content.includes('```')) {
+        const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (codeBlockMatch) {
+          jsonStr = codeBlockMatch[1];
+        }
+      }
+
+      if (!jsonStr) {
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      // 兼容多种 JSON 格式
+      if (parsed.tool) {
+        return {
+          tool: parsed.tool,
+          params: parsed.params || {},
+        };
+      } else if (parsed.name) {
+        // 兼容 OpenAI 风格的工具调用格式
+        return {
+          tool: parsed.name,
+          params: parsed.arguments || {},
+        };
+      } else if (parsed.function_name) {
+        // 兼容另一种常见格式
+        return {
+          tool: parsed.function_name,
+          params: parsed.parameters || {},
+        };
+      } else if (parsed.action) {
+        // 兼容 LangChain 风格
+        return {
+          tool: parsed.action,
+          params: parsed.action_input || {},
+        };
+      } else if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
+        // 兼容 workers-ai 返回的格式: {"tools":[{"Name":"listTemplates","params":{}}]}
+        const toolCall = parsed.tools[0];
+        if (toolCall.Name || toolCall.name) {
+          return {
+            tool: toolCall.Name || toolCall.name,
+            params: toolCall.params || {},
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[AI Service] 解析工具调用失败:', error, '原始内容:', content);
+      return null;
+    }
+  }
+
+  private async executeTool(
+    toolCall: { tool: string; params: Record<string, unknown> },
+    userId: string,
+    username: string
+  ): Promise<AIExecuteResponse> {
+    const { tool, params } = toolCall;
+
+    // 使用 userId 确保权限正确
+    const pushService = new PushService(this.env, userId);
+
+    switch (tool) {
+      case 'createTemplate': {
+        const result = await pushService.saveTemplate({
+          name: String(params.name),
+          title: String(params.title),
+          content: String(params.content || ''),
+          url: String(params.url || ''),
+          category: String(params.category || ''),
+        });
+        return { success: true, result: `模板 "${params.name}" 创建成功`, data: result };
+      }
+
+      case 'listTemplates': {
+        const templates = await pushService.getTemplates();
+        return { success: true, result: `共找到 ${templates.length} 个模板`, data: templates };
+      }
+
+      case 'createGroup': {
+        const channels = (
+          Array.isArray(params.channels)
+            ? params.channels.map(String)
+            : String(params.channels || '')
+                .split(',')
+                .filter(Boolean)
+        ) as PushChannel[];
+        const result = await pushService.saveChannelGroup({
+          name: String(params.name),
+          channels,
+        });
+        return { success: true, result: `分组 "${params.name}" 创建成功`, data: result };
+      }
+
+      case 'listGroups': {
+        const groups = await pushService.getChannelGroups();
+        return { success: true, result: `共找到 ${groups.length} 个分组`, data: groups };
+      }
+
+      case 'deleteGroup': {
+        const result = await pushService.deleteChannelGroup(String(params.id));
+        return result
+          ? { success: true, result: '分组删除成功' }
+          : { success: false, result: '分组删除失败，可能不存在' };
+      }
+
+      case 'listScheduledTasks': {
+        const tasks = await pushService.getScheduledPushes();
+        return { success: true, result: `共找到 ${tasks.length} 个定时任务`, data: tasks };
+      }
+
+      case 'runBackup': {
+        // runBackup 需要 username 用于存储路径
+        const result = await executeAllBackups(this.env, username);
+        const successCount = result.filter((r: { success: boolean }) => r.success).length;
+        const failCount = result.length - successCount;
+        return {
+          success: true,
+          result: `备份完成：成功 ${successCount} 个，失败 ${failCount} 个`,
+          data: result,
+        };
+      }
+
+      case 'listChannels': {
+        const settings = await loadUserChannelSettings(username, this.env);
+        const channels = CHANNEL_DEFINITIONS.map((ch) => {
+          const channelPrefix = `channel:${ch.id}:`;
+          const isConfigured = Object.keys(settings).some((key) => key.startsWith(channelPrefix));
+          return {
+            id: ch.id,
+            name: ch.name,
+            icon: ch.icon,
+            enabled: isConfigured,
+          };
+        });
+        return { success: true, result: `共找到 ${channels.length} 个渠道`, data: channels };
+      }
+
+      default:
+        return { success: false, result: `未知工具: ${tool}`, error: '工具不存在' };
+    }
+  }
+
+  private buildSystemPrompt(type: string, language: string): string {
+    const langText = language === 'zh' ? '中文' : 'English';
+    const typeText = type === 'title' ? '标题' : type === 'body' ? '正文' : '标题和正文';
+
+    return `你是一个专业的消息写作助手。请用${langText}为用户生成高质量的推送通知${typeText}。
+
+要求：
+1. 标题要简洁明了，不超过30个字
+2. 正文要内容丰富，有条理，不超过500个字
+3. 语言要自然流畅，易于理解
+4. 请直接返回内容，不要有额外的解释
+
+输出格式：
+- 如果只需要标题：标题内容
+- 如果只需要正文：正文内容
+- 如果都需要：
+  【标题】标题内容
+  【正文】正文内容`;
+  }
+
+  private buildUserPrompt(prompt: string, type: string): string {
+    const typeDesc = type === 'title' ? '一个标题' : type === 'body' ? '一段正文' : '标题和正文';
+    return `请根据以下描述生成${typeDesc}：\n\n${prompt}`;
+  }
+
+  private parseAIResponse(content: string, type: string): Partial<AIGenerateResponse> {
+    const result: Partial<AIGenerateResponse> = {};
+
+    if (type === 'both') {
+      const titleMatch = content.match(/【标题】\s*(.+?)\s*(?=\n【正文】|$)/s);
+      const bodyMatch = content.match(/【正文】\s*(.+?)\s*$/s);
+
+      if (titleMatch) result.title = titleMatch[1].trim();
+      if (bodyMatch) result.body = bodyMatch[1].trim();
+
+      if (!result.title && !result.body) {
+        const lines = content.trim().split('\n');
+        if (lines.length >= 1) result.title = lines[0].trim();
+        if (lines.length >= 2) result.body = lines.slice(1).join('\n').trim();
+      }
+    } else if (type === 'title') {
+      result.title = content.trim();
+    } else if (type === 'body') {
+      result.body = content.trim();
+    }
+
+    return result;
   }
 }

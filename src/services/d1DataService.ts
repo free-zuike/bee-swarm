@@ -29,15 +29,11 @@ export type AuditAction =
   | 'backup_created'
   | 'backup_restored'
   | 'settings_updated'
-  | 'system_settings_updated'
   | 'user_created'
   | 'user_deleted'
   | 'user_role_updated'
   | 'user_disabled'
-  | 'user_enabled'
-  | 'database_cleanup'
-  | 'database_archive'
-  | 'database_archive_restore';
+  | 'user_enabled';
 
 export interface AuditLog {
   id: string;

@@ -32,7 +32,6 @@ import { cleanupExpiredData, getDatabaseStats } from '../services/cleanupService
 import { archivePushHistory, listArchives, restoreArchivedData } from '../services/archiveService';
 import { AIService } from '../services/aiService';
 import { SystemSettingsService } from '../services/systemSettingsService';
-import cloudflareApi from './cloudflare';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -2321,5 +2320,4 @@ adminApi.post('/ai/execute', async (c) => {
 // 以后可以在 backupRoutes 中进一步集成
 
 api.route('/admin', adminApi);
-api.route('/cloudflare', cloudflareApi);
 export default api;
