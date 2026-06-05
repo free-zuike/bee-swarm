@@ -66,6 +66,10 @@ export { TemplateVersionService } from './services/templateVersionService';
 export { CircuitBreakerService } from './services/circuitBreakerService';
 export { StructuredLogger, get_logger, configure_logger } from './services/structuredLogger';
 export { IncrementalBackupService } from './services/incrementalBackupService';
+export { ABTestService } from './services/abTestService';
+export { AuditService } from './services/auditService';
+export { ConfirmationService } from './services/confirmationService';
+export { PushAnalyticsService } from './services/pushAnalyticsService';
 
 // Durable Objects
 export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
