@@ -111,7 +111,7 @@ export async function applyUserCache(c: Context<{ Bindings: Env }>): Promise<voi
   }
 
   const userService = new UserService(c.env);
-  const user = await userService.findByUsername(username);
+  const user = await userService.findByEmail(username);
   if (!user) {
     return;
   }
