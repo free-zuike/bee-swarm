@@ -36,9 +36,11 @@ import {
   saveCacheSettings,
   saveAISettings,
   getAITools,
+  getSystemSettings,
+  saveSystemSettings,
   apiCache,
 } from '@/api';
-import type { BackupEndpoint, UserSettings } from '@/api';
+import type { BackupEndpoint, UserSettings, SystemSettings } from '@/api';
 import type {
   ChannelConfig,
   ChannelDefinition,
@@ -141,7 +143,13 @@ const userSettings = ref<UserSettings>({
   custom_ai_providers: [],
   ai_provider_configs: {},
 });
+const systemSettings = ref<SystemSettings>({
+  turnstile_enabled: false,
+  turnstile_site_key: '',
+  turnstile_secret_key: '',
+});
 const isSavingSettings = ref(false);
+const isSavingSystemSettings = ref(false);
 const activeSettingsTab = ref<string>('theme');
 
 // ==================== 自定义 AI 提供商相关 ====================
@@ -376,6 +384,7 @@ const settingsMenu = [
   { id: 'avatar', icon: '🖼️', label: 'label.avatar_settings' },
   { id: 'backup', icon: '💾', label: 'label.backup_settings' },
   { id: 'channels', icon: '📡', label: 'label.channel_settings' },
+  { id: 'system', icon: '⚙️', label: '系统设置', permission: 'users:manage' },
   { id: 'users', icon: '👥', label: 'tab.users', permission: 'users:manage' },
   { id: 'audit', icon: '📋', label: 'tab.audit', permission: 'users:manage' },
 ];
@@ -407,6 +416,35 @@ async function loadUserSettings() {
     }
   } catch {
     // ignore
+  }
+}
+
+async function loadSystemSettings() {
+  if (!isAdmin.value) return;
+  try {
+    const result = await getSystemSettings(accessToken.value);
+    if (result.success) {
+      systemSettings.value = {
+        turnstile_enabled: result.settings.turnstile_enabled ?? false,
+        turnstile_site_key: result.settings.turnstile_site_key ?? '',
+        turnstile_secret_key: result.settings.turnstile_secret_key ?? '',
+      };
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function handleSaveSystemSettings() {
+  if (isSavingSystemSettings.value) return;
+  isSavingSystemSettings.value = true;
+  try {
+    await saveSystemSettings(accessToken.value, systemSettings.value);
+    showToast('系统设置已保存', 'success');
+  } catch (err) {
+    showToast(getErrorMessage(err, '保存系统设置失败'), 'error');
+  } finally {
+    isSavingSystemSettings.value = false;
   }
 }
 
@@ -1830,10 +1868,15 @@ function handleResend(record: PushHistoryRecord) {
               v-show="!item.permission || hasPermission(item.permission)"
               class="settings-menu-item"
               :class="{ active: activeSettingsTab === item.id, dark: isDark }"
-              @click="activeSettingsTab = item.id"
+              @click="
+                activeSettingsTab = item.id;
+                if (item.id === 'system') {
+                  loadSystemSettings();
+                }
+              "
             >
               <span class="menu-icon">{{ item.icon }}</span>
-              <span class="menu-label">{{ t(item.label) }}</span>
+              <span class="menu-label">{{ item.label === '系统设置' ? item.label : t(item.label) }}</span>
             </button>
           </div>
         </div>
@@ -2373,6 +2416,37 @@ function handleResend(record: PushHistoryRecord) {
             @test="handleTestChannel"
             @toggle-enabled="handleToggleChannelEnabled"
           />
+
+          <!-- 系统设置 -->
+          <div v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')" class="settings-panel">
+            <h3>⚙️ 系统设置</h3>
+            
+            <!-- Turnstile 人机验证设置 -->
+            <div class="settings-card">
+              <h4>Turnstile 人机验证</h4>
+              <div class="setting-item">
+                <label>启用人机验证</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="systemSettings.turnstile_enabled" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="setting-item" v-if="systemSettings.turnstile_enabled">
+                <label>Site Key</label>
+                <input type="text" v-model="systemSettings.turnstile_site_key" placeholder="输入 Turnstile Site Key" />
+              </div>
+              <div class="setting-item" v-if="systemSettings.turnstile_enabled">
+                <label>Secret Key</label>
+                <input type="password" v-model="systemSettings.turnstile_secret_key" placeholder="输入 Turnstile Secret Key" />
+              </div>
+              <div class="setting-hint" v-if="systemSettings.turnstile_enabled">
+                需要在 Cloudflare Turnstile 中配置您的域名，获取 Site Key 和 Secret Key
+              </div>
+              <button class="btn btn-primary" @click="handleSaveSystemSettings" :disabled="isSavingSystemSettings">
+                {{ isSavingSystemSettings ? '保存中...' : '保存设置' }}
+              </button>
+            </div>
+          </div>
 
           <!-- 用户管理 -->
           <UserManagement
@@ -3929,6 +4003,22 @@ function handleResend(record: PushHistoryRecord) {
   background: var(--bg-dark-primary, #16162a);
   border-color: var(--border-dark-color, #333);
   color: var(--text-dark-primary, #ffffff);
+}
+
+.setting-hint {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  padding: 12px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.settings-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 16px;
 }
 
 .settings-card .btn-primary {

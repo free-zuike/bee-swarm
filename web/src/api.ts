@@ -1340,3 +1340,30 @@ export async function clearAuditLogs(
     method: 'DELETE',
   });
 }
+
+// -------------------------------------------
+// 系统设置接口（管理员专用）
+// -------------------------------------------
+
+export interface SystemSettings {
+  turnstile_enabled?: boolean;
+  turnstile_site_key?: string;
+  turnstile_secret_key?: string;
+}
+
+export async function getSystemSettings(token: string): Promise<{ success: boolean; settings: SystemSettings }> {
+  return tokenRequest(`${BASE}/admin/system/settings`, token);
+}
+
+export async function saveSystemSettings(
+  token: string,
+  settings: Partial<SystemSettings>
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest<{ success: boolean; message: string }>(`${BASE}/admin/system/settings`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  apiCache.invalidate(`${BASE}/admin/system/settings`, token);
+  return result;
+}

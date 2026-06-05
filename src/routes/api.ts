@@ -29,6 +29,7 @@ import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
 import { AIService } from '../services/aiService';
+import { SystemSettingsService } from '../services/systemSettingsService';
 
 type ValidatedContext = {
   validatedBody?: unknown;
@@ -45,9 +46,12 @@ api.use('/*', cors());
 
 // Turnstile 配置端点（公开）
 api.get('/turnstile/config', async (c) => {
-  const env = c.env as Env;
-  if (env.TURNSTILE_SITE_KEY) {
-    return c.json({ success: true, siteKey: env.TURNSTILE_SITE_KEY });
+  const systemSettings = new SystemSettingsService(c.env);
+  await systemSettings.ensureTable();
+  const turnstileConfig = await systemSettings.getTurnstileConfig();
+  
+  if (turnstileConfig.enabled && turnstileConfig.siteKey) {
+    return c.json({ success: true, siteKey: turnstileConfig.siteKey });
   }
   return c.json({ success: false, message: 'Turnstile 未配置' });
 });
@@ -81,15 +85,18 @@ async function verifyTurnstile(token: string, secretKey: string, ip?: string): P
 api.post('/register', registerLimiter, validateBody(schemas.register), async (c) => {
   const body = (c as ValidatedContext).validatedBody as { email: string; password: string; turnstileToken?: string };
   const { email, password, turnstileToken } = body;
-  const env = c.env as Env;
 
   // 如果配置了 Turnstile，验证 token
-  if (env.TURNSTILE_SECRET_KEY) {
+  const systemSettings = new SystemSettingsService(c.env);
+  await systemSettings.ensureTable();
+  const turnstileConfig = await systemSettings.getTurnstileConfig();
+  
+  if (turnstileConfig.enabled && turnstileConfig.secretKey) {
     if (!turnstileToken) {
       return c.json({ success: false, message: '请完成人机验证' }, 400);
     }
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
-    const valid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    const valid = await verifyTurnstile(turnstileToken, turnstileConfig.secretKey, ip);
     if (!valid) {
       return c.json({ success: false, message: '人机验证失败，请重试' }, 400);
     }
@@ -127,15 +134,18 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
 api.post('/login', validateBody(schemas.login), async (c) => {
   const body = (c as ValidatedContext).validatedBody as { email: string; password: string; turnstileToken?: string };
   const { email, password, turnstileToken } = body;
-  const env = c.env as Env;
 
   // 如果配置了 Turnstile，验证 token
-  if (env.TURNSTILE_SECRET_KEY) {
+  const systemSettings = new SystemSettingsService(c.env);
+  await systemSettings.ensureTable();
+  const turnstileConfig = await systemSettings.getTurnstileConfig();
+  
+  if (turnstileConfig.enabled && turnstileConfig.secretKey) {
     if (!turnstileToken) {
       return c.json({ success: false, message: '请完成人机验证' }, 400);
     }
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
-    const valid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
+    const valid = await verifyTurnstile(turnstileToken, turnstileConfig.secretKey, ip);
     if (!valid) {
       return c.json({ success: false, message: '人机验证失败，请重试' }, 400);
     }
@@ -401,6 +411,48 @@ adminApi.use('/*', authMiddleware);
 
 // 应用用户配置的缓存设置
 adminApi.use('/*', userCacheMiddleware());
+
+// ============================================
+// 系统设置接口（需要 admin 权限）
+// ============================================
+adminApi.get('/system/settings', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  
+  if (!user || user.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const systemSettings = new SystemSettingsService(c.env);
+  await systemSettings.ensureTable();
+  const settings = await systemSettings.getAllSettings();
+  
+  return c.json({ success: true, settings });
+});
+
+adminApi.put('/system/settings', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  
+  if (!user || user.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+  
+  const body = await c.req.json();
+  const systemSettings = new SystemSettingsService(c.env);
+  await systemSettings.ensureTable();
+  await systemSettings.saveSettings(body);
+  
+  // 记录审计日志
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('system_settings_updated', {});
+  } catch {}
+  
+  return c.json({ success: true, message: '系统设置已保存' });
+});
 
 adminApi.get('/channels', async (c) => {
   const username = c.get('username');
