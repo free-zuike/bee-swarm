@@ -379,14 +379,20 @@ async function selectProvider(provider: string) {
     saveProviderConfig(oldProvider);
   }
   
+  // 先加载新提供商的配置，确保发送正确的默认值
+  const config = userSettings.value.ai_provider_configs?.[provider as keyof typeof userSettings.value.ai_provider_configs];
+  const apiKey = config?.api_key || '';
+  const apiUrl = config?.api_url || getDefaultApiUrlForProvider(provider);
+  const modelName = config?.model_name || getDefaultModelNameForProvider(provider);
+  
   // 只保存AI相关设置，不包含缓存设置
   const requestData = {
     ai_enabled: userSettings.value.ai_enabled,
     ai_provider: provider,
     ai_model: provider,
-    ai_api_key: userSettings.value.ai_api_key,
-    ai_api_url: userSettings.value.ai_api_url,
-    ai_model_name: userSettings.value.ai_model_name,
+    ai_api_key: apiKey,
+    ai_api_url: apiUrl,
+    ai_model_name: modelName,
     ai_provider_configs: userSettings.value.ai_provider_configs,
     custom_ai_providers: userSettings.value.custom_ai_providers,
   };
