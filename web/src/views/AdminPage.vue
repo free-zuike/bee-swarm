@@ -1520,6 +1520,102 @@ function handleResend(record: PushHistoryRecord) {
         </div>
       </div>
     </Teleport>
+
+    <!-- 添加自定义 AI 工具模态框 -->
+    <Teleport to="body">
+      <div v-if="showAddToolModal" class="modal-overlay" @click.self="showAddToolModal = false">
+        <div class="modal-content" :class="{ dark: isDark }">
+          <div class="modal-header">
+            <h3>添加自定义 AI 工具</h3>
+            <button class="modal-close" @click="showAddToolModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <!-- 工具名称 -->
+            <div class="form-group">
+              <label>工具名称</label>
+              <input
+                v-model="newToolName"
+                type="text"
+                class="form-input"
+                :class="{ dark: isDark }"
+                placeholder="例如：myCustomTool"
+                autofocus
+              />
+            </div>
+
+            <!-- 工具描述 -->
+            <div class="form-group">
+              <label>工具描述</label>
+              <input
+                v-model="newToolDescription"
+                type="text"
+                class="form-input"
+                :class="{ dark: isDark }"
+                placeholder="描述这个工具的功能"
+              />
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="modal-actions">
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showAddToolModal = false">
+                取消
+              </button>
+              <button class="btn btn-primary" @click="addTool">
+                添加
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 编辑自定义 AI 工具模态框 -->
+    <Teleport to="body">
+      <div v-if="showEditToolModal" class="modal-overlay" @click.self="showEditToolModal = false">
+        <div class="modal-content" :class="{ dark: isDark }">
+          <div class="modal-header">
+            <h3>编辑 AI 工具</h3>
+            <button class="modal-close" @click="showEditToolModal = false">✕</button>
+          </div>
+          <div class="modal-body" v-if="editingTool">
+            <!-- 工具名称 -->
+            <div class="form-group">
+              <label>工具名称</label>
+              <input
+                v-model="editingTool.name"
+                type="text"
+                class="form-input"
+                :class="{ dark: isDark }"
+                placeholder="工具名称"
+                autofocus
+              />
+            </div>
+
+            <!-- 工具描述 -->
+            <div class="form-group">
+              <label>工具描述</label>
+              <input
+                v-model="editingTool.description"
+                type="text"
+                class="form-input"
+                :class="{ dark: isDark }"
+                placeholder="描述这个工具的功能"
+              />
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="modal-actions">
+              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="showEditToolModal = false">
+                取消
+              </button>
+              <button class="btn btn-primary" @click="updateTool">
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <!-- 轻提示 Toast -->
     <transition name="toast">
       <div v-if="toast" class="toast" :class="toast.type">
