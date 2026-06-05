@@ -27,6 +27,7 @@ import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
 import { cleanupExpiredData } from './services/cleanupService';
 import { SystemSettingsService } from './services/systemSettingsService';
+import { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -254,6 +255,9 @@ export default {
     }
   },
 };
+
+// 导出 Durable Objects
+export { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO };
 
 /**
  * 处理单个用户的任务
