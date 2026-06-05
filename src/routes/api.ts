@@ -26,6 +26,7 @@ import { QueueService } from '../services/queueService';
 import { PushService } from '../services/push';
 import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
+import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
 import { AIService } from '../services/aiService';
 
@@ -340,6 +341,9 @@ api.get('/ai/available', async (c) => {
 const adminApi = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
 adminApi.use('/*', authMiddleware);
+
+// 应用用户配置的缓存设置
+adminApi.use('/*', userCacheMiddleware());
 
 adminApi.get('/channels', async (c) => {
   const username = c.get('username');
