@@ -27,7 +27,7 @@ const emit = defineEmits<{
 const pushTitle = ref('');
 const pushBody = ref('');
 const pushUrl = ref('');
-const useAsync = ref(false);
+const useAsync = ref(true);
 
 // 消息预览相关状态
 const showPreview = ref(false);
