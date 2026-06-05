@@ -26,6 +26,7 @@ import {
 import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
 import { cleanupExpiredData } from './services/cleanupService';
+import { archiveOldDataToR2 } from './services/r2ArchiveService';
 import { SystemSettingsService } from './services/systemSettingsService';
 import { HealthTrackerDO, WebSocketManagerDO, DistributedLockDO } from './durable/index';
 
@@ -222,6 +223,17 @@ export default {
         console.log('[Cron] Cleanup completed:', cleanupResult);
       } else {
         console.log('[Cron] Auto cleanup is disabled');
+      }
+
+      // 尝试将旧数据归档到 R2（如果 R2 配置了）
+      if (env.BUCKET) {
+        console.log('[Cron] Starting R2 data archive...');
+        const archiveResult = await archiveOldDataToR2(env, {
+          archiveRetentionDays: 90, // 90 天以上的数据归档到 R2
+        });
+        console.log('[Cron] Archive completed:', archiveResult);
+      } else {
+        console.log('[Cron] R2 not configured, skipping archive');
       }
 
       let processedUsers = 0;
