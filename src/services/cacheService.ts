@@ -88,7 +88,7 @@ export function userCacheMiddleware() {
     }
 
     const userService = new UserService(c.env);
-    const user = await userService.findByUsername(username);
+    const user = await userService.findByEmail(username);
     if (!user) {
       return;
     }
