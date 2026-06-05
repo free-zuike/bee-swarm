@@ -87,7 +87,8 @@
                   "type": "object",
                   "properties": {
                     "success": { "type": "boolean" },
-                    "siteKey": { "type": "string", "description": "Turnstile site key（如果已配置）" }
+                    "siteKey": { "type": "string", "description": "Turnstile site key（如果已配置）" },
+                    "message": { "type": "string" }
                   }
                 }
               }
@@ -287,9 +288,18 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "apikey": { "type": "string" }
+                    "apikey": { "type": "string" },
+                    "message": { "type": "string" }
                   }
                 }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
@@ -344,7 +354,18 @@
         },
         "responses": {
           "200": {
-            "description": "请求成功"
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -365,11 +386,15 @@
                   "type": "object",
                   "properties": {
                     "valid": { "type": "boolean" },
-                    "email": { "type": "string" }
+                    "email": { "type": "string" },
+                    "message": { "type": "string" }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "令牌无效或已过期"
           }
         }
       },
@@ -395,7 +420,24 @@
         },
         "responses": {
           "200": {
-            "description": "密码重置成功"
+            "description": "密码重置成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "重置失败"
+          },
+          "500": {
+            "description": "服务器错误"
           }
         }
       }
@@ -434,19 +476,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "string" },
-                    "email": { "type": "string" },
-                    "role": { "type": "string", "enum": ["admin", "user", "viewer"] },
-                    "disabled": { "type": "number" },
-                    "disabled_reason": { "type": "string" },
-                    "avatar_url": { "type": "string" },
-                    "use_avatar_as_popup": { "type": "number" }
-                  }
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
+          },
+          "404": {
+            "description": "用户不存在"
           }
         }
       }
@@ -455,6 +491,7 @@
       "put": {
         "tags": ["用户"],
         "summary": "设置用户头像",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "content": {
             "application/json": {
@@ -462,20 +499,44 @@
                 "type": "object",
                 "properties": {
                   "avatar_url": { "type": "string" },
-                  "use_avatar_as_popup": { "type": "number" }
+                  "use_avatar_as_popup": { "type": "integer" }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "设置成功" }
+          "200": {
+            "description": "设置成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "avatar_url": { "type": "string" },
+                    "use_avatar_as_popup": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "404": {
+            "description": "用户不存在"
+          },
+          "500": {
+            "description": "更新失败"
+          }
         }
       },
       "post": {
         "tags": ["用户"],
         "summary": "上传头像文件",
-        "contentType": "multipart/form-data",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -484,7 +545,8 @@
                 "type": "object",
                 "properties": {
                   "avatar": { "type": "string", "format": "binary", "description": "头像图片文件（最大2MB）" }
-                }
+                },
+                "required": ["avatar"]
               }
             }
           }
@@ -498,7 +560,42 @@
                   "type": "object",
                   "properties": {
                     "success": { "type": "boolean" },
+                    "message": { "type": "string" },
                     "avatar_url": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "文件无效"
+          },
+          "404": {
+            "description": "用户不存在"
+          },
+          "500": {
+            "description": "上传失败"
+          }
+        }
+      }
+    },
+    "/api/admin/me/avatar/status": {
+      "get": {
+        "tags": ["用户"],
+        "summary": "检查头像存储服务状态",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "hasR2": { "type": "boolean" },
+                    "storageType": { "type": "string" },
+                    "message": { "type": "string" }
                   }
                 }
               }
@@ -510,25 +607,46 @@
     "/api/admin/me/settings": {
       "get": {
         "tags": ["用户"],
-        "summary": "获取用户设置"
+        "summary": "获取用户设置",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "settings": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
       },
       "put": {
         "tags": ["用户"],
         "summary": "保存用户设置",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "cache_ttl_backup": { "type": "number" },
-                  "cache_ttl_channels": { "type": "number" },
-                  "cache_ttl_templates": { "type": "number" },
-                  "cache_ttl_groups": { "type": "number" },
-                  "cache_ttl_scheduled": { "type": "number" },
+                  "cache_ttl_backup": { "type": "integer" },
+                  "cache_ttl_channels": { "type": "integer" },
+                  "cache_ttl_templates": { "type": "integer" },
+                  "cache_ttl_groups": { "type": "integer" },
+                  "cache_ttl_scheduled": { "type": "integer" },
                   "ai_model": { "type": "string" },
                   "ai_enabled": { "type": "boolean" },
-                  "ai_provider": { "type": "string", "enum": ["workers-ai", "openai", "azure-openai", "anthropic", "custom"] },
+                  "ai_provider": { "type": "string" },
                   "ai_api_key": { "type": "string" },
                   "ai_api_url": { "type": "string" },
                   "ai_model_name": { "type": "string" }
@@ -538,14 +656,75 @@
           }
         },
         "responses": {
-          "200": { "description": "保存成功" }
+          "200": {
+            "description": "保存成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "settings": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
+      }
+    },
+    "/api/admin/me/settings/cache": {
+      "put": {
+        "tags": ["用户"],
+        "summary": "保存缓存设置（仅缓存相关字段）",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cache_ttl_backup": { "type": "integer" },
+                  "cache_ttl_channels": { "type": "integer" },
+                  "cache_ttl_templates": { "type": "integer" },
+                  "cache_ttl_groups": { "type": "integer" },
+                  "cache_ttl_scheduled": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "保存成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "settings": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "用户不存在"
+          }
         }
       }
     },
     "/api/admin/me/settings/ai": {
       "put": {
         "tags": ["AI"],
-        "summary": "保存 AI 设置",
+        "summary": "保存 AI 设置（仅AI相关字段）",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "content": {
             "application/json": {
@@ -558,25 +737,33 @@
                   "ai_api_key": { "type": "string" },
                   "ai_api_url": { "type": "string" },
                   "ai_model_name": { "type": "string" },
-                  "ai_tools": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": { "type": "string" },
-                        "name": { "type": "string" },
-                        "description": { "type": "string" },
-                        "enabled": { "type": "boolean" }
-                      }
-                    }
-                  }
+                  "custom_ai_providers": { "type": "array" },
+                  "ai_provider_configs": { "type": "object" },
+                  "ai_tools": { "type": "array" }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "保存成功" }
+          "200": {
+            "description": "保存成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "settings": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "用户不存在"
+          }
         }
       }
     },
@@ -584,6 +771,7 @@
       "get": {
         "tags": ["AI"],
         "summary": "获取 AI 工具列表",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
             "description": "成功",
@@ -592,6 +780,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "success": { "type": "boolean" },
                     "tools": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/AITool" }
@@ -600,6 +789,494 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": ["用户"],
+        "summary": "获取用户列表（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["用户"],
+        "summary": "创建用户（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "用户已存在"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}/role": {
+      "put": {
+        "tags": ["用户"],
+        "summary": "更新用户角色（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": { "type": "string", "enum": ["admin", "user", "viewer"] },
+                  "refresh": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "无效的角色或不能修改自己的角色"
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}/disable": {
+      "post": {
+        "tags": ["用户"],
+        "summary": "禁用用户（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "禁用成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "不能禁用自己或数据库不支持"
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}/enable": {
+      "post": {
+        "tags": ["用户"],
+        "summary": "启用用户（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "启用成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}": {
+      "delete": {
+        "tags": ["用户"],
+        "summary": "删除用户（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "不能删除自己"
+          },
+          "404": {
+            "description": "用户不存在"
+          }
+        }
+      }
+    },
+    "/api/admin/system/settings": {
+      "get": {
+        "tags": ["系统"],
+        "summary": "获取系统设置（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "settings": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      },
+      "put": {
+        "tags": ["系统"],
+        "summary": "保存系统设置（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "保存成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      }
+    },
+    "/api/admin/database/stats": {
+      "get": {
+        "tags": ["系统"],
+        "summary": "获取数据库统计（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "stats": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      }
+    },
+    "/api/admin/database/cleanup": {
+      "post": {
+        "tags": ["系统"],
+        "summary": "执行数据清理（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pushHistoryRetentionDays": { "type": "integer", "default": 30 },
+                  "auditLogRetentionDays": { "type": "integer", "default": 90 },
+                  "batchSize": { "type": "integer", "default": 100 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "清理完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      }
+    },
+    "/api/admin/database/archive": {
+      "post": {
+        "tags": ["系统"],
+        "summary": "归档推送历史（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "archiveAfterDays": { "type": "integer", "default": 30 },
+                  "batchSize": { "type": "integer", "default": 50 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "归档完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      }
+    },
+    "/api/admin/database/archives": {
+      "get": {
+        "tags": ["系统"],
+        "summary": "获取归档列表（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "archives": { "type": "array" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      }
+    },
+    "/api/admin/database/archives/{key}/restore": {
+      "post": {
+        "tags": ["系统"],
+        "summary": "恢复归档数据（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "key", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "恢复成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      }
+    },
+    "/api/admin/audit": {
+      "get": {
+        "tags": ["系统"],
+        "summary": "获取审计日志（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "action", "in": "query", "schema": { "type": "string" } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logs": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AuditLog" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["系统"],
+        "summary": "清除审计日志（仅管理员）",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "清除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足"
           }
         }
       }
@@ -608,6 +1285,7 @@
       "get": {
         "tags": ["渠道"],
         "summary": "获取所有渠道配置",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
             "description": "成功",
@@ -637,6 +1315,7 @@
       "put": {
         "tags": ["渠道"],
         "summary": "更新渠道配置",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
@@ -648,14 +1327,34 @@
                 "type": "object",
                 "properties": {
                   "fields": { "type": "object", "description": "渠道配置字段" },
-                  "enabled": { "type": "boolean" }
+                  "enabled": { "type": "string" }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "更新成功" }
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "channels": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ChannelConfig" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "无效的渠道ID或配置"
+          }
         }
       }
     },
@@ -664,6 +1363,7 @@
         "tags": ["渠道"],
         "summary": "批量渠道健康检查",
         "description": "对所有已配置的渠道进行健康检查（真实发送测试消息）",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
             "description": "成功",
@@ -696,6 +1396,8 @@
       "post": {
         "tags": ["渠道"],
         "summary": "测试单个渠道",
+        "description": "对单个渠道进行健康检查（真实发送测试消息）",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "channel", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
@@ -710,11 +1412,46 @@
                     "channel": { "type": "string" },
                     "healthy": { "type": "boolean" },
                     "message": { "type": "string" },
-                    "testedAt": { "type": "string" }
+                    "testedAt": { "type": "string", "format": "date-time" }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "渠道未配置"
+          }
+        }
+      }
+    },
+    "/api/admin/test/bark": {
+      "get": {
+        "tags": ["渠道"],
+        "summary": "测试 Bark 配置",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "key", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "server", "in": "query", "schema": { "type": "string", "default": "https://api.day.app" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "测试结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "note": { "type": "string" },
+                    "code": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
           }
         }
       }
@@ -724,6 +1461,7 @@
         "tags": ["推送"],
         "summary": "发送推送消息",
         "description": "向指定渠道发送推送消息",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -769,6 +1507,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "队列服务不可用"
           }
         }
       }
@@ -777,6 +1518,7 @@
       "get": {
         "tags": ["推送"],
         "summary": "获取推送历史",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "pageSize", "in": "query", "schema": { "type": "integer", "default": 20 } },
@@ -792,8 +1534,11 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "history": { "type": "array", "items": { "$ref": "#/components/schemas/PushRecord" } },
-                    "total": { "type": "number" },
+                    "history": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/PushRecord" }
+                    },
+                    "total": { "type": "integer" },
                     "hasMore": { "type": "boolean" }
                   }
                 }
@@ -805,15 +1550,30 @@
       "delete": {
         "tags": ["推送"],
         "summary": "删除推送历史",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/admin/history/batch-delete": {
       "post": {
         "tags": ["推送"],
-        "summary": "批量删除推送历史",
+        "summary": "批量删除推送历史（按 ID）",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -829,7 +1589,12 @@
           }
         },
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功"
+          },
+          "400": {
+            "description": "参数无效"
+          }
         }
       }
     },
@@ -837,6 +1602,7 @@
       "post": {
         "tags": ["推送"],
         "summary": "按条件批量删除推送历史",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "content": {
             "application/json": {
@@ -852,7 +1618,9 @@
           }
         },
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功"
+          }
         }
       }
     },
@@ -860,6 +1628,7 @@
       "get": {
         "tags": ["模板"],
         "summary": "获取所有模板",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
             "description": "成功",
@@ -868,7 +1637,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "templates": { "type": "array", "items": { "$ref": "#/components/schemas/Template" } }
+                    "templates": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Template" }
+                    }
                   }
                 }
               }
@@ -879,6 +1651,7 @@
       "post": {
         "tags": ["模板"],
         "summary": "创建模板",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -913,18 +1686,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数无效"
           }
         }
       }
     },
     "/api/admin/templates/{id}": {
-      "get": {
-        "tags": ["模板"],
-        "summary": "获取单个模板"
-      },
       "put": {
         "tags": ["模板"],
         "summary": "更新模板",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -933,14 +1709,50 @@
           }
         },
         "responses": {
-          "200": { "description": "更新成功" }
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "template": { "$ref": "#/components/schemas/Template" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "模板不存在"
+          }
         }
       },
       "delete": {
         "tags": ["模板"],
         "summary": "删除模板",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "模板不存在"
+          }
         }
       }
     },
@@ -948,6 +1760,7 @@
       "post": {
         "tags": ["模板"],
         "summary": "预览模板变量替换结果",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
@@ -979,6 +1792,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "模板不存在"
           }
         }
       }
@@ -987,6 +1803,10 @@
       "get": {
         "tags": ["模板"],
         "summary": "获取模板变量列表",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
         "responses": {
           "200": {
             "description": "成功",
@@ -996,11 +1816,17 @@
                   "type": "object",
                   "properties": {
                     "variables": { "type": "array", "items": { "type": "string" } },
-                    "templateVariables": { "type": "array", "items": { "$ref": "#/components/schemas/TemplateVariable" } }
+                    "templateVariables": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/TemplateVariable" }
+                    }
                   }
                 }
               }
             }
+          },
+          "404": {
+            "description": "模板不存在"
           }
         }
       }
@@ -1009,6 +1835,7 @@
       "get": {
         "tags": ["分组"],
         "summary": "获取所有分组",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
             "description": "成功",
@@ -1017,7 +1844,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "groups": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelGroup" } }
+                    "groups": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ChannelGroup" }
+                    }
                   }
                 }
               }
@@ -1028,6 +1858,7 @@
       "post": {
         "tags": ["分组"],
         "summary": "创建分组",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1044,7 +1875,23 @@
           }
         },
         "responses": {
-          "200": { "description": "创建成功" }
+          "200": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "group": { "$ref": "#/components/schemas/ChannelGroup" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          }
         }
       }
     },
@@ -1052,15 +1899,71 @@
       "put": {
         "tags": ["分组"],
         "summary": "更新分组",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "channels": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "更新成功" }
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "group": { "$ref": "#/components/schemas/ChannelGroup" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "404": {
+            "description": "分组不存在"
+          }
         }
       },
       "delete": {
         "tags": ["分组"],
         "summary": "删除分组",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "分组不存在"
+          }
         }
       }
     },
@@ -1068,6 +1971,7 @@
       "post": {
         "tags": ["分组"],
         "summary": "批量删除分组",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1083,7 +1987,24 @@
           }
         },
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "deleted": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          }
         }
       }
     },
@@ -1091,6 +2012,7 @@
       "get": {
         "tags": ["定时任务"],
         "summary": "获取定时推送列表",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] } }
         ],
@@ -1102,7 +2024,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "scheduled": { "type": "array", "items": { "$ref": "#/components/schemas/ScheduledPush" } }
+                    "scheduled": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ScheduledPush" }
+                    }
                   }
                 }
               }
@@ -1113,6 +2038,7 @@
       "post": {
         "tags": ["定时任务"],
         "summary": "创建定时推送",
+        "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1129,9 +2055,9 @@
                   "templateId": { "type": "string" },
                   "scheduleType": { "type": "string", "enum": ["once", "recurring"] },
                   "recurringType": { "type": "string", "enum": ["hourly", "daily", "weekly", "monthly", "interval", "cron"] },
-                  "selectedWeekDays": { "type": "array", "items": { "type": "number" } },
-                  "selectedMonthDays": { "type": "array", "items": { "type": "number" } },
-                  "intervalHours": { "type": "number" },
+                  "selectedWeekDays": { "type": "array", "items": { "type": "integer" } },
+                  "selectedMonthDays": { "type": "array", "items": { "type": "integer" } },
+                  "intervalHours": { "type": "integer" },
                   "cronExpression": { "type": "string" }
                 }
               }
@@ -1139,7 +2065,23 @@
           }
         },
         "responses": {
-          "200": { "description": "创建成功" }
+          "200": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "scheduled": { "$ref": "#/components/schemas/ScheduledPush" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          }
         }
       }
     },
@@ -1147,999 +2089,24 @@
       "put": {
         "tags": ["定时任务"],
         "summary": "更新定时推送",
-        "responses": {
-          "200": { "description": "更新成功" }
-        }
-      },
-      "delete": {
-        "tags": ["定时任务"],
-        "summary": "删除定时推送",
-        "responses": {
-          "200": { "description": "删除成功" }
-        }
-      }
-    },
-    "/api/admin/scheduled/{id}/reschedule": {
-      "post": {
-        "tags": ["定时任务"],
-        "summary": "重新安排超时任务",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["scheduledAt"],
-                "properties": {
-                  "scheduledAt": { "type": "string", "format": "date-time" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "重新安排成功" }
-        }
-      }
-    },
-    "/api/admin/scheduled/batch-cancel": {
-      "post": {
-        "tags": ["定时任务"],
-        "summary": "批量取消定时任务",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["ids"],
-                "properties": {
-                  "ids": { "type": "array", "items": { "type": "string" } }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "取消成功" }
-        }
-      }
-    },
-    "/api/admin/scheduled/batch-enable": {
-      "post": {
-        "tags": ["定时任务"],
-        "summary": "批量启用定时任务",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["ids"],
-                "properties": {
-                  "ids": { "type": "array", "items": { "type": "string" } }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "启用成功" }
-        }
-      }
-    },
-    "/api/admin/scheduled/batch-delete": {
-      "post": {
-        "tags": ["定时任务"],
-        "summary": "批量删除定时任务",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["ids"],
-                "properties": {
-                  "ids": { "type": "array", "items": { "type": "string" } }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "删除成功" }
-        }
-      }
-    },
-    "/api/admin/scheduled/overdue": {
-      "get": {
-        "tags": ["定时任务"],
-        "summary": "获取超时任务列表",
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "overdue": { "type": "array", "items": { "$ref": "#/components/schemas/ScheduledPush" } }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/stats": {
-      "get": {
-        "tags": ["统计"],
-        "summary": "获取推送统计",
-        "parameters": [
-          { "name": "days", "in": "query", "schema": { "type": "integer", "default": 7 } }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "session": {
-                          "type": "object",
-                          "properties": {
-                            "total": { "type": "number" },
-                            "success": { "type": "number" },
-                            "failed": { "type": "number" }
-                          }
-                        },
-                        "trend": {
-                          "type": "object",
-                          "properties": {
-                            "rate": { "type": "number" },
-                            "direction": { "type": "string", "enum": ["increasing", "decreasing", "stable"] }
-                          }
-                        },
-                        "recent": { "type": "array", "items": { "type": "object" } },
-                        "channelUsage": { "type": "object" }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/metrics": {
-      "get": {
-        "tags": ["统计"],
-        "summary": "获取会话指标",
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/admin/webhook/push": {
-      "post": {
-        "tags": ["推送"],
-        "summary": "通过 Webhook 触发推送",
-        "description": "使用 API Key 认证，通过 Webhook 触发推送",
-        "security": [{ "ApiKeyAuth": [] }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": { "type": "string" },
-                  "content": { "type": "string" },
-                  "templateId": { "type": "string" },
-                  "channels": { "type": "array", "items": { "type": "string" } },
-                  "url": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "推送完成" }
-        }
-      }
-    },
-    "/api/admin/webhook/url": {
-      "get": {
-        "tags": ["推送"],
-        "summary": "获取 Webhook URL",
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "webhookUrl": { "type": "string" },
-                    "description": { "type": "string" },
-                    "exampleBody": { "type": "object" },
-                    "templateExample": { "type": "object" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/ai/generate": {
-      "post": {
-        "tags": ["AI"],
-        "summary": "使用 AI 生成推送消息",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["prompt"],
-                "properties": {
-                  "prompt": { "type": "string", "description": "生成提示词" },
-                  "type": { "type": "string", "enum": ["title", "body", "both"], "default": "both" },
-                  "language": { "type": "string", "enum": ["zh", "en"], "default": "zh" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "生成成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "title": { "type": "string" },
-                    "content": { "type": "string" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/ai/execute": {
-      "post": {
-        "tags": ["AI"],
-        "summary": "AI 工具调用",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["query"],
-                "properties": {
-                  "query": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "执行成功" }
-        }
-      }
-    },
-    "/api/admin/users": {
-      "get": {
-        "tags": ["用户"],
-        "summary": "获取用户列表（仅管理员）",
         "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ScheduledPush" }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "更新成功",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "users": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": ["用户"],
-        "summary": "创建用户（仅管理员）",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["email", "password"],
-                "properties": {
-                  "email": { "type": "string", "format": "email" },
-                  "password": { "type": "string", "minLength": 8 }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "创建成功" }
-        }
-      }
-    },
-    "/api/admin/users/{id}/role": {
-      "put": {
-        "tags": ["用户"],
-        "summary": "更新用户角色（仅管理员）",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["role"],
-                "properties": {
-                  "role": { "type": "string", "enum": ["admin", "user", "viewer"] }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "更新成功" }
-        }
-      }
-    },
-    "/api/admin/users/{id}/disable": {
-      "post": {
-        "tags": ["用户"],
-        "summary": "禁用用户（仅管理员）",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "reason": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "禁用成功" }
-        }
-      }
-    },
-    "/api/admin/users/{id}/enable": {
-      "post": {
-        "tags": ["用户"],
-        "summary": "启用用户（仅管理员）",
-        "responses": {
-          "200": { "description": "启用成功" }
-        }
-      }
-    },
-    "/api/admin/users/{id}": {
-      "delete": {
-        "tags": ["用户"],
-        "summary": "删除用户（仅管理员）",
-        "responses": {
-          "200": { "description": "删除成功" }
-        }
-      }
-    },
-    "/api/admin/audit": {
-      "get": {
-        "tags": ["系统"],
-        "summary": "获取审计日志（仅管理员）",
-        "parameters": [
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
-          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } },
-          { "name": "action", "in": "query", "schema": { "type": "string" } },
-          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date-time" } }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "logs": { "type": "array", "items": { "$ref": "#/components/schemas/AuditLog" } }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": ["系统"],
-        "summary": "清除审计日志（仅管理员）",
-        "responses": {
-          "200": { "description": "清除成功" }
-        }
-      }
-    },
-    "/api/admin/system/settings": {
-      "get": {
-        "tags": ["系统"],
-        "summary": "获取系统设置（仅管理员）",
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      },
-      "put": {
-        "tags": ["系统"],
-        "summary": "保存系统设置（仅管理员）",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "type": "object" }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "保存成功" }
-        }
-      }
-    },
-    "/api/admin/database/stats": {
-      "get": {
-        "tags": ["系统"],
-        "summary": "获取数据库统计（仅管理员）",
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/admin/database/cleanup": {
-      "post": {
-        "tags": ["系统"],
-        "summary": "执行数据清理（仅管理员）",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "pushHistoryRetentionDays": { "type": "number", "default": 30 },
-                  "auditLogRetentionDays": { "type": "number", "default": 90 },
-                  "batchSize": { "type": "number", "default": 100 }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "清理完成" }
-        }
-      }
-    },
-    "/api/admin/database/archive": {
-      "post": {
-        "tags": ["系统"],
-        "summary": "归档推送历史（仅管理员）",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "archiveAfterDays": { "type": "number", "default": 30 },
-                  "batchSize": { "type": "number", "default": 50 }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "归档完成" }
-        }
-      }
-    },
-    "/api/admin/database/archives": {
-      "get": {
-        "tags": ["系统"],
-        "summary": "获取归档列表（仅管理员）",
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/admin/database/archives/{key}/restore": {
-      "post": {
-        "tags": ["系统"],
-        "summary": "恢复归档数据（仅管理员）",
-        "parameters": [
-          { "name": "key", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "恢复成功" }
-        }
-      }
-    },
-    "/api/cloudflare/health/check": {
-      "post": {
-        "tags": ["Cloudflare"],
-        "summary": "记录健康检查结果",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["channel", "healthy"],
-                "properties": {
-                  "channel": { "type": "string" },
-                  "healthy": { "type": "boolean" },
-                  "latencyMs": { "type": "number" },
-                  "message": { "type": "string" },
-                  "error": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "记录成功" }
-        }
-      }
-    },
-    "/api/cloudflare/health/summary": {
-      "get": {
-        "tags": ["Cloudflare"],
-        "summary": "获取健康摘要",
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/cloudflare/templates/search": {
-      "get": {
-        "tags": ["Cloudflare"],
-        "summary": "搜索模板（Vectorize）",
-        "parameters": [
-          { "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "搜索成功" }
-        }
-      }
-    },
-    "/api/cloudflare/templates/recommend/{templateId}": {
-      "get": {
-        "tags": ["Cloudflare"],
-        "summary": "获取模板推荐",
-        "parameters": [
-          { "name": "templateId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 5 } }
-        ],
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/cloudflare/templates/embed": {
-      "post": {
-        "tags": ["Cloudflare"],
-        "summary": "生成模板向量嵌入",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["templateId", "name", "content"],
-                "properties": {
-                  "templateId": { "type": "string" },
-                  "name": { "type": "string" },
-                  "description": { "type": "string" },
-                  "category": { "type": "string" },
-                  "content": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "生成成功" }
-        }
-      }
-    },
-    "/api/cloudflare/analytics/summary": {
-      "get": {
-        "tags": ["Cloudflare"],
-        "summary": "获取分析摘要",
-        "parameters": [
-          { "name": "days", "in": "query", "schema": { "type": "integer", "default": 7 } }
-        ],
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/cloudflare/analytics/trend": {
-      "get": {
-        "tags": ["Cloudflare"],
-        "summary": "获取每日趋势",
-        "parameters": [
-          { "name": "days", "in": "query", "schema": { "type": "integer", "default": 30 } }
-        ],
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/cloudflare/analytics/push": {
-      "post": {
-        "tags": ["Cloudflare"],
-        "summary": "记录推送统计",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["channelId"],
-                "properties": {
-                  "channelId": { "type": "string" },
-                  "success": { "type": "boolean" },
-                  "latencyMs": { "type": "number" },
-                  "errorMessage": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "记录成功" }
-        }
-      }
-    },
-    "/api/cloudflare/lock/acquire": {
-      "post": {
-        "tags": ["Cloudflare"],
-        "summary": "获取分布式锁",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["lockName"],
-                "properties": {
-                  "lockName": { "type": "string" },
-                  "ttl": { "type": "number", "default": 30000, "description": "锁的 TTL（毫秒）" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "获取成功" }
-        }
-      }
-    },
-    "/api/cloudflare/lock/release": {
-      "post": {
-        "tags": ["Cloudflare"],
-        "summary": "释放分布式锁",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["lockName", "lockId"],
-                "properties": {
-                  "lockName": { "type": "string" },
-                  "lockId": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "释放成功" }
-        }
-      }
-    },
-    "/api/cloudflare/status": {
-      "get": {
-        "tags": ["Cloudflare"],
-        "summary": "获取 Cloudflare 服务状态",
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "kv": { "type": "boolean" },
-                        "healthTracker": { "type": "boolean" },
-                        "webSocketManager": { "type": "boolean" },
-                        "distributedLock": { "type": "boolean" },
-                        "vectorize": { "type": "boolean" },
-                        "analyticsEngine": { "type": "boolean" },
-                        "workersAi": { "type": "boolean" }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/backup/list": {
-      "get": {
-        "tags": ["备份"],
-        "summary": "获取备份列表",
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/admin/backup/create": {
-      "post": {
-        "tags": ["备份"],
-        "summary": "创建备份",
-        "responses": {
-          "200": { "description": "创建成功" }
-        }
-      }
-    },
-    "/api/admin/backup/restore/{id}": {
-      "post": {
-        "tags": ["备份"],
-        "summary": "恢复备份",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "恢复成功" }
-        }
-      }
-    },
-    "/api/admin/backup/delete/{id}": {
-      "delete": {
-        "tags": ["备份"],
-        "summary": "删除备份",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "删除成功" }
-        }
-      }
-    },
-    "/api/admin/backup/verify/{id}": {
-      "get": {
-        "tags": ["备份"],
-        "summary": "验证备份完整性",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "验证成功" }
-        }
-      }
-    },
-    "/api/admin/test/bark": {
-      "get": {
-        "tags": ["渠道"],
-        "summary": "测试 Bark 配置",
-        "parameters": [
-          { "name": "key", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "server", "in": "query", "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "测试结果" }
-        }
-      }
-    }
-  },
-  "components": {
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "使用邮箱密码登录后获取的 Token"
-      },
-      "ApiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-API-Key",
-        "description": "API Key 认证（用于 Webhook）"
-      }
-    },
-    "schemas": {
-      "Error": {
-        "type": "object",
-        "properties": {
-          "error": { "type": "string" },
-          "code": { "type": "string" }
-        }
-      },
-      "ChannelConfig": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "enabled": { "type": "boolean" },
-          "name": { "type": "string" },
-          "fields": { "type": "object" }
-        }
-      },
-      "ChannelDefinition": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "icon": { "type": "string" },
-          "description": { "type": "string" },
-          "fields": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "key": { "type": "string" },
-                "label": { "type": "string" },
-                "type": { "type": "string" },
-                "required": { "type": "boolean" },
-                "placeholder": { "type": "string" }
-              }
-            }
-          }
-        }
-      },
-      "ChannelResult": {
-        "type": "object",
-        "properties": {
-          "channel": { "type": "string" },
-          "success": { "type": "boolean" },
-          "message": { "type": "string" },
-          "latencyMs": { "type": "number" }
-        }
-      },
-      "PushRecord": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "channel": { "type": "string" },
-          "status": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "results": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/ChannelResult" }
-          }
-        }
-      },
-      "Template": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "channels": { "type": "array", "items": { "type": "string" } },
-          "url": { "type": "string" },
-          "imageUrl": { "type": "string" },
-          "useMarkdown": { "type": "boolean" },
-          "variables": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/TemplateVariable" }
-          },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
-        }
-      },
-      "TemplateVariable": {
-        "type": "object",
-        "properties": {
-          "key": { "type": "string" },
-          "name": { "type": "string" },
-          "type": { "type": "string" },
-          "required": { "type": "boolean" },
-          "defaultValue": { "type": "string" },
-          "description": { "type": "string" }
-        }
-      },
-      "ChannelGroup": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "channels": { "type": "array", "items": { "type": "string" } },
-          "createdAt": { "type": "string", "format": "date-time" }
-        }
-      },
-      "ScheduledPush": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "channels": { "type": "array", "items": { "type": "string" } },
-          "scheduledAt": { "type": "string", "format": "date-time" },
-          "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
-          "scheduleType": { "type": "string", "enum": ["once", "recurring"] },
-          "recurringType": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" }
-        }
-      },
-      "User": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "email": { "type": "string" },
-          "role": { "type": "string", "enum": ["admin", "user", "viewer"] },
-          "disabled": { "type": "number" },
-          "disabled_reason": { "type": "string" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "avatar_url": { "type": "string" }
-        }
-      },
-      "AuditLog": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "userId": { "type": "string" },
-          "action": { "type": "string" },
-          "details": { "type": "object" },
-          "ip": { "type": "string" },
-          "userAgent": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" }
-        }
-      },
-      "AITool": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "parameters": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": { "type": "string" },
-                "type": { "type": "string" },
-                "description": { "type": "string" },
-                "required": { "type": "boolean" }
-              }
-            }
-          },
-          "enabled": { "type": "boolean" },
-          "isDefault": { "type": "boolean" }
-        }
-      }
-    }
-  }
-}
+                    "success": { "type": "boolean" },
+                    "scheduled":
