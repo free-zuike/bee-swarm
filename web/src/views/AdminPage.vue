@@ -161,7 +161,9 @@ const systemSettings = ref<SystemSettings>({
   cleanup_push_history_days: 30,
   cleanup_audit_log_days: 90,
   cleanup_batch_size: 100,
+  cors_allowed_origins: [],
 });
+const newCORSOrigin = ref('');
 const isSavingSettings = ref(false);
 const isSavingSystemSettings = ref(false);
 const activeSettingsTab = ref<string>('theme');
@@ -469,6 +471,7 @@ async function loadSystemSettings() {
         cleanup_push_history_days: result.settings.cleanup_push_history_days ?? 30,
         cleanup_audit_log_days: result.settings.cleanup_audit_log_days ?? 90,
         cleanup_batch_size: result.settings.cleanup_batch_size ?? 100,
+        cors_allowed_origins: result.settings.cors_allowed_origins ?? [],
       };
     }
   } catch {
@@ -487,6 +490,24 @@ async function handleSaveSystemSettings() {
   } finally {
     isSavingSystemSettings.value = false;
   }
+}
+
+function addCORSOrigin() {
+  const origin = newCORSOrigin.value.trim();
+  if (!origin) {
+    showToast('请输入有效的域名', 'error');
+    return;
+  }
+  if (systemSettings.value.cors_allowed_origins.includes(origin)) {
+    showToast('该域名已存在', 'error');
+    return;
+  }
+  systemSettings.value.cors_allowed_origins.push(origin);
+  newCORSOrigin.value = '';
+}
+
+function removeCORSOrigin(index: number) {
+  systemSettings.value.cors_allowed_origins.splice(index, 1);
 }
 
 async function loadDatabaseStats() {
@@ -2669,6 +2690,44 @@ function handleResend(record: PushHistoryRecord) {
               </div>
               <div class="setting-hint" v-if="systemSettings.cleanup_enabled">
                 自动清理将在每小时执行一次，删除超过指定天数的记录
+              </div>
+            </div>
+
+            <!-- CORS 配置 -->
+            <div class="settings-card">
+              <h4>🔒 CORS 跨域配置</h4>
+              <div class="setting-item">
+                <label>允许的来源</label>
+                <div class="cors-list">
+                  <div
+                    v-for="(origin, index) in systemSettings.cors_allowed_origins"
+                    :key="index"
+                    class="cors-item"
+                  >
+                    <span>{{ origin }}</span>
+                    <button class="btn btn-sm btn-danger" @click="removeCORSOrigin(index)">
+                      ×
+                    </button>
+                  </div>
+                  <div v-if="systemSettings.cors_allowed_origins.length === 0" class="empty-state">
+                    暂无配置的来源，默认允许 localhost 和 workers.dev 域名
+                  </div>
+                </div>
+              </div>
+              <div class="setting-item">
+                <label>添加来源</label>
+                <div class="input-group">
+                  <input
+                    type="text"
+                    v-model="newCORSOrigin"
+                    placeholder="https://example.com"
+                    @keyup.enter="addCORSOrigin"
+                  />
+                  <button class="btn btn-sm btn-primary" @click="addCORSOrigin">添加</button>
+                </div>
+              </div>
+              <div class="setting-hint">
+                添加允许跨域请求的域名，支持使用通配符（如 https://*.example.com）
               </div>
             </div>
 
@@ -5525,5 +5584,109 @@ function handleResend(record: PushHistoryRecord) {
   text-align: center;
   padding: 20px;
   color: var(--text-secondary, #666);
+}
+
+/* ==================== CORS 配置样式 ==================== */
+.cors-list {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.dark .cors-list {
+  background: var(--bg-secondary, #3c3c3c);
+  border-color: var(--border-color, #4c4c4c);
+}
+
+.cors-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cors-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cors-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #ccc);
+  border-radius: 3px;
+}
+
+.cors-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-panel, white);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.dark .cors-item {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: var(--border-color, #3c3c3c);
+}
+
+.cors-item:last-child {
+  margin-bottom: 0;
+}
+
+.cors-item span {
+  font-size: 13px;
+  color: var(--text-primary, #1a1a2e);
+  word-break: break-all;
+  flex: 1;
+}
+
+.dark .cors-item span {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.cors-item .btn-danger {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input-group input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #1a1a2e);
+}
+
+.dark .input-group input {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: var(--border-color, #4c4c4c);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.input-group input:focus {
+  border-color: #667eea;
+}
+
+.input-group .btn-sm {
+  padding: 10px 16px;
+  font-size: 14px;
 }
 </style>

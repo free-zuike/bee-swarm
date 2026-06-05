@@ -1353,6 +1353,7 @@ export interface SystemSettings {
   cleanup_push_history_days?: number;
   cleanup_audit_log_days?: number;
   cleanup_batch_size?: number;
+  cors_allowed_origins?: string[];
 }
 
 export async function getSystemSettings(

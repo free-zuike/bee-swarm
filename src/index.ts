@@ -73,12 +73,12 @@ app.use(
 // 可选的 Turnstile 验证（如果配置了）
 app.use('/api/*', optionalTurnstile());
 
-// CORS 配置
+// CORS 配置 - 支持从系统设置动态获取允许的来源
 app.use('*', async (c, next) => {
   const origin = c.req.header('Origin') || '';
 
   // 检查是否允许该来源
-  const isAllowedOrigin = (): boolean => {
+  const isAllowedOrigin = (allowedOrigins: string[]): boolean => {
     // 开发环境允许 localhost
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
       return true;
@@ -87,8 +87,7 @@ app.use('*', async (c, next) => {
     if (origin.endsWith('.workers.dev')) {
       return true;
     }
-    // 检查环境变量配置的允许来源列表
-    const allowedOrigins = c.env.ALLOWED_ORIGINS?.split(',') || [];
+    // 检查允许的来源列表（从系统设置和环境变量获取）
     for (const allowedOrigin of allowedOrigins) {
       if (origin === allowedOrigin) {
         return true;
@@ -106,7 +105,17 @@ app.use('*', async (c, next) => {
     return false;
   };
 
-  const allowedOrigin = isAllowedOrigin() ? origin : '';
+  // 从系统设置获取允许的来源列表
+  let allowedOrigins: string[] = [];
+  try {
+    const systemSettings = new SystemSettingsService(c.env);
+    allowedOrigins = await systemSettings.getCORSConfig();
+  } catch {
+    // 如果获取失败，使用环境变量作为备用
+    allowedOrigins = c.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) || [];
+  }
+
+  const allowedOrigin = isAllowedOrigin(allowedOrigins) ? origin : '';
 
   await cors({
     origin: allowedOrigin,
