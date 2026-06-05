@@ -384,16 +384,19 @@ export class AIService {
   }
 
   private buildToolSystemPrompt(tools: unknown[]): string {
-    return `你是一个助手，可以帮助用户查询推送服务的数据。
+    const toolsList = tools.map(t => `- ${(t as any).name}: ${(t as any).description}`).join('\n');
+    return `你是一个推送服务助手，帮助用户管理模板、分组、定时任务等。
 
 可用工具：
-${JSON.stringify(tools)}
+${toolsList}
 
-规则：
-1. 用户询问"列出"、"查询"、"获取"时，调用对应工具并返回结果
-2. 格式：{"tool":"工具名","params":{}}
-3. 不要输出任何解释性文字，只输出JSON
-4. 如果无法执行，直接用中文回复`;
+重要规则：
+1. 当用户询问"列出"、"查询"、"获取"、"展示"时，必须调用对应的工具
+2. 只需要调用一个工具，不要多个
+3. 直接输出 JSON 格式，不要任何解释：
+   {"tool":"工具名","params":{}}
+4. 如果用户询问的内容没有对应的工具，用中文回复
+5. 工具返回的是数据，不是让你再调工具`;
   }
 
   private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
