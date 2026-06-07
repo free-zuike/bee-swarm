@@ -1011,6 +1011,7 @@ async function handleSaveCacheSettings() {
     });
     if (result.success) {
       showToast('缓存设置已保存', 'success');
+      await loadUserSettings(); // 重新从后端加载最新设置
       updateCacheSettings();
     }
   } catch (err: unknown) {
@@ -1081,6 +1082,7 @@ async function handleSaveAISettings() {
     });
     if (result.success) {
       showToast(result.message, 'success');
+      await loadUserSettings(); // 重新从后端加载最新设置
     }
   } catch (err: unknown) {
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');

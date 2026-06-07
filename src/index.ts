@@ -422,128 +422,139 @@ async function processScheduledPushes(
 function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
   const scheduledTime = new Date(push.scheduledAt);
   const recurringType = push.recurringType || 'daily';
-  const nextTime = new Date(nowDate);
+  
+  // 从最后一次预计执行时间开始，而不是从现在开始
+  const baseTime = new Date(push.nextRun || push.scheduledAt);
+  baseTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
 
   switch (recurringType) {
     case 'hourly': {
+      const nextTime = new Date(baseTime);
       nextTime.setHours(nextTime.getHours() + 1);
-      nextTime.setMinutes(scheduledTime.getMinutes(), 0, 0);
-      break;
+      // 确保在当前时间之后
+      while (nextTime <= nowDate) {
+        nextTime.setHours(nextTime.getHours() + 1);
+      }
+      return nextTime.toISOString();
     }
 
     case 'interval': {
       const intervalHours = push.intervalHours || 2;
+      const nextTime = new Date(baseTime);
       nextTime.setHours(nextTime.getHours() + intervalHours);
-      nextTime.setMinutes(scheduledTime.getMinutes(), 0, 0);
-      break;
+      while (nextTime <= nowDate) {
+        nextTime.setHours(nextTime.getHours() + intervalHours);
+      }
+      return nextTime.toISOString();
     }
 
     case 'daily': {
+      const nextTime = new Date(baseTime);
       nextTime.setDate(nextTime.getDate() + 1);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      while (nextTime <= nowDate) {
+        nextTime.setDate(nextTime.getDate() + 1);
+      }
+      return nextTime.toISOString();
     }
 
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-
-      // 确保我们有一个有效的日期作为基础
-      const baseTime = new Date(nowDate);
-      baseTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-
-      // 先检查今天是否符合条件，如果还没到时间就用今天
-      if (baseTime > nowDate && selectedWeekDays.includes(baseTime.getDay())) {
-        return baseTime.toISOString();
-      }
-
-      // 找到下一个符合条件的星期
-      for (let i = 1; i <= 7; i++) {
-        const checkDate = new Date(baseTime);
-        checkDate.setDate(baseTime.getDate() + i);
+      const nextTime = new Date(baseTime);
+      
+      // 从下一天开始找
+      for (let i = 1; i <= 14; i++) { // 最多找两周，确保能找到
+        const checkDate = new Date(nextTime);
+        checkDate.setDate(nextTime.getDate() + i);
         if (selectedWeekDays.includes(checkDate.getDay())) {
-          return checkDate.toISOString();
+          // 确保找到的日期在现在之后
+          if (checkDate > nowDate) {
+            return checkDate.toISOString();
+          }
         }
       }
-
-      // 默认下一周同一天
-      baseTime.setDate(baseTime.getDate() + 7);
-      return baseTime.toISOString();
+      
+      // 如果两周内没找到，默认下一周同一天
+      const fallbackTime = new Date(baseTime);
+      fallbackTime.setDate(fallbackTime.getDate() + 7);
+      while (fallbackTime <= nowDate) {
+        fallbackTime.setDate(fallbackTime.getDate() + 7);
+      }
+      return fallbackTime.toISOString();
     }
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-
-      // 确保我们有一个有效的日期作为基础
-      const baseTime = new Date(nowDate);
-      baseTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-
-      // 先检查今天是否符合条件，如果还没到时间就用今天
-      if (baseTime > nowDate && selectedMonthDays.includes(baseTime.getDate())) {
-        return baseTime.toISOString();
-      }
-
-      // 找到下一个符合条件的日期
-      for (let i = 1; i <= 31; i++) {
-        const checkDate = new Date(baseTime);
-        checkDate.setDate(baseTime.getDate() + i);
-
-        // 处理月末
+      const nextTime = new Date(baseTime);
+      
+      // 从下一天开始找
+      for (let i = 1; i <= 62; i++) { // 最多找两个月
+        const checkDate = new Date(nextTime);
+        checkDate.setDate(nextTime.getDate() + i);
+        
         const lastDayOfMonth = new Date(
           checkDate.getFullYear(),
           checkDate.getMonth() + 1,
           0
         ).getDate();
-
+        
         for (const day of selectedMonthDays) {
-          // 如果选中的日期超过了本月最后一天，就用最后一天
           const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
-
-          if (checkDate.getDate() === effectiveDay) {
+          
+          if (checkDate.getDate() === effectiveDay && checkDate > nowDate) {
             return checkDate.toISOString();
           }
         }
       }
-
+      
       // 默认下一个月同一天
-      baseTime.setMonth(baseTime.getMonth() + 1);
-      return baseTime.toISOString();
+      const fallbackTime = new Date(baseTime);
+      fallbackTime.setMonth(fallbackTime.getMonth() + 1);
+      while (fallbackTime <= nowDate) {
+        fallbackTime.setMonth(fallbackTime.getMonth() + 1);
+      }
+      return fallbackTime.toISOString();
     }
 
     case 'intervalMonth': {
       const intervalMonths = push.intervalMonths || 1;
+      const nextTime = new Date(baseTime);
       nextTime.setMonth(nextTime.getMonth() + intervalMonths);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      while (nextTime <= nowDate) {
+        nextTime.setMonth(nextTime.getMonth() + intervalMonths);
+      }
+      return nextTime.toISOString();
     }
 
     case 'yearly': {
+      const nextTime = new Date(baseTime);
       nextTime.setFullYear(nextTime.getFullYear() + 1);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      while (nextTime <= nowDate) {
+        nextTime.setFullYear(nextTime.getFullYear() + 1);
+      }
+      return nextTime.toISOString();
     }
 
     case 'intervalYear': {
       const intervalYears = push.intervalYears || 1;
+      const nextTime = new Date(baseTime);
       nextTime.setFullYear(nextTime.getFullYear() + intervalYears);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      while (nextTime <= nowDate) {
+        nextTime.setFullYear(nextTime.getFullYear() + intervalYears);
+      }
+      return nextTime.toISOString();
     }
 
     case 'cron':
     default: {
       // 对于 cron 或其他类型，默认加一天
+      const nextTime = new Date(baseTime);
       nextTime.setDate(nextTime.getDate() + 1);
-      nextTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
-      break;
+      while (nextTime <= nowDate) {
+        nextTime.setDate(nextTime.getDate() + 1);
+      }
+      return nextTime.toISOString();
     }
   }
-
-  // 确保下次执行时间在当前时间之后
-  if (nextTime <= nowDate) {
-    nextTime.setDate(nextTime.getDate() + 1);
-  }
-
-  return nextTime.toISOString();
 }
 
 /**

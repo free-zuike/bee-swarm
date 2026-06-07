@@ -1029,7 +1029,12 @@ export interface UserSettings {
 export async function getUserSettings(
   token: string
 ): Promise<{ success: boolean; settings: UserSettings }> {
-  return tokenRequest(`${BASE}/admin/me/settings`, token);
+  return withCache(
+    `${BASE}/admin/me/settings`,
+    () => tokenRequest(`${BASE}/admin/me/settings`, token),
+    token,
+    { ttl: 5 * 60 * 1000 }
+  );
 }
 
 // 保存用户设置
@@ -1037,11 +1042,13 @@ export async function saveUserSettings(
   token: string,
   settings: UserSettings
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
-  return tokenRequest(`${BASE}/admin/me/settings`, token, {
+  const result = await tokenRequest(`${BASE}/admin/me/settings`, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
+  apiCache.invalidate(`${BASE}/admin/me/settings`, token);
+  return result;
 }
 
 // 保存缓存设置
@@ -1055,11 +1062,13 @@ export async function saveCacheSettings(
     cache_ttl_scheduled?: number;
   }
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
-  return tokenRequest(`${BASE}/admin/me/settings/cache`, token, {
+  const result = await tokenRequest(`${BASE}/admin/me/settings/cache`, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
+  apiCache.invalidate(`${BASE}/admin/me/settings`, token);
+  return result;
 }
 
 export interface AITool {
@@ -1091,11 +1100,13 @@ export async function saveAISettings(
     ai_tools?: AITool[];
   }
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
-  return tokenRequest(`${BASE}/admin/me/settings/ai`, token, {
+  const result = await tokenRequest(`${BASE}/admin/me/settings/ai`, token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
+  apiCache.invalidate(`${BASE}/admin/me/settings`, token);
+  return result;
 }
 
 // 获取 AI 工具列表
@@ -1463,26 +1474,37 @@ export interface DatabaseTable {
 export async function getDatabaseTables(
   token: string
 ): Promise<{ success: boolean; tables: DatabaseTable[] }> {
-  return tokenRequest(`${BASE}/admin/database/tables`, token);
+  return withCache(
+    `${BASE}/admin/database/tables`,
+    () => tokenRequest(`${BASE}/admin/database/tables`, token),
+    token,
+    { ttl: 5 * 60 * 1000 }
+  );
 }
 
 export async function deleteDatabaseTable(
   token: string,
   tableName: string
 ): Promise<{ success: boolean; error?: string }> {
-  return tokenRequest<{ success: boolean; error?: string }>(
+  const result = await tokenRequest<{ success: boolean; error?: string }>(
     `${BASE}/admin/database/tables/${encodeURIComponent(tableName)}`,
     token,
     { method: 'DELETE' }
   );
+  apiCache.invalidate(`${BASE}/admin/database/tables`, token);
+  apiCache.invalidate(`${BASE}/admin/database/stats`, token);
+  return result;
 }
 
 export async function cleanupOrphanTables(
   token: string
 ): Promise<{ success: boolean; deletedTables: string[] }> {
-  return tokenRequest<{ success: boolean; deletedTables: string[] }>(
+  const result = await tokenRequest<{ success: boolean; deletedTables: string[] }>(
     `${BASE}/admin/database/cleanup-tables`,
     token,
     { method: 'POST' }
   );
+  apiCache.invalidate(`${BASE}/admin/database/tables`, token);
+  apiCache.invalidate(`${BASE}/admin/database/stats`, token);
+  return result;
 }
