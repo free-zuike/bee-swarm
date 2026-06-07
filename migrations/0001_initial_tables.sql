@@ -1,14 +1,40 @@
 -- ============================================
+-- 优化后的完整数据库 Schema (v2.0)
+-- 整合所有必要的列，删除冗余
+-- ============================================
+
+-- ============================================
 -- 用户表
 -- ============================================
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
-  password TEXT NOT NULL, -- PBKDF2 哈希值
-  token TEXT, -- 访问 Token
-  token_expires_at INTEGER, -- Token 过期时间 (ms)
-  apikey TEXT, -- API Key
-  apikey_expires_at INTEGER, -- API Key 过期时间 (ms)
+  password TEXT NOT NULL,
+  token TEXT,
+  token_expires_at INTEGER,
+  apikey TEXT,
+  apikey_expires_at INTEGER,
+  refresh_token TEXT,
+  refresh_token_expires_at INTEGER,
+  role TEXT DEFAULT 'user',
+  disabled INTEGER DEFAULT 0,
+  disabled_reason TEXT,
+  avatar_url TEXT,
+  use_avatar_as_popup INTEGER DEFAULT 0,
+  cache_settings TEXT DEFAULT '{}',
+  ai_settings TEXT DEFAULT '{}',
+  cache_ttl_backup INTEGER,
+  cache_ttl_channels INTEGER,
+  cache_ttl_templates INTEGER,
+  cache_ttl_groups INTEGER,
+  cache_ttl_scheduled INTEGER,
+  cache_ttl_stats INTEGER,
+  ai_enabled INTEGER DEFAULT 1,
+  ai_provider TEXT DEFAULT 'workers-ai',
+  ai_model TEXT DEFAULT 'workers-ai',
+  ai_api_key TEXT,
+  ai_api_url TEXT,
+  ai_model_name TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -16,6 +42,11 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_token ON users(token);
 CREATE INDEX IF NOT EXISTS idx_users_apikey ON users(apikey);
+CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_disabled ON users(disabled);
+CREATE INDEX IF NOT EXISTS idx_users_ai_enabled ON users(ai_enabled);
+CREATE INDEX IF NOT EXISTS idx_users_ai_provider ON users(ai_provider);
 
 -- ============================================
 -- 渠道配置表
@@ -24,7 +55,7 @@ CREATE TABLE IF NOT EXISTS channel_configs (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   channel_id TEXT NOT NULL,
-  config TEXT NOT NULL, -- JSON
+  config TEXT NOT NULL,
   enabled INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -46,7 +77,9 @@ CREATE TABLE IF NOT EXISTS push_templates (
   url TEXT,
   image_url TEXT,
   markdown TEXT,
-  channels TEXT, -- JSON 数组
+  channels TEXT,
+  category TEXT,
+  variables TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -67,8 +100,10 @@ CREATE TABLE IF NOT EXISTS scheduled_pushes (
   url TEXT,
   image_url TEXT,
   markdown TEXT,
-  channels TEXT, -- JSON 数组
+  channels TEXT,
   enabled INTEGER DEFAULT 1,
+  overdue_reminder_sent INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'pending',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -83,7 +118,7 @@ CREATE TABLE IF NOT EXISTS channel_groups (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
-  channels TEXT NOT NULL, -- JSON 数组
+  channels TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -107,6 +142,7 @@ CREATE TABLE IF NOT EXISTS push_history (
   success INTEGER NOT NULL,
   error TEXT,
   latency_ms INTEGER,
+  avg_latency_ms INTEGER,
   timestamp TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
@@ -122,7 +158,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   action TEXT NOT NULL,
-  data TEXT, -- JSON
+  data TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -139,8 +175,8 @@ CREATE TABLE IF NOT EXISTS metrics (
   total INTEGER DEFAULT 0,
   success INTEGER DEFAULT 0,
   failed INTEGER DEFAULT 0,
-  channel_stats TEXT, -- JSON
-  daily_stats TEXT, -- JSON
+  channel_stats TEXT,
+  daily_stats TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -184,9 +220,14 @@ CREATE INDEX IF NOT EXISTS idx_backup_runs_endpoint_id ON backup_runs(endpoint_i
 CREATE TABLE IF NOT EXISTS backup_endpoints (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
-  type TEXT NOT NULL, -- s3 或 webdav
-  config TEXT NOT NULL, -- JSON
+  type TEXT NOT NULL,
+  config TEXT NOT NULL,
   enabled INTEGER DEFAULT 0,
+  name TEXT DEFAULT '默认备份',
+  schedule TEXT DEFAULT '{"enabled":false,"interval":24,"startTime":"02:00"}',
+  retention INTEGER DEFAULT 30,
+  last_backup TEXT,
+  r2_domain TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
