@@ -1,4 +1,5 @@
 import type { Env } from '../types';
+import { SystemSettingsService } from './systemSettingsService';
 
 // ============================================
 // 用户数据结构定义
@@ -14,6 +15,7 @@ export interface UserDataExport {
     tableCounts?: { [key: string]: number };
   };
   userSettings?: UserSettingsExport;
+  systemSettings?: SystemSettingsExport;
   tables: {
     channelConfigs?: ChannelConfigExport[];
     pushTemplates?: PushTemplateExport[];
@@ -24,6 +26,18 @@ export interface UserDataExport {
     metrics?: MetricsExport;
     backupEndpoints?: BackupEndpointExport[];
   };
+}
+
+export interface SystemSettingsExport {
+  turnstileEnabled?: boolean;
+  turnstileSiteKey?: string;
+  turnstileSecretKey?: string;
+  cleanupEnabled?: boolean;
+  cleanupPushHistoryDays?: number;
+  cleanupAuditLogDays?: number;
+  cleanupBatchSize?: number;
+  cleanupAutoDeleteOrphanTables?: boolean;
+  corsAllowedOrigins?: string[];
 }
 
 export interface UserSettingsExport {
@@ -425,6 +439,27 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
     };
   }
 
+  // 导出系统设置（包括人机验证、清理配置等）
+  try {
+    const systemSettingsService = new SystemSettingsService(env);
+    await systemSettingsService.ensureTable();
+    const systemSettings = await systemSettingsService.getAllSettings();
+    
+    result.systemSettings = {
+      turnstileEnabled: systemSettings.turnstile_enabled,
+      turnstileSiteKey: systemSettings.turnstile_site_key,
+      turnstileSecretKey: systemSettings.turnstile_secret_key,
+      cleanupEnabled: systemSettings.cleanup_enabled,
+      cleanupPushHistoryDays: systemSettings.cleanup_push_history_days,
+      cleanupAuditLogDays: systemSettings.cleanup_audit_log_days,
+      cleanupBatchSize: systemSettings.cleanup_batch_size,
+      cleanupAutoDeleteOrphanTables: systemSettings.cleanup_auto_delete_orphan_tables,
+      corsAllowedOrigins: systemSettings.cors_allowed_origins,
+    };
+  } catch {
+    // 忽略系统设置导出错误，不影响其他数据备份
+  }
+
   // 导出备份端点配置（不包含敏感信息）
   const backupEndpoints = await env.DB.prepare(
     'SELECT id, name, type, enabled, schedule, retention, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
@@ -541,6 +576,31 @@ export async function importUserData(
       
       imported.userSettings = 1;
     }
+    }
+
+    // 导入系统设置（总是导入）
+    if (data.systemSettings) {
+      const settings = data.systemSettings;
+      try {
+        const systemSettingsService = new SystemSettingsService(env);
+        await systemSettingsService.ensureTable();
+        
+        await systemSettingsService.saveSettings({
+          turnstile_enabled: settings.turnstileEnabled,
+          turnstile_site_key: settings.turnstileSiteKey,
+          turnstile_secret_key: settings.turnstileSecretKey,
+          cleanup_enabled: settings.cleanupEnabled,
+          cleanup_push_history_days: settings.cleanupPushHistoryDays,
+          cleanup_audit_log_days: settings.cleanupAuditLogDays,
+          cleanup_batch_size: settings.cleanupBatchSize,
+          cleanup_auto_delete_orphan_tables: settings.cleanupAutoDeleteOrphanTables,
+          cors_allowed_origins: settings.corsAllowedOrigins,
+        });
+        
+        imported.systemSettings = 1;
+      } catch {
+        // 忽略系统设置导入错误，不影响其他数据恢复
+      }
     }
 
     // 如果是覆盖模式，先清空现有数据
