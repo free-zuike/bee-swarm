@@ -53,7 +53,7 @@ export class MigrationService {
         'CREATE TABLE IF NOT EXISTS users_backup_20260607_auto AS SELECT * FROM users'
       ).run();
 
-      // 2. 创建新表结构（不含冗余的缩写字段）
+      // 2. 创建新表结构（不含冗余的缩写字段，包含所有需要的列）
       await this.env.DB.prepare(
         `
         CREATE TABLE IF NOT EXISTS users_new (
@@ -77,66 +77,30 @@ export class MigrationService {
           cache_ttl_channels INTEGER,
           cache_ttl_templates INTEGER,
           cache_ttl_groups INTEGER,
+          cache_ttl_scheduled INTEGER,
           cache_ttl_stats INTEGER,
+          ai_enabled INTEGER DEFAULT 1,
+          ai_provider TEXT DEFAULT 'workers-ai',
+          ai_model TEXT DEFAULT 'workers-ai',
+          ai_api_key TEXT,
+          ai_api_url TEXT,
+          ai_model_name TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
         `
       ).run();
 
-      // 3. 复制数据
-      // 先检查哪些列存在，然后动态构建 SELECT 语句
+      // 3. 只复制核心列，避免引用不存在的列
       const coreColumns = [
         'id', 'email', 'password', 'token', 'token_expires_at', 'refresh_token', 
         'refresh_token_expires_at', 'apikey', 'apikey_expires_at', 'role', 'disabled', 
-        'disabled_reason', 'avatar_url', 'use_avatar_as_popup', 'cache_settings', 
-        'ai_settings', 'created_at', 'updated_at'
+        'disabled_reason', 'avatar_url', 'use_avatar_as_popup', 'created_at', 'updated_at'
       ];
 
-      // 构建 INSERT 语句
-      const insertColumns = coreColumns.concat([
-        'cache_ttl_backup', 'cache_ttl_channels', 'cache_ttl_templates', 
-        'cache_ttl_groups', 'cache_ttl_stats'
-      ]);
-
-      // 构建 SELECT 语句，使用 COALESCE 来获取合适的值
-      const selectParts = coreColumns.map(col => col);
-      
-      // 对于缓存 TTL 字段，尝试从缩写字段获取，否则从完整字段获取
-      selectParts.push(
-        `COALESCE(
-          ${columns.includes('cache_ttl_b') ? 'cache_ttl_b' : 'NULL'},
-          ${columns.includes('cache_ttl_backup') ? 'cache_ttl_backup' : 'NULL'}
-        ) AS cache_ttl_backup`
-      );
-      selectParts.push(
-        `COALESCE(
-          ${columns.includes('cache_ttl_c') ? 'cache_ttl_c' : 'NULL'},
-          ${columns.includes('cache_ttl_channels') ? 'cache_ttl_channels' : 'NULL'}
-        ) AS cache_ttl_channels`
-      );
-      selectParts.push(
-        `COALESCE(
-          ${columns.includes('cache_ttl_t') ? 'cache_ttl_t' : 'NULL'},
-          ${columns.includes('cache_ttl_templates') ? 'cache_ttl_templates' : 'NULL'}
-        ) AS cache_ttl_templates`
-      );
-      selectParts.push(
-        `COALESCE(
-          ${columns.includes('cache_ttl_g') ? 'cache_ttl_g' : 'NULL'},
-          ${columns.includes('cache_ttl_groups') ? 'cache_ttl_groups' : 'NULL'}
-        ) AS cache_ttl_groups`
-      );
-      selectParts.push(
-        `COALESCE(
-          ${columns.includes('cache_ttl_s') ? 'cache_ttl_s' : 'NULL'},
-          ${columns.includes('cache_ttl_stats') ? 'cache_ttl_stats' : 'NULL'}
-        ) AS cache_ttl_stats`
-      );
-
       const insertSql = `
-        INSERT INTO users_new (${insertColumns.join(', ')})
-        SELECT ${selectParts.join(', ')}
+        INSERT INTO users_new (${coreColumns.join(', ')})
+        SELECT ${coreColumns.join(', ')}
         FROM users
       `;
 
@@ -153,6 +117,8 @@ export class MigrationService {
       await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token)').run();
       await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)').run();
       await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_disabled ON users(disabled)').run();
+      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_ai_enabled ON users(ai_enabled)').run();
+      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_ai_provider ON users(ai_provider)').run();
 
       // 6. 清理备份表
       await this.env.DB.prepare('DROP TABLE IF EXISTS users_backup_20260607_auto').run();
