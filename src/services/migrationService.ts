@@ -18,6 +18,53 @@ export class MigrationService {
     }
 
     await this.migrationSplitAndRemoveSettings();
+    await this.migrationRemoveDuplicateCacheColumns();
+  }
+
+  private async migrationRemoveDuplicateCacheColumns(): Promise<void> {
+    try {
+      // 检查 users 表的列
+      const result = await this.env.DB.prepare('PRAGMA table_info(users)').all<{
+        cid: number;
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: string;
+        pk: number;
+      }>();
+
+      const columns = result.results.map((col) => col.name);
+      const hasAbbrevColumns = 
+        columns.includes('cache_ttl_b') || 
+        columns.includes('cache_ttl_c') || 
+        columns.includes('cache_ttl_t') || 
+        columns.includes('cache_ttl_g') || 
+        columns.includes('cache_ttl_s');
+
+      if (!hasAbbrevColumns) {
+        console.log('[Migration] No duplicate cache columns to remove');
+        return;
+      }
+
+      console.log('[Migration] Removing duplicate cache columns (abbreviations)');
+
+      // 删除冗余的缩写字段
+      const sqlStatements = [
+        'ALTER TABLE users DROP COLUMN IF EXISTS cache_ttl_b',
+        'ALTER TABLE users DROP COLUMN IF EXISTS cache_ttl_c',
+        'ALTER TABLE users DROP COLUMN IF EXISTS cache_ttl_t',
+        'ALTER TABLE users DROP COLUMN IF EXISTS cache_ttl_g',
+        'ALTER TABLE users DROP COLUMN IF EXISTS cache_ttl_s'
+      ];
+
+      for (const sql of sqlStatements) {
+        await this.env.DB.prepare(sql).run();
+      }
+
+      console.log('[Migration] Successfully removed duplicate cache columns');
+    } catch (error) {
+      console.error('[Migration] Failed to remove duplicate cache columns:', error);
+    }
   }
 
   private async migrationSplitAndRemoveSettings(): Promise<void> {
