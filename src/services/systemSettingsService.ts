@@ -8,6 +8,7 @@ export interface SystemSettings {
   cleanup_push_history_days?: number;
   cleanup_audit_log_days?: number;
   cleanup_batch_size?: number;
+  cleanup_auto_delete_orphan_tables?: boolean;
   cors_allowed_origins?: string[];
 }
 
@@ -118,6 +119,7 @@ export class SystemSettingsService {
     pushHistoryDays: number;
     auditLogDays: number;
     batchSize: number;
+    autoDeleteOrphanTables: boolean;
   }> {
     const settings = await this.getAllSettings();
 
@@ -127,6 +129,7 @@ export class SystemSettingsService {
       pushHistoryDays: settings.cleanup_push_history_days ?? 30,
       auditLogDays: settings.cleanup_audit_log_days ?? 90,
       batchSize: settings.cleanup_batch_size ?? 100,
+      autoDeleteOrphanTables: settings.cleanup_auto_delete_orphan_tables ?? false,
     };
   }
 

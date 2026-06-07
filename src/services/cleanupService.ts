@@ -10,12 +10,15 @@ export interface CleanupConfig {
   auditLogRetentionDays: number;
   /** 每次清理的最大记录数 */
   batchSize: number;
+  /** 是否自动删除孤立表 */
+  autoDeleteOrphanTables: boolean;
 }
 
 const DEFAULT_CONFIG: CleanupConfig = {
   pushHistoryRetentionDays: 30,
   auditLogRetentionDays: 90,
   batchSize: 100,
+  autoDeleteOrphanTables: false,
 };
 
 /** 清理过期数据 */
@@ -25,10 +28,12 @@ export async function cleanupExpiredData(
 ): Promise<{
   pushHistoryDeleted: number;
   auditLogsDeleted: number;
+  orphanTablesDeleted: string[];
 }> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   let pushHistoryDeleted = 0;
   let auditLogsDeleted = 0;
+  let orphanTablesDeleted: string[] = [];
 
   // 计算过期时间戳
   const pushHistoryCutoff = new Date(
@@ -95,7 +100,126 @@ export async function cleanupExpiredData(
     console.error('[Cleanup] Error cleaning audit_logs:', err);
   }
 
-  return { pushHistoryDeleted, auditLogsDeleted };
+  if (cfg.autoDeleteOrphanTables) {
+    orphanTablesDeleted = await cleanupOrphanTables(env);
+  }
+
+  return { pushHistoryDeleted, auditLogsDeleted, orphanTablesDeleted };
+}
+
+/**
+ * ============================================
+ * 安全白名单 - 请勿随意修改！
+ * ============================================
+ * 所有业务表必须添加到此列表，否则可能被自动清理服务误删。
+ * ============================================
+ */
+const SAFE_TABLES: string[] = [
+  'users', 'channel_configs', 'push_templates', 'scheduled_pushes',
+  'channel_groups', 'push_history', 'audit_logs', 'metrics',
+  'scheduled_locks', 'backup_runs', 'backup_endpoints',
+  'backup_records', 'system_settings', 'd1_migrations',
+  'sqlite_sequence', 'sqlite_stat1'
+];
+
+/**
+ * ============================================
+ * 删除模式 - 只删除符合这些模式的表
+ * ============================================
+ */
+const DELETE_PATTERNS: RegExp[] = [
+  /^.*backup_\d+.*$/i,
+  /^.*_backup_\d+.*$/i,
+  /^.*_new$/i,
+  /^password_reset_requests$/i
+];
+
+/**
+ * 检测数据库中是否有未登记的新表
+ */
+export async function detectNewTables(env: Env): Promise<string[]> {
+  const newTables: string[] = [];
+  
+  try {
+    const result = await env.DB!.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table'"
+    ).all<{ name: string }>();
+
+    for (const row of result.results || []) {
+      const tableName = row.name;
+      if (!isSafeTable(tableName) && !shouldDeleteTable(tableName)) {
+        newTables.push(tableName);
+        console.warn(`[Cleanup] WARNING: Unregistered table detected: ${tableName}`);
+        console.warn(`[Cleanup]          Please add it to SAFE_TABLES if it's a valid table`);
+      }
+    }
+
+    if (newTables.length > 0) {
+      console.warn(`[Cleanup] WARNING: Found ${newTables.length} unregistered tables`);
+    }
+  } catch (err) {
+    console.error('[Cleanup] Error detecting new tables:', err);
+  }
+
+  return newTables;
+}
+
+/**
+ * 判断表是否在安全白名单中
+ */
+export function isSafeTable(tableName: string): boolean {
+  return SAFE_TABLES.includes(tableName.toLowerCase());
+}
+
+/**
+ * 判断表是否应该被删除
+ */
+export function shouldDeleteTable(tableName: string): boolean {
+  for (const pattern of DELETE_PATTERNS) {
+    if (pattern.test(tableName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 清理孤立表
+ */
+async function cleanupOrphanTables(env: Env): Promise<string[]> {
+  const deletedTables: string[] = [];
+  
+  try {
+    await detectNewTables(env);
+
+    const result = await env.DB!.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table'"
+    ).all<{ name: string }>();
+
+    for (const row of result.results || []) {
+      const tableName = row.name;
+      
+      if (isSafeTable(tableName)) {
+        continue;
+      }
+
+      if (shouldDeleteTable(tableName)) {
+        await env.DB!.prepare(`DROP TABLE IF EXISTS \`${tableName}\``).run();
+        deletedTables.push(tableName);
+        console.log(`[Cleanup] Deleted orphan table: ${tableName}`);
+      }
+    }
+
+    if (deletedTables.length > 0) {
+      console.log(`[Cleanup] Total orphan tables deleted: ${deletedTables.length}`);
+    } else {
+      console.log('[Cleanup] No orphan tables found');
+    }
+  } catch (err) {
+    console.error('[Cleanup] Error cleaning orphan tables:', err);
+  }
+
+  return deletedTables;
 }
 
 /** 获取数据库使用统计 */

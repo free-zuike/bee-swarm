@@ -25,7 +25,7 @@ import {
 } from './services/d1DataService';
 import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
-import { cleanupExpiredData } from './services/cleanupService';
+import { cleanupExpiredData, detectNewTables } from './services/cleanupService';
 import { SystemSettingsService } from './services/systemSettingsService';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -162,6 +162,10 @@ export default {
       await migrationService.runMigrations().catch((err) => {
         console.error('[Migration] Failed to run migrations:', err);
       });
+      
+      await detectNewTables(env).catch((err) => {
+        console.error('[Cleanup] Failed to detect new tables:', err);
+      });
     }
     return app.fetch(request, env, ctx);
   },
@@ -217,6 +221,7 @@ export default {
           pushHistoryRetentionDays: cleanupConfig.pushHistoryDays,
           auditLogRetentionDays: cleanupConfig.auditLogDays,
           batchSize: cleanupConfig.batchSize,
+          autoDeleteOrphanTables: cleanupConfig.autoDeleteOrphanTables,
         });
         console.log('[Cron] Cleanup completed:', cleanupResult);
       } else {
