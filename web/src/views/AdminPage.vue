@@ -42,6 +42,9 @@ import {
   archiveDatabase,
   getArchives,
   restoreArchive,
+  getDatabaseTables,
+  deleteDatabaseTable,
+  cleanupOrphanTables,
   apiCache,
 } from '@/api';
 import type {
@@ -50,6 +53,7 @@ import type {
   SystemSettings,
   DatabaseStats,
   ArchiveInfo,
+  DatabaseTable,
 } from '@/api';
 import type {
   ChannelConfig,
@@ -176,10 +180,14 @@ const databaseStats = ref<DatabaseStats>({
   estimatedSize: '0 KB',
 });
 const archives = ref<ArchiveInfo[]>([]);
+const databaseTables = ref<DatabaseTable[]>([]);
 const isLoadingStats = ref(false);
 const isCleaningUp = ref(false);
 const isArchiving = ref(false);
 const isRestoring = ref(false);
+const isLoadingTables = ref(false);
+const isDeletingTable = ref(false);
+const isCleaningTables = ref(false);
 
 // ==================== 自定义 AI 提供商相关 ====================
 const showAddProviderModal = ref(false);
@@ -606,6 +614,67 @@ async function handleRestore(archiveKey: string) {
     showToast(getErrorMessage(err, '恢复失败'), 'error');
   } finally {
     isRestoring.value = false;
+  }
+}
+
+async function loadDatabaseTables() {
+  if (!isAdmin.value) return;
+  isLoadingTables.value = true;
+  try {
+    const result = await getDatabaseTables(accessToken.value);
+    if (result.success) {
+      databaseTables.value = result.tables;
+    }
+  } catch (err) {
+    console.error('加载数据库表失败:', err);
+  } finally {
+    isLoadingTables.value = false;
+  }
+}
+
+async function handleDeleteTable(tableName: string) {
+  if (isDeletingTable.value) return;
+  if (!confirm(`确定要删除表 "${tableName}" 吗？此操作不可撤销！')) {
+    return;
+  }
+
+  isDeletingTable.value = true;
+  try {
+    const result = await deleteDatabaseTable(accessToken.value, tableName);
+    if (result.success) {
+      showToast(`已删除表 "${tableName}"`, 'success');
+      await loadDatabaseTables();
+    } else {
+      showToast(result.error || '删除失败', 'error');
+    }
+  } catch (err) {
+    showToast(getErrorMessage(err, '删除失败'), 'error');
+  } finally {
+    isDeletingTable.value = false;
+  }
+}
+
+async function handleCleanupTables() {
+  if (isCleaningTables.value) return;
+  if (!confirm('确定要清理所有应该删除的表吗？')) {
+    return;
+  }
+
+  isCleaningTables.value = true;
+  try {
+    const result = await cleanupOrphanTables(accessToken.value);
+    if (result.success) {
+      if (result.deletedTables.length > 0) {
+        showToast(`已删除 ${result.deletedTables.length} 个表`, 'success');
+      } else {
+        showToast('没有需要删除的表', 'success');
+      }
+      await loadDatabaseTables();
+    }
+  } catch (err) {
+    showToast(getErrorMessage(err, '清理失败'), 'error');
+  } finally {
+    isCleaningTables.value = false;
   }
 }
 
@@ -2065,6 +2134,7 @@ function handleResend(record: PushHistoryRecord) {
                 if (item.id === 'database') {
                   loadDatabaseStats();
                   loadArchives();
+                  loadDatabaseTables();
                 }
               "
             >
@@ -2829,6 +2899,56 @@ function handleResend(record: PushHistoryRecord) {
                   </button>
                 </div>
               </div>
+            </div>
+
+            <!-- 数据库表管理 -->
+            <div class="settings-card">
+              <h4>📋 数据库表管理</h4>
+              <div class="setting-hint">
+                查看所有数据库表，清理不需要的表。安全表（核心业务表）不会被误删。
+              </div>
+              <div class="table-actions">
+                <button
+                  class="btn btn-secondary"
+                  @click="loadDatabaseTables"
+                  :disabled="isLoadingTables"
+                >
+                  {{ isLoadingTables ? '加载中...' : '🔄 刷新表列表' }}
+                </button>
+                <button
+                  class="btn btn-warning"
+                  @click="handleCleanupTables"
+                  :disabled="isCleaningTables || isLoadingTables"
+                >
+                  {{ isCleaningTables ? '清理中...' : '🧹 自动清理表' }}
+                </button>
+              </div>
+              <div class="table-list" v-if="!isLoadingTables">
+                <div
+                  v-for="table in databaseTables"
+                  :key="table.name"
+                  class="table-item"
+                  :class="{ 'table-safe': table.isSafe, 'table-deletable': table.shouldDelete }"
+                >
+                  <div class="table-info">
+                    <span class="table-name">{{ table.name }}</span>
+                    <span class="table-meta">
+                      <span v-if="table.rowCount !== undefined">{{ table.rowCount.toLocaleString() }} 行</span>
+                      <span v-if="table.isSafe" class="badge badge-safe">安全</span>
+                      <span v-if="table.shouldDelete" class="badge badge-deletable">可清理</span>
+                    </span>
+                  </div>
+                  <button
+                    v-if="!table.isSafe"
+                    class="btn btn-small btn-danger"
+                    @click="handleDeleteTable(table.name)"
+                    :disabled="isDeletingTable"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+              <div v-else class="loading">加载中...</div>
             </div>
           </div>
 
@@ -5690,5 +5810,101 @@ function handleResend(record: PushHistoryRecord) {
 .input-group .btn-sm {
   padding: 10px 16px;
   font-size: 14px;
+}
+
+/* ==================== 数据库表管理样式 ==================== */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.table-actions .btn-secondary {
+  margin-top: 0;
+  width: auto;
+}
+
+.table-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.table-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.table-item:hover {
+  border-color: var(--border-color, #d0d0d0);
+  background: var(--bg-tertiary, #e8e8e8);
+}
+
+.table-item.table-safe {
+  border-left: 3px solid #10b981;
+}
+
+.table-item.table-deletable {
+  border-left: 3px solid #f59e0b;
+}
+
+.dark .table-item {
+  background: var(--bg-secondary, #2a2a3a);
+  border-color: var(--border-color, #4c4c4c);
+}
+
+.dark .table-item:hover {
+  background: var(--bg-tertiary, #3a3a4a);
+  border-color: var(--border-color, #5c5c5c);
+}
+
+.table-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.table-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  word-break: break-all;
+}
+
+.dark .table-name {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.table-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.badge-safe {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.badge-deletable {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
 }
 </style>

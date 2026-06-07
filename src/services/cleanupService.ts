@@ -258,3 +258,95 @@ export async function getDatabaseStats(env: Env): Promise<{
     };
   }
 }
+
+/** 获取所有表的信息 */
+export async function getAllTables(env: Env): Promise<{
+  tables: Array<{
+    name: string;
+    isSafe: boolean;
+    shouldDelete: boolean;
+    rowCount?: number;
+  }>;
+}> {
+  const tables: Array<{
+    name: string;
+    isSafe: boolean;
+    shouldDelete: boolean;
+    rowCount?: number;
+  }> = [];
+
+  try {
+    const result = await env.DB!.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+    ).all<{ name: string }>();
+
+    for (const row of result.results || []) {
+      const tableName = row.name;
+      const isSafe = isSafeTable(tableName);
+      const shouldDel = shouldDeleteTable(tableName);
+      
+      // 尝试获取表的行数（仅对非系统表）
+      let rowCount: number | undefined;
+      if (!tableName.startsWith('sqlite_')) {
+        try {
+          const countResult = await env.DB!.prepare(
+            `SELECT COUNT(*) as count FROM \`${tableName}\``
+          ).first<{ count: number }>();
+          rowCount = countResult?.count;
+        } catch {
+          // 忽略错误
+        }
+      }
+
+      tables.push({
+        name: tableName,
+        isSafe,
+        shouldDelete: shouldDel,
+        rowCount,
+      });
+    }
+  } catch (err) {
+    console.error('[Cleanup] Error getting tables:', err);
+  }
+
+  return { tables };
+}
+
+/** 删除指定的表 */
+export async function deleteTable(env: Env, tableName: string): Promise<{ success: boolean; error?: string }> {
+  // 检查是否是安全表，防止误删
+  if (isSafeTable(tableName)) {
+    return { success: false, error: '不能删除安全表' };
+  }
+
+  try {
+    await env.DB!.prepare(`DROP TABLE IF EXISTS \`${tableName}\``).run();
+    console.log(`[Cleanup] Deleted table: ${tableName}`);
+    return { success: true };
+  } catch (err) {
+    console.error('[Cleanup] Error deleting table:', err);
+    return { success: false, error: '删除表失败' };
+  }
+}
+
+/** 清理所有应该删除的表 */
+export async function cleanupOrphanTablesForce(env: Env): Promise<{ deletedTables: string[] }> {
+  const deletedTables: string[] = [];
+  
+  try {
+    const { tables } = await getAllTables(env);
+    
+    for (const table of tables) {
+      if (table.shouldDelete) {
+        const result = await deleteTable(env, table.name);
+        if (result.success) {
+          deletedTables.push(table.name);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Cleanup] Error cleaning orphan tables:', err);
+  }
+
+  return { deletedTables };
+}

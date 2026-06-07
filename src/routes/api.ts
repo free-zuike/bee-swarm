@@ -28,7 +28,7 @@ import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
-import { cleanupExpiredData, getDatabaseStats } from '../services/cleanupService';
+import { cleanupExpiredData, getDatabaseStats, getAllTables, deleteTable, cleanupOrphanTablesForce } from '../services/cleanupService';
 import { archivePushHistory, listArchives, restoreArchivedData } from '../services/archiveService';
 import { AIService } from '../services/aiService';
 import { SystemSettingsService } from '../services/systemSettingsService';
@@ -562,6 +562,60 @@ adminApi.post('/database/archives/:key/restore', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('database_archive_restore', { archiveKey, restored: result.restored });
+  } catch {}
+
+  return c.json({ success: true, ...result });
+});
+
+// 获取所有数据库表
+adminApi.get('/database/tables', async (c) => {
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(c.get('username'));
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+
+  const result = await getAllTables(c.env);
+  return c.json({ success: true, ...result });
+});
+
+// 删除指定表
+adminApi.delete('/database/tables/:name', async (c) => {
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(c.get('username'));
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+
+  const tableName = decodeURIComponent(c.req.param('name'));
+  const result = await deleteTable(c.env, tableName);
+
+  // 记录审计日志
+  try {
+    const auditLogger = createAuditLogger(c.env, currentUser.email);
+    await auditLogger.log('table_deleted', { tableName, success: result.success });
+  } catch {}
+
+  return c.json({ success: result.success, error: result.error });
+});
+
+// 强制清理所有应该删除的表
+adminApi.post('/database/cleanup-tables', async (c) => {
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(c.get('username'));
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+
+  const result = await cleanupOrphanTablesForce(c.env);
+
+  // 记录审计日志
+  try {
+    const auditLogger = createAuditLogger(c.env, currentUser.email);
+    await auditLogger.log('tables_cleanup', result);
   } catch {}
 
   return c.json({ success: true, ...result });

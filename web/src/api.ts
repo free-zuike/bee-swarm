@@ -1452,3 +1452,37 @@ export async function restoreArchive(
     { method: 'POST' }
   );
 }
+
+export interface DatabaseTable {
+  name: string;
+  isSafe: boolean;
+  shouldDelete: boolean;
+  rowCount?: number;
+}
+
+export async function getDatabaseTables(
+  token: string
+): Promise<{ success: boolean; tables: DatabaseTable[] }> {
+  return tokenRequest(`${BASE}/admin/database/tables`, token);
+}
+
+export async function deleteDatabaseTable(
+  token: string,
+  tableName: string
+): Promise<{ success: boolean; error?: string }> {
+  return tokenRequest<{ success: boolean; error?: string }>(
+    `${BASE}/admin/database/tables/${encodeURIComponent(tableName)}`,
+    token,
+    { method: 'DELETE' }
+  );
+}
+
+export async function cleanupOrphanTables(
+  token: string
+): Promise<{ success: boolean; deletedTables: string[] }> {
+  return tokenRequest<{ success: boolean; deletedTables: string[] }>(
+    `${BASE}/admin/database/cleanup-tables`,
+    token,
+    { method: 'POST' }
+  );
+}

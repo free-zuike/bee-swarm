@@ -1,5 +1,5 @@
 <template>
-  <div class="template-manager">
+  <div class="template-manager" :class="{ dark: isDark }">
     <div class="panel">
       <div class="panel-header">
         <h2>📝 {{ t('templates.title') }}</h2>
@@ -322,6 +322,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { t } from '@/i18n';
+import { useThemeStore } from '@/stores/theme';
 import { useGlobalToast } from '@/composables/useToast';
 import {
   getTemplates,
@@ -338,6 +339,9 @@ const { showToast } = useGlobalToast();
 const emit = defineEmits<{
   'use-template': [template: PushTemplate];
 }>();
+
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 
 const props = defineProps<{
   accessToken: string;
@@ -1529,5 +1533,232 @@ onMounted(loadTemplates);
     font-size: 12px;
     padding: 4px 8px;
   }
+}
+
+/* 深色主题样式 */
+.template-manager.dark .panel {
+  background: #1e1e2e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.template-manager.dark .panel-header {
+  border-bottom-color: #313244;
+}
+
+.template-manager.dark .search-input,
+.template-manager.dark .category-select {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.template-manager.dark .search-input:focus,
+.template-manager.dark .category-select:focus {
+  border-color: #667eea;
+}
+
+.template-manager.dark .panel h2 {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .loading-state,
+.template-manager.dark .empty-state {
+  color: #a6adc8;
+}
+
+.template-manager.dark .template-card {
+  background: #181825;
+  border-color: #313244;
+}
+
+.template-manager.dark .template-card:hover {
+  border-color: #45475a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.template-manager.dark .template-name {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .tag-markdown {
+  background: #313244;
+  color: #a6adc8;
+}
+
+.template-manager.dark .tag-category {
+  background: #1e1e2e;
+  color: #89dceb;
+}
+
+.template-manager.dark .field-label {
+  color: #6c7086;
+}
+
+.template-manager.dark .field-value {
+  color: #bac2de;
+}
+
+.template-manager.dark .field-content {
+  color: #a6adc8;
+}
+
+.template-manager.dark .template-actions {
+  border-left-color: #313244;
+  background: #1e1e2e;
+}
+
+.template-manager.dark .modal {
+  background: #1e1e2e;
+}
+
+.template-manager.dark .modal-header {
+  border-bottom-color: #313244;
+}
+
+.template-manager.dark .modal-header h3 {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .btn-close {
+  color: #a6adc8;
+}
+
+.template-manager.dark .btn-close:hover {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .form-group label {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .form-group input,
+.template-manager.dark .form-group textarea {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.template-manager.dark .form-group input:focus,
+.template-manager.dark .form-group textarea:focus {
+  border-color: #667eea;
+}
+
+.template-manager.dark .channel-checkbox {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.template-manager.dark .channel-checkbox:hover {
+  border-color: #667eea;
+}
+
+.template-manager.dark .btn-secondary {
+  background: #313244;
+  color: #cdd6f4;
+  border-color: #45475a;
+}
+
+.template-manager.dark .btn-secondary:hover {
+  border-color: #667eea;
+}
+
+.template-manager.dark .btn-outline {
+  color: #cdd6f4;
+  border-color: #45475a;
+}
+
+.template-manager.dark .btn-outline:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.template-manager.dark .btn-icon:hover {
+  background: #313244;
+}
+
+.template-manager.dark .variable-hint {
+  color: #a6adc8;
+}
+
+.template-manager.dark .variable-hint code {
+  background: #313244;
+}
+
+.template-manager.dark .variables-section {
+  background: #181825;
+  border-color: #45475a;
+}
+
+.template-manager.dark .variables-header {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .variable-key {
+  background: #1e1e2e;
+}
+
+.template-manager.dark .variable-input {
+  border-color: #45475a;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.template-manager.dark .variables-empty {
+  color: #a6adc8;
+}
+
+.template-manager.dark .variables-empty code {
+  background: #1e1e2e;
+}
+
+.template-manager.dark .preview-section {
+  background: #181825;
+}
+
+.template-manager.dark .preview-section h4 {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .preview-item label {
+  color: #a6adc8;
+}
+
+.template-manager.dark .preview-value {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .preview-content {
+  background: #1e1e2e;
+  border-color: #45475a;
+}
+
+.template-manager.dark .preview-auto-vars {
+  background: #1e1e2e;
+  border-color: #45475a;
+}
+
+.template-manager.dark .preview-auto-vars h4 {
+  color: #cdd6f4;
+}
+
+.template-manager.dark .auto-var {
+  background: #181825;
+}
+
+.template-manager.dark .auto-var-value {
+  color: #a6adc8;
+}
+
+.template-manager.dark .preview-loading {
+  color: #a6adc8;
+}
+
+.template-manager.dark .selected-count {
+  color: #a6adc8;
+}
+
+.template-manager.dark .form-actions {
+  border-top-color: #313244;
 }
 </style>

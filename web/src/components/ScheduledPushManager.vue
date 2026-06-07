@@ -1,5 +1,5 @@
 <template>
-  <div class="scheduled-push-manager">
+  <div class="scheduled-push-manager" :class="{ dark: isDark }">
     <div class="panel">
       <div class="panel-header">
         <h2>{{ t('scheduled.title') }}</h2>
@@ -616,6 +616,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useTranslation } from '@/i18n';
+import { useThemeStore } from '@/stores/theme';
 import { useGlobalToast } from '@/composables/useToast';
 import {
   getScheduledPushes,
@@ -629,6 +630,8 @@ import {
 
 const t = useTranslation();
 const { showToast } = useGlobalToast();
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 
 interface ScheduledPush {
   id: string;
@@ -2425,6 +2428,260 @@ watch(
   .status-badge {
     padding: 3px 8px;
     font-size: 11px;
+  }
+}
+
+/* 深色主题样式 */
+.scheduled-push-manager.dark .panel {
+  background: #1e1e2e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.scheduled-push-manager.dark .panel-header {
+  border-bottom-color: #313244;
+}
+
+.scheduled-push-manager.dark .panel h2 {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .loading-state,
+.scheduled-push-manager.dark .empty-state {
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .filter-btn {
+  border-color: #45475a;
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .filter-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.scheduled-push-manager.dark .filter-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.scheduled-push-manager.dark .push-card {
+  background: #181825;
+  border-color: #313244;
+}
+
+.scheduled-push-manager.dark .push-card:hover {
+  border-color: #45475a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.scheduled-push-manager.dark .push-name {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .field-label {
+  color: #6c7086;
+}
+
+.scheduled-push-manager.dark .field-value {
+  color: #bac2de;
+}
+
+.scheduled-push-manager.dark .push-actions {
+  border-left-color: #313244;
+  background: #1e1e2e;
+}
+
+.scheduled-push-manager.dark .modal {
+  background: #1e1e2e;
+}
+
+.scheduled-push-manager.dark .modal-header {
+  border-bottom-color: #313244;
+}
+
+.scheduled-push-manager.dark .modal-header h3 {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .btn-close {
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .btn-close:hover {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .form-group label {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .form-group input,
+.scheduled-push-manager.dark .form-group textarea,
+.scheduled-push-manager.dark .form-group select {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .form-group input:focus,
+.scheduled-push-manager.dark .form-group textarea:focus,
+.scheduled-push-manager.dark .form-group select:focus {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .btn-quick {
+  background: #313244;
+  border-color: #45475a;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .btn-quick:hover {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .schedule-type-btn {
+  border-color: #45475a;
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .schedule-type-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  color: #667eea;
+}
+
+.scheduled-push-manager.dark .recurring-btn {
+  border-color: #45475a;
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .recurring-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  color: #667eea;
+}
+
+.scheduled-push-manager.dark .interval-label {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .interval-number {
+  border-color: #45475a;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .interval-number:focus {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .recurring-time-label {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .weekday-label {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .weekday-btn {
+  border-color: #45475a;
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .weekday-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.scheduled-push-manager.dark .month-btn {
+  border-color: #45475a;
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .month-btn:hover {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .month-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.scheduled-push-manager.dark .selector-hint {
+  color: #6c7086;
+}
+
+.scheduled-push-manager.dark .monthday-btn {
+  border-color: #45475a;
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .monthday-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.scheduled-push-manager.dark .channel-checkbox {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .channel-checkbox:hover {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .btn-secondary {
+  background: #313244;
+  color: #cdd6f4;
+  border-color: #45475a;
+}
+
+.scheduled-push-manager.dark .btn-secondary:hover {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .form-actions {
+  border-top-color: #313244;
+}
+
+.scheduled-push-manager.dark .cron-label {
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .cron-input-field {
+  border-color: #45475a;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .cron-input-field:focus {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .cron-help {
+  background: #181825;
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .cron-help code {
+  background: #1e1e2e;
+}
+
+@media (max-width: 768px) {
+  .scheduled-push-manager.dark .push-actions {
+    border-top-color: #313244;
   }
 }
 </style>

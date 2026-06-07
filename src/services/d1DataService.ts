@@ -33,6 +33,8 @@ export type AuditAction =
   | 'database_cleanup'
   | 'database_archive'
   | 'database_archive_restore'
+  | 'table_deleted'
+  | 'tables_cleanup'
   | 'user_created'
   | 'user_deleted'
   | 'user_role_updated'

@@ -1,5 +1,5 @@
 <template>
-  <div class="group-manager">
+  <div class="group-manager" :class="{ dark: isDark }">
     <div class="panel">
       <div class="panel-header">
         <h2>📁 {{ t('groups.title') }}</h2>
@@ -211,6 +211,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
+import { useThemeStore } from '@/stores/theme';
 import { useGlobalToast } from '@/composables/useToast';
 import type { PushResult } from '@/types';
 import {
@@ -230,6 +231,9 @@ const { showToast } = useGlobalToast();
 const emit = defineEmits<{
   'use-group': [channels: PushChannel[]];
 }>();
+
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 
 const props = defineProps<{
   accessToken: string;
@@ -1040,6 +1044,167 @@ onMounted(loadGroups);
   .group-top {
     flex-direction: column;
     gap: 8px;
+  }
+}
+
+/* 深色主题样式 */
+.group-manager.dark .panel {
+  background: #1e1e2e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.group-manager.dark .panel-header {
+  border-bottom-color: #313244;
+}
+
+.group-manager.dark .panel h2 {
+  color: #cdd6f4;
+}
+
+.group-manager.dark .filter-bar {
+  background: #181825;
+  border-color: #45475a;
+}
+
+.group-manager.dark .filter-group label {
+  color: #a6adc8;
+}
+
+.group-manager.dark .filter-input,
+.group-manager.dark .filter-select {
+  border-color: #45475a;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.group-manager.dark .filter-input:focus,
+.group-manager.dark .filter-select:focus {
+  border-color: #667eea;
+}
+
+.group-manager.dark .loading-state,
+.group-manager.dark .empty-state {
+  color: #a6adc8;
+}
+
+.group-manager.dark .group-card {
+  background: #181825;
+  border-color: #313244;
+}
+
+.group-manager.dark .group-card:hover {
+  border-color: #45475a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.group-manager.dark .group-name {
+  color: #cdd6f4;
+}
+
+.group-manager.dark .field-label {
+  color: #6c7086;
+}
+
+.group-manager.dark .field-value {
+  color: #bac2de;
+}
+
+.group-manager.dark .group-actions {
+  border-left-color: #313244;
+  background: #1e1e2e;
+}
+
+.group-manager.dark .modal {
+  background: #1e1e2e;
+}
+
+.group-manager.dark .modal-header {
+  border-bottom-color: #313244;
+}
+
+.group-manager.dark .modal-header h3 {
+  color: #cdd6f4;
+}
+
+.group-manager.dark .btn-close {
+  color: #a6adc8;
+}
+
+.group-manager.dark .btn-close:hover {
+  color: #cdd6f4;
+}
+
+.group-manager.dark .form-group label {
+  color: #cdd6f4;
+}
+
+.group-manager.dark .form-group input {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.group-manager.dark .form-group input:focus {
+  border-color: #667eea;
+}
+
+.group-manager.dark .channel-checkbox {
+  border-color: #45475a;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.group-manager.dark .channel-checkbox:hover:not(.channel-disabled) {
+  border-color: #667eea;
+}
+
+.group-manager.dark .btn-secondary {
+  background: #313244;
+  color: #cdd6f4;
+  border-color: #45475a;
+}
+
+.group-manager.dark .btn-secondary:hover {
+  border-color: #667eea;
+}
+
+.group-manager.dark .btn-icon:hover {
+  background: #313244;
+}
+
+.group-manager.dark .form-actions {
+  border-top-color: #313244;
+}
+
+.group-manager.dark .test-result.success {
+  background: #064e3b;
+  border-color: #047857;
+}
+
+.group-manager.dark .test-result:not(.success) {
+  background: #7f1d1d;
+  border-color: #dc2626;
+}
+
+.group-manager.dark .test-result.success .test-status {
+  color: #6ee7b7;
+}
+
+.group-manager.dark .test-result:not(.success) .test-status {
+  color: #fca5a5;
+}
+
+.group-manager.dark .test-channel-name {
+  color: #cdd6f4;
+}
+
+.group-manager.dark .test-message {
+  color: #a6adc8;
+}
+
+@media (max-width: 768px) {
+  .group-manager.dark .group-actions {
+    border-top-color: #313244;
   }
 }
 </style>
