@@ -2643,6 +2643,7 @@ function handleResend(record: PushHistoryRecord) {
                   type="text"
                   v-model="systemSettings.turnstile_site_key"
                   placeholder="输入 Turnstile Site Key"
+                  class="input-sm"
                 />
               </div>
               <div class="setting-item" v-if="systemSettings.turnstile_enabled">
@@ -2651,6 +2652,7 @@ function handleResend(record: PushHistoryRecord) {
                   type="password"
                   v-model="systemSettings.turnstile_secret_key"
                   placeholder="输入 Turnstile Secret Key"
+                  class="input-sm"
                 />
               </div>
               <div class="setting-hint" v-if="systemSettings.turnstile_enabled">
