@@ -634,7 +634,7 @@ async function loadDatabaseTables() {
 
 async function handleDeleteTable(tableName: string) {
   if (isDeletingTable.value) return;
-  if (!confirm(`确定要删除表 "${tableName}" 吗？此操作不可撤销！')) {
+  if (!confirm('确定要删除表 "' + tableName + '" 吗？此操作不可撤销！')) {
     return;
   }
 
@@ -642,7 +642,7 @@ async function handleDeleteTable(tableName: string) {
   try {
     const result = await deleteDatabaseTable(accessToken.value, tableName);
     if (result.success) {
-      showToast(`已删除表 "${tableName}"`, 'success');
+      showToast('已删除表 "' + tableName + '"', 'success');
       await loadDatabaseTables();
     } else {
       showToast(result.error || '删除失败', 'error');
