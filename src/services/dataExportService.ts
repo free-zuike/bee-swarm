@@ -13,6 +13,7 @@ export interface UserDataExport {
     dataSize?: number;
     tableCounts?: { [key: string]: number };
   };
+  userSettings?: UserSettingsExport;
   tables: {
     channelConfigs?: ChannelConfigExport[];
     pushTemplates?: PushTemplateExport[];
@@ -23,6 +24,25 @@ export interface UserDataExport {
     metrics?: MetricsExport;
     backupEndpoints?: BackupEndpointExport[];
   };
+}
+
+export interface UserSettingsExport {
+  avatarUrl?: string;
+  useAvatarAsPopup?: boolean;
+  cacheSettings?: any;
+  aiSettings?: any;
+  cacheTtlBackup?: number;
+  cacheTtlChannels?: number;
+  cacheTtlTemplates?: number;
+  cacheTtlGroups?: number;
+  cacheTtlScheduled?: number;
+  cacheTtlStats?: number;
+  aiEnabled?: boolean;
+  aiProvider?: string;
+  aiModel?: string;
+  aiApiKey?: string;
+  aiApiUrl?: string;
+  aiModelName?: string;
 }
 
 export interface ChannelConfigExport {
@@ -362,6 +382,49 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
     result.metadata.tableCounts!.metrics = 1;
   }
 
+  // 导出用户设置
+  const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?')
+    .bind(userId)
+    .first<{
+      avatar_url?: string;
+      use_avatar_as_popup?: number;
+      cache_settings?: string;
+      ai_settings?: string;
+      cache_ttl_backup?: number;
+      cache_ttl_channels?: number;
+      cache_ttl_templates?: number;
+      cache_ttl_groups?: number;
+      cache_ttl_scheduled?: number;
+      cache_ttl_stats?: number;
+      ai_enabled?: number;
+      ai_provider?: string;
+      ai_model?: string;
+      ai_api_key?: string;
+      ai_api_url?: string;
+      ai_model_name?: string;
+    }>();
+
+  if (user) {
+    result.userSettings = {
+      avatarUrl: user.avatar_url,
+      useAvatarAsPopup: user.use_avatar_as_popup === 1,
+      cacheSettings: user.cache_settings ? JSON.parse(user.cache_settings) : undefined,
+      aiSettings: user.ai_settings ? JSON.parse(user.ai_settings) : undefined,
+      cacheTtlBackup: user.cache_ttl_backup,
+      cacheTtlChannels: user.cache_ttl_channels,
+      cacheTtlTemplates: user.cache_ttl_templates,
+      cacheTtlGroups: user.cache_ttl_groups,
+      cacheTtlScheduled: user.cache_ttl_scheduled,
+      cacheTtlStats: user.cache_ttl_stats,
+      aiEnabled: user.ai_enabled === 1,
+      aiProvider: user.ai_provider,
+      aiModel: user.ai_model,
+      aiApiKey: user.ai_api_key,
+      aiApiUrl: user.ai_api_url,
+      aiModelName: user.ai_model_name,
+    };
+  }
+
   // 导出备份端点配置（不包含敏感信息）
   const backupEndpoints = await env.DB.prepare(
     'SELECT id, name, type, enabled, schedule, retention, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
@@ -421,6 +484,64 @@ export async function importUserData(
   try {
     // 在事务中执行导入
     const tables = data.tables;
+
+    // 导入用户设置（总是导入）
+    if (data.userSettings) {
+      const settings = data.userSettings;
+      // 先获取用户ID
+      const existingUser = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+        .bind(userId)
+        .first<{ id: string }>();
+      
+      if (existingUser) {
+        await env.DB.prepare(
+          `
+          UPDATE users 
+          SET avatar_url = ?, 
+              use_avatar_as_popup = ?,
+              cache_settings = ?,
+              ai_settings = ?,
+              cache_ttl_backup = ?,
+              cache_ttl_channels = ?,
+              cache_ttl_templates = ?,
+              cache_ttl_groups = ?,
+              cache_ttl_scheduled = ?,
+              cache_ttl_stats = ?,
+              ai_enabled = ?,
+              ai_provider = ?,
+              ai_model = ?,
+              ai_api_key = ?,
+              ai_api_url = ?,
+              ai_model_name = ?,
+              updated_at = ?
+          WHERE email = ?
+        `
+      )
+        .bind(
+          settings.avatarUrl || null,
+          settings.useAvatarAsPopup ? 1 : 0,
+          settings.cacheSettings ? JSON.stringify(settings.cacheSettings) : null,
+          settings.aiSettings ? JSON.stringify(settings.aiSettings) : null,
+          settings.cacheTtlBackup || null,
+          settings.cacheTtlChannels || null,
+          settings.cacheTtlTemplates || null,
+          settings.cacheTtlGroups || null,
+          settings.cacheTtlScheduled || null,
+          settings.cacheTtlStats || null,
+          settings.aiEnabled ? 1 : 0,
+          settings.aiProvider || null,
+          settings.aiModel || null,
+          settings.aiApiKey || null,
+          settings.aiApiUrl || null,
+          settings.aiModelName || null,
+          new Date().toISOString(),
+          userId
+        )
+        .run();
+      
+      imported.userSettings = 1;
+    }
+    }
 
     // 如果是覆盖模式，先清空现有数据
     if (mergeMode === 'overwrite') {
