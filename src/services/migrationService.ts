@@ -53,7 +53,7 @@ export class MigrationService {
         'CREATE TABLE IF NOT EXISTS users_backup_20260607_auto AS SELECT * FROM users'
       ).run();
 
-      // 2. 创建新表结构（不含冗余的缩写字段，包含所有需要的列）
+      // 2. 创建新表结构（只包含最初定义的核心列）
       await this.env.DB.prepare(
         `
         CREATE TABLE IF NOT EXISTS users_new (
@@ -62,40 +62,18 @@ export class MigrationService {
           password TEXT NOT NULL,
           token TEXT,
           token_expires_at INTEGER,
-          refresh_token TEXT,
-          refresh_token_expires_at INTEGER,
           apikey TEXT,
           apikey_expires_at INTEGER,
-          role TEXT DEFAULT 'user',
-          disabled INTEGER DEFAULT 0,
-          disabled_reason TEXT,
-          avatar_url TEXT,
-          use_avatar_as_popup INTEGER DEFAULT 0,
-          cache_settings TEXT DEFAULT '{}',
-          ai_settings TEXT DEFAULT '{}',
-          cache_ttl_backup INTEGER,
-          cache_ttl_channels INTEGER,
-          cache_ttl_templates INTEGER,
-          cache_ttl_groups INTEGER,
-          cache_ttl_scheduled INTEGER,
-          cache_ttl_stats INTEGER,
-          ai_enabled INTEGER DEFAULT 1,
-          ai_provider TEXT DEFAULT 'workers-ai',
-          ai_model TEXT DEFAULT 'workers-ai',
-          ai_api_key TEXT,
-          ai_api_url TEXT,
-          ai_model_name TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
         `
       ).run();
 
-      // 3. 只复制核心列，避免引用不存在的列
+      // 3. 只复制绝对存在的核心列
       const coreColumns = [
-        'id', 'email', 'password', 'token', 'token_expires_at', 'refresh_token', 
-        'refresh_token_expires_at', 'apikey', 'apikey_expires_at', 'role', 'disabled', 
-        'disabled_reason', 'avatar_url', 'use_avatar_as_popup', 'created_at', 'updated_at'
+        'id', 'email', 'password', 'token', 'token_expires_at', 
+        'apikey', 'apikey_expires_at', 'created_at', 'updated_at'
       ];
 
       const insertSql = `
@@ -110,15 +88,10 @@ export class MigrationService {
       await this.env.DB.prepare('DROP TABLE users').run();
       await this.env.DB.prepare('ALTER TABLE users_new RENAME TO users').run();
 
-      // 5. 重建索引
+      // 5. 重建核心索引
       await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)').run();
       await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_token ON users(token)').run();
       await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_apikey ON users(apikey)').run();
-      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token)').run();
-      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)').run();
-      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_disabled ON users(disabled)').run();
-      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_ai_enabled ON users(ai_enabled)').run();
-      await this.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_ai_provider ON users(ai_provider)').run();
 
       // 6. 清理备份表
       await this.env.DB.prepare('DROP TABLE IF EXISTS users_backup_20260607_auto').run();
