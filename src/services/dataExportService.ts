@@ -409,7 +409,6 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
       cache_ttl_templates?: number;
       cache_ttl_groups?: number;
       cache_ttl_scheduled?: number;
-      cache_ttl_stats?: number;
       ai_enabled?: number;
       ai_provider?: string;
       ai_model?: string;
@@ -429,7 +428,6 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
       cacheTtlTemplates: user.cache_ttl_templates,
       cacheTtlGroups: user.cache_ttl_groups,
       cacheTtlScheduled: user.cache_ttl_scheduled,
-      cacheTtlStats: user.cache_ttl_stats,
       aiEnabled: user.ai_enabled === 1,
       aiProvider: user.ai_provider,
       aiModel: user.ai_model,
@@ -541,7 +539,6 @@ export async function importUserData(
               cache_ttl_templates = ?,
               cache_ttl_groups = ?,
               cache_ttl_scheduled = ?,
-              cache_ttl_stats = ?,
               ai_enabled = ?,
               ai_provider = ?,
               ai_model = ?,

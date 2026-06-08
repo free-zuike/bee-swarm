@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS users (
   cache_ttl_templates INTEGER,
   cache_ttl_groups INTEGER,
   cache_ttl_scheduled INTEGER,
-  cache_ttl_stats INTEGER,
   ai_enabled INTEGER DEFAULT 1,
   ai_provider TEXT DEFAULT 'workers-ai',
   ai_model TEXT DEFAULT 'workers-ai',

@@ -8,7 +8,6 @@ ALTER TABLE users ADD COLUMN cache_ttl_channels INTEGER;
 ALTER TABLE users ADD COLUMN cache_ttl_templates INTEGER;
 ALTER TABLE users ADD COLUMN cache_ttl_groups INTEGER;
 ALTER TABLE users ADD COLUMN cache_ttl_scheduled INTEGER;
-ALTER TABLE users ADD COLUMN cache_ttl_stats INTEGER;
 
 -- 为 users 表添加 AI 设置独立字段
 ALTER TABLE users ADD COLUMN ai_enabled INTEGER DEFAULT 1;
