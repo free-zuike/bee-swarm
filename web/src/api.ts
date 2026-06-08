@@ -1042,11 +1042,15 @@ export async function saveUserSettings(
   token: string,
   settings: UserSettings
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
-  const result = await tokenRequest(`${BASE}/admin/me/settings`, token, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string; settings: UserSettings }>(
+    `${BASE}/admin/me/settings`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/me/settings`, token);
   return result;
 }
@@ -1062,11 +1066,15 @@ export async function saveCacheSettings(
     cache_ttl_scheduled?: number;
   }
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
-  const result = await tokenRequest(`${BASE}/admin/me/settings/cache`, token, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string; settings: UserSettings }>(
+    `${BASE}/admin/me/settings/cache`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/me/settings`, token);
   return result;
 }
@@ -1100,11 +1108,15 @@ export async function saveAISettings(
     ai_tools?: AITool[];
   }
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
-  const result = await tokenRequest(`${BASE}/admin/me/settings/ai`, token, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string; settings: UserSettings }>(
+    `${BASE}/admin/me/settings/ai`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    }
+  );
   apiCache.invalidate(`${BASE}/admin/me/settings`, token);
   return result;
 }

@@ -69,6 +69,7 @@ export interface ScheduledPush {
   channels: PushChannel[];
   url?: string;
   scheduledAt: string;
+  nextRun?: string;
   scheduleType?: 'once' | 'recurring';
   recurringType?:
     | 'hourly'
@@ -93,6 +94,7 @@ export interface ScheduledPush {
   results?: ChannelResult[];
   overdueReminderSent?: boolean;
   overdueAt?: string;
+  enabled?: boolean;
 }
 
 type PushParams = {
@@ -188,7 +190,9 @@ export class PushService {
       channels: JSON.parse(result.channels || '[]'),
       url: result.url,
       scheduledAt: new Date(result.next_run).toISOString(),
+      nextRun: new Date(result.next_run).toISOString(),
       scheduleType: result.enabled ? 'recurring' : 'once',
+      enabled: result.enabled === 1,
       createdBy: result.user_id,
       createdAt: result.created_at,
       status: result.status,
@@ -515,6 +519,7 @@ export class PushService {
       channels: JSON.parse(row.channels || '[]'),
       url: row.url,
       scheduledAt: new Date(row.next_run).toISOString(),
+      nextRun: new Date(row.next_run).toISOString(),
       scheduleType: row.enabled ? 'recurring' : 'once',
       enabled: row.enabled === 1,
       createdBy: row.user_id,

@@ -348,6 +348,8 @@ export interface ScheduledPush {
   url?: string;
   /** 计划推送时间 */
   scheduledAt: string;
+  /** 下次执行时间（存储在数据库中） */
+  nextRun?: string;
   /** 调度类型：一次性或重复 */
   scheduleType?: 'once' | 'recurring';
   /** 重复类型 */
@@ -374,15 +376,21 @@ export interface ScheduledPush {
   /** Cron 表达式（仅 cron 类型） */
   cronExpression?: string;
   /** 任务状态 */
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'overdue';
   /** 创建者 */
   createdBy: string;
   /** 创建时间 */
-  createdAt: string;
+  createdAt?: string;
   /** 完成时间 */
   completedAt?: string;
   /** 推送结果 */
   results?: ChannelResult[];
+  /** 是否启用 */
+  enabled?: boolean;
+  /** 超时提醒是否已发送 */
+  overdueReminderSent?: boolean;
+  /** 超时时间 */
+  overdueAt?: string;
 }
 
 // ==================== 统计相关类型 ====================
