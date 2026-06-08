@@ -485,6 +485,7 @@ export interface UserSettings {
   cache_ttl_templates?: number;
   cache_ttl_groups?: number;
   cache_ttl_scheduled?: number;
+  cache_ttl_stats?: number;
   ai_model?: string;
   ai_enabled?: boolean;
   ai_provider?: 'workers-ai' | 'openai' | 'azure-openai' | 'anthropic' | 'custom';

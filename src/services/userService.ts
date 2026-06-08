@@ -216,7 +216,7 @@ export class UserService {
       const result = await this.env.DB.prepare(
         `SELECT 
           cache_ttl_backup, cache_ttl_channels, cache_ttl_templates, 
-          cache_ttl_groups, cache_ttl_scheduled, cache_settings 
+          cache_ttl_groups, cache_ttl_scheduled, cache_ttl_stats, cache_settings 
         FROM users WHERE id = ?`
       )
         .bind(userId)
@@ -234,6 +234,7 @@ export class UserService {
         cache_ttl_templates: result.cache_ttl_templates ?? defaultSettings.cache_ttl_templates,
         cache_ttl_groups: result.cache_ttl_groups ?? defaultSettings.cache_ttl_groups,
         cache_ttl_scheduled: result.cache_ttl_scheduled ?? defaultSettings.cache_ttl_scheduled,
+        cache_ttl_stats: result.cache_ttl_stats ?? defaultSettings.cache_ttl_stats,
       };
 
       // 如果独立列没有值但 JSON 字段有值，迁移数据
@@ -378,6 +379,7 @@ export class UserService {
       cache_ttl_templates: 5 * 60 * 1000,
       cache_ttl_groups: 5 * 60 * 1000,
       cache_ttl_scheduled: 5 * 60 * 1000,
+      cache_ttl_stats: 5 * 60 * 1000,
     };
   }
 
@@ -472,7 +474,7 @@ export class UserService {
       await this.env.DB.prepare(
         `UPDATE users SET 
           cache_ttl_backup = ?, cache_ttl_channels = ?, cache_ttl_templates = ?, 
-          cache_ttl_groups = ?, cache_ttl_scheduled = ?, 
+          cache_ttl_groups = ?, cache_ttl_scheduled = ?, cache_ttl_stats = ?,
           cache_settings = ?, updated_at = ? 
         WHERE id = ?`
       )
@@ -482,6 +484,7 @@ export class UserService {
           settings.cache_ttl_templates ?? this.getDefaultCacheSettings().cache_ttl_templates,
           settings.cache_ttl_groups ?? this.getDefaultCacheSettings().cache_ttl_groups,
           settings.cache_ttl_scheduled ?? this.getDefaultCacheSettings().cache_ttl_scheduled,
+          settings.cache_ttl_stats ?? this.getDefaultCacheSettings().cache_ttl_stats,
           settingsJson,
           now,
           userId
