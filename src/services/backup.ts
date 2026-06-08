@@ -427,9 +427,20 @@ export async function uploadBackupToEndpoint(
           return dateB - dateA;
         });
         
-        // 保留最新的 (retention - 1) 个，给新备份腾位置
-        const toDelete = existingFiles.slice(retention - 1);
-        console.log(`[Backup] Will delete ${toDelete.length} old backups to make room for new one`);
+        console.log(`[Backup] After sorting (newest first):`);
+        existingFiles.forEach((file, index) => {
+          console.log(`  [${index}] ${file.key} - ${file.lastModified}`);
+        });
+        
+        // 计算应该删除多少个旧备份
+        const backupsToKeep = retention - 1; // 保留 retention - 1 个旧的，加上新备份共 retention 个
+        const toDelete = existingFiles.slice(backupsToKeep);
+        
+        console.log(`[Backup] Will keep ${backupsToKeep} oldest backups (index 0 to ${backupsToKeep - 1}), delete ${toDelete.length} backups (index ${backupsToKeep} onwards)`);
+        console.log(`[Backup] Backups to delete:`);
+        toDelete.forEach((file, index) => {
+          console.log(`  [${index + backupsToKeep}] ${file.key} - ${file.lastModified}`);
+        });
         
         for (const file of toDelete) {
           const deleteUrl = config.pathStyle
