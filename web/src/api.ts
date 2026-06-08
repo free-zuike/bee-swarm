@@ -249,7 +249,6 @@ export async function getChannelsWithToken(
 }> {
   const url = `${BASE}/admin/channels`;
   return withCache(url, () => tokenRequest(url, token), token, {
-    ttl: 10 * 60 * 1000,
     forceRefresh,
   });
 }
@@ -363,7 +362,7 @@ export async function getApiKeyWithToken(
 // 获取所有备份端
 export async function getBackupEndpoints(token: string): Promise<{ endpoints: BackupEndpoint[] }> {
   const url = `${BASE}/admin/backup-endpoints`;
-  return withCache(url, () => tokenRequest(url, token), token, { ttl: 5 * 60 * 1000 });
+  return withCache(url, () => tokenRequest(url, token), token);
 }
 
 // 添加备份端
@@ -431,8 +430,8 @@ export async function listBackupsFromEndpoint(
 ): Promise<{ backups: Array<{ key: string; size: number; lastModified: string }> }> {
   const url = `${BASE}/admin/backup-endpoints/${id}/backups`;
   return withCache(url, () => tokenRequest(url, token), token, {
-    ttl: 30 * 1000, // 30秒缓存
     forceRefresh,
+    // 不指定 ttl，让 withCache 使用 apiCache.getUrlTtl(url) 获取自定义 TTL
   });
 }
 
@@ -538,7 +537,7 @@ export async function backupSingleEndpoint(
 // 获取所有模板
 export async function getTemplates(token: string): Promise<{ templates: PushTemplate[] }> {
   const url = `${BASE}/admin/templates`;
-  return withCache(url, () => tokenRequest(url, token), token, { ttl: 5 * 60 * 1000 });
+  return withCache(url, () => tokenRequest(url, token), token);
 }
 
 // 创建模板
@@ -592,7 +591,7 @@ export async function deleteTemplate(
 // 获取所有分组
 export async function getChannelGroups(token: string): Promise<{ groups: ChannelGroup[] }> {
   const url = `${BASE}/admin/groups`;
-  return withCache(url, () => tokenRequest(url, token), token, { ttl: 5 * 60 * 1000 });
+  return withCache(url, () => tokenRequest(url, token), token);
 }
 
 // 创建分组
@@ -650,7 +649,7 @@ export async function getScheduledPushes(
 ): Promise<{ scheduled: ScheduledPush[] }> {
   const url = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
   const cacheKey = status ? `${BASE}/admin/scheduled?status=${status}` : `${BASE}/admin/scheduled`;
-  return withCache(cacheKey, () => tokenRequest(url, token), token, { ttl: 30 * 1000 });
+  return withCache(cacheKey, () => tokenRequest(url, token), token);
 }
 
 // 更新定时推送
@@ -875,8 +874,7 @@ export async function getOverdueTasks(token: string): Promise<{ overdue: Schedul
   return withCache(
     `${BASE}/admin/scheduled/overdue`,
     () => tokenRequest(`${BASE}/admin/scheduled/overdue`, token),
-    token,
-    { ttl: 30 * 1000 }
+    token
   );
 }
 
@@ -1037,8 +1035,7 @@ export async function getUserSettings(
   return withCache(
     `${BASE}/admin/me/settings`,
     () => tokenRequest(`${BASE}/admin/me/settings`, token),
-    token,
-    { ttl: 5 * 60 * 1000 }
+    token
   );
 }
 
