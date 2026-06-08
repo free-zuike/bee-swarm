@@ -330,7 +330,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.channel_selection': '点击选择/取消。不选择则不推送。',
     'hint.async_push': '使用队列异步处理推送，适合大量渠道或网络较慢时使用',
     'hint.monthly_days': '选择每月执行的日期，可多选（如选择 1 和 15 表示每月 1 号和 15 号执行）',
-    'hint.yearly_dates': '选择每年执行的日期（如选择 1月1日和 4月5日表示每年1月1日和4月5日执行）',
+    'hint.yearly_dates': '选择每年执行的日期（如选择 1 月 1 日和 4 月 5 日表示每年这两个日期执行）',
     'placeholder.title': '通知标题',
     'placeholder.content': '通知内容...',
     'button.refresh_channels': '刷新渠道',
@@ -1057,7 +1057,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.monthly_days':
       'Select days of month to execute, multiple selection allowed (e.g., select 1 and 15 for 1st and 15th of each month)',
     'hint.yearly_dates':
-      'Select dates for yearly execution (e.g., select Jan 1st and Apr 5th for January 1st and April 5th every year)',
+      'Select dates for yearly execution (e.g., select Jan 1st and Apr 5th for these two dates every year)',
     'placeholder.title': 'Notification Title',
     'placeholder.content': 'Notification Content...',
     'button.refresh_channels': 'Refresh Channels',

@@ -83,8 +83,8 @@ export interface ScheduledPush {
     | 'intervalYear';
   selectedWeekDays?: number[];
   selectedMonthDays?: number[];
-  selectedMonths?: number[];
-  selectedYearDays?: number[];
+  // 每年任务的日期组合数组，每个元素包含月份和日期
+  yearlyDates?: Array<{ month: number; day: number }>;
   intervalHours?: number;
   intervalMonths?: number;
   intervalYears?: number;
@@ -194,20 +194,12 @@ export class PushService {
       scheduledAt: new Date(result.next_run).toISOString(),
       nextRun: new Date(result.next_run).toISOString(),
       scheduleType: result.enabled ? 'recurring' : 'once',
-      recurringType: result.recurring_type,
-      selectedWeekDays: result.selected_week_days ? JSON.parse(result.selected_week_days) : undefined,
-      selectedMonthDays: result.selected_month_days ? JSON.parse(result.selected_month_days) : undefined,
-      selectedMonths: result.selected_months ? JSON.parse(result.selected_months) : undefined,
-      selectedYearDays: result.selected_year_days ? JSON.parse(result.selected_year_days) : undefined,
-      intervalHours: result.interval_hours,
-      intervalMonths: result.interval_months,
-      intervalYears: result.interval_years,
-      cronExpression: result.cron,
       enabled: result.enabled === 1,
       createdBy: result.user_id,
       createdAt: result.created_at,
       status: result.status,
       overdueReminderSent: result.overdue_reminder_sent === 1,
+      yearlyDates: result.yearly_dates ? JSON.parse(result.yearly_dates) : undefined,
     };
   }
 
@@ -532,20 +524,12 @@ export class PushService {
       scheduledAt: new Date(row.next_run).toISOString(),
       nextRun: new Date(row.next_run).toISOString(),
       scheduleType: row.enabled ? 'recurring' : 'once',
-      recurringType: row.recurring_type,
-      selectedWeekDays: row.selected_week_days ? JSON.parse(row.selected_week_days) : undefined,
-      selectedMonthDays: row.selected_month_days ? JSON.parse(row.selected_month_days) : undefined,
-      selectedMonths: row.selected_months ? JSON.parse(row.selected_months) : undefined,
-      selectedYearDays: row.selected_year_days ? JSON.parse(row.selected_year_days) : undefined,
-      intervalHours: row.interval_hours,
-      intervalMonths: row.interval_months,
-      intervalYears: row.interval_years,
-      cronExpression: row.cron,
       enabled: row.enabled === 1,
       createdBy: row.user_id,
       createdAt: row.created_at,
       status: row.status,
       overdueReminderSent: row.overdue_reminder_sent === 1,
+      yearlyDates: row.yearly_dates ? JSON.parse(row.yearly_dates) : undefined,
     }));
   }
 
@@ -561,12 +545,9 @@ export class PushService {
     await this.env.DB.prepare(
       `
       INSERT INTO scheduled_pushes (
-        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, 
-        recurring_type, selected_week_days, selected_month_days, selected_months, selected_year_days,
-        interval_hours, interval_months, interval_years,
-        created_at, updated_at
+        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, yearly_dates, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     )
       .bind(
@@ -580,14 +561,7 @@ export class PushService {
         push.url || null,
         JSON.stringify(push.channels),
         push.scheduleType === 'recurring' ? 1 : 0,
-        push.recurringType || null,
-        push.selectedWeekDays ? JSON.stringify(push.selectedWeekDays) : null,
-        push.selectedMonthDays ? JSON.stringify(push.selectedMonthDays) : null,
-        push.selectedMonths ? JSON.stringify(push.selectedMonths) : null,
-        push.selectedYearDays ? JSON.stringify(push.selectedYearDays) : null,
-        push.intervalHours || null,
-        push.intervalMonths || null,
-        push.intervalYears || null,
+        push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
         now,
         now
       )
@@ -633,42 +607,6 @@ export class PushService {
     if (updates.scheduledAt !== undefined) {
       fields.push('next_run = ?');
       values.push(new Date(updates.scheduledAt).getTime());
-    }
-    if (updates.recurringType !== undefined) {
-      fields.push('recurring_type = ?');
-      values.push(updates.recurringType);
-    }
-    if (updates.selectedWeekDays !== undefined) {
-      fields.push('selected_week_days = ?');
-      values.push(updates.selectedWeekDays ? JSON.stringify(updates.selectedWeekDays) : null);
-    }
-    if (updates.selectedMonthDays !== undefined) {
-      fields.push('selected_month_days = ?');
-      values.push(updates.selectedMonthDays ? JSON.stringify(updates.selectedMonthDays) : null);
-    }
-    if (updates.selectedMonths !== undefined) {
-      fields.push('selected_months = ?');
-      values.push(updates.selectedMonths ? JSON.stringify(updates.selectedMonths) : null);
-    }
-    if (updates.selectedYearDays !== undefined) {
-      fields.push('selected_year_days = ?');
-      values.push(updates.selectedYearDays ? JSON.stringify(updates.selectedYearDays) : null);
-    }
-    if (updates.intervalHours !== undefined) {
-      fields.push('interval_hours = ?');
-      values.push(updates.intervalHours);
-    }
-    if (updates.intervalMonths !== undefined) {
-      fields.push('interval_months = ?');
-      values.push(updates.intervalMonths);
-    }
-    if (updates.intervalYears !== undefined) {
-      fields.push('interval_years = ?');
-      values.push(updates.intervalYears);
-    }
-    if (updates.cronExpression !== undefined) {
-      fields.push('cron = ?');
-      values.push(updates.cronExpression);
     }
 
     values.push(id, this.userId);

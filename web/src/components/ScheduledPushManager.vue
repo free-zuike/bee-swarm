@@ -281,23 +281,23 @@
               </div>
 
               <div v-if="recurringType === 'yearly'" class="yearly-selector">
-                <label class="weekday-label"
-                  >{{ t('scheduled.label.selectYearlyDates') }} <span class="required">*</span></label
-                >
                 <div class="yearly-dates-list">
-                  <div
-                    v-for="(date, index) in yearlyDates"
-                    :key="index"
-                    class="yearly-date-item"
+                  <label class="weekday-label"
+                    >{{ t('scheduled.label.selectYearlyDates') }} <span class="required">*</span></label
                   >
-                    <select v-model="yearlyDates[index].month" class="month-select">
+                  <div v-for="(date, index) in yearlyDates" :key="index" class="yearly-date-row">
+                    <select
+                      v-model="date.month"
+                      class="month-select"
+                      @change="handleMonthChange(index)"
+                    >
                       <option v-for="month in months" :key="month.value" :value="month.value">
                         {{ t(month.label) }}
                       </option>
                     </select>
                     <span class="date-separator">/</span>
-                    <select v-model="yearlyDates[index].day" class="day-select">
-                      <option v-for="day in monthDays" :key="day" :value="day">
+                    <select v-model="date.day" class="day-select">
+                      <option v-for="day in getDaysInMonth(date.month)" :key="day" :value="day">
                         {{ day }}
                       </option>
                     </select>
@@ -310,10 +310,10 @@
                       ×
                     </button>
                   </div>
+                  <button type="button" class="add-date-btn" @click="addYearlyDate">
+                    + {{ t('scheduled.label.addDate') }}
+                  </button>
                 </div>
-                <button type="button" class="add-date-btn" @click="addYearlyDate">
-                  + {{ t('scheduled.label.addDate') }}
-                </button>
                 <p class="selector-hint">{{ t('hint.yearly_dates') }}</p>
               </div>
 
@@ -701,7 +701,6 @@ const selectedMonthDays = ref<number[]>([1, 15]);
 const selectedMonths = ref<number[]>([1]);
 const selectedYearDays = ref<number[]>([1]);
 const cronExpression = ref('0 9 * * *');
-const yearlyDates = ref<Array<{ month: number; day: number }>>([{ month: 1, day: 1 }]);
 
 const weekDays = [
   { value: 1, label: 'label.monday' },
@@ -729,6 +728,49 @@ const months = [
 ];
 
 const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
+
+// 每年任务的日期组合数组（用于"选择1月1日和4月5日"这样的场景）
+const yearlyDates = ref<Array<{ month: number; day: number }>>([{ month: 1, day: 1 }]);
+
+// 添加一个新的日期组合
+const addYearlyDate = () => {
+  yearlyDates.value.push({ month: 1, day: 1 });
+};
+
+// 移除指定索引的日期组合
+const removeYearlyDate = (index: number) => {
+  if (yearlyDates.value.length > 1) {
+    yearlyDates.value.splice(index, 1);
+  }
+};
+
+// 获取指定月份的天数（考虑平年和闰年）
+const getDaysInMonth = (month: number, year?: number): number[] => {
+  // 使用实际日期计算每月天数
+  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  
+  // 如果指定了年份，检查是否为闰年
+  if (year !== undefined) {
+    const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    if (isLeapYear) {
+      daysInMonth[1] = 29; // 闰年二月29天
+    }
+  } else {
+    // 默认假设闰年（二月设为29天），这样即使选择2月29日在非闰年也能正常工作
+    daysInMonth[1] = 29;
+  }
+  
+  return Array.from({ length: daysInMonth[month - 1] }, (_, i) => i + 1);
+};
+
+// 当月份改变时，确保日期不超过该月的最大天数
+const handleMonthChange = (index: number) => {
+  const date = yearlyDates.value[index];
+  const maxDay = getDaysInMonth(date.month).length;
+  if (date.day > maxDay) {
+    yearlyDates.value[index].day = maxDay;
+  }
+};
 
 const statusFilters = [
   { value: 'all', label: 'scheduled.filter.all' },
@@ -843,14 +885,6 @@ function toggleYearDay(day: number): void {
   }
 }
 
-function addYearlyDate(): void {
-  yearlyDates.value.push({ month: 1, day: 1 });
-}
-
-function removeYearlyDate(index: number): void {
-  yearlyDates.value.splice(index, 1);
-}
-
 function resetForm(): void {
   newPush.value = {
     name: '',
@@ -865,9 +899,8 @@ function resetForm(): void {
   recurringType.value = 'daily';
   selectedWeekDays.value = [1, 2, 3, 4, 5];
   selectedMonthDays.value = [1, 15];
-  selectedMonths.value = [1];
-  selectedYearDays.value = [1];
   cronExpression.value = '0 9 * * *';
+  // 重置每年任务的日期组合
   yearlyDates.value = [{ month: 1, day: 1 }];
 }
 
@@ -913,13 +946,6 @@ function openRenewModal(push: ScheduledPush): void {
   if (push.cronExpression) {
     cronExpression.value = push.cronExpression;
   }
-  // 恢复 yearlyDates
-  if (push.selectedMonths && push.selectedYearDays) {
-    yearlyDates.value = push.selectedMonths.map((month, index) => ({
-      month,
-      day: push.selectedYearDays[index] || 1,
-    }));
-  }
   showModal.value = true;
 }
 
@@ -959,13 +985,6 @@ function openEditModal(push: ScheduledPush): void {
   }
   if (push.cronExpression) {
     cronExpression.value = push.cronExpression;
-  }
-  // 恢复 yearlyDates
-  if (push.selectedMonths && push.selectedYearDays) {
-    yearlyDates.value = push.selectedMonths.map((month, index) => ({
-      month,
-      day: push.selectedYearDays[index] || 1,
-    }));
   }
   // 解析 scheduledAt
   const scheduledDate = new Date(push.scheduledAt);
@@ -1140,8 +1159,8 @@ async function createScheduledPushHandler(): Promise<void> {
       recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
-      selectedMonths: recurringType.value === 'yearly' ? yearlyDates.value.map(d => d.month) : undefined,
-      selectedYearDays: recurringType.value === 'yearly' ? yearlyDates.value.map(d => d.day) : undefined,
+      // 每年任务：使用 yearlyDates 数组（每个元素包含 month 和 day）
+      yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
     });
 
@@ -2071,6 +2090,112 @@ watch(
   color: white;
 }
 
+.yearly-selector {
+  margin-top: 12px;
+}
+
+.yearly-dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.yearly-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-select,
+.day-select {
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.month-select:focus,
+.day-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.date-separator {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+}
+
+.remove-date-btn {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ff4d4f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+
+.remove-date-btn:hover {
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+  color: white;
+}
+
+.add-date-btn {
+  padding: 8px 16px;
+  border: 2px dashed var(--border-color, #e0e0e0);
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.add-date-btn:hover {
+  border-color: #667eea;
+  background: #667eea10;
+}
+
+/* 深色主题适配 */
+.scheduled-push-manager.dark .month-select,
+.scheduled-push-manager.dark .day-select {
+  border-color: var(--border-color, #404040);
+  background: var(--bg-panel, #1f1f1f);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.scheduled-push-manager.dark .remove-date-btn {
+  border-color: var(--border-color, #404040);
+  background: var(--bg-panel, #1f1f1f);
+}
+
+.scheduled-push-manager.dark .add-date-btn {
+  border-color: var(--border-color, #404040);
+  color: #667eea;
+}
+
+.scheduled-push-manager.dark .add-date-btn:hover {
+  border-color: #667eea;
+  background: #667eea20;
+}
+
 .channels-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2700,112 +2825,6 @@ watch(
 
 .scheduled-push-manager.dark .cron-help code {
   background: #1e1e2e;
-}
-
-/* 每年日期选择器样式 */
-.yearly-dates-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.yearly-date-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.month-select,
-.day-select {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  background: var(--bg-panel, white);
-  color: var(--text-primary, #333);
-  font-size: 14px;
-  min-width: 120px;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.month-select:hover,
-.day-select:hover,
-.month-select:focus,
-.day-select:focus {
-  border-color: #667eea;
-}
-
-.date-separator {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-secondary, #999);
-}
-
-.remove-date-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: #ff4757;
-  color: white;
-  font-size: 20px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.remove-date-btn:hover {
-  background: #ff1e2e;
-  transform: scale(1.05);
-}
-
-.add-date-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: 1px dashed #667eea;
-  background: transparent;
-  color: #667eea;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.add-date-btn:hover {
-  background: #667eea20;
-}
-
-/* 深色主题样式 */
-.scheduled-push-manager.dark .month-select,
-.scheduled-push-manager.dark .day-select {
-  border-color: #45475a;
-  background: #1e1e2e;
-  color: #cdd6f4;
-}
-
-.scheduled-push-manager.dark .month-select:hover,
-.scheduled-push-manager.dark .day-select:hover,
-.scheduled-push-manager.dark .month-select:focus,
-.scheduled-push-manager.dark .day-select:focus {
-  border-color: #667eea;
-}
-
-.scheduled-push-manager.dark .date-separator {
-  color: #a6adc8;
-}
-
-.scheduled-push-manager.dark .add-date-btn {
-  border-color: #667eea;
-  color: #667eea;
-}
-
-.scheduled-push-manager.dark .add-date-btn:hover {
-  background: #667eea20;
 }
 
 @media (max-width: 768px) {

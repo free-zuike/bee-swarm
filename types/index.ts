@@ -367,10 +367,6 @@ export interface ScheduledPush {
   selectedWeekDays?: number[];
   /** 每月选择的日期（1-31） */
   selectedMonthDays?: number[];
-  /** 每年选择的月份（1-12） */
-  selectedMonths?: number[];
-  /** 每年选择的日期（1-31） */
-  selectedYearDays?: number[];
   /** 间隔小时数（仅 interval 类型） */
   intervalHours?: number;
   /** 间隔月数（仅 intervalMonth 类型） */
