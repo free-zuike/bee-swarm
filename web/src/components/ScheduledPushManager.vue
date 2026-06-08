@@ -730,6 +730,21 @@ const months = [
 
 const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
 
+// 获取指定月份的天数
+const getDaysInMonth = (month: number): number[] => {
+  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return Array.from({ length: daysInMonth[month - 1] }, (_, i) => i + 1);
+};
+
+// 当月份改变时，确保日期不超过该月的最大天数
+const handleMonthChange = (index: number) => {
+  const date = yearlyDates[index];
+  const maxDay = getDaysInMonth(date.month).length;
+  if (date.day > maxDay) {
+    date.day = maxDay;
+  }
+};
+
 const statusFilters = [
   { value: 'all', label: 'scheduled.filter.all' },
   { value: 'pending', label: 'scheduled.filter.pending' },
