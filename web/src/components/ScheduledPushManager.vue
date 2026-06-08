@@ -281,41 +281,40 @@
               </div>
 
               <div v-if="recurringType === 'yearly'" class="yearly-selector">
-                <div class="yearly-month">
+                <div class="yearly-dates-list">
                   <label class="weekday-label"
-                    >{{ t('scheduled.label.selectMonth') }} <span class="required">*</span></label
+                    >{{ t('scheduled.label.selectYearlyDates') }} <span class="required">*</span></label
                   >
-                  <div class="month-options">
-                    <button
-                      type="button"
-                      v-for="month in months"
-                      :key="month.value"
-                      class="month-btn"
-                      :class="{ active: selectedMonths.includes(month.value) }"
-                      @click="toggleMonth(month.value)"
+                  <div v-for="(date, index) in yearlyDates" :key="index" class="yearly-date-row">
+                    <select
+                      v-model="date.month"
+                      class="month-select"
+                      @change="handleMonthChange(index)"
                     >
-                      {{ t(month.label) }}
+                      <option v-for="month in months" :key="month.value" :value="month.value">
+                        {{ t(month.label) }}
+                      </option>
+                    </select>
+                    <span class="date-separator">/</span>
+                    <select v-model="date.day" class="day-select">
+                      <option v-for="day in getDaysInMonth(date.month)" :key="day" :value="day">
+                        {{ day }}
+                      </option>
+                    </select>
+                    <button
+                      v-if="yearlyDates.length > 1"
+                      type="button"
+                      class="remove-date-btn"
+                      @click="removeYearlyDate(index)"
+                    >
+                      ×
                     </button>
                   </div>
+                  <button type="button" class="add-date-btn" @click="addYearlyDate">
+                    + {{ t('scheduled.label.addDate') }}
+                  </button>
                 </div>
-                <div class="yearly-date">
-                  <label class="weekday-label"
-                    >{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label
-                  >
-                  <div class="monthday-options">
-                    <button
-                      type="button"
-                      v-for="day in monthDays"
-                      :key="day"
-                      class="monthday-btn"
-                      :class="{ active: selectedYearDays.includes(day) }"
-                      @click="toggleYearDay(day)"
-                    >
-                      {{ day }}
-                    </button>
-                  </div>
-                </div>
-                <p class="selector-hint">{{ t('hint.yearly_date') }}</p>
+                <p class="selector-hint">{{ t('hint.yearly_dates') }}</p>
               </div>
 
               <div v-if="recurringType === 'cron'" class="cron-input">
@@ -730,18 +729,46 @@ const months = [
 
 const monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
 
-// 获取指定月份的天数
-const getDaysInMonth = (month: number): number[] => {
-  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+// 每年任务的日期组合数组（用于"选择1月1日和4月5日"这样的场景）
+const yearlyDates = ref<Array<{ month: number; day: number }>>([{ month: 1, day: 1 }]);
+
+// 添加一个新的日期组合
+const addYearlyDate = () => {
+  yearlyDates.value.push({ month: 1, day: 1 });
+};
+
+// 移除指定索引的日期组合
+const removeYearlyDate = (index: number) => {
+  if (yearlyDates.value.length > 1) {
+    yearlyDates.value.splice(index, 1);
+  }
+};
+
+// 获取指定月份的天数（考虑平年和闰年）
+const getDaysInMonth = (month: number, year?: number): number[] => {
+  // 使用实际日期计算每月天数
+  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  
+  // 如果指定了年份，检查是否为闰年
+  if (year !== undefined) {
+    const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    if (isLeapYear) {
+      daysInMonth[1] = 29; // 闰年二月29天
+    }
+  } else {
+    // 默认假设闰年（二月设为29天），这样即使选择2月29日在非闰年也能正常工作
+    daysInMonth[1] = 29;
+  }
+  
   return Array.from({ length: daysInMonth[month - 1] }, (_, i) => i + 1);
 };
 
 // 当月份改变时，确保日期不超过该月的最大天数
 const handleMonthChange = (index: number) => {
-  const date = yearlyDates[index];
+  const date = yearlyDates.value[index];
   const maxDay = getDaysInMonth(date.month).length;
   if (date.day > maxDay) {
-    date.day = maxDay;
+    yearlyDates.value[index].day = maxDay;
   }
 };
 
@@ -872,9 +899,9 @@ function resetForm(): void {
   recurringType.value = 'daily';
   selectedWeekDays.value = [1, 2, 3, 4, 5];
   selectedMonthDays.value = [1, 15];
-  selectedMonths.value = [1];
-  selectedYearDays.value = [1];
   cronExpression.value = '0 9 * * *';
+  // 重置每年任务的日期组合
+  yearlyDates.value = [{ month: 1, day: 1 }];
 }
 
 function openCreateModal(): void {
@@ -1132,8 +1159,8 @@ async function createScheduledPushHandler(): Promise<void> {
       recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
-      selectedMonths: recurringType.value === 'yearly' ? selectedMonths.value : undefined,
-      selectedYearDays: recurringType.value === 'yearly' ? selectedYearDays.value : undefined,
+      // 每年任务：使用 yearlyDates 数组（每个元素包含 month 和 day）
+      yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
     });
 
@@ -2061,6 +2088,112 @@ watch(
   border-color: #667eea;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+}
+
+.yearly-selector {
+  margin-top: 12px;
+}
+
+.yearly-dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.yearly-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-select,
+.day-select {
+  padding: 8px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.month-select:focus,
+.day-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.date-separator {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+}
+
+.remove-date-btn {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ff4d4f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+
+.remove-date-btn:hover {
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+  color: white;
+}
+
+.add-date-btn {
+  padding: 8px 16px;
+  border: 2px dashed var(--border-color, #e0e0e0);
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.add-date-btn:hover {
+  border-color: #667eea;
+  background: #667eea10;
+}
+
+/* 深色主题适配 */
+.scheduled-push-manager.dark .month-select,
+.scheduled-push-manager.dark .day-select {
+  border-color: var(--border-color, #404040);
+  background: var(--bg-panel, #1f1f1f);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.scheduled-push-manager.dark .remove-date-btn {
+  border-color: var(--border-color, #404040);
+  background: var(--bg-panel, #1f1f1f);
+}
+
+.scheduled-push-manager.dark .add-date-btn {
+  border-color: var(--border-color, #404040);
+  color: #667eea;
+}
+
+.scheduled-push-manager.dark .add-date-btn:hover {
+  border-color: #667eea;
+  background: #667eea20;
 }
 
 .channels-grid {
