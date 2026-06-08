@@ -281,41 +281,40 @@
               </div>
 
               <div v-if="recurringType === 'yearly'" class="yearly-selector">
-                <div class="yearly-month">
-                  <label class="weekday-label"
-                    >{{ t('scheduled.label.selectMonth') }} <span class="required">*</span></label
+                <label class="weekday-label"
+                  >{{ t('scheduled.label.selectYearlyDates') }} <span class="required">*</span></label
+                >
+                <div class="yearly-dates-list">
+                  <div
+                    v-for="(date, index) in yearlyDates.value"
+                    :key="index"
+                    class="yearly-date-item"
                   >
-                  <div class="month-options">
+                    <select v-model="yearlyDates.value[index].month" class="month-select">
+                      <option v-for="month in months" :key="month.value" :value="month.value">
+                        {{ t(month.label) }}
+                      </option>
+                    </select>
+                    <span class="date-separator">/</span>
+                    <select v-model="yearlyDates.value[index].day" class="day-select">
+                      <option v-for="day in monthDays" :key="day" :value="day">
+                        {{ day }}
+                      </option>
+                    </select>
                     <button
+                      v-if="yearlyDates.value.length > 1"
                       type="button"
-                      v-for="month in months"
-                      :key="month.value"
-                      class="month-btn"
-                      :class="{ active: selectedMonths.includes(month.value) }"
-                      @click="toggleMonth(month.value)"
+                      class="remove-date-btn"
+                      @click="removeYearlyDate(index)"
                     >
-                      {{ t(month.label) }}
+                      ×
                     </button>
                   </div>
                 </div>
-                <div class="yearly-date">
-                  <label class="weekday-label"
-                    >{{ t('scheduled.label.selectDate') }} <span class="required">*</span></label
-                  >
-                  <div class="monthday-options">
-                    <button
-                      type="button"
-                      v-for="day in monthDays"
-                      :key="day"
-                      class="monthday-btn"
-                      :class="{ active: selectedYearDays.includes(day) }"
-                      @click="toggleYearDay(day)"
-                    >
-                      {{ day }}
-                    </button>
-                  </div>
-                </div>
-                <p class="selector-hint">{{ t('hint.yearly_date') }}</p>
+                <button type="button" class="add-date-btn" @click="addYearlyDate">
+                  + {{ t('scheduled.label.addDate') }}
+                </button>
+                <p class="selector-hint">{{ t('hint.yearly_dates') }}</p>
               </div>
 
               <div v-if="recurringType === 'cron'" class="cron-input">
@@ -702,6 +701,7 @@ const selectedMonthDays = ref<number[]>([1, 15]);
 const selectedMonths = ref<number[]>([1]);
 const selectedYearDays = ref<number[]>([1]);
 const cronExpression = ref('0 9 * * *');
+const yearlyDates = ref<Array<{ month: number; day: number }>>([{ month: 1, day: 1 }]);
 
 const weekDays = [
   { value: 1, label: 'label.monday' },
@@ -843,6 +843,14 @@ function toggleYearDay(day: number): void {
   }
 }
 
+function addYearlyDate(): void {
+  yearlyDates.value.push({ month: 1, day: 1 });
+}
+
+function removeYearlyDate(index: number): void {
+  yearlyDates.value.splice(index, 1);
+}
+
 function resetForm(): void {
   newPush.value = {
     name: '',
@@ -860,6 +868,7 @@ function resetForm(): void {
   selectedMonths.value = [1];
   selectedYearDays.value = [1];
   cronExpression.value = '0 9 * * *';
+  yearlyDates.value = [{ month: 1, day: 1 }];
 }
 
 function openCreateModal(): void {
@@ -904,6 +913,13 @@ function openRenewModal(push: ScheduledPush): void {
   if (push.cronExpression) {
     cronExpression.value = push.cronExpression;
   }
+  // 恢复 yearlyDates
+  if (push.selectedMonths && push.selectedYearDays) {
+    yearlyDates.value = push.selectedMonths.map((month, index) => ({
+      month,
+      day: push.selectedYearDays[index] || 1,
+    }));
+  }
   showModal.value = true;
 }
 
@@ -943,6 +959,13 @@ function openEditModal(push: ScheduledPush): void {
   }
   if (push.cronExpression) {
     cronExpression.value = push.cronExpression;
+  }
+  // 恢复 yearlyDates
+  if (push.selectedMonths && push.selectedYearDays) {
+    yearlyDates.value = push.selectedMonths.map((month, index) => ({
+      month,
+      day: push.selectedYearDays[index] || 1,
+    }));
   }
   // 解析 scheduledAt
   const scheduledDate = new Date(push.scheduledAt);
@@ -1117,8 +1140,8 @@ async function createScheduledPushHandler(): Promise<void> {
       recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
-      selectedMonths: recurringType.value === 'yearly' ? selectedMonths.value : undefined,
-      selectedYearDays: recurringType.value === 'yearly' ? selectedYearDays.value : undefined,
+      selectedMonths: recurringType.value === 'yearly' ? yearlyDates.value.map(d => d.month) : undefined,
+      selectedYearDays: recurringType.value === 'yearly' ? yearlyDates.value.map(d => d.day) : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
     });
 

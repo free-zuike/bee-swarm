@@ -123,6 +123,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'scheduled.label.selectWeekday': '选择星期',
     'scheduled.label.selectDate': '选择日期',
     'scheduled.label.selectMonth': '选择月份',
+    'scheduled.label.selectYearlyDates': '选择每年执行的日期',
+    'scheduled.label.addDate': '添加日期',
     'month.january': '一月',
     'month.february': '二月',
     'month.march': '三月',
@@ -328,7 +330,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.channel_selection': '点击选择/取消。不选择则不推送。',
     'hint.async_push': '使用队列异步处理推送，适合大量渠道或网络较慢时使用',
     'hint.monthly_days': '选择每月执行的日期，可多选（如选择 1 和 15 表示每月 1 号和 15 号执行）',
-    'hint.yearly_date': '选择每年执行的月份和日期（如选择一月和 1 号表示每年 1 月 1 日执行）',
+    'hint.yearly_dates': '选择每年执行的日期（如选择 1月1日和 4月5日表示每年1月1日和4月5日执行）',
     'placeholder.title': '通知标题',
     'placeholder.content': '通知内容...',
     'button.refresh_channels': '刷新渠道',
@@ -848,6 +850,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'scheduled.label.selectWeekday': 'Select Weekdays',
     'scheduled.label.selectDate': 'Select Dates',
     'scheduled.label.selectMonth': 'Select Months',
+    'scheduled.label.selectYearlyDates': 'Select Yearly Dates',
+    'scheduled.label.addDate': 'Add Date',
     'month.january': 'January',
     'month.february': 'February',
     'month.march': 'March',
@@ -1052,8 +1056,8 @@ const messages: Record<Locale, LocaleMessages> = {
       'Use queue for async push processing, suitable for large number of channels or slow networks',
     'hint.monthly_days':
       'Select days of month to execute, multiple selection allowed (e.g., select 1 and 15 for 1st and 15th of each month)',
-    'hint.yearly_date':
-      'Select month and day for yearly execution (e.g., select January and 1 for January 1st every year)',
+    'hint.yearly_dates':
+      'Select dates for yearly execution (e.g., select Jan 1st and Apr 5th for January 1st and April 5th every year)',
     'placeholder.title': 'Notification Title',
     'placeholder.content': 'Notification Content...',
     'button.refresh_channels': 'Refresh Channels',
