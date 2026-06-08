@@ -402,8 +402,11 @@ export async function uploadBackupToEndpoint(
         };
       }
 
-      // 清理旧备份
-      await cleanupOldBackupsS3(config, root, username, endpoint.retention || 30);
+      // 先等待一小段时间，确保 S3 同步完成
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 清理旧备份，传入新上传的文件名以确保它不会被删除
+      await cleanupOldBackupsS3(config, root, username, endpoint.retention || 30, key);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path || 'beeswarm';
@@ -515,7 +518,8 @@ async function cleanupOldBackupsS3(
   config: S3Config,
   root: string,
   username: string,
-  retention: number
+  retention: number,
+  newBackupKey?: string
 ): Promise<void> {
   try {
     const prefix = `${root}/backups/${username}/`;
@@ -555,19 +559,54 @@ async function cleanupOldBackupsS3(
       }
     }
 
-    // 按时间排序，删除旧的
-    files.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
-    
     console.log(
-      `[Backup] S3 cleanup: ${files.length} backups found, keeping ${retention}, deleting ${Math.max(0, files.length - retention)}`
+      `[Backup] S3 cleanup: ${files.length} backups found before processing`
     );
     
+    // 确保新备份存在于列表中（如果提供了）
+    if (newBackupKey) {
+      const newBackupExists = files.some(f => f.key === newBackupKey);
+      if (!newBackupExists) {
+        console.log(
+          `[Backup] S3 cleanup: New backup ${newBackupKey} not in list yet, adding manually with current time`
+        );
+        files.push({
+          key: newBackupKey,
+          lastModified: new Date().toISOString(),
+        });
+      }
+    }
+
+    // 按时间排序（最新的在前）
+    files.sort((a, b) => {
+      const dateA = new Date(a.lastModified).getTime();
+      const dateB = new Date(b.lastModified).getTime();
+      return dateB - dateA;
+    });
+    
+    // 确保新备份被放在第一个位置（如果提供了）
+    if (newBackupKey) {
+      const newBackupIndex = files.findIndex(f => f.key === newBackupKey);
+      if (newBackupIndex > 0) {
+        const [newBackup] = files.splice(newBackupIndex, 1);
+        files.unshift(newBackup);
+        console.log(
+          `[Backup] S3 cleanup: Moved new backup ${newBackupKey} to first position`
+        );
+      }
+    }
+    
+    console.log(
+      `[Backup] S3 cleanup: After sorting - keeping ${retention} newest backups, deleting ${Math.max(0, files.length - retention)}`
+    );
+    
+    // 只保留最新的 `retention` 个备份
     for (let i = retention; i < files.length; i++) {
       const deleteUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${files[i].key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${files[i].key}`;
       
-      console.log(`[Backup] Deleting old S3 backup: ${deleteUrl}`);
+      console.log(`[Backup] Deleting old S3 backup: ${files[i].key} (${files[i].lastModified})`);
       const response = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
       
       if (!response.ok) {
