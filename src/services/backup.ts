@@ -533,16 +533,24 @@ async function cleanupOldBackupsS3(
     const response = await awsClient.fetch(listUrl, { method: 'GET' });
     const xml = await response.text();
 
-    // 简单的 XML 解析
-    const keyMatches = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)];
-    const lastModifiedMatches = [...xml.matchAll(/<LastModified>([^<]+)<\/LastModified>/g)];
+    if (!response.ok) {
+      console.error('[Backup] S3 list backups failed:', response.status, xml.substring(0, 500));
+      return;
+    }
 
+    // 解析每个 <Contents> 块，确保 Key 和 LastModified 正确配对
+    const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
     const files: { key: string; lastModified: string }[] = [];
-    for (let i = 0; i < keyMatches.length; i++) {
-      if (keyMatches[i]?.[1] && lastModifiedMatches[i]?.[1]) {
+    
+    for (const match of contentsMatches) {
+      const content = match[1];
+      const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
+      const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+      
+      if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
         files.push({
-          key: keyMatches[i][1],
-          lastModified: lastModifiedMatches[i][1],
+          key: keyMatch[1],
+          lastModified: lastModifiedMatch[1],
         });
       }
     }
@@ -748,18 +756,22 @@ export async function listBackupsFromEndpoint(
       throw new Error(`S3 error: ${errorCode} - ${errorMessage}`);
     }
 
-    const keyMatches = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)];
-    const lastModifiedMatches = [...xml.matchAll(/<LastModified>([^<]+)<\/LastModified>/g)];
-    const sizeMatches = [...xml.matchAll(/<Size>([^<]+)<\/Size>/g)];
-
+    // 解析每个 <Contents> 块，确保字段正确配对
+    const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
     const files: BackupInfo[] = [];
-    for (let i = 0; i < keyMatches.length; i++) {
-      const key = keyMatches[i]?.[1];
+    
+    for (const match of contentsMatches) {
+      const content = match[1];
+      const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
+      const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+      const sizeMatch = content.match(/<Size>([^<]+)<\/Size>/);
+      
+      const key = keyMatch?.[1];
       if (key && key.endsWith('.json')) {
         files.push({
           key,
-          lastModified: lastModifiedMatches[i]?.[1] || '',
-          size: parseInt(sizeMatches[i]?.[1] || '0', 10),
+          lastModified: lastModifiedMatch?.[1] || '',
+          size: parseInt(sizeMatch?.[1] || '0', 10),
         });
       }
     }
