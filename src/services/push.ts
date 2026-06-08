@@ -83,6 +83,8 @@ export interface ScheduledPush {
     | 'intervalYear';
   selectedWeekDays?: number[];
   selectedMonthDays?: number[];
+  // 每年任务的日期组合数组，每个元素包含月份和日期
+  yearlyDates?: Array<{ month: number; day: number }>;
   intervalHours?: number;
   intervalMonths?: number;
   intervalYears?: number;
@@ -197,6 +199,7 @@ export class PushService {
       createdAt: result.created_at,
       status: result.status,
       overdueReminderSent: result.overdue_reminder_sent === 1,
+      yearlyDates: result.yearly_dates ? JSON.parse(result.yearly_dates) : undefined,
     };
   }
 
@@ -526,6 +529,7 @@ export class PushService {
       createdAt: row.created_at,
       status: row.status,
       overdueReminderSent: row.overdue_reminder_sent === 1,
+      yearlyDates: row.yearly_dates ? JSON.parse(row.yearly_dates) : undefined,
     }));
   }
 
@@ -541,9 +545,9 @@ export class PushService {
     await this.env.DB.prepare(
       `
       INSERT INTO scheduled_pushes (
-        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, created_at, updated_at
+        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, yearly_dates, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     )
       .bind(
@@ -557,6 +561,7 @@ export class PushService {
         push.url || null,
         JSON.stringify(push.channels),
         push.scheduleType === 'recurring' ? 1 : 0,
+        push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
         now,
         now
       )

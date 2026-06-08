@@ -526,12 +526,39 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
     }
 
     case 'yearly': {
-      const nextTime = new Date(baseTime);
-      nextTime.setFullYear(nextTime.getFullYear() + 1);
-      while (nextTime <= nowDate) {
-        nextTime.setFullYear(nextTime.getFullYear() + 1);
+      const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
+      const scheduledTime = new Date(push.scheduledAt);
+      const hours = scheduledTime.getHours();
+      const minutes = scheduledTime.getMinutes();
+      
+      // 查找下一个有效日期
+      for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
+        const checkYear = nowDate.getFullYear() + yearOffset;
+        
+        // 遍历所有配置的日期
+        for (const dateConfig of yearlyDates) {
+          // 计算该年的这个日期
+          let targetDate = new Date(checkYear, dateConfig.month - 1, dateConfig.day, hours, minutes, 0, 0);
+          
+          // 处理闰年2月29日的情况：顺延到3月1日
+          if (dateConfig.month === 2 && dateConfig.day === 29) {
+            const isLeapYear = (checkYear % 4 === 0 && checkYear % 100 !== 0) || checkYear % 400 === 0;
+            if (!isLeapYear) {
+              // 非闰年，顺延到3月1日
+              targetDate = new Date(checkYear, 2, 1, hours, minutes, 0, 0);
+            }
+          }
+          
+          // 确保日期在现在之后
+          if (targetDate > nowDate) {
+            return targetDate.toISOString();
+          }
+        }
       }
-      return nextTime.toISOString();
+      
+      // 默认返回明年1月1日
+      const defaultDate = new Date(nowDate.getFullYear() + 1, 0, 1, hours, minutes, 0, 0);
+      return defaultDate.toISOString();
     }
 
     case 'intervalYear': {
@@ -607,6 +634,36 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
         day > lastDayOfMonth ? lastDayOfMonth : day
       );
       return effectiveDays.includes(nowDateOfMonth) && isTimeMatch;
+    }
+
+    case 'yearly': {
+      const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
+      const nowMonth = nowDate.getMonth() + 1; // 1-12
+      const nowDay = nowDate.getDate(); // 1-31
+      
+      // 检查今天是否匹配任何一个配置的日期
+      for (const dateConfig of yearlyDates) {
+        // 如果月份匹配
+        if (dateConfig.month === nowMonth) {
+          // 如果是2月29日，需要处理闰年
+          if (dateConfig.month === 2 && dateConfig.day === 29) {
+            const isLeapYear = (nowDate.getFullYear() % 4 === 0 && nowDate.getFullYear() % 100 !== 0) || nowDate.getFullYear() % 400 === 0;
+            if (isLeapYear) {
+              // 闰年，今天正好是2月29日
+              return nowDay === 29 && isTimeMatch;
+            } else {
+              // 非闰年，应该在3月1日执行
+              return nowMonth === 3 && nowDay === 1 && isTimeMatch;
+            }
+          } else {
+            // 其他月份，直接比较日期
+            if (dateConfig.day === nowDay) {
+              return isTimeMatch;
+            }
+          }
+        }
+      }
+      return false;
     }
 
     case 'cron':
