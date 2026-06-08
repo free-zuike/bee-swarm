@@ -396,17 +396,32 @@ export async function uploadBackupToEndpoint(
       const xml = await listResponse.text();
       
       const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
-      const existingFiles: { key: string; lastModified: string }[] = [];
+      const existingFiles: { key: string; lastModified: string; size?: number }[] = [];
       
       for (const match of contentsMatches) {
         const content = match[1];
         const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
         const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+        const sizeMatch = content.match(/<Size>(\d+)<\/Size>/);
+        
+        // 过滤条件：
+        // 1. 必须有 Key 和 LastModified
+        // 2. Key 不能以 / 结尾（不是文件夹）
+        // 3. Size 必须 > 0（不是空对象）
+        // 4. Key 必须以 .json 结尾（是我们的备份文件）
         if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
-          existingFiles.push({
-            key: keyMatch[1],
-            lastModified: lastModifiedMatch[1],
-          });
+          const key = keyMatch[1];
+          const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+          
+          if (!key.endsWith('/') && size > 0 && key.endsWith('.json')) {
+            existingFiles.push({
+              key,
+              lastModified: lastModifiedMatch[1],
+              size,
+            });
+          } else {
+            console.log(`[Backup] S3: Skipping non-backup file/folder: ${key} (size=${size})`);
+          }
         }
       }
       
@@ -637,20 +652,34 @@ async function cleanupOldBackupsS3(
     const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
     console.log(`[Backup] S3 cleanup: Found ${contentsMatches.length} <Contents> blocks`);
 
-    const files: { key: string; lastModified: string }[] = [];
+    const files: { key: string; lastModified: string; size?: number }[] = [];
     
     for (const match of contentsMatches) {
       const content = match[1];
       const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
       const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+      const sizeMatch = content.match(/<Size>(\d+)<\/Size>/);
       
+      // 过滤条件：
+      // 1. 必须有 Key 和 LastModified
+      // 2. Key 不能以 / 结尾（不是文件夹）
+      // 3. Size 必须 > 0（不是空对象）
+      // 4. Key 必须以 .json 结尾（是我们的备份文件）
       if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
-        const file = {
-          key: keyMatch[1],
-          lastModified: lastModifiedMatch[1],
-        };
-        files.push(file);
-        console.log(`[Backup] S3 cleanup: Parsed file ${file.key} - ${file.lastModified}`);
+        const key = keyMatch[1];
+        const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+        
+        if (!key.endsWith('/') && size > 0 && key.endsWith('.json')) {
+          const file = {
+            key,
+            lastModified: lastModifiedMatch[1],
+            size,
+          };
+          files.push(file);
+          console.log(`[Backup] S3 cleanup: Parsed file ${file.key} - ${file.lastModified} (size=${file.size})`);
+        } else {
+          console.log(`[Backup] S3 cleanup: Skipping non-backup file/folder: ${key} (size=${size})`);
+        }
       } else {
         console.log(`[Backup] S3 cleanup: Skipping block (key=${!!keyMatch?.[1]}, lastModified=${!!lastModifiedMatch?.[1]})`);
       }
