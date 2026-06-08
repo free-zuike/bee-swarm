@@ -549,11 +549,27 @@ async function cleanupOldBackupsS3(
 
     // 按时间排序，删除旧的
     files.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+    
+    console.log(
+      `[Backup] S3 cleanup: ${files.length} backups found, keeping ${retention}, deleting ${Math.max(0, files.length - retention)}`
+    );
+    
     for (let i = retention; i < files.length; i++) {
       const deleteUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${files[i].key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${files[i].key}`;
-      await awsClient.fetch(deleteUrl, { method: 'DELETE' });
+      
+      console.log(`[Backup] Deleting old S3 backup: ${deleteUrl}`);
+      const response = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        console.error(
+          `[Backup] Failed to delete S3 backup ${files[i].key}: ${response.status} - ${errorText}`
+        );
+      } else {
+        console.log(`[Backup] Successfully deleted S3 backup: ${files[i].key}`);
+      }
     }
   } catch (e) {
     console.error('清理 S3 旧备份失败', e);
