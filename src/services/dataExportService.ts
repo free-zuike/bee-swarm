@@ -50,7 +50,6 @@ export interface UserSettingsExport {
   cacheTtlTemplates?: number;
   cacheTtlGroups?: number;
   cacheTtlScheduled?: number;
-  cacheTtlStats?: number;
   aiEnabled?: boolean;
   aiProvider?: string;
   aiModel?: string;
@@ -559,7 +558,6 @@ export async function importUserData(
           settings.cacheTtlTemplates || null,
           settings.cacheTtlGroups || null,
           settings.cacheTtlScheduled || null,
-          settings.cacheTtlStats || null,
           settings.aiEnabled ? 1 : 0,
           settings.aiProvider || null,
           settings.aiModel || null,
