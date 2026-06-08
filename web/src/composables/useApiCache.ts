@@ -30,7 +30,7 @@ class ApiCache {
     this.customTtl = settings;
   }
 
-  private getUrlTtl(url: string): number | undefined {
+  getUrlTtl(url: string): number | undefined {
     if (url.includes('/backup-endpoints')) {
       return this.customTtl.cache_ttl_backup;
     }
@@ -61,6 +61,12 @@ class ApiCache {
       const age = now - entry.timestamp;
       const urlTtl = customTtl ?? this.getUrlTtl(url) ?? entry.ttl ?? DEFAULT_TTL;
 
+      // 如果TTL为0，禁用缓存
+      if (urlTtl === 0) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+
       if (age > urlTtl) {
         sessionStorage.removeItem(key);
         return null;
@@ -74,8 +80,15 @@ class ApiCache {
   }
 
   set<T>(url: string, data: T, token?: string, ttl?: number): void {
-    const key = this.getKey(url, token);
     const urlTtl = ttl ?? this.getUrlTtl(url) ?? DEFAULT_TTL;
+    
+    // 如果TTL为0，不保存缓存
+    if (urlTtl === 0) {
+      const key = this.getKey(url, token);
+      sessionStorage.removeItem(key);
+      return;
+    }
+    
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
@@ -83,7 +96,7 @@ class ApiCache {
     };
 
     try {
-      sessionStorage.setItem(key, JSON.stringify(entry));
+      sessionStorage.setItem(this.getKey(url, token), JSON.stringify(entry));
     } catch (error) {
       console.warn('Failed to cache API response:', error);
       this.clear();
@@ -136,8 +149,12 @@ export function withCache<T>(
   options?: { ttl?: number; forceRefresh?: boolean }
 ): Promise<T> {
   const { ttl, forceRefresh } = options ?? {};
+  
+  // 先获取可能的自定义TTL来判断是否禁用缓存
+  const urlTtl = ttl ?? apiCache.getUrlTtl(url);
+  const isCacheDisabled = urlTtl === 0;
 
-  if (!forceRefresh) {
+  if (!forceRefresh && !isCacheDisabled) {
     const cached = apiCache.get<T>(url, token, ttl);
     if (cached !== null) {
       return Promise.resolve(cached);

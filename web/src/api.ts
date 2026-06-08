@@ -426,9 +426,14 @@ export async function testBackupEndpoint(
 // 列出指定备份端的备份
 export async function listBackupsFromEndpoint(
   token: string,
-  id: string
+  id: string,
+  forceRefresh?: boolean
 ): Promise<{ backups: Array<{ key: string; size: number; lastModified: string }> }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backups`, token);
+  const url = `${BASE}/admin/backup-endpoints/${id}/backups`;
+  return withCache(url, () => tokenRequest(url, token), token, {
+    ttl: 30 * 1000, // 30秒缓存
+    forceRefresh,
+  });
 }
 
 // 从指定备份端恢复
