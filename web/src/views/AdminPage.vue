@@ -1645,6 +1645,12 @@ async function handleBackupAll() {
     }
 
     await handleLoadEndpoints();
+    
+    // 刷新当前选中的备份端点的备份列表
+    if (backupManagerRef.value?.selectedEndpointId) {
+      const data = await listBackupsFromEndpoint(accessToken.value, backupManagerRef.value.selectedEndpointId);
+      backupManagerRef.value?.setBackups(data.backups || []);
+    }
   } catch (err: unknown) {
     backupManagerRef.value?.handleError(getErrorMessage(err, 'msg.operation_failed', 'backup'));
   }
