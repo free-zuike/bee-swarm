@@ -286,23 +286,23 @@
                 >
                 <div class="yearly-dates-list">
                   <div
-                    v-for="(date, index) in yearlyDates.value"
+                    v-for="(date, index) in yearlyDates"
                     :key="index"
                     class="yearly-date-item"
                   >
-                    <select v-model="yearlyDates.value[index].month" class="month-select">
+                    <select v-model="yearlyDates[index].month" class="month-select">
                       <option v-for="month in months" :key="month.value" :value="month.value">
                         {{ t(month.label) }}
                       </option>
                     </select>
                     <span class="date-separator">/</span>
-                    <select v-model="yearlyDates.value[index].day" class="day-select">
+                    <select v-model="yearlyDates[index].day" class="day-select">
                       <option v-for="day in monthDays" :key="day" :value="day">
                         {{ day }}
                       </option>
                     </select>
                     <button
-                      v-if="yearlyDates.value.length > 1"
+                      v-if="yearlyDates.length > 1"
                       type="button"
                       class="remove-date-btn"
                       @click="removeYearlyDate(index)"
@@ -2700,6 +2700,112 @@ watch(
 
 .scheduled-push-manager.dark .cron-help code {
   background: #1e1e2e;
+}
+
+/* 每年日期选择器样式 */
+.yearly-dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.yearly-date-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-select,
+.day-select {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  min-width: 120px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.month-select:hover,
+.day-select:hover,
+.month-select:focus,
+.day-select:focus {
+  border-color: #667eea;
+}
+
+.date-separator {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary, #999);
+}
+
+.remove-date-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #ff4757;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.remove-date-btn:hover {
+  background: #ff1e2e;
+  transform: scale(1.05);
+}
+
+.add-date-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px dashed #667eea;
+  background: transparent;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-date-btn:hover {
+  background: #667eea20;
+}
+
+/* 深色主题样式 */
+.scheduled-push-manager.dark .month-select,
+.scheduled-push-manager.dark .day-select {
+  border-color: #45475a;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .month-select:hover,
+.scheduled-push-manager.dark .day-select:hover,
+.scheduled-push-manager.dark .month-select:focus,
+.scheduled-push-manager.dark .day-select:focus {
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .date-separator {
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .add-date-btn {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.scheduled-push-manager.dark .add-date-btn:hover {
+  background: #667eea20;
 }
 
 @media (max-width: 768px) {
