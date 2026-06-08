@@ -372,7 +372,6 @@ export async function uploadBackupToEndpoint(
       const root = config.path || 'beeswarm';
       const key = `${root}/backups/${username}/${filename}`;
       storagePath = `s3://${config.bucket}/${key}`;
-      const retention = endpoint.retention || 30;
 
       const awsClient = new AwsClient({
         accessKeyId: config.accessKeyId,
@@ -381,90 +380,6 @@ export async function uploadBackupToEndpoint(
         region: config.region || 'auto',
       });
 
-      // ========== 策略改变：先清理，再上传 ==========
-      
-      // 1. 先列出当前所有备份
-      console.log(`[Backup] Step 1: Listing existing S3 backups before cleanup`);
-      const prefix = `${root}/backups/${username}/`;
-      const listUrl = config.pathStyle
-        ? `${config.endpoint}/${config.bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}`
-        : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}?list-type=2&prefix=${encodeURIComponent(prefix)}`;
-      
-      const listResponse = await awsClient.fetch(listUrl, { method: 'GET' });
-      const xml = await listResponse.text();
-      
-      if (!listResponse.ok) {
-        console.error('[Backup] Failed to list backups before upload:', listResponse.status);
-      }
-      
-      // 解析现有备份
-      const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
-      const existingFiles: { key: string; lastModified: string }[] = [];
-      
-      for (const match of contentsMatches) {
-        const content = match[1];
-        const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
-        const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
-        
-        if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
-          existingFiles.push({
-            key: keyMatch[1],
-            lastModified: lastModifiedMatch[1],
-          });
-        }
-      }
-      
-      console.log(`[Backup] Found ${existingFiles.length} existing backups, retention is ${retention}`);
-      
-      // 2. 如果已经达到或超过保留数，先清理旧的
-      if (existingFiles.length >= retention) {
-        console.log(`[Backup] Step 2: Cleaning up old backups since we have ${existingFiles.length} >= ${retention}`);
-        
-        // 按时间排序（最新的在前）
-        existingFiles.sort((a, b) => {
-          const dateA = new Date(a.lastModified).getTime();
-          const dateB = new Date(b.lastModified).getTime();
-          return dateB - dateA;
-        });
-        
-        console.log(`[Backup] After sorting (newest first):`);
-        existingFiles.forEach((file, index) => {
-          console.log(`  [${index}] ${file.key} - ${file.lastModified}`);
-        });
-        
-        // 计算应该删除多少个旧备份
-        const backupsToKeep = retention - 1; // 保留 retention - 1 个旧的，加上新备份共 retention 个
-        const toDelete = existingFiles.slice(backupsToKeep);
-        
-        console.log(`[Backup] Will keep ${backupsToKeep} oldest backups (index 0 to ${backupsToKeep - 1}), delete ${toDelete.length} backups (index ${backupsToKeep} onwards)`);
-        console.log(`[Backup] Backups to delete:`);
-        toDelete.forEach((file, index) => {
-          console.log(`  [${index + backupsToKeep}] ${file.key} - ${file.lastModified}`);
-        });
-        
-        for (const file of toDelete) {
-          const deleteUrl = config.pathStyle
-            ? `${config.endpoint}/${config.bucket}/${file.key}`
-            : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${file.key}`;
-          
-          console.log(`[Backup] Deleting old backup: ${file.key} (${file.lastModified})`);
-          const delResponse = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
-          
-          if (!delResponse.ok) {
-            console.error(`[Backup] Failed to delete ${file.key}: ${delResponse.status}`);
-          } else {
-            console.log(`[Backup] Successfully deleted ${file.key}`);
-          }
-        }
-        
-        // 等待一下让删除操作生效
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        console.log(`[Backup] Step 2: No need to clean up, only ${existingFiles.length} < ${retention}`);
-      }
-      
-      // 3. 现在上传新备份
-      console.log(`[Backup] Step 3: Uploading new backup to ${key}`);
       const url = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${key}`;
@@ -486,10 +401,9 @@ export async function uploadBackupToEndpoint(
           statusCode: response.status,
         };
       }
-      
-      console.log(`[Backup] Step 4: New backup successfully uploaded!`);
-      
-      // 4. 不再进行后续的清理操作，避免误删新备份
+
+      // 清理旧备份 - 和 R2/WebDAV 保持一致的逻辑
+      await cleanupOldBackupsS3(config, root, username, endpoint.retention || 30);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path || 'beeswarm';
@@ -601,8 +515,7 @@ async function cleanupOldBackupsS3(
   config: S3Config,
   root: string,
   username: string,
-  retention: number,
-  newBackupKey?: string
+  retention: number
 ): Promise<void> {
   try {
     const prefix = `${root}/backups/${username}/`;
@@ -642,60 +555,29 @@ async function cleanupOldBackupsS3(
       }
     }
 
-    console.log(
-      `[Backup] S3 cleanup: ${files.length} backups found before processing`
-    );
-    
-    // 确保新备份存在于列表中（如果提供了）
-    if (newBackupKey) {
-      const newBackupExists = files.some(f => f.key === newBackupKey);
-      if (!newBackupExists) {
-        console.log(
-          `[Backup] S3 cleanup: New backup ${newBackupKey} not in list yet, adding manually with current time`
-        );
-        files.push({
-          key: newBackupKey,
-          lastModified: new Date().toISOString(),
-        });
-      }
-    }
-
-    // 按时间排序（最新的在前）
+    // 按时间排序（最新的在前），删除旧的 - 和 R2/WebDAV 保持一致
     files.sort((a, b) => {
       const dateA = new Date(a.lastModified).getTime();
       const dateB = new Date(b.lastModified).getTime();
       return dateB - dateA;
     });
-    
-    // 确保新备份被放在第一个位置（如果提供了）
-    if (newBackupKey) {
-      const newBackupIndex = files.findIndex(f => f.key === newBackupKey);
-      if (newBackupIndex > 0) {
-        const [newBackup] = files.splice(newBackupIndex, 1);
-        files.unshift(newBackup);
-        console.log(
-          `[Backup] S3 cleanup: Moved new backup ${newBackupKey} to first position`
-        );
-      }
-    }
-    
+
     console.log(
-      `[Backup] S3 cleanup: After sorting - keeping ${retention} newest backups, deleting ${Math.max(0, files.length - retention)}`
+      `[Backup] S3 cleanup: ${files.length} backups found, keeping ${retention}, deleting ${Math.max(0, files.length - retention)}`
     );
     
-    // 只保留最新的 `retention` 个备份
     for (let i = retention; i < files.length; i++) {
       const deleteUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${files[i].key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${files[i].key}`;
       
       console.log(`[Backup] Deleting old S3 backup: ${files[i].key} (${files[i].lastModified})`);
-      const response = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
+      const deleteResponse = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
       
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text().catch(() => '');
         console.error(
-          `[Backup] Failed to delete S3 backup ${files[i].key}: ${response.status} - ${errorText}`
+          `[Backup] Failed to delete S3 backup ${files[i].key}: ${deleteResponse.status} - ${errorText}`
         );
       } else {
         console.log(`[Backup] Successfully deleted S3 backup: ${files[i].key}`);
