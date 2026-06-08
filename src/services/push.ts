@@ -83,6 +83,8 @@ export interface ScheduledPush {
     | 'intervalYear';
   selectedWeekDays?: number[];
   selectedMonthDays?: number[];
+  selectedMonths?: number[];
+  selectedYearDays?: number[];
   intervalHours?: number;
   intervalMonths?: number;
   intervalYears?: number;
