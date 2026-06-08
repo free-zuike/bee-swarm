@@ -1060,19 +1060,22 @@ adminApi.put('/me/settings/cache', async (c) => {
     cache_ttl_scheduled?: number;
   }>();
 
+  // 只更新提供的字段，保留其他字段
   const currentCacheSettings = await svc.getCacheSettings(user.id);
   const newCacheSettings = {
-    ...currentCacheSettings,
-    cache_ttl_backup: body.cache_ttl_backup,
-    cache_ttl_channels: body.cache_ttl_channels,
-    cache_ttl_templates: body.cache_ttl_templates,
-    cache_ttl_groups: body.cache_ttl_groups,
-    cache_ttl_scheduled: body.cache_ttl_scheduled,
+    cache_ttl_backup: body.cache_ttl_backup !== undefined ? body.cache_ttl_backup : currentCacheSettings.cache_ttl_backup,
+    cache_ttl_channels: body.cache_ttl_channels !== undefined ? body.cache_ttl_channels : currentCacheSettings.cache_ttl_channels,
+    cache_ttl_templates: body.cache_ttl_templates !== undefined ? body.cache_ttl_templates : currentCacheSettings.cache_ttl_templates,
+    cache_ttl_groups: body.cache_ttl_groups !== undefined ? body.cache_ttl_groups : currentCacheSettings.cache_ttl_groups,
+    cache_ttl_scheduled: body.cache_ttl_scheduled !== undefined ? body.cache_ttl_scheduled : currentCacheSettings.cache_ttl_scheduled,
   };
 
   await svc.saveCacheSettings(user.id, newCacheSettings);
 
-  return c.json({ success: true, message: '缓存设置已保存', settings: newCacheSettings });
+  // 保存后重新获取最新数据，确保返回正确
+  const savedSettings = await svc.getCacheSettings(user.id);
+
+  return c.json({ success: true, message: '缓存设置已保存', settings: savedSettings });
 });
 
 /** 保存AI设置（仅AI相关字段） */
@@ -1114,20 +1117,23 @@ adminApi.put('/me/settings/ai', async (c) => {
   const currentAISettings = await svc.getAISettings(user.id);
   const newAISettings = {
     ...currentAISettings,
-    ai_model: body.ai_model,
-    ai_enabled: body.ai_enabled,
-    ai_provider: body.ai_provider,
-    ai_api_key: body.ai_api_key,
-    ai_api_url: body.ai_api_url,
-    ai_model_name: body.ai_model_name,
-    custom_ai_providers: body.custom_ai_providers,
-    ai_provider_configs: body.ai_provider_configs,
-    ai_tools: body.ai_tools,
+    ai_model: body.ai_model !== undefined ? body.ai_model : currentAISettings.ai_model,
+    ai_enabled: body.ai_enabled !== undefined ? body.ai_enabled : currentAISettings.ai_enabled,
+    ai_provider: body.ai_provider !== undefined ? body.ai_provider : currentAISettings.ai_provider,
+    ai_api_key: body.ai_api_key !== undefined ? body.ai_api_key : currentAISettings.ai_api_key,
+    ai_api_url: body.ai_api_url !== undefined ? body.ai_api_url : currentAISettings.ai_api_url,
+    ai_model_name: body.ai_model_name !== undefined ? body.ai_model_name : currentAISettings.ai_model_name,
+    custom_ai_providers: body.custom_ai_providers !== undefined ? body.custom_ai_providers : currentAISettings.custom_ai_providers,
+    ai_provider_configs: body.ai_provider_configs !== undefined ? body.ai_provider_configs : currentAISettings.ai_provider_configs,
+    ai_tools: body.ai_tools !== undefined ? body.ai_tools : currentAISettings.ai_tools,
   };
 
   await svc.saveAISettings(user.id, newAISettings);
 
-  return c.json({ success: true, message: 'AI设置已保存', settings: newAISettings });
+  // 保存后重新获取最新数据，确保返回正确
+  const savedSettings = await svc.getAISettings(user.id);
+
+  return c.json({ success: true, message: 'AI设置已保存', settings: savedSettings });
 });
 
 /** 获取 AI 工具列表（包含默认工具和用户自定义工具） */
