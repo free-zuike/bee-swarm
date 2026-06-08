@@ -17,6 +17,7 @@ export interface CacheSettings {
   cache_ttl_templates?: number;
   cache_ttl_groups?: number;
   cache_ttl_scheduled?: number;
+  cache_ttl_stats?: number;
 }
 
 class ApiCache {
