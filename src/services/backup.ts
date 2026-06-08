@@ -381,6 +381,71 @@ export async function uploadBackupToEndpoint(
         region: config.region || 'auto',
       });
 
+      console.log(`[Backup] S3: Strategy - Cleanup FIRST, then Upload`);
+      
+      // === 策略改变：先清理，再上传 ===
+      
+      // 1. 先查询现有备份数量
+      console.log(`[Backup] S3: Step 1 - Checking existing backups before cleanup`);
+      const prefix = `${root}/backups/${username}/`;
+      const listUrl = config.pathStyle
+        ? `${config.endpoint}/${config.bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}`
+        : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}?list-type=2&prefix=${encodeURIComponent(prefix)}`;
+      
+      const listResponse = await awsClient.fetch(listUrl, { method: 'GET' });
+      const xml = await listResponse.text();
+      
+      const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
+      const existingFiles: { key: string; lastModified: string }[] = [];
+      
+      for (const match of contentsMatches) {
+        const content = match[1];
+        const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
+        const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+        if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
+          existingFiles.push({
+            key: keyMatch[1],
+            lastModified: lastModifiedMatch[1],
+          });
+        }
+      }
+      
+      console.log(`[Backup] S3: Found ${existingFiles.length} existing backups, retention=${retention}`);
+      
+      // 2. 如果已经达到或超过保留数量，先删除最旧的一个
+      if (existingFiles.length >= retention) {
+        console.log(`[Backup] S3: Step 2 - Will delete oldest backup to make room`);
+        
+        // 按时间排序，找到最旧的
+        existingFiles.sort((a, b) => {
+          const dateA = new Date(a.lastModified).getTime();
+          const dateB = new Date(b.lastModified).getTime();
+          return dateA - dateB; // 旧的在前
+        });
+        
+        const oldestFile = existingFiles[0];
+        console.log(`[Backup] S3: Deleting oldest backup: ${oldestFile.key} (${oldestFile.lastModified})`);
+        
+        const deleteUrl = config.pathStyle
+          ? `${config.endpoint}/${config.bucket}/${oldestFile.key}`
+          : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${oldestFile.key}`;
+        
+        const deleteResponse = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
+        
+        if (!deleteResponse.ok) {
+          console.error(`[Backup] S3: Failed to delete oldest backup: ${deleteResponse.status}`);
+        } else {
+          console.log(`[Backup] S3: Successfully deleted oldest backup`);
+        }
+        
+        // 等待删除生效
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        console.log(`[Backup] S3: Step 2 - No cleanup needed, only ${existingFiles.length} backups`);
+      }
+      
+      // 3. 现在上传新备份
+      console.log(`[Backup] S3: Step 3 - Uploading new backup`);
       const url = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${key}`;
@@ -428,11 +493,7 @@ export async function uploadBackupToEndpoint(
       }
 
       console.log(`[Backup] S3 upload: Successfully verified!`);
-
-      // 清理旧备份 - 和 R2/WebDAV 保持一致的逻辑
-      console.log(`[Backup] S3 upload: Starting cleanup with retention=${retention}`);
-      await cleanupOldBackupsS3(config, root, username, retention);
-      console.log(`[Backup] S3 upload: Cleanup complete`);
+      console.log(`[Backup] S3: Done - New backup uploaded successfully!`);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path || 'beeswarm';
