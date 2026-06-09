@@ -350,15 +350,48 @@
                 />
                 <div class="cron-help">
                   <p class="cron-help-title">{{ t('scheduled.label.commonExamples') }}</p>
-                  <code>{{ t('scheduled.label.every5Min') }}</code
-                  ><br />
-                  <code>{{ t('scheduled.label.every2Hour') }}</code
-                  ><br />
-                  <code>{{ t('scheduled.label.weekday9am') }}</code
-                  ><br />
-                  <code>{{ t('scheduled.label.month1st0am') }}</code
-                  ><br />
-                  <code>{{ t('scheduled.label.daily91218') }}</code>
+                  <div class="cron-examples">
+                    <button
+                      type="button"
+                      class="cron-example-btn"
+                      @click.stop="cronExpression = '*/5 * * * *'"
+                    >
+                      <span class="cron-example-label">{{ t('scheduled.label.every5Min') }}</span>
+                      <code>*/5 * * * *</code>
+                    </button>
+                    <button
+                      type="button"
+                      class="cron-example-btn"
+                      @click.stop="cronExpression = '0 */2 * * *'"
+                    >
+                      <span class="cron-example-label">{{ t('scheduled.label.every2Hour') }}</span>
+                      <code>0 */2 * * *</code>
+                    </button>
+                    <button
+                      type="button"
+                      class="cron-example-btn"
+                      @click.stop="cronExpression = '0 9 * * 1-5'"
+                    >
+                      <span class="cron-example-label">{{ t('scheduled.label.weekday9am') }}</span>
+                      <code>0 9 * * 1-5</code>
+                    </button>
+                    <button
+                      type="button"
+                      class="cron-example-btn"
+                      @click.stop="cronExpression = '0 0 1 * *'"
+                    >
+                      <span class="cron-example-label">{{ t('scheduled.label.month1st0am') }}</span>
+                      <code>0 0 1 * *</code>
+                    </button>
+                    <button
+                      type="button"
+                      class="cron-example-btn"
+                      @click.stop="cronExpression = '0 9,12,18 * * *'"
+                    >
+                      <span class="cron-example-label">{{ t('scheduled.label.daily91218') }}</span>
+                      <code>0 9,12,18 * * *</code>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2712,6 +2745,47 @@ watch(
   min-width: 80px;
 }
 
+.cron-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cron-example-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-panel, white);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary, #333);
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.cron-example-btn:hover {
+  background: var(--bg-secondary, #f0f0f0);
+  border-color: #667eea;
+}
+
+.cron-example-label {
+  color: var(--text-secondary, #666);
+}
+
+.cron-example-btn code {
+  background: var(--bg-secondary, #f5f5f5);
+  color: #667eea;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  min-width: auto;
+}
+
 @media (max-width: 768px) {
   .panel {
     padding: 16px;
@@ -2870,6 +2944,16 @@ watch(
   .cron-help code {
     font-size: 11px;
     min-width: 70px;
+  }
+
+  .cron-example-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .cron-example-btn code {
+    font-size: 10px;
+    padding: 1px 6px;
   }
 }
 
@@ -3179,6 +3263,26 @@ watch(
 
 .scheduled-push-manager.dark .cron-help code {
   background: #1e1e2e;
+}
+
+.scheduled-push-manager.dark .cron-example-btn {
+  background: #1e1e2e;
+  border-color: #313244;
+  color: #cdd6f4;
+}
+
+.scheduled-push-manager.dark .cron-example-btn:hover {
+  background: #313244;
+  border-color: #667eea;
+}
+
+.scheduled-push-manager.dark .cron-example-label {
+  color: #a6adc8;
+}
+
+.scheduled-push-manager.dark .cron-example-btn code {
+  background: #181825;
+  color: #89b4fa;
 }
 
 @media (max-width: 768px) {
