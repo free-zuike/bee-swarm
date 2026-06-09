@@ -713,6 +713,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'button.clear_cache': '清除缓存',
     'label.ai_settings': 'AI 设置',
     'label.ai_enabled': '启用 AI',
+    'label.add_provider': '添加自定义提供商',
     'label.ai_model': 'AI 模型',
     'button.save_settings': '保存设置',
     'label.system_settings': '系统设置',
@@ -1524,6 +1525,7 @@ const messages: Record<Locale, LocaleMessages> = {
     // AI Settings
     'label.ai_settings': 'AI Settings',
     'label.ai_enabled': 'Enable AI',
+    'label.add_provider': 'Add Custom Provider',
     'label.ai_model': 'AI Model',
     'button.save_settings': 'Save Settings',
     'label.system_settings': 'System Settings',

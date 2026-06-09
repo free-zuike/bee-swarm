@@ -896,27 +896,6 @@ async function saveCustomProviders() {
   }
 }
 
-function addTestProvider() {
-  const testProvider = {
-    id: `test-${Date.now()}`,
-    name: '测试提供商 ' + new Date().toLocaleTimeString(),
-    icon: '🧪',
-  };
-
-  if (!userSettings.value.custom_ai_providers) {
-    userSettings.value.custom_ai_providers = [];
-  }
-
-  userSettings.value.custom_ai_providers.push(testProvider);
-  console.log('添加测试提供商:', testProvider);
-  console.log('当前自定义提供商列表:', userSettings.value.custom_ai_providers);
-
-  // 保存到后端
-  saveCustomProviders();
-
-  showToast('测试提供商添加成功!', 'success');
-}
-
 function addCustomProvider() {
   if (!newProviderName.value.trim()) {
     showToast('请输入提供商名称', 'error');
@@ -2323,15 +2302,8 @@ function handleResend(record: PushHistoryRecord) {
                   <div style="display: flex; gap: 8px">
                     <button
                       class="btn-add-provider"
-                      @click="addTestProvider"
-                      title="添加测试提供商"
-                    >
-                      <span>🧪</span>
-                    </button>
-                    <button
-                      class="btn-add-provider"
                       @click="showAddProviderModal = true"
-                      title="添加自定义提供商"
+                      :title="t('label.add_provider')"
                     >
                       <span>+</span>
                     </button>
