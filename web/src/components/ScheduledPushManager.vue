@@ -72,6 +72,24 @@
                   <span class="field-label">{{ t('scheduled.label.template') }}</span>
                   <span class="field-value">{{ getTemplateName(push.templateId) }}</span>
                 </div>
+                <div class="field-row" v-if="push.scheduleType === 'recurring'">
+                  <span class="field-label">{{ t('scheduled.label.upcomingExecutions') }}</span>
+                  <button
+                    class="toggle-upcoming-btn"
+                    @click.stop="toggleExpanded(push.id)"
+                  >
+                    {{ expandedPushes.has(push.id) ? '▲' : '▼' }}
+                  </button>
+                </div>
+                <div v-if="push.scheduleType === 'recurring' && expandedPushes.has(push.id)" class="upcoming-executions">
+                  <div
+                    v-for="(exec, idx) in getUpcomingExecutions(push, 10)"
+                    :key="idx"
+                    class="execution-item"
+                  >
+                    {{ idx + 1 }}. {{ formatDateTime(exec.toISOString()) }}
+                  </div>
+                </div>
               </div>
             </div>
             <div class="push-actions">
@@ -687,6 +705,7 @@ const actionTarget = ref<ScheduledPush | null>(null);
 const renewPush = ref<ScheduledPush | null>(null);
 const editingPush = ref<ScheduledPush | null>(null);
 const filterStatus = ref<string>('all');
+const expandedPushes = ref<Set<string>>(new Set());
 const rescheduling = ref(false);
 const reschedulePush = ref<ScheduledPush | null>(null);
 const today = new Date().toISOString().split('T')[0];
@@ -1322,6 +1341,213 @@ function calculateNextValidTime(scheduledTime: Date): Date {
   }
 }
 
+// 计算接下来 N 次的执行时间
+function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] {
+  const executions: Date[] = [];
+  const now = new Date();
+  const scheduledAt = new Date(push.scheduledAt);
+  const hours = scheduledAt.getHours();
+  const minutes = scheduledAt.getMinutes();
+
+  let current = new Date(now);
+
+  switch (push.recurringType) {
+    case 'hourly': {
+      // 每小时执行
+      current.setMinutes(minutes, 0, 0);
+      if (current <= now) {
+        current.setHours(current.getHours() + 1);
+      }
+      for (let i = 0; i < count; i++) {
+        executions.push(new Date(current));
+        current.setHours(current.getHours() + 1);
+      }
+      break;
+    }
+
+    case 'daily': {
+      // 每天执行
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setDate(current.getDate() + 1);
+      }
+      for (let i = 0; i < count; i++) {
+        executions.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
+      break;
+    }
+
+    case 'weekly': {
+      // 每周执行
+      const weekdays = push.selectedWeekDays && push.selectedWeekDays.length > 0
+        ? push.selectedWeekDays
+        : [1, 2, 3, 4, 5];
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setDate(current.getDate() + 1);
+      }
+      while (executions.length < count) {
+        const dayOfWeek = current.getDay();
+        if (weekdays.includes(dayOfWeek) && dayOfWeek !== 0 && dayOfWeek !== 6) {
+          executions.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      break;
+    }
+
+    case 'monthly': {
+      // 每月执行
+      const monthDays = push.selectedMonthDays && push.selectedMonthDays.length > 0
+        ? push.selectedMonthDays
+        : [1];
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setDate(current.getDate() + 1);
+      }
+      while (executions.length < count) {
+        const day = current.getDate();
+        const lastDayOfMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
+        const validDay = Math.min(day, lastDayOfMonth);
+        if (monthDays.includes(validDay) || (day > lastDayOfMonth && monthDays.includes(lastDayOfMonth))) {
+          const checkDate = new Date(current.getFullYear(), current.getMonth(), validDay, hours, minutes, 0, 0);
+          if (checkDate > now && !executions.some(e => e.getTime() === checkDate.getTime())) {
+            executions.push(checkDate);
+          }
+        }
+        current.setDate(current.getDate() + 1);
+        // 如果当前日期超过了所有选择的日期，跳到下个月
+        if (current.getDate() === 1) {
+          // 已在下个月初，检查是否需要跳到更远的月份
+        }
+      }
+      break;
+    }
+
+    case 'yearly': {
+      // 每年执行
+      const yearlyDates = push.yearlyDates && push.yearlyDates.length > 0
+        ? push.yearlyDates
+        : [{ month: 1, day: 1 }];
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setFullYear(current.getFullYear() + 1);
+      }
+      while (executions.length < count) {
+        for (const date of yearlyDates) {
+          const next = new Date(current.getFullYear(), date.month - 1, date.day, hours, minutes, 0, 0);
+          if (next > now && !executions.some(e => e.getTime() === next.getTime())) {
+            executions.push(next);
+            if (executions.length >= count) break;
+          }
+        }
+        current.setFullYear(current.getFullYear() + 1);
+      }
+      break;
+    }
+
+    case 'cron': {
+      // Cron 表达式解析
+      if (push.cronExpression) {
+        const nextDates = getNextCronExecutions(push.cronExpression, count, scheduledAt);
+        executions.push(...nextDates);
+      }
+      break;
+    }
+
+    default: {
+      // 默认返回单次执行时间
+      if (push.scheduledAt) {
+        executions.push(new Date(push.scheduledAt));
+      }
+      break;
+    }
+  }
+
+  return executions.slice(0, count);
+}
+
+// 解析 cron 表达式获取接下来 N 次执行时间（简化版，支持标准 cron 格式）
+function getNextCronExecutions(cronExpression: string, count: number, baseDate: Date): Date[] {
+  const executions: Date[] = [];
+  const now = new Date();
+  const parts = cronExpression.split(' ');
+
+  if (parts.length !== 5) {
+    return [baseDate]; // 无效的 cron 表达式
+  }
+
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+
+  let current = new Date(now);
+  current.setSeconds(0, 0);
+
+  // 简单的 cron 解析（分钟、小时、日期、月份、星期）
+  const maxIterations = 1000; // 防止无限循环
+  let iterations = 0;
+
+  while (executions.length < count && iterations < maxIterations) {
+    iterations++;
+
+    // 检查分钟
+    if (minute !== '*' && parseInt(minute) !== current.getMinutes()) {
+      current.setMinutes(current.getMinutes() + 1);
+      current.setSeconds(0);
+      continue;
+    }
+
+    // 检查小时
+    if (hour !== '*' && parseInt(hour) !== current.getHours()) {
+      current.setHours(current.getHours() + 1, parseInt(minute) || 0, 0);
+      continue;
+    }
+
+    // 检查日期
+    if (dayOfMonth !== '*' && parseInt(dayOfMonth) !== current.getDate()) {
+      current.setDate(current.getDate() + 1);
+      current.setHours(0, parseInt(minute) || 0, 0);
+      continue;
+    }
+
+    // 检查月份
+    if (month !== '*' && parseInt(month) !== current.getMonth() + 1) {
+      current.setMonth(current.getMonth() + 1, 1);
+      current.setHours(0, parseInt(minute) || 0, 0);
+      continue;
+    }
+
+    // 检查星期
+    if (dayOfWeek !== '*') {
+      const currentDayOfWeek = current.getDay();
+      const targetDays = dayOfWeek.split(',').map(d => parseInt(d));
+      if (!targetDays.includes(currentDayOfWeek)) {
+        current.setDate(current.getDate() + 1);
+        current.setHours(0, parseInt(minute) || 0, 0);
+        continue;
+      }
+    }
+
+    // 找到一个有效时间
+    if (current > now) {
+      executions.push(new Date(current));
+    }
+    current.setHours(current.getHours() + 1);
+  }
+
+  return executions;
+}
+
+function toggleExpanded(pushId: string): void {
+  if (expandedPushes.value.has(pushId)) {
+    expandedPushes.value.delete(pushId);
+  } else {
+    expandedPushes.value.add(pushId);
+  }
+  // 触发响应式更新
+  expandedPushes.value = new Set(expandedPushes.value);
+}
+
 function confirmDeletePush(push: ScheduledPush): void {
   actionTarget.value = push;
   showDeleteConfirm.value = true;
@@ -1681,6 +1907,58 @@ watch(
 .type-badge.recurring {
   background: #722ed120;
   color: #722ed1;
+}
+
+.toggle-upcoming-btn {
+  background: transparent;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 10px;
+  margin-left: 8px;
+}
+
+.toggle-upcoming-btn:hover {
+  background: #f5f5f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toggle-upcoming-btn {
+    border-color: #434343;
+  }
+  .toggle-upcoming-btn:hover {
+    background: #303030;
+  }
+}
+
+.upcoming-executions {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.execution-item {
+  padding: 4px 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.execution-item:nth-child(odd) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+@media (prefers-color-scheme: dark) {
+  .upcoming-executions {
+    background: #262626;
+  }
+  .execution-item {
+    color: #ccc;
+  }
+  .execution-item:nth-child(odd) {
+    background: rgba(255, 255, 255, 0.02);
+  }
 }
 
 .action-btn {
