@@ -430,8 +430,8 @@ const settingsMenu = [
   { id: 'avatar', icon: '🖼️', label: 'label.avatar_settings' },
   { id: 'backup', icon: '💾', label: 'label.backup_settings' },
   { id: 'channels', icon: '📡', label: 'label.channel_settings' },
-  { id: 'database', icon: '🗃️', label: '数据库管理', permission: 'users:manage' },
-  { id: 'system', icon: '⚙️', label: '系统设置', permission: 'users:manage' },
+  { id: 'database', icon: '🗃️', label: 'label.database_management', permission: 'users:manage' },
+  { id: 'system', icon: '⚙️', label: 'label.system_settings', permission: 'users:manage' },
   { id: 'users', icon: '👥', label: 'tab.users', permission: 'users:manage' },
   { id: 'audit', icon: '📋', label: 'tab.audit', permission: 'users:manage' },
 ];
@@ -2147,11 +2147,7 @@ function handleResend(record: PushHistoryRecord) {
               "
             >
               <span class="menu-icon">{{ item.icon }}</span>
-              <span class="menu-label">{{
-                item.label === '系统设置' || item.label === '数据库管理'
-                  ? item.label
-                  : t(item.label)
-              }}</span>
+              <span class="menu-label">{{ t(item.label) }}</span>
             </button>
           </div>
         </div>
