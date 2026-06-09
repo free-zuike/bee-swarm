@@ -676,6 +676,7 @@ export async function updateScheduledPush(
       | 'intervalYear';
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
+    yearlyDates?: Array<{ month: number; day: number }>;
     intervalHours?: number;
     intervalMonths?: number;
     intervalYears?: number;
@@ -722,6 +723,7 @@ export async function createScheduledPush(
       | 'intervalYear';
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
+    yearlyDates?: Array<{ month: number; day: number }>;
     intervalHours?: number;
     intervalMonths?: number;
     intervalYears?: number;
