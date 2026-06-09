@@ -194,12 +194,15 @@ export class PushService {
       scheduledAt: new Date(result.next_run).toISOString(),
       nextRun: new Date(result.next_run).toISOString(),
       scheduleType: result.enabled ? 'recurring' : 'once',
+      recurringType: result.recurring_type || undefined,
       enabled: result.enabled === 1,
       createdBy: result.user_id,
       createdAt: result.created_at,
       status: result.status,
       overdueReminderSent: result.overdue_reminder_sent === 1,
       yearlyDates: result.yearly_dates ? JSON.parse(result.yearly_dates) : undefined,
+      selectedWeekDays: result.selected_week_days ? JSON.parse(result.selected_week_days) : undefined,
+      selectedMonthDays: result.selected_month_days ? JSON.parse(result.selected_month_days) : undefined,
     };
   }
 
@@ -524,12 +527,15 @@ export class PushService {
       scheduledAt: new Date(row.next_run).toISOString(),
       nextRun: new Date(row.next_run).toISOString(),
       scheduleType: row.enabled ? 'recurring' : 'once',
+      recurringType: row.recurring_type || undefined,
       enabled: row.enabled === 1,
       createdBy: row.user_id,
       createdAt: row.created_at,
       status: row.status,
       overdueReminderSent: row.overdue_reminder_sent === 1,
       yearlyDates: row.yearly_dates ? JSON.parse(row.yearly_dates) : undefined,
+      selectedWeekDays: row.selected_week_days ? JSON.parse(row.selected_week_days) : undefined,
+      selectedMonthDays: row.selected_month_days ? JSON.parse(row.selected_month_days) : undefined,
     }));
   }
 
@@ -545,9 +551,9 @@ export class PushService {
     await this.env.DB.prepare(
       `
       INSERT INTO scheduled_pushes (
-        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, yearly_dates, created_at, updated_at
+        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     )
       .bind(
@@ -561,6 +567,9 @@ export class PushService {
         push.url || null,
         JSON.stringify(push.channels),
         push.scheduleType === 'recurring' ? 1 : 0,
+        push.recurringType || null,
+        push.selectedWeekDays ? JSON.stringify(push.selectedWeekDays) : null,
+        push.selectedMonthDays ? JSON.stringify(push.selectedMonthDays) : null,
         push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
         now,
         now
