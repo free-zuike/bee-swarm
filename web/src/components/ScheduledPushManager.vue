@@ -1457,6 +1457,12 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     default: {
+      // 如果 recurringType 为空但 scheduleType 是 recurring，默认为 daily
+      if (push.scheduleType === 'recurring') {
+        const effectiveType = push.recurringType || 'daily';
+        const tempPush = { ...push, recurringType: effectiveType };
+        return getUpcomingExecutions(tempPush, count);
+      }
       // 默认返回单次执行时间
       if (push.scheduledAt) {
         executions.push(new Date(push.scheduledAt));
@@ -1474,47 +1480,69 @@ function getNextCronExecutions(cronExpression: string, count: number, baseDate: 
   const now = new Date();
   const parts = cronExpression.split(' ');
 
-  if (parts.length !== 5) {
-    return [baseDate]; // 无效的 cron 表达式
+  if (!cronExpression || parts.length !== 5) {
+    return []; // 无效或空的 cron 表达式
   }
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
   let current = new Date(now);
   current.setSeconds(0, 0);
+  current.setMinutes(0, 0);
 
   // 简单的 cron 解析（分钟、小时、日期、月份、星期）
-  const maxIterations = 1000; // 防止无限循环
+  const maxIterations = 5000; // 防止无限循环
   let iterations = 0;
 
   while (executions.length < count && iterations < maxIterations) {
     iterations++;
 
-    // 检查分钟
-    if (minute !== '*' && parseInt(minute) !== current.getMinutes()) {
-      current.setMinutes(current.getMinutes() + 1);
-      current.setSeconds(0);
-      continue;
+    // 快速跳转：如果分钟不匹配，直接跳到该小时的指定分钟
+    if (minute !== '*') {
+      const targetMinute = parseInt(minute);
+      if (current.getMinutes() !== targetMinute) {
+        current.setMinutes(targetMinute, 0, 0);
+        if (current <= now) {
+          current.setHours(current.getHours() + 1);
+          continue;
+        }
+      }
     }
 
     // 检查小时
-    if (hour !== '*' && parseInt(hour) !== current.getHours()) {
-      current.setHours(current.getHours() + 1, parseInt(minute) || 0, 0);
-      continue;
+    if (hour !== '*') {
+      const targetHour = parseInt(hour);
+      if (current.getHours() !== targetHour) {
+        current.setHours(targetHour, minute === '*' ? 0 : parseInt(minute), 0, 0);
+        if (current <= now) {
+          current.setDate(current.getDate() + 1);
+          current.setHours(0, minute === '*' ? 0 : parseInt(minute), 0, 0);
+        }
+        continue;
+      }
     }
 
     // 检查日期
-    if (dayOfMonth !== '*' && parseInt(dayOfMonth) !== current.getDate()) {
-      current.setDate(current.getDate() + 1);
-      current.setHours(0, parseInt(minute) || 0, 0);
-      continue;
+    if (dayOfMonth !== '*') {
+      const targetDay = parseInt(dayOfMonth);
+      if (current.getDate() !== targetDay) {
+        current.setDate(targetDay);
+        current.setHours(hour === '*' ? 0 : parseInt(hour), minute === '*' ? 0 : parseInt(minute), 0, 0);
+        if (current <= now) {
+          current.setMonth(current.getMonth() + 1, 1);
+        }
+        continue;
+      }
     }
 
     // 检查月份
-    if (month !== '*' && parseInt(month) !== current.getMonth() + 1) {
-      current.setMonth(current.getMonth() + 1, 1);
-      current.setHours(0, parseInt(minute) || 0, 0);
-      continue;
+    if (month !== '*') {
+      const targetMonth = parseInt(month);
+      if (current.getMonth() + 1 !== targetMonth) {
+        current.setMonth(targetMonth - 1, 1);
+        current.setHours(0, 0, 0, 0);
+        continue;
+      }
     }
 
     // 检查星期
@@ -1522,8 +1550,17 @@ function getNextCronExecutions(cronExpression: string, count: number, baseDate: 
       const currentDayOfWeek = current.getDay();
       const targetDays = dayOfWeek.split(',').map(d => parseInt(d));
       if (!targetDays.includes(currentDayOfWeek)) {
-        current.setDate(current.getDate() + 1);
-        current.setHours(0, parseInt(minute) || 0, 0);
+        // 跳到下一个目标星期
+        let daysToAdd = 1;
+        for (let i = 1; i <= 7; i++) {
+          const checkDay = (currentDayOfWeek + i) % 7;
+          if (targetDays.includes(checkDay)) {
+            daysToAdd = i;
+            break;
+          }
+        }
+        current.setDate(current.getDate() + daysToAdd);
+        current.setHours(hour === '*' ? 0 : parseInt(hour), minute === '*' ? 0 : parseInt(minute), 0, 0);
         continue;
       }
     }
@@ -1532,7 +1569,20 @@ function getNextCronExecutions(cronExpression: string, count: number, baseDate: 
     if (current > now) {
       executions.push(new Date(current));
     }
-    current.setHours(current.getHours() + 1);
+
+    // 移动到下一个时间点
+    if (minute !== '*') {
+      // 如果分钟固定，增量是1小时
+      current.setHours(current.getHours() + 1, minute === '*' ? 0 : parseInt(minute), 0, 0);
+    } else if (hour !== '*') {
+      // 如果小时固定，增量是1天
+      current.setDate(current.getDate() + 1);
+      current.setHours(0, 0, 0, 0);
+    } else {
+      // 每天执行
+      current.setDate(current.getDate() + 1);
+      current.setHours(0, 0, 0, 0);
+    }
   }
 
   return executions;
@@ -1910,30 +1960,22 @@ watch(
 }
 
 .toggle-upcoming-btn {
-  background: transparent;
-  border: 1px solid #d9d9d9;
+  background: var(--bg-panel, white);
+  border: 1px solid var(--border-color, #d9d9d9);
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
   font-size: 10px;
   margin-left: 8px;
+  color: var(--text-primary, #333);
 }
 
 .toggle-upcoming-btn:hover {
-  background: #f5f5f5;
-}
-
-@media (prefers-color-scheme: dark) {
-  .toggle-upcoming-btn {
-    border-color: #434343;
-  }
-  .toggle-upcoming-btn:hover {
-    background: #303030;
-  }
+  background: var(--bg-secondary, #f5f5f5);
 }
 
 .upcoming-executions {
-  background: #f5f5f5;
+  background: var(--bg-secondary, #f5f5f5);
   border-radius: 8px;
   padding: 12px;
   margin-top: 8px;
@@ -1942,7 +1984,7 @@ watch(
 .execution-item {
   padding: 4px 0;
   font-size: 13px;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .execution-item:nth-child(odd) {
@@ -1950,14 +1992,8 @@ watch(
 }
 
 @media (prefers-color-scheme: dark) {
-  .upcoming-executions {
-    background: #262626;
-  }
-  .execution-item {
-    color: #ccc;
-  }
   .execution-item:nth-child(odd) {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.04);
   }
 }
 
