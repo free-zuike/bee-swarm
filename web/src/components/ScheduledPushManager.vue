@@ -82,12 +82,17 @@
                   </button>
                 </div>
                 <div v-if="push.scheduleType === 'recurring' && expandedPushes.has(push.id)" class="upcoming-executions">
-                  <div
-                    v-for="(exec, idx) in getUpcomingExecutions(push, 10)"
-                    :key="idx"
-                    class="execution-item"
-                  >
-                    {{ idx + 1 }}. {{ formatDateTime(exec.toISOString()) }}
+                  <template v-if="getUpcomingExecutions(push, 10).length > 0">
+                    <div
+                      v-for="(exec, idx) in getUpcomingExecutions(push, 10)"
+                      :key="idx"
+                      class="execution-item"
+                    >
+                      {{ idx + 1 }}. {{ formatDateTime(exec.toISOString()) }}
+                    </div>
+                  </template>
+                  <div v-else class="execution-empty">
+                    {{ push.recurringType === 'cron' ? '无法解析 Cron 表达式，请检查格式' : '暂无预计执行时间' }}
                   </div>
                 </div>
               </div>
@@ -1353,7 +1358,6 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
 
   switch (push.recurringType) {
     case 'hourly': {
-      // 每小时执行
       current.setMinutes(minutes, 0, 0);
       if (current <= now) {
         current.setHours(current.getHours() + 1);
@@ -1366,7 +1370,6 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     case 'daily': {
-      // 每天执行
       current.setHours(hours, minutes, 0, 0);
       if (current <= now) {
         current.setDate(current.getDate() + 1);
@@ -1379,17 +1382,18 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     case 'weekly': {
-      // 每周执行
       const weekdays = push.selectedWeekDays && push.selectedWeekDays.length > 0
         ? push.selectedWeekDays
-        : [1, 2, 3, 4, 5];
+        : [0, 1, 2, 3, 4, 5, 6];
       current.setHours(hours, minutes, 0, 0);
       if (current <= now) {
         current.setDate(current.getDate() + 1);
+        current.setHours(hours, minutes, 0, 0);
       }
-      while (executions.length < count) {
+      const maxDays = count * 7 + 7;
+      for (let i = 0; i < maxDays && executions.length < count; i++) {
         const dayOfWeek = current.getDay();
-        if (weekdays.includes(dayOfWeek) && dayOfWeek !== 0 && dayOfWeek !== 6) {
+        if (weekdays.includes(dayOfWeek)) {
           executions.push(new Date(current));
         }
         current.setDate(current.getDate() + 1);
@@ -1398,57 +1402,58 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     case 'monthly': {
-      // 每月执行
       const monthDays = push.selectedMonthDays && push.selectedMonthDays.length > 0
         ? push.selectedMonthDays
         : [1];
       current.setHours(hours, minutes, 0, 0);
       if (current <= now) {
         current.setDate(current.getDate() + 1);
+        current.setHours(hours, minutes, 0, 0);
       }
-      while (executions.length < count) {
-        const day = current.getDate();
-        const lastDayOfMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
-        const validDay = Math.min(day, lastDayOfMonth);
-        if (monthDays.includes(validDay) || (day > lastDayOfMonth && monthDays.includes(lastDayOfMonth))) {
-          const checkDate = new Date(current.getFullYear(), current.getMonth(), validDay, hours, minutes, 0, 0);
-          if (checkDate > now && !executions.some(e => e.getTime() === checkDate.getTime())) {
-            executions.push(checkDate);
+      const maxMonths = count * 2;
+      for (let m = 0; m < maxMonths && executions.length < count; m++) {
+        const year = current.getFullYear();
+        const month = current.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+
+        for (const day of monthDays) {
+          if (day > lastDay) continue; // 跳过当月不存在的日期（如2月没有31号）
+          const candidate = new Date(year, month, day, hours, minutes, 0, 0);
+          if (candidate > now && !executions.some(e => e.getTime() === candidate.getTime())) {
+            executions.push(candidate);
+            if (executions.length >= count) break;
           }
         }
-        current.setDate(current.getDate() + 1);
-        // 如果当前日期超过了所有选择的日期，跳到下个月
-        if (current.getDate() === 1) {
-          // 已在下个月初，检查是否需要跳到更远的月份
-        }
+        // 跳到下个月1号
+        current = new Date(year, month + 1, 1, hours, minutes, 0, 0);
       }
       break;
     }
 
     case 'yearly': {
-      // 每年执行
       const yearlyDates = push.yearlyDates && push.yearlyDates.length > 0
         ? push.yearlyDates
         : [{ month: 1, day: 1 }];
       current.setHours(hours, minutes, 0, 0);
-      if (current <= now) {
-        current.setFullYear(current.getFullYear() + 1);
-      }
-      while (executions.length < count) {
+      const startYear = current.getFullYear();
+      const maxYears = count + 2;
+      for (let y = 0; y < maxYears && executions.length < count; y++) {
+        const year = startYear + y;
         for (const date of yearlyDates) {
-          const next = new Date(current.getFullYear(), date.month - 1, date.day, hours, minutes, 0, 0);
-          if (next > now && !executions.some(e => e.getTime() === next.getTime())) {
-            executions.push(next);
+          // 检查该日期是否有效（如2月29日在非闰年不存在）
+          const lastDay = new Date(year, date.month, 0).getDate();
+          if (date.day > lastDay) continue;
+          const candidate = new Date(year, date.month - 1, date.day, hours, minutes, 0, 0);
+          if (candidate > now && !executions.some(e => e.getTime() === candidate.getTime())) {
+            executions.push(candidate);
             if (executions.length >= count) break;
           }
         }
-        current.setFullYear(current.getFullYear() + 1);
       }
       break;
     }
 
     case 'cron': {
-      // Cron 表达式解析
       if (push.cronExpression) {
         const nextDates = getNextCronExecutions(push.cronExpression, count, scheduledAt);
         executions.push(...nextDates);
@@ -1475,113 +1480,141 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
 }
 
 // 解析 cron 表达式获取接下来 N 次执行时间（简化版，支持标准 cron 格式）
-function getNextCronExecutions(cronExpression: string, count: number, baseDate: Date): Date[] {
+function getNextCronExecutions(cronExpression: string, count: number, _baseDate: Date): Date[] {
   const executions: Date[] = [];
   const now = new Date();
-  const parts = cronExpression.split(' ');
 
-  if (!cronExpression || parts.length !== 5) {
-    return []; // 无效或空的 cron 表达式
+  if (!cronExpression || !cronExpression.trim()) {
+    return executions;
   }
 
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+  const parts = cronExpression.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return executions;
+  }
 
+  const [minuteStr, hourStr, dayOfMonthStr, monthStr, dayOfWeekStr] = parts;
+
+  // 解析单个 cron 字段：支持 *  固定值  范围 a-b  列表 a,b,c  步长 */n  a-b/n
+  const parseCronField = (field: string, minVal: number, maxVal: number): number[] => {
+    const values: Set<number> = new Set();
+
+    // 处理逗号分隔的多值
+    const segments = field.split(',');
+    for (const segment of segments) {
+      // 处理步长语法
+      let [rangePart, stepPart] = segment.split('/');
+      let step = stepPart ? parseInt(stepPart, 10) : 1;
+
+      if (isNaN(step) || step < 1) step = 1;
+
+      // 处理范围
+      if (rangePart === '*') {
+        for (let i = minVal; i <= maxVal; i += step) {
+          values.add(i);
+        }
+      } else if (rangePart.includes('-')) {
+        const [start, end] = rangePart.split('-').map(v => parseInt(v, 10));
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = start; i <= end; i += step) {
+            if (i >= minVal && i <= maxVal) values.add(i);
+          }
+        }
+      } else {
+        // 单个值
+        const val = parseInt(rangePart, 10);
+        if (!isNaN(val)) {
+          if (val >= minVal && val <= maxVal) {
+            // 如果有步长，从这个值开始递增
+            if (stepPart) {
+              for (let i = val; i <= maxVal; i += step) {
+                values.add(i);
+              }
+            } else {
+              values.add(val);
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(values).sort((a, b) => a - b);
+  };
+
+  // 解析各字段
+  const validMinutes = parseCronField(minuteStr, 0, 59);
+  const validHours = parseCronField(hourStr, 0, 23);
+  const validDaysOfMonth = dayOfMonthStr === '*' ? null : parseCronField(dayOfMonthStr, 1, 31);
+  const validMonths = monthStr === '*' ? null : parseCronField(monthStr, 1, 12);
+  const validDaysOfWeek = dayOfWeekStr === '*' ? null : parseCronField(dayOfWeekStr, 0, 6);
+
+  if (validMinutes.length === 0 || validHours.length === 0) {
+    return executions;
+  }
+
+  // 从当前时间的下一分钟开始搜索
   let current = new Date(now);
   current.setSeconds(0, 0);
-  current.setMinutes(0, 0);
+  current.setMinutes(current.getMinutes() + 1);
 
-  // 简单的 cron 解析（分钟、小时、日期、月份、星期）
-  const maxIterations = 5000; // 防止无限循环
+  const maxIterations = 525600; // 最多搜索一年（365*24*60）
   let iterations = 0;
 
   while (executions.length < count && iterations < maxIterations) {
     iterations++;
 
-    // 快速跳转：如果分钟不匹配，直接跳到该小时的指定分钟
-    if (minute !== '*') {
-      const targetMinute = parseInt(minute);
-      if (current.getMinutes() !== targetMinute) {
-        current.setMinutes(targetMinute, 0, 0);
-        if (current <= now) {
-          current.setHours(current.getHours() + 1);
-          continue;
-        }
-      }
-    }
+    const minuteMatches = validMinutes.includes(current.getMinutes());
+    const hourMatches = validHours.includes(current.getHours());
+    const dayMatches = !validDaysOfMonth || validDaysOfMonth.includes(current.getDate());
+    const monthMatches = !validMonths || validMonths.includes(current.getMonth() + 1);
+    const weekdayMatches = !validDaysOfWeek || validDaysOfWeek.includes(current.getDay());
 
-    // 检查小时
-    if (hour !== '*') {
-      const targetHour = parseInt(hour);
-      if (current.getHours() !== targetHour) {
-        current.setHours(targetHour, minute === '*' ? 0 : parseInt(minute), 0, 0);
-        if (current <= now) {
-          current.setDate(current.getDate() + 1);
-          current.setHours(0, minute === '*' ? 0 : parseInt(minute), 0, 0);
-        }
-        continue;
-      }
-    }
-
-    // 检查日期
-    if (dayOfMonth !== '*') {
-      const targetDay = parseInt(dayOfMonth);
-      if (current.getDate() !== targetDay) {
-        current.setDate(targetDay);
-        current.setHours(hour === '*' ? 0 : parseInt(hour), minute === '*' ? 0 : parseInt(minute), 0, 0);
-        if (current <= now) {
-          current.setMonth(current.getMonth() + 1, 1);
-        }
-        continue;
-      }
-    }
-
-    // 检查月份
-    if (month !== '*') {
-      const targetMonth = parseInt(month);
-      if (current.getMonth() + 1 !== targetMonth) {
-        current.setMonth(targetMonth - 1, 1);
-        current.setHours(0, 0, 0, 0);
-        continue;
-      }
-    }
-
-    // 检查星期
-    if (dayOfWeek !== '*') {
-      const currentDayOfWeek = current.getDay();
-      const targetDays = dayOfWeek.split(',').map(d => parseInt(d));
-      if (!targetDays.includes(currentDayOfWeek)) {
-        // 跳到下一个目标星期
-        let daysToAdd = 1;
-        for (let i = 1; i <= 7; i++) {
-          const checkDay = (currentDayOfWeek + i) % 7;
-          if (targetDays.includes(checkDay)) {
-            daysToAdd = i;
-            break;
-          }
-        }
-        current.setDate(current.getDate() + daysToAdd);
-        current.setHours(hour === '*' ? 0 : parseInt(hour), minute === '*' ? 0 : parseInt(minute), 0, 0);
-        continue;
-      }
-    }
-
-    // 找到一个有效时间
-    if (current > now) {
+    if (minuteMatches && hourMatches && dayMatches && monthMatches && weekdayMatches) {
       executions.push(new Date(current));
+      // 找到后至少推进1分钟，避免重复
+      current = new Date(current.getTime() + 60000);
+      continue;
     }
 
-    // 移动到下一个时间点
-    if (minute !== '*') {
-      // 如果分钟固定，增量是1小时
-      current.setHours(current.getHours() + 1, minute === '*' ? 0 : parseInt(minute), 0, 0);
-    } else if (hour !== '*') {
-      // 如果小时固定，增量是1天
+    // 智能跳转，避免每分钟遍历
+    // 如果分钟不匹配，跳到下一个有效分钟
+    if (!minuteMatches) {
+      const currentMin = current.getMinutes();
+      const nextMinute = validMinutes.find(m => m > currentMin);
+      if (nextMinute !== undefined) {
+        current.setMinutes(nextMinute);
+      } else {
+        // 跳到下一小时的第一个有效分钟
+        current.setHours(current.getHours() + 1);
+        current.setMinutes(validMinutes[0]);
+      }
+      current.setSeconds(0, 0);
+      continue;
+    }
+
+    // 如果小时不匹配，跳到下一个有效小时
+    if (!hourMatches) {
+      const currentHour = current.getHours();
+      const nextHour = validHours.find(h => h > currentHour);
+      if (nextHour !== undefined) {
+        current.setHours(nextHour);
+      } else {
+        // 跳到第二天的第一个有效小时
+        current.setDate(current.getDate() + 1);
+        current.setHours(validHours[0]);
+      }
+      current.setMinutes(validMinutes[0]);
+      current.setSeconds(0, 0);
+      continue;
+    }
+
+    // 如果日期/月份/星期不匹配，跳到下一天
+    if (!dayMatches || !monthMatches || !weekdayMatches) {
       current.setDate(current.getDate() + 1);
-      current.setHours(0, 0, 0, 0);
-    } else {
-      // 每天执行
-      current.setDate(current.getDate() + 1);
-      current.setHours(0, 0, 0, 0);
+      current.setHours(validHours[0]);
+      current.setMinutes(validMinutes[0]);
+      current.setSeconds(0, 0);
+      continue;
     }
   }
 
@@ -1995,6 +2028,14 @@ watch(
   .execution-item:nth-child(odd) {
     background: rgba(255, 255, 255, 0.04);
   }
+}
+
+.execution-empty {
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  text-align: center;
+  font-style: italic;
 }
 
 .action-btn {

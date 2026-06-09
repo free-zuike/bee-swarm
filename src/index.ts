@@ -674,9 +674,23 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       return nextTime.toISOString();
     }
 
-    case 'cron':
+    case 'cron': {
+      if (push.cronExpression) {
+        const nextTime = calculateNextCronTime(push.cronExpression, nowDate);
+        if (nextTime) {
+          return nextTime.toISOString();
+        }
+      }
+      // 如果解析失败，默认加一天
+      const nextTime = new Date(baseTime);
+      nextTime.setDate(nextTime.getDate() + 1);
+      while (nextTime <= nowDate) {
+        nextTime.setDate(nextTime.getDate() + 1);
+      }
+      return nextTime.toISOString();
+    }
+
     default: {
-      // 对于 cron 或其他类型，默认加一天
       const nextTime = new Date(baseTime);
       nextTime.setDate(nextTime.getDate() + 1);
       while (nextTime <= nowDate) {
@@ -685,6 +699,146 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       return nextTime.toISOString();
     }
   }
+}
+
+/**
+ * 匹配单个 cron 字段值
+ */
+function matchCronField(field: string, value: number): boolean {
+  const segments = field.split(',');
+  for (const segment of segments) {
+    const [rangePart, stepPart] = segment.split('/');
+    const step = stepPart ? parseInt(stepPart, 10) : 1;
+    if (isNaN(step) || step < 1) continue;
+
+    if (rangePart === '*') {
+      if (step === 1 || value % step === 0) return true;
+    } else if (rangePart.includes('-')) {
+      const [start, end] = rangePart.split('-').map(v => parseInt(v, 10));
+      if (!isNaN(start) && !isNaN(end) && value >= start && value <= end) {
+        if ((value - start) % step === 0) return true;
+      }
+    } else {
+      const val = parseInt(rangePart, 10);
+      if (!isNaN(val) && val === value) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 解析 cron 表达式计算下一次执行时间
+ */
+function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | null {
+  const parts = cronExpression.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return null;
+  }
+
+  const [minuteStr, hourStr, dayOfMonthStr, monthStr, dayOfWeekStr] = parts;
+
+  const parseCronField = (field: string, minVal: number, maxVal: number): number[] => {
+    const values: Set<number> = new Set();
+    const segments = field.split(',');
+    for (const segment of segments) {
+      const [rangePart, stepPart] = segment.split('/');
+      const step = stepPart ? parseInt(stepPart, 10) : 1;
+      if (isNaN(step) || step < 1) continue;
+
+      if (rangePart === '*') {
+        for (let i = minVal; i <= maxVal; i += step) {
+          values.add(i);
+        }
+      } else if (rangePart.includes('-')) {
+        const [start, end] = rangePart.split('-').map(v => parseInt(v, 10));
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = start; i <= end; i += step) {
+            if (i >= minVal && i <= maxVal) values.add(i);
+          }
+        }
+      } else {
+        const val = parseInt(rangePart, 10);
+        if (!isNaN(val) && val >= minVal && val <= maxVal) {
+          if (stepPart) {
+            for (let i = val; i <= maxVal; i += step) {
+              values.add(i);
+            }
+          } else {
+            values.add(val);
+          }
+        }
+      }
+    }
+    return Array.from(values).sort((a, b) => a - b);
+  };
+
+  const validMinutes = parseCronField(minuteStr, 0, 59);
+  const validHours = parseCronField(hourStr, 0, 23);
+  const validDaysOfMonth = dayOfMonthStr === '*' ? null : parseCronField(dayOfMonthStr, 1, 31);
+  const validMonths = monthStr === '*' ? null : parseCronField(monthStr, 1, 12);
+  const validDaysOfWeek = dayOfWeekStr === '*' ? null : parseCronField(dayOfWeekStr, 0, 6);
+
+  if (validMinutes.length === 0 || validHours.length === 0) {
+    return null;
+  }
+
+  let current = new Date(nowDate);
+  current.setSeconds(0, 0);
+  current.setMinutes(current.getMinutes() + 1);
+
+  const maxIterations = 525600;
+  let iterations = 0;
+
+  while (iterations < maxIterations) {
+    iterations++;
+
+    const minuteMatches = validMinutes.includes(current.getMinutes());
+    const hourMatches = validHours.includes(current.getHours());
+    const dayMatches = !validDaysOfMonth || validDaysOfMonth.includes(current.getDate());
+    const monthMatches = !validMonths || validMonths.includes(current.getMonth() + 1);
+    const weekdayMatches = !validDaysOfWeek || validDaysOfWeek.includes(current.getDay());
+
+    if (minuteMatches && hourMatches && dayMatches && monthMatches && weekdayMatches) {
+      return new Date(current);
+    }
+
+    if (!minuteMatches) {
+      const currentMin = current.getMinutes();
+      const nextMinute = validMinutes.find(m => m > currentMin);
+      if (nextMinute !== undefined) {
+        current.setMinutes(nextMinute);
+      } else {
+        current.setHours(current.getHours() + 1);
+        current.setMinutes(validMinutes[0]);
+      }
+      current.setSeconds(0, 0);
+      continue;
+    }
+
+    if (!hourMatches) {
+      const currentHour = current.getHours();
+      const nextHour = validHours.find(h => h > currentHour);
+      if (nextHour !== undefined) {
+        current.setHours(nextHour);
+      } else {
+        current.setDate(current.getDate() + 1);
+        current.setHours(validHours[0]);
+      }
+      current.setMinutes(validMinutes[0]);
+      current.setSeconds(0, 0);
+      continue;
+    }
+
+    if (!dayMatches || !monthMatches || !weekdayMatches) {
+      current.setDate(current.getDate() + 1);
+      current.setHours(validHours[0]);
+      current.setMinutes(validMinutes[0]);
+      current.setSeconds(0, 0);
+      continue;
+    }
+  }
+
+  return null;
 }
 
 /**
