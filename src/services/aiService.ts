@@ -94,9 +94,18 @@ export class AIService {
         if (!this.env.AI) {
           throw new Error('Workers AI 未配置');
         }
-        const model = settings.ai_model_name || '@cf/meta/llama-3.1-8b-instruct';
-        const response = await this.env.AI.run(model, { messages });
-        return response.response || '';
+        const model = settings.ai_model_name || '@cf/meta/llama-3.3-8b-instruct';
+        try {
+          const response = await this.env.AI.run(model, { messages });
+          return response.response || '';
+        } catch (error) {
+          console.error(`[AI Service] Workers AI 调用失败，尝试备用模型:`, error);
+          // 如果主模型失败，尝试其他可用模型
+          const fallbackModel = '@cf/meta/llama-3.2-3b-instruct';
+          console.log(`[AI Service] 尝试备用模型: ${fallbackModel}`);
+          const response = await this.env.AI.run(fallbackModel, { messages });
+          return response.response || '';
+        }
       }
 
       case 'openai':
@@ -298,7 +307,7 @@ export class AIService {
       let settings: UserSettings = {
         ai_enabled: true,
         ai_provider: 'workers-ai',
-        ai_model_name: '@cf/meta/llama-3.1-8b-instruct',
+        ai_model_name: '@cf/meta/llama-3.3-8b-instruct',
         ai_api_key: '',
         ai_api_url: '',
       };
@@ -438,6 +447,23 @@ ${toolsList}
         if (simpleMatch[2]) {
           try {
             params = JSON.parse(simpleMatch[2]);
+          } catch {
+            // 如果参数解析失败，就用空对象
+          }
+        }
+
+        return { tool: toolName, params };
+      }
+
+      // 方式1b: 尝试解析 "工具名: {}" 格式（智谱AI等可能返回这种格式）
+      const colonMatch = content.match(/^\s*(\w+)\s*:\s*(\{[\s\S]*\})?\s*$/);
+      if (colonMatch) {
+        const toolName = colonMatch[1];
+        let params = {};
+
+        if (colonMatch[2]) {
+          try {
+            params = JSON.parse(colonMatch[2]);
           } catch {
             // 如果参数解析失败，就用空对象
           }
