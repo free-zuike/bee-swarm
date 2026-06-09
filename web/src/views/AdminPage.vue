@@ -525,9 +525,11 @@ async function loadDatabaseStats() {
     const result = await getDatabaseStats(accessToken.value);
     if (result.success) {
       databaseStats.value = result.stats;
+    } else {
+      showToast(getErrorMessage(result, t('msg.load_stats_failed')), 'error');
     }
   } catch (err) {
-    console.error('加载数据库统计失败:', err);
+    showToast(getErrorMessage(err, t('msg.load_stats_failed')), 'error');
   } finally {
     isLoadingStats.value = false;
   }
@@ -539,9 +541,11 @@ async function loadArchives() {
     const result = await getArchives(accessToken.value);
     if (result.success) {
       archives.value = result.archives;
+    } else {
+      showToast(getErrorMessage(result, t('msg.load_archives_failed')), 'error');
     }
   } catch (err) {
-    console.error('加载归档列表失败:', err);
+    showToast(getErrorMessage(err, t('msg.load_archives_failed')), 'error');
   }
 }
 
@@ -568,6 +572,8 @@ async function handleCleanup() {
         'success'
       );
       await loadDatabaseStats();
+    } else {
+      showToast(getErrorMessage(result, t('msg.cleanup_failed')), 'error');
     }
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.cleanup_failed')), 'error');
@@ -590,6 +596,8 @@ async function handleArchive() {
       showToast(t('msg.archive_result', { count: String(result.archived) }), 'success');
       await loadDatabaseStats();
       await loadArchives();
+    } else {
+      showToast(getErrorMessage(result, t('msg.archive_failed')), 'error');
     }
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.archive_failed')), 'error');
@@ -610,6 +618,8 @@ async function handleRestore(archiveKey: string) {
     if (result.success) {
       showToast(t('msg.restore_result', { count: String(result.restored) }), 'success');
       await loadDatabaseStats();
+    } else {
+      showToast(getErrorMessage(result, t('msg.restore_failed')), 'error');
     }
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.restore_failed')), 'error');
@@ -625,9 +635,11 @@ async function loadDatabaseTables() {
     const result = await getDatabaseTables(accessToken.value);
     if (result.success) {
       databaseTables.value = result.tables;
+    } else {
+      showToast(getErrorMessage(result, t('msg.load_tables_failed')), 'error');
     }
   } catch (err) {
-    console.error('加载数据库表失败:', err);
+    showToast(getErrorMessage(err, t('msg.load_tables_failed')), 'error');
   } finally {
     isLoadingTables.value = false;
   }
@@ -671,6 +683,8 @@ async function handleCleanupTables() {
         showToast(t('msg.no_tables_to_delete'), 'success');
       }
       await loadDatabaseTables();
+    } else {
+      showToast(getErrorMessage(result, t('msg.cleanup_failed')), 'error');
     }
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.cleanup_failed')), 'error');

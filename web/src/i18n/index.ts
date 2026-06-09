@@ -765,6 +765,9 @@ const messages: Record<Locale, LocaleMessages> = {
     // 消息
     'msg.system_settings_saved': '系统设置已保存',
     'msg.save_system_settings_failed': '保存系统设置失败',
+    'msg.load_stats_failed': '加载数据库统计失败',
+    'msg.load_archives_failed': '加载归档列表失败',
+    'msg.load_tables_failed': '加载数据库表失败',
     'msg.loading_dots': '加载中...',
     'msg.saving_dots': '保存中...',
     'msg.cleaning_dots': '清理中...',
@@ -1573,6 +1576,9 @@ const messages: Record<Locale, LocaleMessages> = {
     // Messages
     'msg.system_settings_saved': 'System settings saved',
     'msg.save_system_settings_failed': 'Failed to save system settings',
+    'msg.load_stats_failed': 'Failed to load database statistics',
+    'msg.load_archives_failed': 'Failed to load archive list',
+    'msg.load_tables_failed': 'Failed to load database tables',
     'msg.loading_dots': 'Loading...',
     'msg.saving_dots': 'Saving...',
     'msg.cleaning_dots': 'Cleaning...',
