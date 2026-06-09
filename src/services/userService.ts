@@ -409,9 +409,9 @@ export class UserService {
         name: 'createTemplate',
         description: '创建新的推送模板',
         parameters: [
-          { name: 'name', type: 'string', description: '模板名称' },
-          { name: 'title', type: 'string', description: '推送标题' },
-          { name: 'content', type: 'string', description: '推送内容' },
+          { name: 'name', type: 'string', description: '模板名称', required: true },
+          { name: 'title', type: 'string', description: '推送标题', required: true },
+          { name: 'content', type: 'string', description: '推送内容', required: true },
         ],
         enabled: true,
       },
@@ -427,8 +427,8 @@ export class UserService {
         name: 'createGroup',
         description: '创建新的渠道分组',
         parameters: [
-          { name: 'name', type: 'string', description: '分组名称' },
-          { name: 'channels', type: 'array', description: '渠道列表' },
+          { name: 'name', type: 'string', description: '分组名称', required: true },
+          { name: 'channels', type: 'array', description: '渠道列表', required: false },
         ],
         enabled: true,
       },
