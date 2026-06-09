@@ -203,18 +203,28 @@ const availableIcons = ['🤖', '🧠', '⚡', '🔧', '🌟', '🎯', '🚀', '
 const predefinedProviders = [
   {
     id: 'workers-ai',
-    name: 'Cloudflare Workers AI',
+    nameKey: 'ai.provider.workers_ai.name',
     icon: '☁️',
-    desc: '使用 Cloudflare Workers AI，无需额外配置',
+    descKey: 'ai.provider.workers_ai.desc',
   },
-  { id: 'openai', name: 'OpenAI', icon: '🧠', desc: '使用 OpenAI GPT 模型，需要 API Key' },
+  {
+    id: 'openai',
+    nameKey: 'ai.provider.openai.name',
+    icon: '🧠',
+    descKey: 'ai.provider.openai.desc',
+  },
   {
     id: 'azure-openai',
-    name: 'Azure OpenAI',
+    nameKey: 'ai.provider.azure_openai.name',
     icon: '🔷',
-    desc: '使用 Azure OpenAI 服务，需要完整配置',
+    descKey: 'ai.provider.azure_openai.desc',
   },
-  { id: 'anthropic', name: 'Anthropic Claude', icon: '🤖', desc: '使用 Claude 模型，需要 API Key' },
+  {
+    id: 'anthropic',
+    nameKey: 'ai.provider.anthropic.name',
+    icon: '🤖',
+    descKey: 'ai.provider.anthropic.desc',
+  },
 ];
 
 // ==================== AI 工具栏相关 ====================
@@ -837,17 +847,17 @@ function getProviderConfigTitle() {
   // 检查是否是自定义提供商
   const customProvider = userSettings.value.custom_ai_providers?.find((p) => p.id === provider);
   if (customProvider) {
-    return `${customProvider.name} 配置`;
+    return `${customProvider.name} ${t('config.title.suffix')}`;
   }
   switch (provider) {
     case 'openai':
-      return 'OpenAI 配置';
+      return t('config.title.openai');
     case 'azure-openai':
-      return 'Azure OpenAI 配置';
+      return t('config.title.azure_openai');
     case 'anthropic':
-      return 'Anthropic Claude 配置';
+      return t('config.title.anthropic');
     case 'custom':
-      return '自定义 API 配置';
+      return t('config.title.custom');
     default:
       return '';
   }
@@ -1817,26 +1827,26 @@ function handleResend(record: PushHistoryRecord) {
       >
         <div class="modal-content" :class="{ dark: isDark }">
           <div class="modal-header">
-            <h3>添加自定义 AI 提供商</h3>
+            <h3>{{ t('title.add_provider') }}</h3>
             <button class="modal-close" @click="showAddProviderModal = false">✕</button>
           </div>
           <div class="modal-body">
             <!-- 提供商名称输入 -->
             <div class="form-group">
-              <label>提供商名称</label>
+              <label>{{ t('label.provider_name') }}</label>
               <input
                 v-model="newProviderName"
                 type="text"
                 class="form-input"
                 :class="{ dark: isDark }"
-                placeholder="例如：My AI Service"
+                :placeholder="t('placeholder.provider_name')"
                 autofocus
               />
             </div>
 
             <!-- 图标选择 -->
             <div class="form-group">
-              <label>选择图标</label>
+              <label>{{ t('label.select_icon') }}</label>
               <div class="icon-selector">
                 <button
                   v-for="icon in availableIcons"
@@ -1857,9 +1867,9 @@ function handleResend(record: PushHistoryRecord) {
                 :class="{ dark: isDark }"
                 @click="showAddProviderModal = false"
               >
-                取消
+                {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="addCustomProvider">添加</button>
+              <button class="btn btn-primary" @click="addCustomProvider">{{ t('button.add') }}</button>
             </div>
           </div>
         </div>
@@ -1875,26 +1885,26 @@ function handleResend(record: PushHistoryRecord) {
       >
         <div class="modal-content" :class="{ dark: isDark }">
           <div class="modal-header">
-            <h3>编辑自定义 AI 提供商</h3>
+            <h3>{{ t('title.edit_provider') }}</h3>
             <button class="modal-close" @click="showEditProviderModal = false">✕</button>
           </div>
           <div class="modal-body">
             <!-- 提供商名称输入 -->
             <div class="form-group">
-              <label>提供商名称</label>
+              <label>{{ t('label.provider_name') }}</label>
               <input
                 v-model="editingProviderName"
                 type="text"
                 class="form-input"
                 :class="{ dark: isDark }"
-                placeholder="例如：My AI Service"
+                :placeholder="t('placeholder.provider_name')"
                 autofocus
               />
             </div>
 
             <!-- 图标选择 -->
             <div class="form-group">
-              <label>选择图标</label>
+              <label>{{ t('label.select_icon') }}</label>
               <div class="icon-selector">
                 <button
                   v-for="icon in availableIcons"
@@ -1915,9 +1925,9 @@ function handleResend(record: PushHistoryRecord) {
                 :class="{ dark: isDark }"
                 @click="showEditProviderModal = false"
               >
-                取消
+                {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="saveEditProvider">保存</button>
+              <button class="btn btn-primary" @click="saveEditProvider">{{ t('button.save') }}</button>
             </div>
           </div>
         </div>
@@ -1929,32 +1939,32 @@ function handleResend(record: PushHistoryRecord) {
       <div v-if="showAddToolModal" class="modal-overlay" @click.self="showAddToolModal = false">
         <div class="modal-content" :class="{ dark: isDark }">
           <div class="modal-header">
-            <h3>添加自定义 AI 工具</h3>
+            <h3>{{ t('title.add_tool') }}</h3>
             <button class="modal-close" @click="showAddToolModal = false">✕</button>
           </div>
           <div class="modal-body">
             <!-- 工具名称 -->
             <div class="form-group">
-              <label>工具名称</label>
+              <label>{{ t('label.tool_name') }}</label>
               <input
                 v-model="newToolName"
                 type="text"
                 class="form-input"
                 :class="{ dark: isDark }"
-                placeholder="例如：myCustomTool"
+                :placeholder="t('placeholder.tool_name')"
                 autofocus
               />
             </div>
 
             <!-- 工具描述 -->
             <div class="form-group">
-              <label>工具描述</label>
+              <label>{{ t('label.tool_description') }}</label>
               <input
                 v-model="newToolDescription"
                 type="text"
                 class="form-input"
                 :class="{ dark: isDark }"
-                placeholder="描述这个工具的功能"
+                :placeholder="t('placeholder.tool_description')"
               />
             </div>
 
@@ -1965,9 +1975,9 @@ function handleResend(record: PushHistoryRecord) {
                 :class="{ dark: isDark }"
                 @click="showAddToolModal = false"
               >
-                取消
+                {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="addTool">添加</button>
+              <button class="btn btn-primary" @click="addTool">{{ t('button.add') }}</button>
             </div>
           </div>
         </div>
@@ -1979,32 +1989,32 @@ function handleResend(record: PushHistoryRecord) {
       <div v-if="showEditToolModal" class="modal-overlay" @click.self="showEditToolModal = false">
         <div class="modal-content" :class="{ dark: isDark }">
           <div class="modal-header">
-            <h3>编辑 AI 工具</h3>
+            <h3>{{ t('title.edit_tool') }}</h3>
             <button class="modal-close" @click="showEditToolModal = false">✕</button>
           </div>
           <div class="modal-body" v-if="editingTool">
             <!-- 工具名称 -->
             <div class="form-group">
-              <label>工具名称</label>
+              <label>{{ t('label.tool_name') }}</label>
               <input
                 v-model="editingTool.name"
                 type="text"
                 class="form-input"
                 :class="{ dark: isDark }"
-                placeholder="工具名称"
+                :placeholder="t('placeholder.tool_name_edit')"
                 autofocus
               />
             </div>
 
             <!-- 工具描述 -->
             <div class="form-group">
-              <label>工具描述</label>
+              <label>{{ t('label.tool_description') }}</label>
               <input
                 v-model="editingTool.description"
                 type="text"
                 class="form-input"
                 :class="{ dark: isDark }"
-                placeholder="描述这个工具的功能"
+                :placeholder="t('placeholder.tool_description')"
               />
             </div>
 
@@ -2015,9 +2025,9 @@ function handleResend(record: PushHistoryRecord) {
                 :class="{ dark: isDark }"
                 @click="showEditToolModal = false"
               >
-                取消
+                {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="updateTool">保存</button>
+              <button class="btn btn-primary" @click="updateTool">{{ t('button.save') }}</button>
             </div>
           </div>
         </div>
@@ -2298,7 +2308,7 @@ function handleResend(record: PushHistoryRecord) {
               <!-- 左边：AI 提供商列表 -->
               <div class="ai-provider-sidebar" :class="{ dark: isDark }">
                 <div class="sidebar-header">
-                  <span class="sidebar-title">AI 提供商</span>
+                  <span class="sidebar-title">{{ t('label.ai_provider') }}</span>
                   <div style="display: flex; gap: 8px">
                     <button
                       class="btn-add-provider"
@@ -2321,8 +2331,8 @@ function handleResend(record: PushHistoryRecord) {
                   >
                     <div class="provider-icon">{{ provider.icon }}</div>
                     <div class="provider-info">
-                      <div class="provider-name">{{ provider.name }}</div>
-                      <div class="provider-desc">{{ provider.desc }}</div>
+                      <div class="provider-name">{{ t(provider.nameKey) }}</div>
+                      <div class="provider-desc">{{ t(provider.descKey) }}</div>
                     </div>
                     <div class="provider-check">
                       <span v-if="userSettings.ai_provider === provider.id">✓</span>
@@ -2340,7 +2350,7 @@ function handleResend(record: PushHistoryRecord) {
                     <div class="provider-icon">{{ provider.icon }}</div>
                     <div class="provider-info">
                       <div class="provider-name">{{ provider.name }}</div>
-                      <div class="provider-desc">自定义 AI 提供商</div>
+                      <div class="provider-desc">{{ t('ai.provider.custom.desc') }}</div>
                     </div>
                     <div class="provider-actions">
                       <button
@@ -2370,7 +2380,7 @@ function handleResend(record: PushHistoryRecord) {
               <!-- 右边：提供商配置 -->
               <div class="ai-provider-content" :class="{ dark: isDark }">
                 <div v-if="!userSettings.ai_provider" class="provider-empty-state">
-                  <p>请选择一个 AI 提供商进行配置</p>
+                  <p>{{ t('label.select_provider') }}</p>
                 </div>
 
                 <div v-else class="provider-config-form">
@@ -2440,9 +2450,9 @@ function handleResend(record: PushHistoryRecord) {
             <!-- AI 工具栏设置 -->
             <div class="settings-card" style="margin-top: 20px">
               <div class="card-header">
-                <h4>🔧 AI 工具栏</h4>
+                <h4>🔧 {{ t('label.ai_tools') }}</h4>
                 <button class="btn btn-sm btn-primary" @click="showAddToolModal = true">
-                  添加工具
+                  {{ t('button.add_tool') }}
                 </button>
               </div>
 
@@ -2453,7 +2463,7 @@ function handleResend(record: PushHistoryRecord) {
                       <div class="tool-name">
                         <span class="expand-icon">{{ tool.expanded ? '▼' : '▶' }}</span>
                         {{ tool.name }}
-                        <span v-if="tool.isDefault" class="tool-badge">默认</span>
+                        <span v-if="tool.isDefault" class="tool-badge">{{ t('label.tool_default') }}</span>
                       </div>
                       <div class="tool-desc">{{ tool.description }}</div>
                     </div>
@@ -2470,7 +2480,7 @@ function handleResend(record: PushHistoryRecord) {
                         v-if="!tool.isDefault"
                         class="btn-icon"
                         @click="editTool(tool)"
-                        title="编辑"
+                        :title="t('button.edit')"
                       >
                         ✏️
                       </button>
@@ -2478,7 +2488,7 @@ function handleResend(record: PushHistoryRecord) {
                         v-if="!tool.isDefault"
                         class="btn-icon"
                         @click="deleteTool(tool.id)"
-                        title="删除"
+                        :title="t('button.delete')"
                       >
                         🗑️
                       </button>
@@ -2488,7 +2498,7 @@ function handleResend(record: PushHistoryRecord) {
                   <!-- 展开的详细信息 -->
                   <div v-if="tool.expanded" class="tool-details">
                     <div class="detail-section">
-                      <div class="detail-title">提示词</div>
+                      <div class="detail-title">{{ t('label.tool_prompt') }}</div>
                       <div class="detail-content">
                         <code class="prompt-preview">{{ getToolPrompt(tool) }}</code>
                       </div>
@@ -2498,12 +2508,12 @@ function handleResend(record: PushHistoryRecord) {
                       v-if="tool.parameters && tool.parameters.length > 0"
                       class="detail-section"
                     >
-                      <div class="detail-title">参数列表</div>
+                      <div class="detail-title">{{ t('label.tool_params') }}</div>
                       <div class="detail-content">
                         <div v-for="param in tool.parameters" :key="param.name" class="param-item">
                           <span class="param-name">{{ param.name }}</span>
                           <span class="param-type">{{ param.type }}</span>
-                          <span v-if="param.required" class="param-required">必填</span>
+                          <span v-if="param.required" class="param-required">{{ t('label.tool_required') }}</span>
                           <span class="param-desc">{{ param.description }}</span>
                         </div>
                       </div>
@@ -2511,7 +2521,7 @@ function handleResend(record: PushHistoryRecord) {
                   </div>
                 </div>
 
-                <div v-if="aiTools.length === 0" class="empty-state">暂无可用工具</div>
+                <div v-if="aiTools.length === 0" class="empty-state">{{ t('label.no_tools') }}</div>
               </div>
             </div>
           </div>
@@ -4477,6 +4487,32 @@ function handleResend(record: PushHistoryRecord) {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+.form-input.dark:focus {
+  border-color: var(--primary-color, #818cf8) !important;
+  outline: none;
+}
+
+.settings-panel.dark .form-input {
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  border-color: #444;
+}
+
+.settings-panel.dark .form-input::placeholder {
+  color: #888;
+}
+
+.settings-panel.dark .input-sm {
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  border-color: #444;
+}
+
+.settings-panel.dark .btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+}
+
 .setting-item .unit {
   font-size: 12px;
   color: var(--text-secondary, #666);
@@ -5218,6 +5254,47 @@ function handleResend(record: PushHistoryRecord) {
   border-top: 2px solid #e0e7ff;
   margin-top: 8px;
   border-radius: 0 0 8px 8px;
+}
+
+.settings-panel.dark .tool-details {
+  background: linear-gradient(135deg, #1e1e2e 0%, #2d2d4a 100%);
+  border-top: 2px solid #6366f1;
+}
+
+.settings-panel.dark .detail-title {
+  color: var(--primary-color, #818cf8);
+}
+
+.settings-panel.dark .prompt-preview {
+  background: var(--bg-primary, #1e1e1e);
+  border-color: #6366f1;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.settings-panel.dark .param-item {
+  border-bottom-color: #444;
+}
+
+.settings-panel.dark .param-name {
+  color: var(--primary-color, #818cf8);
+}
+
+.settings-panel.dark .param-required {
+  background: #4c1d1d;
+  color: #fca5a5;
+}
+
+.settings-panel.dark .tool-item {
+  background: var(--bg-panel, #2d2d2d);
+  border-color: #444;
+}
+
+.settings-panel.dark .tool-item:hover {
+  border-color: #6366f1;
+}
+
+.settings-panel.dark .card-header {
+  border-bottom-color: #444;
 }
 
 .detail-section {
