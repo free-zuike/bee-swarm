@@ -203,6 +203,7 @@ export class PushService {
       yearlyDates: result.yearly_dates ? JSON.parse(result.yearly_dates) : undefined,
       selectedWeekDays: result.selected_week_days ? JSON.parse(result.selected_week_days) : undefined,
       selectedMonthDays: result.selected_month_days ? JSON.parse(result.selected_month_days) : undefined,
+      cronExpression: result.cron || undefined,
     };
   }
 
@@ -616,6 +617,30 @@ export class PushService {
     if (updates.scheduledAt !== undefined) {
       fields.push('next_run = ?');
       values.push(new Date(updates.scheduledAt).getTime());
+    }
+    if (updates.scheduleType !== undefined) {
+      fields.push('enabled = ?');
+      values.push(updates.scheduleType === 'recurring' ? 1 : 0);
+    }
+    if (updates.recurringType !== undefined) {
+      fields.push('recurring_type = ?');
+      values.push(updates.recurringType);
+    }
+    if (updates.selectedWeekDays !== undefined) {
+      fields.push('selected_week_days = ?');
+      values.push(JSON.stringify(updates.selectedWeekDays));
+    }
+    if (updates.selectedMonthDays !== undefined) {
+      fields.push('selected_month_days = ?');
+      values.push(JSON.stringify(updates.selectedMonthDays));
+    }
+    if (updates.yearlyDates !== undefined) {
+      fields.push('yearly_dates = ?');
+      values.push(JSON.stringify(updates.yearlyDates));
+    }
+    if (updates.cronExpression !== undefined) {
+      fields.push('cron = ?');
+      values.push(updates.cronExpression);
     }
 
     values.push(id, this.userId);

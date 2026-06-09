@@ -1098,6 +1098,8 @@ async function updateScheduledPushHandler(): Promise<void> {
       recurringType: scheduleType.value === 'recurring' ? recurringType.value : undefined,
       selectedWeekDays: recurringType.value === 'weekly' ? selectedWeekDays.value : undefined,
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
+      yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
+      cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
     });
 
     showModal.value = false;
