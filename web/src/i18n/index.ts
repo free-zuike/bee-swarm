@@ -762,7 +762,6 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.rows': '行',
     'label.safe': '安全',
     'label.deletable': '可清理',
-    'button.delete': '删除',
     // 消息
     'msg.system_settings_saved': '系统设置已保存',
     'msg.save_system_settings_failed': '保存系统设置失败',
@@ -781,7 +780,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.archive_result': '已归档 {count} 条记录',
     'msg.restore_result': '已恢复 {count} 条记录',
     'msg.table_deleted': '已删除表 "{table}"',
-    'msg.delete_failed': '删除失败',
+    'msg.delete_table_failed': '删除表失败',
     'msg.cleanup_failed': '清理失败',
     'msg.archive_failed': '归档失败',
     'msg.restore_failed': '恢复失败',
@@ -1571,7 +1570,6 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.rows': 'rows',
     'label.safe': 'Safe',
     'label.deletable': 'Cleanable',
-    'button.delete': 'Delete',
     // Messages
     'msg.system_settings_saved': 'System settings saved',
     'msg.save_system_settings_failed': 'Failed to save system settings',
@@ -1590,7 +1588,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.archive_result': 'Archived {count} records',
     'msg.restore_result': 'Restored {count} records',
     'msg.table_deleted': 'Table "{table}" deleted',
-    'msg.delete_failed': 'Delete failed',
+    'msg.delete_table_failed': 'Failed to delete table',
     'msg.cleanup_failed': 'Cleanup failed',
     'msg.archive_failed': 'Archive failed',
     'msg.restore_failed': 'Restore failed',

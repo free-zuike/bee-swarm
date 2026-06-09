@@ -646,10 +646,10 @@ async function handleDeleteTable(tableName: string) {
       showToast(t('msg.table_deleted', { table: tableName }), 'success');
       await loadDatabaseTables();
     } else {
-      showToast(result.error || t('msg.delete_failed'), 'error');
+      showToast(result.error || t('msg.delete_table_failed'), 'error');
     }
   } catch (err) {
-    showToast(getErrorMessage(err, t('msg.delete_failed')), 'error');
+    showToast(getErrorMessage(err, t('msg.delete_table_failed')), 'error');
   } finally {
     isDeletingTable.value = false;
   }
