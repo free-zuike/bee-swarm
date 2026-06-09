@@ -977,11 +977,10 @@ function openEditModal(push: ScheduledPush): void {
   if (push.selectedMonthDays) {
     selectedMonthDays.value = [...push.selectedMonthDays];
   }
-  if (push.selectedMonths) {
-    selectedMonths.value = [...push.selectedMonths];
-  }
-  if (push.selectedYearDays) {
-    selectedYearDays.value = [...push.selectedYearDays];
+  if (push.yearlyDates && push.yearlyDates.length > 0) {
+    yearlyDates.value = [...push.yearlyDates];
+  } else {
+    yearlyDates.value = [{ month: 1, day: 1 }];
   }
   if (push.cronExpression) {
     cronExpression.value = push.cronExpression;
