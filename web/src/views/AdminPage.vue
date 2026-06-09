@@ -492,9 +492,9 @@ async function handleSaveSystemSettings() {
   isSavingSystemSettings.value = true;
   try {
     await saveSystemSettings(accessToken.value, systemSettings.value);
-    showToast('系统设置已保存', 'success');
+    showToast(t('msg.system_settings_saved'), 'success');
   } catch (err) {
-    showToast(getErrorMessage(err, '保存系统设置失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.save_system_settings_failed')), 'error');
   } finally {
     isSavingSystemSettings.value = false;
   }
@@ -503,11 +503,11 @@ async function handleSaveSystemSettings() {
 function addCORSOrigin() {
   const origin = newCORSOrigin.value.trim();
   if (!origin) {
-    showToast('请输入有效的域名', 'error');
+    showToast(t('msg.invalid_origin'), 'error');
     return;
   }
   if (systemSettings.value.cors_allowed_origins.includes(origin)) {
-    showToast('该域名已存在', 'error');
+    showToast(t('msg.origin_exists'), 'error');
     return;
   }
   systemSettings.value.cors_allowed_origins.push(origin);
@@ -547,11 +547,9 @@ async function loadArchives() {
 
 async function handleCleanup() {
   if (isCleaningUp.value) return;
-  if (
-    !confirm(
-      `确定要清理 ${systemSettings.value.cleanup_push_history_days || 30} 天前的推送历史和 ${systemSettings.value.cleanup_audit_log_days || 90} 天前的审计日志吗？`
-    )
-  ) {
+  const pushDays = systemSettings.value.cleanup_push_history_days || 30;
+  const auditDays = systemSettings.value.cleanup_audit_log_days || 90;
+  if (!confirm(t('confirm.cleanup_database', { pushDays: String(pushDays), auditDays: String(auditDays) }))) {
     return;
   }
 
@@ -563,13 +561,16 @@ async function handleCleanup() {
     });
     if (result.success) {
       showToast(
-        `已清理 ${result.pushHistoryDeleted} 条推送历史和 ${result.auditLogsDeleted} 条审计日志`,
+        t('msg.cleanup_result', {
+          pushDeleted: String(result.pushHistoryDeleted),
+          auditDeleted: String(result.auditLogsDeleted),
+        }),
         'success'
       );
       await loadDatabaseStats();
     }
   } catch (err) {
-    showToast(getErrorMessage(err, '清理失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.cleanup_failed')), 'error');
   } finally {
     isCleaningUp.value = false;
   }
@@ -578,7 +579,7 @@ async function handleCleanup() {
 async function handleArchive() {
   if (isArchiving.value) return;
   const archiveAfterDays = 30;
-  if (!confirm(`确定要归档 ${archiveAfterDays} 天前的推送历史到 R2 吗？`)) {
+  if (!confirm(t('confirm.archive_database', { days: String(archiveAfterDays) }))) {
     return;
   }
 
@@ -586,12 +587,12 @@ async function handleArchive() {
   try {
     const result = await archiveDatabase(accessToken.value, { archiveAfterDays });
     if (result.success) {
-      showToast(`已归档 ${result.archived} 条记录`, 'success');
+      showToast(t('msg.archive_result', { count: String(result.archived) }), 'success');
       await loadDatabaseStats();
       await loadArchives();
     }
   } catch (err) {
-    showToast(getErrorMessage(err, '归档失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.archive_failed')), 'error');
   } finally {
     isArchiving.value = false;
   }
@@ -599,7 +600,7 @@ async function handleArchive() {
 
 async function handleRestore(archiveKey: string) {
   if (isRestoring.value) return;
-  if (!confirm('确定要恢复这个归档吗？恢复的记录将重新添加到数据库。')) {
+  if (!confirm(t('confirm.restore_archive'))) {
     return;
   }
 
@@ -607,11 +608,11 @@ async function handleRestore(archiveKey: string) {
   try {
     const result = await restoreArchive(accessToken.value, archiveKey);
     if (result.success) {
-      showToast(`已恢复 ${result.restored} 条记录`, 'success');
+      showToast(t('msg.restore_result', { count: String(result.restored) }), 'success');
       await loadDatabaseStats();
     }
   } catch (err) {
-    showToast(getErrorMessage(err, '恢复失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.restore_failed')), 'error');
   } finally {
     isRestoring.value = false;
   }
@@ -634,7 +635,7 @@ async function loadDatabaseTables() {
 
 async function handleDeleteTable(tableName: string) {
   if (isDeletingTable.value) return;
-  if (!confirm('确定要删除表 "' + tableName + '" 吗？此操作不可撤销！')) {
+  if (!confirm(t('confirm.delete_table', { table: tableName }))) {
     return;
   }
 
@@ -642,13 +643,13 @@ async function handleDeleteTable(tableName: string) {
   try {
     const result = await deleteDatabaseTable(accessToken.value, tableName);
     if (result.success) {
-      showToast('已删除表 "' + tableName + '"', 'success');
+      showToast(t('msg.table_deleted', { table: tableName }), 'success');
       await loadDatabaseTables();
     } else {
-      showToast(result.error || '删除失败', 'error');
+      showToast(result.error || t('msg.delete_failed'), 'error');
     }
   } catch (err) {
-    showToast(getErrorMessage(err, '删除失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.delete_failed')), 'error');
   } finally {
     isDeletingTable.value = false;
   }
@@ -656,7 +657,7 @@ async function handleDeleteTable(tableName: string) {
 
 async function handleCleanupTables() {
   if (isCleaningTables.value) return;
-  if (!confirm('确定要清理所有应该删除的表吗？')) {
+  if (!confirm(t('confirm.cleanup_tables'))) {
     return;
   }
 
@@ -665,14 +666,14 @@ async function handleCleanupTables() {
     const result = await cleanupOrphanTables(accessToken.value);
     if (result.success) {
       if (result.deletedTables.length > 0) {
-        showToast(`已删除 ${result.deletedTables.length} 个表`, 'success');
+        showToast(t('msg.tables_deleted', { count: String(result.deletedTables.length) }), 'success');
       } else {
-        showToast('没有需要删除的表', 'success');
+        showToast(t('msg.no_tables_to_delete'), 'success');
       }
       await loadDatabaseTables();
     }
   } catch (err) {
-    showToast(getErrorMessage(err, '清理失败'), 'error');
+    showToast(getErrorMessage(err, t('msg.cleanup_failed')), 'error');
   } finally {
     isCleaningTables.value = false;
   }
@@ -2699,53 +2700,53 @@ function handleResend(record: PushHistoryRecord) {
             v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')"
             class="settings-panel"
           >
-            <h3>⚙️ 系统设置</h3>
+            <h3>⚙️ {{ t('label.system_settings') }}</h3>
 
             <!-- Turnstile 人机验证设置 -->
             <div class="settings-card">
-              <h4>Turnstile 人机验证</h4>
+              <h4>{{ t('label.turnstile') }}</h4>
               <div class="setting-item">
-                <label>启用人机验证</label>
+                <label>{{ t('label.turnstile_enabled') }}</label>
                 <label class="toggle">
                   <input type="checkbox" v-model="systemSettings.turnstile_enabled" />
                   <span class="slider"></span>
                 </label>
               </div>
               <div class="setting-item" v-if="systemSettings.turnstile_enabled">
-                <label>Site Key</label>
+                <label>{{ t('label.turnstile_site_key') }}</label>
                 <input
                   type="text"
                   v-model="systemSettings.turnstile_site_key"
-                  placeholder="输入 Turnstile Site Key"
+                  :placeholder="t('placeholder.turnstile_site_key')"
                   class="input-sm"
                 />
               </div>
               <div class="setting-item" v-if="systemSettings.turnstile_enabled">
-                <label>Secret Key</label>
+                <label>{{ t('label.turnstile_secret_key') }}</label>
                 <input
                   type="password"
                   v-model="systemSettings.turnstile_secret_key"
-                  placeholder="输入 Turnstile Secret Key"
+                  :placeholder="t('placeholder.turnstile_secret_key')"
                   class="input-sm"
                 />
               </div>
               <div class="setting-hint" v-if="systemSettings.turnstile_enabled">
-                需要在 Cloudflare Turnstile 中配置您的域名，获取 Site Key 和 Secret Key
+                {{ t('hint.turnstile') }}
               </div>
             </div>
 
             <!-- 自动清理设置 -->
             <div class="settings-card">
-              <h4>🧹 自动数据清理</h4>
+              <h4>🧹 {{ t('label.auto_cleanup') }}</h4>
               <div class="setting-item">
-                <label>启用自动清理</label>
+                <label>{{ t('label.cleanup_enabled') }}</label>
                 <label class="toggle">
                   <input type="checkbox" v-model="systemSettings.cleanup_enabled" />
                   <span class="slider"></span>
                 </label>
               </div>
               <div class="setting-item" v-if="systemSettings.cleanup_enabled">
-                <label>推送历史保留天数</label>
+                <label>{{ t('label.cleanup_push_history_days') }}</label>
                 <input
                   type="number"
                   v-model.number="systemSettings.cleanup_push_history_days"
@@ -2755,7 +2756,7 @@ function handleResend(record: PushHistoryRecord) {
                 />
               </div>
               <div class="setting-item" v-if="systemSettings.cleanup_enabled">
-                <label>审计日志保留天数</label>
+                <label>{{ t('label.cleanup_audit_log_days') }}</label>
                 <input
                   type="number"
                   v-model.number="systemSettings.cleanup_audit_log_days"
@@ -2765,15 +2766,15 @@ function handleResend(record: PushHistoryRecord) {
                 />
               </div>
               <div class="setting-hint" v-if="systemSettings.cleanup_enabled">
-                自动清理将在每小时执行一次，删除超过指定天数的记录
+                {{ t('hint.auto_cleanup') }}
               </div>
             </div>
 
             <!-- CORS 配置 -->
             <div class="settings-card">
-              <h4>🔒 CORS 跨域配置</h4>
+              <h4>🔒 {{ t('label.cors_settings') }}</h4>
               <div class="setting-item">
-                <label>允许的来源</label>
+                <label>{{ t('label.cors_allowed_origins') }}</label>
                 <div class="cors-list">
                   <div
                     v-for="(origin, index) in systemSettings.cors_allowed_origins"
@@ -2786,12 +2787,12 @@ function handleResend(record: PushHistoryRecord) {
                     </button>
                   </div>
                   <div v-if="systemSettings.cors_allowed_origins.length === 0" class="empty-state">
-                    暂无配置的来源，默认允许 localhost 和 workers.dev 域名
+                    {{ t('msg.no_cors_origins') }}
                   </div>
                 </div>
               </div>
               <div class="setting-item">
-                <label>添加来源</label>
+                <label>{{ t('label.add_origin') }}</label>
                 <div class="input-group">
                   <input
                     type="text"
@@ -2799,11 +2800,13 @@ function handleResend(record: PushHistoryRecord) {
                     placeholder="https://example.com"
                     @keyup.enter="addCORSOrigin"
                   />
-                  <button class="btn btn-sm btn-primary" @click="addCORSOrigin">添加</button>
+                  <button class="btn btn-sm btn-primary" @click="addCORSOrigin">
+                    {{ t('label.add') }}
+                  </button>
                 </div>
               </div>
               <div class="setting-hint">
-                添加允许跨域请求的域名，支持使用通配符（如 https://*.example.com）
+                {{ t('hint.cors') }}
               </div>
             </div>
 
@@ -2812,7 +2815,7 @@ function handleResend(record: PushHistoryRecord) {
               @click="handleSaveSystemSettings"
               :disabled="isSavingSystemSettings"
             >
-              {{ isSavingSystemSettings ? '保存中...' : '保存设置' }}
+              {{ isSavingSystemSettings ? t('msg.saving_dots') : t('button.save_settings') }}
             </button>
           </div>
 
@@ -2826,66 +2829,66 @@ function handleResend(record: PushHistoryRecord) {
             v-else-if="activeSettingsTab === 'database' && hasPermission('users:manage')"
             class="settings-panel"
           >
-            <h3>🗃️ 数据库管理</h3>
+            <h3>🗃️ {{ t('label.database_management') }}</h3>
 
             <!-- 数据库统计 -->
             <div class="settings-card">
-              <h4>📊 数据库统计</h4>
+              <h4>📊 {{ t('label.database_stats') }}</h4>
               <div class="stats-grid" v-if="!isLoadingStats">
                 <div class="stat-item">
                   <span class="stat-value">{{
                     databaseStats.pushHistoryCount.toLocaleString()
                   }}</span>
-                  <span class="stat-label">推送历史记录</span>
+                  <span class="stat-label">{{ t('label.push_history_count') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value">{{
                     databaseStats.auditLogsCount.toLocaleString()
                   }}</span>
-                  <span class="stat-label">审计日志</span>
+                  <span class="stat-label">{{ t('label.audit_logs_count') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value">{{ databaseStats.usersCount.toLocaleString() }}</span>
-                  <span class="stat-label">用户数</span>
+                  <span class="stat-label">{{ t('label.users_count') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-value">{{ databaseStats.estimatedSize }}</span>
-                  <span class="stat-label">估算大小</span>
+                  <span class="stat-label">{{ t('label.estimated_size') }}</span>
                 </div>
               </div>
-              <div v-else class="loading">加载中...</div>
+              <div v-else class="loading">{{ t('msg.loading_dots') }}</div>
               <button
                 class="btn btn-secondary"
                 @click="loadDatabaseStats"
                 :disabled="isLoadingStats"
               >
-                🔄 刷新统计
+                🔄 {{ t('label.refresh_stats') }}
               </button>
             </div>
 
             <!-- 手动清理（使用系统设置中的配置） -->
             <div class="settings-card">
-              <h4>🧹 手动清理</h4>
-              <div class="setting-hint">使用系统设置中的配置进行清理。自动清理每小时执行一次。</div>
+              <h4>🧹 {{ t('label.manual_cleanup') }}</h4>
+              <div class="setting-hint">{{ t('hint.manual_cleanup') }}</div>
               <button class="btn btn-warning" @click="handleCleanup" :disabled="isCleaningUp">
-                {{ isCleaningUp ? '清理中...' : '🗑️ 立即清理' }}
+                {{ isCleaningUp ? t('msg.cleaning_dots') : '🗑️ ' + t('button.cleanup_now') }}
               </button>
             </div>
 
             <!-- 数据归档 -->
             <div class="settings-card">
-              <h4>📦 数据归档</h4>
+              <h4>📦 {{ t('label.data_archive') }}</h4>
               <div class="setting-hint">
-                归档将旧数据移动到 R2 存储，释放数据库空间。归档数据可以随时恢复。
+                {{ t('hint.data_archive') }}
               </div>
               <button class="btn btn-primary" @click="handleArchive" :disabled="isArchiving">
-                {{ isArchiving ? '归档中...' : '📦 归档到 R2' }}
+                {{ isArchiving ? t('msg.archiving_dots') : '📦 ' + t('button.archive_to_r2') }}
               </button>
             </div>
 
             <!-- 归档列表 -->
             <div class="settings-card" v-if="archives.length > 0">
-              <h4>📁 归档列表</h4>
+              <h4>📁 {{ t('label.archive_list') }}</h4>
               <div class="archive-list">
                 <div v-for="archive in archives" :key="archive.key" class="archive-item">
                   <div class="archive-info">
@@ -2899,7 +2902,7 @@ function handleResend(record: PushHistoryRecord) {
                     @click="handleRestore(archive.key)"
                     :disabled="isRestoring"
                   >
-                    恢复
+                    {{ t('label.restore') }}
                   </button>
                 </div>
               </div>
@@ -2907,9 +2910,9 @@ function handleResend(record: PushHistoryRecord) {
 
             <!-- 数据库表管理 -->
             <div class="settings-card">
-              <h4>📋 数据库表管理</h4>
+              <h4>📋 {{ t('label.table_management') }}</h4>
               <div class="setting-hint">
-                查看所有数据库表，清理不需要的表。安全表（核心业务表）不会被误删。
+                {{ t('hint.table_management') }}
               </div>
               <div class="table-actions">
                 <button
@@ -2917,14 +2920,14 @@ function handleResend(record: PushHistoryRecord) {
                   @click="loadDatabaseTables"
                   :disabled="isLoadingTables"
                 >
-                  {{ isLoadingTables ? '加载中...' : '🔄 刷新表列表' }}
+                  {{ isLoadingTables ? t('msg.loading_dots') : '🔄 ' + t('button.refresh_tables') }}
                 </button>
                 <button
                   class="btn btn-warning"
                   @click="handleCleanupTables"
                   :disabled="isCleaningTables || isLoadingTables"
                 >
-                  {{ isCleaningTables ? '清理中...' : '🧹 自动清理表' }}
+                  {{ isCleaningTables ? t('msg.cleaning_dots') : '🧹 ' + t('button.cleanup_tables') }}
                 </button>
               </div>
               <div class="table-list" v-if="!isLoadingTables">
@@ -2937,9 +2940,9 @@ function handleResend(record: PushHistoryRecord) {
                   <div class="table-info">
                     <span class="table-name">{{ table.name }}</span>
                     <span class="table-meta">
-                      <span v-if="table.rowCount !== undefined">{{ table.rowCount.toLocaleString() }} 行</span>
-                      <span v-if="table.isSafe" class="badge badge-safe">安全</span>
-                      <span v-if="table.shouldDelete" class="badge badge-deletable">可清理</span>
+                      <span v-if="table.rowCount !== undefined">{{ table.rowCount.toLocaleString() }} {{ t('label.rows') }}</span>
+                      <span v-if="table.isSafe" class="badge badge-safe">{{ t('label.safe') }}</span>
+                      <span v-if="table.shouldDelete" class="badge badge-deletable">{{ t('label.deletable') }}</span>
                     </span>
                   </div>
                   <button
@@ -2948,11 +2951,11 @@ function handleResend(record: PushHistoryRecord) {
                     @click="handleDeleteTable(table.name)"
                     :disabled="isDeletingTable"
                   >
-                    删除
+                    {{ t('button.delete') }}
                   </button>
                 </div>
               </div>
-              <div v-else class="loading">加载中...</div>
+              <div v-else class="loading">{{ t('msg.loading_dots') }}</div>
             </div>
           </div>
 
