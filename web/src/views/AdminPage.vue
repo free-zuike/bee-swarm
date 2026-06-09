@@ -286,6 +286,14 @@ function getParamTypeLabel(type: string): string {
   return translated === key ? type : translated;
 }
 
+// 获取参数显示名称：优先从 i18n 翻译，否则回退到 param.description，最后回退到 param.name
+function getParamDisplayName(param: any): string {
+  const key = `ai.param.${param.name}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
+  return param.description || param.name;
+}
+
 function editTool(tool: any) {
   editingToolId.value = tool.id;
   editingTool.value = { ...tool };
@@ -2533,10 +2541,9 @@ function handleResend(record: PushHistoryRecord) {
                       <div class="detail-title">{{ t('label.tool_params') }}</div>
                       <div class="detail-content">
                         <div v-for="param in tool.parameters" :key="param.name" class="param-item">
-                          <span class="param-name">{{ param.name }}</span>
+                          <span class="param-name">{{ getParamDisplayName(param) }}</span>
                           <span class="param-type">{{ getParamTypeLabel(param.type) }}</span>
                           <span v-if="param.required" class="param-required">{{ t('label.tool_required') }}</span>
-                          <span class="param-desc">{{ param.description }}</span>
                         </div>
                       </div>
                     </div>
@@ -5343,7 +5350,6 @@ function handleResend(record: PushHistoryRecord) {
   font-weight: 700;
   color: #6366f1;
   margin-bottom: 8px;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;

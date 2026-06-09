@@ -856,6 +856,14 @@ const messages: Record<Locale, LocaleMessages> = {
     'ai.type.boolean': '布尔值',
     'ai.type.array': '数组',
     'ai.type.object': '对象',
+    // 常见参数名
+    'ai.param.name': '名称',
+    'ai.param.title': '标题',
+    'ai.param.content': '内容',
+    'ai.param.channels': '渠道列表',
+    'ai.param.templateId': '模板 ID',
+    'ai.param.groupId': '分组 ID',
+    'ai.param.groupName': '分组名称',
     // AI 模态框
     'title.add_provider': '添加自定义 AI 提供商',
     'title.edit_provider': '编辑自定义 AI 提供商',
@@ -1747,6 +1755,14 @@ const messages: Record<Locale, LocaleMessages> = {
     'ai.type.boolean': 'boolean',
     'ai.type.array': 'array',
     'ai.type.object': 'object',
+    // Common parameter names
+    'ai.param.name': 'name',
+    'ai.param.title': 'title',
+    'ai.param.content': 'content',
+    'ai.param.channels': 'channels',
+    'ai.param.templateId': 'template ID',
+    'ai.param.groupId': 'group ID',
+    'ai.param.groupName': 'group name',
     // AI Modals
     'title.add_provider': 'Add Custom AI Provider',
     'title.edit_provider': 'Edit Custom AI Provider',
