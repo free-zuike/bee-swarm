@@ -25,19 +25,15 @@ const showPanel = ref(false);
 // 如果 AI 未启用，不显示组件
 const shouldShow = computed(() => props.aiEnabled !== false);
 
-const quickCommands = [
-  { label: '列出所有模板', query: '列出所有模板' },
-  {
-    label: '创建模板',
-    query:
-      '创建一个名为"系统通知"的模板，标题为"系统更新提醒"，内容为"系统将于今晚22:00进行维护升级"',
-  },
-  { label: '创建分组', query: '创建一个名为"紧急通知"的分组，包含telegram和bark渠道' },
-  { label: '列出分组', query: '列出所有分组' },
-  { label: '执行备份', query: '执行备份' },
-  { label: '列出定时任务', query: '列出所有定时任务' },
-  { label: '列出渠道', query: '列出所有渠道' },
-];
+const quickCommands = computed(() => [
+  { label: t('cmd.list_templates'), query: t('cmd.list_templates_query') },
+  { label: t('cmd.create_template'), query: t('cmd.create_template_query') },
+  { label: t('cmd.create_group'), query: t('cmd.create_group_query') },
+  { label: t('cmd.list_groups'), query: t('cmd.list_groups_query') },
+  { label: t('cmd.run_backup'), query: t('cmd.run_backup_query') },
+  { label: t('cmd.list_scheduled_tasks'), query: t('cmd.list_scheduled_tasks_query') },
+  { label: t('cmd.list_channels'), query: t('cmd.list_channels_query') },
+]);
 
 async function checkAI() {
   try {
@@ -193,14 +189,14 @@ onMounted(() => {
 
 .ai-toggle-btn {
   padding: 12px 20px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
+  background: var(--primary-color, #6366f1);
+  color: var(--bg-panel, white);
   border: none;
   border-radius: 50px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 15px var(--shadow-color, rgba(102, 126, 234, 0.4));
   transition: all 0.3s;
   display: flex;
   align-items: center;
@@ -209,7 +205,7 @@ onMounted(() => {
 
 .ai-toggle-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 6px 20px var(--shadow-color, rgba(102, 126, 234, 0.5));
 }
 
 .ai-toggle-btn.active {
@@ -246,7 +242,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
 }
 
 .ai-panel-header h3 {
@@ -275,7 +271,7 @@ onMounted(() => {
 
 .ai-quick-commands {
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
 }
 
 .quick-label {
@@ -303,8 +299,8 @@ onMounted(() => {
 }
 
 .quick-btn:hover {
-  background: #667eea;
-  color: white;
+  background: var(--primary-color, #6366f1);
+  color: var(--bg-panel, white);
 }
 
 .ai-chat-container {
@@ -327,7 +323,8 @@ onMounted(() => {
 
 .ai-empty-state .example {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-secondary, #999);
+  opacity: 0.8;
 }
 
 .chat-messages {
@@ -342,11 +339,11 @@ onMounted(() => {
 }
 
 .chat-message.user .message-avatar {
-  background: #667eea;
+  background: var(--primary-color, #6366f1);
 }
 
 .chat-message.ai .message-avatar {
-  background: #10b981;
+  background: var(--success-color, #10b981);
 }
 
 .message-avatar {
@@ -357,6 +354,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 16px;
+  color: var(--bg-panel, white);
   flex-shrink: 0;
 }
 
@@ -390,7 +388,7 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-color, #f0f0f0);
+  border-top: 1px solid var(--border-color, #e0e0e0);
 }
 
 .ai-input-container input {
@@ -405,13 +403,13 @@ onMounted(() => {
 }
 
 .ai-input-container input:focus {
-  border-color: #667eea;
+  border-color: var(--primary-color, #6366f1);
 }
 
 .send-btn {
   padding: 10px 16px;
-  background: #667eea;
-  color: white;
+  background: var(--primary-color, #6366f1);
+  color: var(--bg-panel, white);
   border: none;
   border-radius: 8px;
   font-size: 16px;
@@ -420,7 +418,7 @@ onMounted(() => {
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #5a6fd6;
+  background: var(--primary-color-hover, #5a6fd6);
 }
 
 .send-btn:disabled {
@@ -433,7 +431,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 16px;
-  border-top: 1px solid var(--border-color, #f0f0f0);
+  border-top: 1px solid var(--border-color, #e0e0e0);
   font-size: 12px;
 }
 
@@ -449,7 +447,7 @@ onMounted(() => {
 }
 
 .ai-status {
-  color: #10b981;
+  color: var(--success-color, #10b981);
 }
 
 .ai-unavailable {

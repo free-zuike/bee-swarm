@@ -428,105 +428,283 @@ export class AIService {
 ${toolsList}
 
 重要规则：
-1. 当用户询问"列出"、"查询"、"获取"、"展示"、"显示"时，必须调用对应的工具
+1. 当用户询问"列出"、"查询"、"获取"、"展示"、"显示"、"创建"、"新建"、"备份"、"执行"时，必须调用对应的工具
 2. 只需要调用一个工具，不要多个
-3. 直接输出纯JSON格式，不要任何解释，不要markdown代码块：
-   {"tool":"工具名","params":{"参数名":"参数值"}}
+3. 严格输出纯JSON格式，不要任何解释，不要markdown代码块：
+   {"tool":"listTemplates","params":{}}
 4. 如果用户询问的内容没有对应的工具，用中文简单回复
-5. 工具返回的是数据，不是让你再调工具`;
+5. 工具返回的是数据，不是让你再调工具
+6. 不要输出多余的文字，只输出JSON或简短对话
+7. 不要在JSON前后加任何文字`;
   }
 
   private parseToolCall(content: string): { tool: string; params: Record<string, unknown> } | null {
     try {
-      // 方式1: 尝试解析简单的 "工具名 {}" 格式
-      const simpleMatch = content.match(/^\s*(\w+)\s*(\{[\s\S]*\})?\s*$/);
-      if (simpleMatch) {
-        const toolName = simpleMatch[1];
-        let params = {};
+      if (!content || !content.trim()) {
+        return null;
+      }
 
-        if (simpleMatch[2]) {
-          try {
-            params = JSON.parse(simpleMatch[2]);
-          } catch {
-            // 如果参数解析失败，就用空对象
-          }
+      // 已知工具名列表（用于模糊匹配）
+      const knownTools = [
+        'listTemplates',
+        'createTemplate',
+        'listGroups',
+        'createGroup',
+        'listScheduledTasks',
+        'runBackup',
+        'listChannels',
+      ];
+
+      const trimmedContent = content.trim();
+
+      // --- 方式 1: 精确工具名匹配 ---
+      // 纯工具名 (如 "listTemplates")
+      if (/^\w+$/.test(trimmedContent)) {
+        const lowerTool = trimmedContent.toLowerCase();
+        const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+        if (matched) {
+          return { tool: matched, params: {} };
         }
+      }
 
+      // --- 方式 2: 带中文前缀的工具名（如 "调用工具：listTemplates"、"工具调用：listTemplates"）---
+      const prefixMatch = trimmedContent.match(/^(?:调用工具|工具调用|工具|tool)\s*[:：]\s*(\w+)\s*[：:].*$/i);
+      if (prefixMatch) {
+        const lowerTool = prefixMatch[1].toLowerCase();
+        const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+        if (matched) {
+          return { tool: matched, params: {} };
+        }
+      }
+
+      // --- 方式 3: 带冒号的工具名 + JSON (如 "listTemplates: {...}") ---
+      const colonJsonMatch = trimmedContent.match(/^(\w+)\s*[:：]\s*(\{[\s\S]*\})\s*$/);
+      if (colonJsonMatch) {
+        const toolName = colonJsonMatch[1];
+        let params = {};
+        try {
+          params = JSON.parse(colonJsonMatch[2]);
+        } catch {
+          // 解析失败则使用空对象
+        }
+        const lowerTool = toolName.toLowerCase();
+        const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+        if (matched) {
+          return { tool: matched, params };
+        }
+        // 即使不在已知工具列表中，也尝试返回（为了兼容性）
         return { tool: toolName, params };
       }
 
-      // 方式1b: 尝试解析 "工具名: {}" 格式（智谱AI等可能返回这种格式）
-      const colonMatch = content.match(/^\s*(\w+)\s*:\s*(\{[\s\S]*\})?\s*$/);
-      if (colonMatch) {
-        const toolName = colonMatch[1];
-        let params = {};
-
-        if (colonMatch[2]) {
-          try {
-            params = JSON.parse(colonMatch[2]);
-          } catch {
-            // 如果参数解析失败，就用空对象
-          }
+      // --- 方式 4: 带冒号的工具名 + 文本描述 (如 "listTemplates: 所有模板") ---
+      const colonTextMatch = trimmedContent.match(/^(\w+)\s*[:：]\s*([^\n{][^\n]*)$/);
+      if (colonTextMatch) {
+        const lowerTool = colonTextMatch[1].toLowerCase();
+        const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+        if (matched) {
+          return { tool: matched, params: {} };
         }
-
-        return { tool: toolName, params };
       }
 
-      // 方式2: 尝试多种 JSON 提取方式
+      // --- 方式 5: 纯冒号后缀工具名 (如 "listTemplates:") ---
+      const colonOnlyMatch = trimmedContent.match(/^(\w+)\s*[:：]\s*$/);
+      if (colonOnlyMatch) {
+        const lowerTool = colonOnlyMatch[1].toLowerCase();
+        const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+        if (matched) {
+          return { tool: matched, params: {} };
+        }
+      }
+
+      // --- 方式 6: JSON 格式解析 ---
+      // 6a: 尝试从整个文本中提取 JSON 对象
       let jsonStr = null;
-
-      // 方式2a: 直接匹配整个 JSON 对象
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0];
+      const jsonObjectMatch = trimmedContent.match(/\{[\s\S]*\}/);
+      if (jsonObjectMatch) {
+        jsonStr = jsonObjectMatch[0];
       }
-      // 方式2b: 尝试匹配 markdown 代码块中的 JSON
-      else if (content.includes('```')) {
-        const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+
+      // 6b: 如果找不到 JSON，尝试从 markdown 代码块中提取
+      if (!jsonStr && trimmedContent.includes('```')) {
+        const codeBlockMatch = trimmedContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
         if (codeBlockMatch) {
           jsonStr = codeBlockMatch[1];
         }
       }
 
+      // --- 方式 7: 如果没有 JSON，则使用关键词模糊匹配 ---
       if (!jsonStr) {
+        const lowerContent = trimmedContent.toLowerCase();
+
+        // 模板相关
+        if (
+          lowerContent.includes('模板') ||
+          lowerContent.includes('template') ||
+          lowerContent.includes('templates')
+        ) {
+          if (lowerContent.includes('创建') || lowerContent.includes('新建') || lowerContent.includes('create')) {
+            // 从内容中尝试提取参数
+            const params: Record<string, unknown> = {};
+            const nameMatch = trimmedContent.match(/(?:模板|template)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            if (nameMatch) {
+              params.name = nameMatch[1].trim();
+            }
+            const titleMatch = trimmedContent.match(/(?:标题|title)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            if (titleMatch) {
+              params.title = titleMatch[1].trim();
+            }
+            const contentMatch = trimmedContent.match(/(?:内容|content)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            if (contentMatch) {
+              params.content = contentMatch[1].trim();
+            }
+            return { tool: 'createTemplate', params };
+          }
+          return { tool: 'listTemplates', params: {} };
+        }
+
+        // 分组相关
+        if (lowerContent.includes('分组') || lowerContent.includes('group') || lowerContent.includes('groups')) {
+          if (lowerContent.includes('创建') || lowerContent.includes('新建') || lowerContent.includes('create')) {
+            const params: Record<string, unknown> = {};
+            const nameMatch = trimmedContent.match(/(?:分组|group)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            if (nameMatch) {
+              params.name = nameMatch[1].trim();
+            } else {
+              params.name = '默认分组';
+            }
+            params.channels = [];
+            return { tool: 'createGroup', params };
+          }
+          return { tool: 'listGroups', params: {} };
+        }
+
+        // 定时任务相关
+        if (
+          lowerContent.includes('定时') ||
+          lowerContent.includes('scheduled') ||
+          lowerContent.includes('定时任务') ||
+          lowerContent.includes('定时推送') ||
+          lowerContent.includes('任务列表')
+        ) {
+          return { tool: 'listScheduledTasks', params: {} };
+        }
+
+        // 渠道相关
+        if (lowerContent.includes('渠道') || lowerContent.includes('channel') || lowerContent.includes('channels')) {
+          return { tool: 'listChannels', params: {} };
+        }
+
+        // 备份相关
+        if (
+          lowerContent.includes('备份') ||
+          lowerContent.includes('backup') ||
+          lowerContent.includes('back up')
+        ) {
+          return { tool: 'runBackup', params: {} };
+        }
+
+        // 没有匹配到工具
         return null;
       }
 
-      const parsed = JSON.parse(jsonStr);
+      // --- 方式 8: 解析 JSON 对象 ---
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        // JSON 解析失败，尝试清理一下
+        try {
+          // 去除可能的注释和尾随逗号等问题
+          const cleaned = jsonStr
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/\/\/[^\n]*/g, '')
+            .replace(/,(\s*[}\]])/g, '$1');
+          parsed = JSON.parse(cleaned);
+        } catch {
+          return null;
+        }
+      }
 
-      // 兼容多种 JSON 格式
+      // 8a: 标准格式: {"tool": "...", "params": {...}}
       if (parsed.tool) {
+        const toolName = String(parsed.tool);
+        const matchedTool =
+          knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
-          tool: parsed.tool,
+          tool: matchedTool,
           params: parsed.params || {},
         };
-      } else if (parsed.name) {
-        // 兼容 OpenAI 风格的工具调用格式
+      }
+
+      // 8b: OpenAI 风格: {"name": "...", "arguments": {...}}
+      if (parsed.name) {
+        const toolName = String(parsed.name);
+        const matchedTool =
+          knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
-          tool: parsed.name,
+          tool: matchedTool,
           params: parsed.arguments || {},
         };
-      } else if (parsed.function_name) {
-        // 兼容另一种常见格式
+      }
+
+      // 8c: function_name 风格: {"function_name": "...", "parameters": {...}}
+      if (parsed.function_name) {
+        const toolName = String(parsed.function_name);
+        const matchedTool =
+          knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
-          tool: parsed.function_name,
+          tool: matchedTool,
           params: parsed.parameters || {},
         };
-      } else if (parsed.action) {
-        // 兼容 LangChain 风格
+      }
+
+      // 8d: LangChain 风格: {"action": "...", "action_input": {...}}
+      if (parsed.action) {
+        const toolName = String(parsed.action);
+        const matchedTool =
+          knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
-          tool: parsed.action,
+          tool: matchedTool,
           params: parsed.action_input || {},
         };
-      } else if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
-        // 兼容 workers-ai 返回的格式: {"tools":[{"Name":"listTemplates","params":{}}]}
+      }
+
+      // 8e: workers-ai 风格: {"tools": [{"Name": "listTemplates", "params": {}}]}
+      if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
         const toolCall = parsed.tools[0];
-        if (toolCall.Name || toolCall.name) {
+        const rawName = toolCall.Name || toolCall.name;
+        if (rawName) {
+          const toolName = String(rawName);
+          const matchedTool =
+            knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
           return {
-            tool: toolCall.Name || toolCall.name,
+            tool: matchedTool,
             params: toolCall.params || {},
           };
         }
+      }
+
+      // 8f: tools 数组简写格式: {"tools": ["listTemplates"]}
+      if (parsed.tools && Array.isArray(parsed.tools) && typeof parsed.tools[0] === 'string') {
+        const toolName = String(parsed.tools[0]);
+        const matchedTool =
+          knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
+        return {
+          tool: matchedTool,
+          params: {},
+        };
+      }
+
+      // 8g: 数组格式: [{"tool": "...", "params": {...}}]
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].tool) {
+        const firstCall = parsed[0];
+        const toolName = String(firstCall.tool);
+        const matchedTool =
+          knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
+        return {
+          tool: matchedTool,
+          params: firstCall.params || {},
+        };
       }
 
       return null;
@@ -543,19 +721,22 @@ ${toolsList}
   ): Promise<AIExecuteResponse> {
     const { tool, params } = toolCall;
 
-    // 使用 userId 确保权限正确
-    const pushService = new PushService(this.env, userId);
+    // 使用 username（email）作为数据库 user_id 字段的查询条件，确保数据正确查询
+    const pushService = new PushService(this.env, username);
 
     switch (tool) {
       case 'createTemplate': {
+        const templateName = params.name || '新模板';
+        const templateTitle = params.title || '通知标题';
+        const templateContent = params.content || '通知内容';
         const result = await pushService.saveTemplate({
-          name: String(params.name),
-          title: String(params.title),
-          content: String(params.content || ''),
+          name: String(templateName),
+          title: String(templateTitle),
+          content: String(templateContent),
           url: String(params.url || ''),
           category: String(params.category || ''),
         });
-        return { success: true, result: `模板 "${params.name}" 创建成功`, data: result };
+        return { success: true, result: `模板 "${templateName}" 创建成功`, data: result };
       }
 
       case 'listTemplates': {
@@ -564,6 +745,7 @@ ${toolsList}
       }
 
       case 'createGroup': {
+        const groupName = params.name || '新分组';
         const channels = (
           Array.isArray(params.channels)
             ? params.channels.map(String)
@@ -572,10 +754,10 @@ ${toolsList}
                 .filter(Boolean)
         ) as PushChannel[];
         const result = await pushService.saveChannelGroup({
-          name: String(params.name),
+          name: String(groupName),
           channels,
         });
-        return { success: true, result: `分组 "${params.name}" 创建成功`, data: result };
+        return { success: true, result: `分组 "${groupName}" 创建成功`, data: result };
       }
 
       case 'listGroups': {

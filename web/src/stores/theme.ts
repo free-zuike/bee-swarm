@@ -12,6 +12,10 @@ interface ThemeColors {
   '--text-primary': string;
   '--text-secondary': string;
   '--border-color': string;
+  '--primary-color': string;
+  '--primary-color-hover': string;
+  '--success-color': string;
+  '--shadow-color': string;
 }
 
 const themes: Record<'light' | 'dark', ThemeColors> = {
@@ -22,6 +26,10 @@ const themes: Record<'light' | 'dark', ThemeColors> = {
     '--text-primary': '#1a1a2e',
     '--text-secondary': '#666',
     '--border-color': '#e0e0e0',
+    '--primary-color': '#6366f1',
+    '--primary-color-hover': '#5a6fd6',
+    '--success-color': '#10b981',
+    '--shadow-color': 'rgba(102, 126, 234, 0.4)',
   },
   dark: {
     '--bg-primary': '#1e1e1e',
@@ -30,6 +38,10 @@ const themes: Record<'light' | 'dark', ThemeColors> = {
     '--text-primary': '#e0e0e0',
     '--text-secondary': '#999',
     '--border-color': '#3c3c3c',
+    '--primary-color': '#818cf8',
+    '--primary-color-hover': '#6366f1',
+    '--success-color': '#34d399',
+    '--shadow-color': 'rgba(129, 140, 248, 0.3)',
   },
 };
 
