@@ -537,6 +537,7 @@ export class PushService {
       yearlyDates: row.yearly_dates ? JSON.parse(row.yearly_dates) : undefined,
       selectedWeekDays: row.selected_week_days ? JSON.parse(row.selected_week_days) : undefined,
       selectedMonthDays: row.selected_month_days ? JSON.parse(row.selected_month_days) : undefined,
+      cronExpression: row.cron || undefined,
     }));
   }
 
