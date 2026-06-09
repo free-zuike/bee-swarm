@@ -192,12 +192,49 @@ export default {
 
         console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
 
+        // 如果是定时任务的推送，需要更新状态
+        if (message.payload.scheduledPushId) {
+          const pushService = new PushService(env, message.userId);
+          
+          if (message.payload.isRecurring) {
+            // 循环任务：计算下次执行时间
+            const nowDate = new Date();
+            const nextScheduledAt = calculateNextScheduledAt(
+              { 
+                scheduledAt: message.payload.scheduledAt || new Date().toISOString(),
+                nextRun: message.payload.scheduledAt || new Date().toISOString(),
+                recurringType: message.payload.recurringType || 'daily'
+              } as any,
+              nowDate
+            );
+            await pushService.updateScheduledPushAndTime(message.payload.scheduledPushId, 'pending', nextScheduledAt);
+            console.log(`[Queue] Recurring task ${message.payload.scheduledPushId} rescheduled to: ${nextScheduledAt}`);
+          } else {
+            // 非循环任务：更新状态
+            const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
+            await pushService.updateScheduledPushStatus(message.payload.scheduledPushId, finalStatus);
+            console.log(`[Queue] One-time task ${message.payload.scheduledPushId} status: ${finalStatus}`);
+          }
+        }
+
         // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
       } catch (error) {
         console.error(
           `[Queue] Failed to process message ${message.requestId}:`,
           (error as Error).message
         );
+        
+        // 如果是定时任务的推送，需要将状态更新为 failed
+        if (message.payload.scheduledPushId) {
+          try {
+            const pushService = new PushService(env, message.userId);
+            await pushService.updateScheduledPushStatus(message.payload.scheduledPushId, 'failed');
+            console.log(`[Queue] Task ${message.payload.scheduledPushId} marked as failed`);
+          } catch (updateError) {
+            console.error(`[Queue] Failed to update task status:`, (updateError as Error).message);
+          }
+        }
+        
         throw error;
       }
     });
@@ -348,7 +385,7 @@ async function markReminderSent(env: Env, username: string, taskId: string): Pro
 }
 
 /**
- * 处理定时推送任务
+ * 处理定时推送任务 - 使用队列推送
  */
 async function processScheduledPushes(
   env: Env,
@@ -358,8 +395,17 @@ async function processScheduledPushes(
 ): Promise<void> {
   try {
     const pushService = new PushService(env, username);
+    const queueService = new QueueService(env);
     const pendingPushes = await pushService.getScheduledPushes('pending');
     const nowDate = new Date();
+
+    // 检查队列是否可用
+    if (!queueService.isAvailable()) {
+      console.error('[Cron ScheduledPush] Queue not available, falling back to direct push');
+      // 如果队列不可用，使用直接推送
+      await processScheduledPushesDirect(env, username, pushService, pendingPushes, nowDate);
+      return;
+    }
 
     for (const push of pendingPushes) {
       const scheduledTime = new Date(push.scheduledAt);
@@ -379,28 +425,26 @@ async function processScheduledPushes(
         continue;
       }
 
+      // 将任务发送到队列
+      const requestId = crypto.randomUUID();
       await pushService.updateScheduledPushStatus(push.id, 'processing');
-      const results = await dispatchPushWithOptions(
-        {
+
+      await queueService.sendPushTask({
+        requestId,
+        userId: username,
+        payload: {
           title: push.title,
           body: push.content,
           url: push.url,
+          channels: push.channels,
+          scheduledPushId: push.id,
+          isRecurring: push.scheduleType === 'recurring',
+          recurringType: push.recurringType,
         },
-        push.channels as PushChannel[],
-        username,
-        env
-      );
+        createdAt: new Date().toISOString(),
+      });
 
-      const finalStatus = results.every((r) => r.success) ? 'completed' : 'failed';
-      const scheduleType = push.scheduleType || 'once';
-
-      if (scheduleType === 'recurring') {
-        // 计算下次执行时间
-        const nextScheduledAt = calculateNextScheduledAt(push, nowDate);
-        await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
-      } else {
-        await pushService.updateScheduledPushStatus(push.id, finalStatus);
-      }
+      console.log(`[Cron] Scheduled push ${push.id} queued with requestId: ${requestId}`);
 
       // 保存执行锁 - 使用 D1
       await insertScheduledLock(env, {
@@ -413,6 +457,65 @@ async function processScheduledPushes(
     }
   } catch (err) {
     console.error(`[Cron ScheduledPush] Error for ${username}:`, (err as Error).message);
+  }
+}
+
+/**
+ * 直接推送（队列不可用时的回退方案）
+ */
+async function processScheduledPushesDirect(
+  env: Env,
+  username: string,
+  pushService: any,
+  pendingPushes: any[],
+  nowDate: Date
+): Promise<void> {
+  for (const push of pendingPushes) {
+    const scheduledTime = new Date(push.scheduledAt);
+    if (scheduledTime > nowDate) {
+      continue;
+    }
+
+    const currentMinute = Math.floor(nowDate.getTime() / 60000);
+    const existingLock = await getScheduledLock(env, username, push.id);
+    if (existingLock && parseInt(existingLock.executedAt, 10) === currentMinute) {
+      continue;
+    }
+
+    const shouldExecute = shouldExecutePush(push, nowDate, scheduledTime);
+    if (!shouldExecute) {
+      continue;
+    }
+
+    await pushService.updateScheduledPushStatus(push.id, 'processing');
+    const results = await dispatchPushWithOptions(
+      {
+        title: push.title,
+        body: push.content,
+        url: push.url,
+      },
+      push.channels as PushChannel[],
+      username,
+      env
+    );
+
+    const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
+    const scheduleType = push.scheduleType || 'once';
+
+    if (scheduleType === 'recurring') {
+      const nextScheduledAt = calculateNextScheduledAt(push, nowDate);
+      await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
+    } else {
+      await pushService.updateScheduledPushStatus(push.id, finalStatus);
+    }
+
+    await insertScheduledLock(env, {
+      id: crypto.randomUUID(),
+      userId: username,
+      pushId: push.id,
+      executedAt: String(currentMinute),
+      createdAt: nowDate.toISOString(),
+    });
   }
 }
 

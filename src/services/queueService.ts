@@ -3,7 +3,7 @@
 // ============================================
 
 import type { Env } from '../types';
-import type { PushRequest } from '../../types';
+import type { PushRequest, PushChannel } from '../../types';
 
 /**
  * 推送任务队列消息
@@ -11,7 +11,12 @@ import type { PushRequest } from '../../types';
 export interface PushQueueMessage {
   requestId: string;
   userId: string;
-  payload: PushRequest;
+  payload: PushRequest & {
+    scheduledPushId?: string;
+    isRecurring?: boolean;
+    recurringType?: string;
+    scheduledAt?: string;
+  };
   createdAt: string;
 }
 

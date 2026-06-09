@@ -693,102 +693,65 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const username = c.get('username');
   const body = (c as ValidatedContext).validatedBody as PushRequest & { async?: boolean };
 
-  console.log('[Push API] Received request:', { username, async: body.async, body });
+  console.log('[Push API] Received request:', { username, body });
 
-  // 检查是否使用队列异步推送
-  const useQueue = body.async === true;
-  console.log('[Push API] Using queue:', useQueue);
+  // 强制使用队列异步推送
+  console.log('[Push API] Queue mode enabled, initializing QueueService...');
+  const queueService = new QueueService(c.env);
+  console.log('[Push API] Queue available:', queueService.isAvailable());
 
-  if (useQueue) {
-    console.log('[Push API] Queue mode enabled, initializing QueueService...');
-    const queueService = new QueueService(c.env);
-    console.log('[Push API] Queue available:', queueService.isAvailable());
-
-    if (!queueService.isAvailable()) {
-      return c.json(
-        {
-          success: false,
-          message: '队列服务不可用，请使用同步模式或配置队列',
-          code: 'QUEUE_NOT_AVAILABLE',
-        },
-        503
-      );
-    }
-
-    const requestId = crypto.randomUUID();
-    console.log('[Push API] Created requestId:', requestId);
-
-    try {
-      console.log('[Push API] Sending push task to queue...');
-      await queueService.sendPushTask({
-        requestId,
-        userId: username,
-        payload: body,
-        createdAt: new Date().toISOString(),
-      });
-      console.log('[Push API] Push task sent to queue successfully');
-    } catch (error) {
-      console.error('[Push API] Failed to send task to queue:', error);
-      return c.json(
-        {
-          success: false,
-          message: '发送到队列失败: ' + (error as Error).message,
-          code: 'QUEUE_SEND_FAILED',
-        },
-        500
-      );
-    }
-
-    // 记录异步推送日志
-    try {
-      const auditLogger = createAuditLogger(c.env, username);
-      await auditLogger.log('push_queued', {
-        channels: body.channels,
-        requestId,
-      });
-    } catch {
-      // 审计日志失败不影响主流程
-    }
-
-    console.log('[Push API] Returning success response');
-    return c.json({
-      success: true,
-      message: '推送已加入队列',
-      requestId,
-      async: true,
-    });
+  if (!queueService.isAvailable()) {
+    return c.json(
+      {
+        success: false,
+        message: '队列服务不可用，请配置 Cloudflare Queues',
+        code: 'QUEUE_NOT_AVAILABLE',
+      },
+      503
+    );
   }
 
-  // 同步推送（原有逻辑）
-  const results = await dispatchPush(body, body.channels, username, c.env);
+  const requestId = crypto.randomUUID();
+  console.log('[Push API] Created requestId:', requestId);
 
-  const successCount = results.filter((r) => r.success).length;
-  const failedCount = results.filter((r) => !r.success).length;
+  try {
+    console.log('[Push API] Sending push task to queue...');
+    await queueService.sendPushTask({
+      requestId,
+      userId: username,
+      payload: body,
+      createdAt: new Date().toISOString(),
+    });
+    console.log('[Push API] Push task sent to queue successfully');
+  } catch (error) {
+    console.error('[Push API] Failed to send task to queue:', error);
+    return c.json(
+      {
+        success: false,
+        message: '发送到队列失败: ' + (error as Error).message,
+        code: 'QUEUE_SEND_FAILED',
+      },
+      500
+    );
+  }
 
-  // 记录推送日志
+  // 记录异步推送日志
   try {
     const auditLogger = createAuditLogger(c.env, username);
-    if (failedCount > 0) {
-      await auditLogger.log('push_failed', {
-        channels: body.channels,
-        successCount,
-        failedCount,
-      });
-    } else {
-      await auditLogger.log('push_sent', {
-        channels: body.channels,
-        successCount,
-      });
-    }
+    await auditLogger.log('push_queued', {
+      channels: body.channels,
+      requestId,
+    });
   } catch {
     // 审计日志失败不影响主流程
   }
 
+  console.log('[Push API] Returning success response');
   return c.json({
-    success: failedCount === 0,
-    message: `推送完成: ${successCount} 成功, ${failedCount} 失败`,
-    results,
-    async: false,
+    success: true,
+    message: '推送已加入队列',
+    requestId,
+    async: true,
   });
 });
 
