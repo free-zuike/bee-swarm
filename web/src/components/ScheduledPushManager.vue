@@ -82,9 +82,9 @@
                   </button>
                 </div>
                 <div v-if="push.scheduleType === 'recurring' && expandedPushes.has(push.id)" class="upcoming-executions">
-                  <template v-if="getUpcomingExecutions(push, 10).length > 0">
+                  <template v-if="executionsCache.get(push.id) && (executionsCache.get(push.id)?.length ?? 0) > 0">
                     <div
-                      v-for="(exec, idx) in getUpcomingExecutions(push, 10)"
+                      v-for="(exec, idx) in executionsCache.get(push.id)"
                       :key="idx"
                       class="execution-item"
                     >
@@ -757,6 +757,17 @@ const selectedMonthDays = ref<number[]>([1, 15]);
 const selectedMonths = ref<number[]>([1]);
 const selectedYearDays = ref<number[]>([1]);
 const cronExpression = ref('0 9 * * *');
+const executionsCache = ref<Map<string, Date[]>>(new Map());
+
+function rebuildExecutionsCache(): void {
+  const cache = new Map<string, Date[]>();
+  for (const push of scheduledPushes.value) {
+    if (push.scheduleType === 'recurring') {
+      cache.set(push.id, getUpcomingExecutions(push, 10));
+    }
+  }
+  executionsCache.value = cache;
+}
 
 const weekDays = [
   { value: 1, label: 'label.monday' },
@@ -1085,29 +1096,6 @@ function onTemplateChange(): void {
     }
   } else {
     newPush.value.channels = [];
-  }
-}
-
-async function loadScheduledPushes(): Promise<void> {
-  if (!props.accessToken) return;
-  loading.value = true;
-  try {
-    const data = await getScheduledPushes(props.accessToken);
-    scheduledPushes.value = data.scheduled || [];
-  } catch (error) {
-    console.error('Failed to load scheduled pushes:', error);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function loadTemplates(): Promise<void> {
-  if (!props.accessToken) return;
-  try {
-    const data = await getTemplates(props.accessToken);
-    templates.value = data.templates || [];
-  } catch (error) {
-    console.error('Failed to load templates:', error);
   }
 }
 
@@ -1773,28 +1761,72 @@ async function doTest(): Promise<void> {
 }
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let isLoadingScheduled = false;
+let templatesLoaded = false;
 
 onMounted(() => {
-  loadScheduledPushes();
-  loadTemplates();
-  refreshTimer = setInterval(() => {
+  // 初始加载（onMounted 与 watch 可能重复触发，此处统一由 watch 管理）
+  if (props.accessToken) {
     loadScheduledPushes();
-  }, 5000);
+    loadTemplates();
+  }
+  // 30 秒间隔刷新状态变化，避免过于频繁请求
+  refreshTimer = setInterval(() => {
+    if (!isLoadingScheduled) {
+      loadScheduledPushes(true);
+    }
+  }, 30000);
 });
 
 onUnmounted(() => {
   if (refreshTimer) {
     clearInterval(refreshTimer);
+    refreshTimer = null;
   }
 });
 
 watch(
   () => props.accessToken,
-  () => {
+  (newToken) => {
+    if (!newToken) return;
+    if (!templatesLoaded) {
+      loadTemplates();
+    }
     loadScheduledPushes();
-    loadTemplates();
   }
 );
+
+async function loadScheduledPushes(isBackground = false): Promise<void> {
+  if (!props.accessToken) return;
+  if (isLoadingScheduled) return;
+  isLoadingScheduled = true;
+  if (!isBackground) {
+    loading.value = true;
+  }
+  try {
+    const data = await getScheduledPushes(props.accessToken);
+    scheduledPushes.value = data.scheduled || [];
+    rebuildExecutionsCache();
+  } catch (error) {
+    console.error('Failed to load scheduled pushes:', error);
+  } finally {
+    if (!isBackground) {
+      loading.value = false;
+    }
+    isLoadingScheduled = false;
+  }
+}
+
+async function loadTemplates(): Promise<void> {
+  if (!props.accessToken) return;
+  try {
+    const data = await getTemplates(props.accessToken);
+    templates.value = data.templates || [];
+    templatesLoaded = true;
+  } catch (error) {
+    console.error('Failed to load templates:', error);
+  }
+}
 </script>
 
 <style scoped>
