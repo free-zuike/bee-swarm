@@ -702,31 +702,6 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
 }
 
 /**
- * 匹配单个 cron 字段值
- */
-function matchCronField(field: string, value: number): boolean {
-  const segments = field.split(',');
-  for (const segment of segments) {
-    const [rangePart, stepPart] = segment.split('/');
-    const step = stepPart ? parseInt(stepPart, 10) : 1;
-    if (isNaN(step) || step < 1) continue;
-
-    if (rangePart === '*') {
-      if (step === 1 || value % step === 0) return true;
-    } else if (rangePart.includes('-')) {
-      const [start, end] = rangePart.split('-').map(v => parseInt(v, 10));
-      if (!isNaN(start) && !isNaN(end) && value >= start && value <= end) {
-        if ((value - start) % step === 0) return true;
-      }
-    } else {
-      const val = parseInt(rangePart, 10);
-      if (!isNaN(val) && val === value) return true;
-    }
-  }
-  return false;
-}
-
-/**
  * 解析 cron 表达式计算下一次执行时间
  */
 function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | null {
