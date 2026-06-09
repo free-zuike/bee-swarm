@@ -264,6 +264,28 @@ function getToolPrompt(tool: any): string {
   return `{"name":"${tool.name}","description":"${tool.description}","parameters":${paramsStr}}`;
 }
 
+// 获取工具的显示名称：优先从 i18n 翻译，否则回退到 tool.name
+function getToolDisplayName(tool: any): string {
+  const key = `ai.tool.${tool.name}.name`;
+  const translated = t(key);
+  // 如果翻译后返回的是 key 本身（说明没有翻译），则显示原名称
+  return translated === key ? tool.name : translated;
+}
+
+// 获取工具显示描述：优先从 i18n 翻译，否则回退到 tool.description
+function getToolDisplayDescription(tool: any): string {
+  const key = `ai.tool.${tool.name}.desc`;
+  const translated = t(key);
+  return translated === key ? tool.description : translated;
+}
+
+// 获取参数类型显示名称
+function getParamTypeLabel(type: string): string {
+  const key = `ai.type.${String(type || '').toLowerCase()}`;
+  const translated = t(key);
+  return translated === key ? type : translated;
+}
+
 function editTool(tool: any) {
   editingToolId.value = tool.id;
   editingTool.value = { ...tool };
@@ -2159,7 +2181,7 @@ function handleResend(record: PushHistoryRecord) {
         <!-- 右侧内容 -->
         <div class="settings-content" :class="{ dark: isDark }">
           <!-- 主题设置 -->
-          <div v-if="activeSettingsTab === 'theme'" class="settings-panel">
+          <div v-if="activeSettingsTab === 'theme'" class="settings-panel" :class="{ dark: isDark }">
             <h3>🎨 {{ t('theme.settings') }}</h3>
             <div class="settings-card">
               <div class="theme-options">
@@ -2183,7 +2205,7 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- API Key 设置 -->
-          <div v-else-if="activeSettingsTab === 'apiKey'" class="settings-panel">
+          <div v-else-if="activeSettingsTab === 'apiKey'" class="settings-panel" :class="{ dark: isDark }">
             <h3>🔑 {{ t('label.api_key') }}</h3>
             <div class="settings-card">
               <p class="hint">{{ t('hint.api_key') }}</p>
@@ -2210,7 +2232,7 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- 缓存设置 -->
-          <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel">
+          <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel" :class="{ dark: isDark }">
             <h3>🗄️ {{ t('label.cache_settings') }}</h3>
             <div class="settings-card">
               <div class="setting-item">
@@ -2291,7 +2313,7 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- AI 设置 -->
-          <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel">
+          <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel" :class="{ dark: isDark }">
             <h3>🤖 {{ t('label.ai_settings') }}</h3>
             <div class="settings-card">
               <div class="setting-item">
@@ -2462,10 +2484,10 @@ function handleResend(record: PushHistoryRecord) {
                     <div class="tool-info">
                       <div class="tool-name">
                         <span class="expand-icon">{{ tool.expanded ? '▼' : '▶' }}</span>
-                        {{ tool.name }}
+                        {{ getToolDisplayName(tool) }}
                         <span v-if="tool.isDefault" class="tool-badge">{{ t('label.tool_default') }}</span>
                       </div>
-                      <div class="tool-desc">{{ tool.description }}</div>
+                      <div class="tool-desc">{{ getToolDisplayDescription(tool) }}</div>
                     </div>
                     <div class="tool-actions" @click.stop>
                       <label class="toggle">
@@ -2512,7 +2534,7 @@ function handleResend(record: PushHistoryRecord) {
                       <div class="detail-content">
                         <div v-for="param in tool.parameters" :key="param.name" class="param-item">
                           <span class="param-name">{{ param.name }}</span>
-                          <span class="param-type">{{ param.type }}</span>
+                          <span class="param-type">{{ getParamTypeLabel(param.type) }}</span>
                           <span v-if="param.required" class="param-required">{{ t('label.tool_required') }}</span>
                           <span class="param-desc">{{ param.description }}</span>
                         </div>
@@ -2527,7 +2549,7 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- 头像设置 -->
-          <div v-else-if="activeSettingsTab === 'avatar'" class="settings-panel">
+          <div v-else-if="activeSettingsTab === 'avatar'" class="settings-panel" :class="{ dark: isDark }">
             <h3>🖼️ {{ t('label.avatar_settings') }}</h3>
             <div class="settings-card">
               <!-- 当前头像预览 -->
@@ -2695,6 +2717,7 @@ function handleResend(record: PushHistoryRecord) {
           <div
             v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')"
             class="settings-panel"
+            :class="{ dark: isDark }"
           >
             <h3>⚙️ {{ t('label.system_settings') }}</h3>
 
@@ -2824,6 +2847,7 @@ function handleResend(record: PushHistoryRecord) {
           <div
             v-else-if="activeSettingsTab === 'database' && hasPermission('users:manage')"
             class="settings-panel"
+            :class="{ dark: isDark }"
           >
             <h3>🗃️ {{ t('label.database_management') }}</h3>
 
@@ -5279,9 +5303,18 @@ function handleResend(record: PushHistoryRecord) {
   color: var(--primary-color, #818cf8);
 }
 
+.settings-panel.dark .param-type {
+  background: #475569;
+  color: #e2e8f0;
+}
+
 .settings-panel.dark .param-required {
   background: #4c1d1d;
   color: #fca5a5;
+}
+
+.settings-panel.dark .param-desc {
+  color: var(--text-secondary, #94a3b8);
 }
 
 .settings-panel.dark .tool-item {
