@@ -97,21 +97,29 @@ export class AIService {
         const model = settings.ai_model_name || '@cf/meta/llama-3.3-8b-instruct';
         try {
           const response = await this.env.AI.run(model, { messages });
-          console.log('[AI Service] Workers AI 原始响应:', JSON.stringify(response));
+          
+          // 详细日志调试
+          console.log('[AI Service] === Worker AI 完整响应调试 ===');
+          console.log('[AI Service] 响应类型:', typeof response);
+          console.log('[AI Service] 响应 keys:', response ? Object.keys(response) : 'N/A');
+          console.log('[AI Service] 完整响应:', JSON.stringify(response, null, 2));
           
           // 处理不同的响应格式
           if (typeof response === 'string') {
+            console.log('[AI Service] 返回字符串响应:', response);
             return response;
           }
           
           // 标准响应格式
           if (response.response) {
+            console.log('[AI Service] 返回 response.response:', response.response);
             return response.response;
           }
           
           // 工具调用格式 - tools 数组
           if (response.tools && Array.isArray(response.tools) && response.tools.length > 0) {
             const toolCall = response.tools[0];
+            console.log('[AI Service] 检测到 tools 数组:', toolCall);
             const toolName = toolCall.Name || toolCall.name;
             if (toolName) {
               return JSON.stringify({ tool: toolName, params: toolCall.params || {} });
@@ -121,16 +129,29 @@ export class AIService {
           // 工具调用格式 - tool_calls
           if (response.tool_calls && Array.isArray(response.tool_calls) && response.tool_calls.length > 0) {
             const toolCall = response.tool_calls[0];
+            console.log('[AI Service] 检测到 tool_calls:', toolCall);
             return JSON.stringify({ tool: toolCall.function.name, params: JSON.parse(toolCall.function.arguments || '{}') });
           }
           
+          // choices 格式 (某些 API 兼容格式)
+          if (response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
+            const choice = response.choices[0];
+            if (choice.message?.content) {
+              console.log('[AI Service] 返回 choices.message.content:', choice.message.content);
+              return choice.message.content;
+            }
+          }
+          
           // 其他格式 - 返回响应的字符串表示
+          console.log('[AI Service] 返回其他格式，转为字符串');
           return typeof response === 'object' ? JSON.stringify(response) : String(response);
         } catch (error) {
-          console.error(`[AI Service] Workers AI 调用失败，尝试备用模型:`, error);
+          console.error(`[AI Service] Workers AI 调用失败:`, error);
           const fallbackModel = '@cf/meta/llama-3.2-3b-instruct';
           console.log(`[AI Service] 尝试备用模型: ${fallbackModel}`);
           const response = await this.env.AI.run(fallbackModel, { messages });
+          
+          console.log('[AI Service] 备用模型响应:', JSON.stringify(response, null, 2));
           
           // 同样处理备用模型的响应
           if (typeof response === 'string') {
@@ -149,6 +170,12 @@ export class AIService {
           if (response.tool_calls && Array.isArray(response.tool_calls) && response.tool_calls.length > 0) {
             const toolCall = response.tool_calls[0];
             return JSON.stringify({ tool: toolCall.function.name, params: JSON.parse(toolCall.function.arguments || '{}') });
+          }
+          if (response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
+            const choice = response.choices[0];
+            if (choice.message?.content) {
+              return choice.message.content;
+            }
           }
           return typeof response === 'object' ? JSON.stringify(response) : String(response);
         }
@@ -570,15 +597,38 @@ ${toolsList}
 
       // --- 方式 6: JSON 格式解析 ---
       let jsonStr = null;
+      
+      // 6a: 尝试从整个文本中提取 JSON 对象
       const jsonObjectMatch = trimmedContent.match(/\{[\s\S]*\}/);
       if (jsonObjectMatch) {
         jsonStr = jsonObjectMatch[0];
       }
 
+      // 6b: 如果找不到 JSON，尝试从 markdown 代码块中提取
       if (!jsonStr && trimmedContent.includes('```')) {
         const codeBlockMatch = trimmedContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
         if (codeBlockMatch) {
           jsonStr = codeBlockMatch[1];
+        }
+      }
+      
+      // 6c: 如果文本中包含 "tool" 或 "name" 等关键词，尝试更激进地提取 JSON
+      if (!jsonStr && (trimmedContent.includes('"tool"') || trimmedContent.includes('"name"') || trimmedContent.includes('"params"'))) {
+        // 尝试找到最完整的 JSON 对象
+        const allJsonMatches = trimmedContent.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+        if (allJsonMatches) {
+          for (const match of allJsonMatches) {
+            try {
+              const parsed = JSON.parse(match);
+              // 如果解析成功且包含工具相关字段，使用这个
+              if (parsed.tool || parsed.name || parsed.function_name || parsed.tools) {
+                jsonStr = match;
+                break;
+              }
+            } catch {
+              // 继续尝试下一个
+            }
+          }
         }
       }
 
