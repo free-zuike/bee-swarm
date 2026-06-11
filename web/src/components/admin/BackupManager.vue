@@ -920,7 +920,7 @@ defineExpose({
                 <label>{{ t('label.timezone') }}</label>
                 <select v-model="editingEndpoint.schedule.timezone">
                   <optgroup :label="t('timezone.asia')">
-                    <option value="Asia/Shanghai">{{ t('timezone.china') }}</option>
+                    <option value="Asia/Shanghai">{{ t('timezone.shanghai') }}</option>
                     <option value="Asia/Hong_Kong">{{ t('timezone.hongkong') }}</option>
                     <option value="Asia/Taipei">{{ t('timezone.taipei') }}</option>
                     <option value="Asia/Tokyo">{{ t('timezone.tokyo') }}</option>
