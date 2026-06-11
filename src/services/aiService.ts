@@ -444,7 +444,6 @@ ${toolsList}
         return null;
       }
 
-      // 已知工具名列表（用于模糊匹配）
       const knownTools = [
         'listTemplates',
         'createTemplate',
@@ -457,8 +456,17 @@ ${toolsList}
 
       const trimmedContent = content.trim();
 
+      // --- 方式 0: 工具名 + 空格 + 空对象格式 (如 "listChannels {}") ---
+      const spaceBraceMatch = trimmedContent.match(/^(\w+)\s*(\{\s*\})\s*$/);
+      if (spaceBraceMatch) {
+        const lowerTool = spaceBraceMatch[1].toLowerCase();
+        const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+        if (matched) {
+          return { tool: matched, params: {} };
+        }
+      }
+
       // --- 方式 1: 精确工具名匹配 ---
-      // 纯工具名 (如 "listTemplates")
       if (/^\w+$/.test(trimmedContent)) {
         const lowerTool = trimmedContent.toLowerCase();
         const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
@@ -467,8 +475,8 @@ ${toolsList}
         }
       }
 
-      // --- 方式 2: 带中文前缀的工具名（如 "调用工具：listTemplates"、"工具调用：listTemplates"）---
-      const prefixMatch = trimmedContent.match(/^(?:调用工具|工具调用|工具|tool)\s*[:：]\s*(\w+)\s*[：:].*$/i);
+      // --- 方式 2: 带中文前缀的工具名（如 "调用工具：listTemplates"、"工具调用：listTemplates"、"执行listTemplates"）---
+      const prefixMatch = trimmedContent.match(/^(?:调用工具|工具调用|工具|tool|调用|执行)\s*[:：]?\s*(\w+)\s*[：:]?.*$/i);
       if (prefixMatch) {
         const lowerTool = prefixMatch[1].toLowerCase();
         const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
@@ -485,14 +493,12 @@ ${toolsList}
         try {
           params = JSON.parse(colonJsonMatch[2]);
         } catch {
-          // 解析失败则使用空对象
         }
         const lowerTool = toolName.toLowerCase();
         const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
         if (matched) {
           return { tool: matched, params };
         }
-        // 即使不在已知工具列表中，也尝试返回（为了兼容性）
         return { tool: toolName, params };
       }
 
@@ -517,14 +523,12 @@ ${toolsList}
       }
 
       // --- 方式 6: JSON 格式解析 ---
-      // 6a: 尝试从整个文本中提取 JSON 对象
       let jsonStr = null;
       const jsonObjectMatch = trimmedContent.match(/\{[\s\S]*\}/);
       if (jsonObjectMatch) {
         jsonStr = jsonObjectMatch[0];
       }
 
-      // 6b: 如果找不到 JSON，尝试从 markdown 代码块中提取
       if (!jsonStr && trimmedContent.includes('```')) {
         const codeBlockMatch = trimmedContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
         if (codeBlockMatch) {
@@ -532,7 +536,19 @@ ${toolsList}
         }
       }
 
-      // --- 方式 7: 如果没有 JSON，则使用关键词模糊匹配 ---
+      // --- 方式 7: 工具名+空花括号紧凑格式 (如 "listChannels{}") ---
+      if (!jsonStr) {
+        const compactBraceMatch = trimmedContent.match(/^(\w+)(\{\})$/);
+        if (compactBraceMatch) {
+          const lowerTool = compactBraceMatch[1].toLowerCase();
+          const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+          if (matched) {
+            return { tool: matched, params: {} };
+          }
+        }
+      }
+
+      // --- 方式 8: 如果没有 JSON，则使用关键词模糊匹配 ---
       if (!jsonStr) {
         const lowerContent = trimmedContent.toLowerCase();
 
@@ -607,7 +623,7 @@ ${toolsList}
         return null;
       }
 
-      // --- 方式 8: 解析 JSON 对象 ---
+      // --- 方式 9: 解析 JSON 对象 ---
       let parsed: any;
       try {
         parsed = JSON.parse(jsonStr);
@@ -625,7 +641,7 @@ ${toolsList}
         }
       }
 
-      // 8a: 标准格式: {"tool": "...", "params": {...}}
+      // 9a: 标准格式: {"tool": "...", "params": {...}}
       if (parsed.tool) {
         const toolName = String(parsed.tool);
         const matchedTool =
@@ -636,7 +652,7 @@ ${toolsList}
         };
       }
 
-      // 8b: OpenAI 风格: {"name": "...", "arguments": {...}}
+      // 9b: OpenAI 风格: {"name": "...", "arguments": {...}}
       if (parsed.name) {
         const toolName = String(parsed.name);
         const matchedTool =
@@ -647,7 +663,7 @@ ${toolsList}
         };
       }
 
-      // 8c: function_name 风格: {"function_name": "...", "parameters": {...}}
+      // 9c: function_name 风格: {"function_name": "...", "parameters": {...}}
       if (parsed.function_name) {
         const toolName = String(parsed.function_name);
         const matchedTool =
@@ -658,7 +674,7 @@ ${toolsList}
         };
       }
 
-      // 8d: LangChain 风格: {"action": "...", "action_input": {...}}
+      // 9d: LangChain 风格: {"action": "...", "action_input": {...}}
       if (parsed.action) {
         const toolName = String(parsed.action);
         const matchedTool =
@@ -669,7 +685,7 @@ ${toolsList}
         };
       }
 
-      // 8e: workers-ai 风格: {"tools": [{"Name": "listTemplates", "params": {}}]}
+      // 9e: workers-ai 风格: {"tools": [{"Name": "listTemplates", "params": {}}]}
       if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
         const toolCall = parsed.tools[0];
         const rawName = toolCall.Name || toolCall.name;
@@ -684,7 +700,7 @@ ${toolsList}
         }
       }
 
-      // 8f: tools 数组简写格式: {"tools": ["listTemplates"]}
+      // 9f: tools 数组简写格式: {"tools": ["listTemplates"]}
       if (parsed.tools && Array.isArray(parsed.tools) && typeof parsed.tools[0] === 'string') {
         const toolName = String(parsed.tools[0]);
         const matchedTool =
@@ -695,7 +711,7 @@ ${toolsList}
         };
       }
 
-      // 8g: 数组格式: [{"tool": "...", "params": {...}}]
+      // 9g: 数组格式: [{"tool": "...", "params": {...}}]
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].tool) {
         const firstCall = parsed[0];
         const toolName = String(firstCall.tool);
