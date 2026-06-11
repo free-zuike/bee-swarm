@@ -85,13 +85,18 @@ export class AIService {
 
   /**
    * 处理 AI 响应，统一解析不同提供商的响应格式
+   * 支持智能自动检测响应格式
    */
   private processAIResponse(response: unknown, provider: string): string {
     const factory = new AIResponseParserFactory();
-    const parser = factory.getParser(provider);
+    
+    // 优先使用智能自动检测机制
+    const parser = factory.autoDetectParser(response);
+    const parserName = (parser as { provider: string }).provider;
     
     console.log('[AI Service] === AI 响应处理 ===');
     console.log('[AI Service] 提供商:', provider);
+    console.log('[AI Service] 使用的解析器:', parserName);
     console.log('[AI Service] 原始响应类型:', typeof response);
     console.log('[AI Service] 原始响应:', JSON.stringify(response, null, 2));
     
