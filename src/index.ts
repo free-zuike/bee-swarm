@@ -827,12 +827,14 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
   }
 
   const recurringType = push.recurringType || 'daily';
-  const nowHour = nowDate.getHours();
-  const nowMinute = nowDate.getMinutes();
-  const nowDay = nowDate.getDay();
-  const nowDateOfMonth = nowDate.getDate();
-  const pushHour = scheduledTime.getHours();
-  const pushMinute = scheduledTime.getMinutes();
+  
+  // 使用 UTC 时间统一比较，避免时区问题
+  const nowHour = nowDate.getUTCHours();
+  const nowMinute = nowDate.getUTCMinutes();
+  const nowDay = nowDate.getUTCDay();
+  const nowDateOfMonth = nowDate.getUTCDate();
+  const pushHour = scheduledTime.getUTCHours();
+  const pushMinute = scheduledTime.getUTCMinutes();
 
   // 允许 ±2 分钟的时间窗口
   const timeDiffMinutes = Math.abs((nowHour - pushHour) * 60 + (nowMinute - pushMinute));
@@ -860,8 +862,8 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-      // 处理月末
-      const lastDayOfMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+      // 处理月末 - 使用 UTC 时间
+      const lastDayOfMonth = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0)).getUTCDate();
       const effectiveDays = selectedMonthDays.map((day) =>
         day > lastDayOfMonth ? lastDayOfMonth : day
       );
@@ -870,8 +872,8 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
-      const nowMonth = nowDate.getMonth() + 1; // 1-12
-      const nowDay = nowDate.getDate(); // 1-31
+      const nowMonth = nowDate.getUTCMonth() + 1; // 1-12
+      const nowDay = nowDate.getUTCDate(); // 1-31
       
       // 检查今天是否匹配任何一个配置的日期
       for (const dateConfig of yearlyDates) {
@@ -879,7 +881,7 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
         if (dateConfig.month === nowMonth) {
           // 如果是2月29日，需要处理闰年
           if (dateConfig.month === 2 && dateConfig.day === 29) {
-            const isLeapYear = (nowDate.getFullYear() % 4 === 0 && nowDate.getFullYear() % 100 !== 0) || nowDate.getFullYear() % 400 === 0;
+            const isLeapYear = (nowDate.getUTCFullYear() % 4 === 0 && nowDate.getUTCFullYear() % 100 !== 0) || nowDate.getUTCFullYear() % 400 === 0;
             if (isLeapYear) {
               // 闰年，今天正好是2月29日
               return nowDay === 29 && isTimeMatch;
@@ -906,7 +908,7 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
           const matchesMinute = matchCronField(minuteField, nowMinute);
           const matchesHour = matchCronField(hourField, nowHour);
           const matchesDayOfMonth = matchCronField(dayOfMonthField, nowDateOfMonth);
-          const matchesMonth = matchCronField(monthField, nowDate.getMonth() + 1);
+          const matchesMonth = matchCronField(monthField, nowDate.getUTCMonth() + 1);
           const matchesDayOfWeek = matchCronField(dayOfWeekField, nowDay);
           return (
             matchesMinute && matchesHour && matchesDayOfMonth && matchesMonth && matchesDayOfWeek
