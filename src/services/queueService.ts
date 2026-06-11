@@ -16,6 +16,7 @@ export interface PushQueueMessage {
     isRecurring?: boolean;
     recurringType?: string;
     scheduledAt?: string;
+    timezone?: string; // 用户时区
   };
   createdAt: string;
 }

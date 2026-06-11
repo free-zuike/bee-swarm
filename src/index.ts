@@ -199,16 +199,19 @@ export default {
           if (message.payload.isRecurring) {
             // 循环任务：计算下次执行时间
             const nowDate = new Date();
+            const userTimezone = message.payload.timezone || 'Asia/Shanghai';
             const nextScheduledAt = calculateNextScheduledAt(
               { 
                 scheduledAt: message.payload.scheduledAt || new Date().toISOString(),
                 nextRun: message.payload.scheduledAt || new Date().toISOString(),
-                recurringType: message.payload.recurringType || 'daily'
+                recurringType: message.payload.recurringType || 'daily',
+                timezone: userTimezone
               } as any,
-              nowDate
+              nowDate,
+              userTimezone
             );
             await pushService.updateScheduledPushAndTime(message.payload.scheduledPushId, 'pending', nextScheduledAt);
-            console.log(`[Queue] Recurring task ${message.payload.scheduledPushId} rescheduled to: ${nextScheduledAt}`);
+            console.log(`[Queue] Recurring task ${message.payload.scheduledPushId} rescheduled to: ${nextScheduledAt} (timezone: ${userTimezone})`);
           } else {
             // 非循环任务：更新状态
             const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
@@ -420,7 +423,8 @@ async function processScheduledPushes(
         continue;
       }
 
-      const shouldExecute = shouldExecutePush(push, nowDate, scheduledTime);
+      const userTimezone = push.timezone || 'Asia/Shanghai';
+      const shouldExecute = shouldExecutePush(push, nowDate, scheduledTime, userTimezone);
       if (!shouldExecute) {
         continue;
       }
@@ -440,6 +444,7 @@ async function processScheduledPushes(
           scheduledPushId: push.id,
           isRecurring: push.scheduleType === 'recurring',
           recurringType: push.recurringType,
+          timezone: userTimezone,
         },
         createdAt: new Date().toISOString(),
       });
@@ -482,7 +487,8 @@ async function processScheduledPushesDirect(
       continue;
     }
 
-    const shouldExecute = shouldExecutePush(push, nowDate, scheduledTime);
+    const userTimezone = push.timezone || 'Asia/Shanghai';
+    const shouldExecute = shouldExecutePush(push, nowDate, scheduledTime, userTimezone);
     if (!shouldExecute) {
       continue;
     }
@@ -503,7 +509,7 @@ async function processScheduledPushesDirect(
     const scheduleType = push.scheduleType || 'once';
 
     if (scheduleType === 'recurring') {
-      const nextScheduledAt = calculateNextScheduledAt(push, nowDate);
+      const nextScheduledAt = calculateNextScheduledAt(push, nowDate, userTimezone);
       await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
     } else {
       await pushService.updateScheduledPushStatus(push.id, finalStatus);
@@ -521,18 +527,24 @@ async function processScheduledPushesDirect(
 
 /**
  * 计算下次执行时间
+ * @param push 定时任务
+ * @param nowDate 当前时间（UTC）
+ * @param userTimezone 用户时区，默认 Asia/Shanghai
  */
-function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
+function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date, userTimezone?: string): string {
   const scheduledTime = new Date(push.scheduledAt);
   const recurringType = push.recurringType || 'daily';
+  const timezone = userTimezone || push.timezone || 'Asia/Shanghai';
   
-  // 从最后一次预计执行时间开始，而不是从现在开始
+  // 从最后一次预计执行时间开始
   const baseTime = new Date(push.nextRun || push.scheduledAt);
-  // 使用 UTC 时间设置小时和分钟，保持时区一致性
-  baseTime.setUTCHours(scheduledTime.getUTCHours(), scheduledTime.getUTCMinutes(), 0, 0);
+  
+  // 使用用户时区设置小时和分钟
+  const { hour, minute } = getLocalTime(scheduledTime, timezone);
 
   switch (recurringType) {
     case 'hourly': {
+      // 在用户时区的整点小时计算
       const nextTime = new Date(baseTime);
       nextTime.setUTCHours(nextTime.getUTCHours() + 1);
       // 确保在当前时间之后
@@ -566,11 +578,10 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       const nextTime = new Date(baseTime);
       
       // 从下一天开始找
-      for (let i = 1; i <= 14; i++) { // 最多找两周，确保能找到
+      for (let i = 1; i <= 14; i++) {
         const checkDate = new Date(nextTime);
         checkDate.setUTCDate(nextTime.getUTCDate() + i);
         if (selectedWeekDays.includes(checkDate.getUTCDay())) {
-          // 确保找到的日期在现在之后
           if (checkDate > nowDate) {
             return checkDate.toISOString();
           }
@@ -591,11 +602,10 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       const nextTime = new Date(baseTime);
       
       // 从下一天开始找
-      for (let i = 1; i <= 62; i++) { // 最多找两个月
+      for (let i = 1; i <= 62; i++) {
         const checkDate = new Date(nextTime);
         checkDate.setUTCDate(nextTime.getUTCDate() + i);
         
-        // 使用 UTC 时间计算月末
         const lastDayOfMonth = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth() + 1, 0)).getUTCDate();
         
         for (const day of selectedMonthDays) {
@@ -628,37 +638,30 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
-      // 使用 UTC 时间
-      const hours = scheduledTime.getUTCHours();
-      const minutes = scheduledTime.getUTCMinutes();
       
       // 查找下一个有效日期
       for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
         const checkYear = nowDate.getUTCFullYear() + yearOffset;
         
-        // 遍历所有配置的日期
         for (const dateConfig of yearlyDates) {
-          // 计算该年的这个日期 - 使用 UTC
-          let targetDate = new Date(Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hours, minutes, 0, 0));
+          let targetDate = new Date(Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hour, minute, 0, 0));
           
-          // 处理闰年2月29日的情况：顺延到3月1日
+          // 处理闰年2月29日
           if (dateConfig.month === 2 && dateConfig.day === 29) {
             const isLeapYear = (checkYear % 4 === 0 && checkYear % 100 !== 0) || checkYear % 400 === 0;
             if (!isLeapYear) {
-              // 非闰年，顺延到3月1日
-              targetDate = new Date(Date.UTC(checkYear, 2, 1, hours, minutes, 0, 0));
+              targetDate = new Date(Date.UTC(checkYear, 2, 1, hour, minute, 0, 0));
             }
           }
           
-          // 确保日期在现在之后
           if (targetDate > nowDate) {
             return targetDate.toISOString();
           }
         }
       }
       
-      // 默认返回明年1月1日 - 使用 UTC
-      const defaultDate = new Date(Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hours, minutes, 0, 0));
+      // 默认返回明年1月1日
+      const defaultDate = new Date(Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hour, minute, 0, 0));
       return defaultDate.toISOString();
     }
 
@@ -816,8 +819,12 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
 
 /**
  * 判断是否应该执行推送
+ * @param push 定时任务
+ * @param nowDate 当前时间（UTC）
+ * @param scheduledTime 计划执行时间（UTC）
+ * @param userTimezone 用户时区，默认 Asia/Shanghai
  */
-function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Date): boolean {
+function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Date, userTimezone?: string): boolean {
   const scheduleType = push.scheduleType || 'once';
 
   if (scheduleType !== 'recurring') {
@@ -825,14 +832,12 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
   }
 
   const recurringType = push.recurringType || 'daily';
+  const timezone = userTimezone || push.timezone || 'Asia/Shanghai';
   
-  // 使用 UTC 时间统一比较，避免时区问题
-  const nowHour = nowDate.getUTCHours();
-  const nowMinute = nowDate.getUTCMinutes();
-  const nowDay = nowDate.getUTCDay();
-  const nowDateOfMonth = nowDate.getUTCDate();
-  const pushHour = scheduledTime.getUTCHours();
-  const pushMinute = scheduledTime.getUTCMinutes();
+  // 使用用户配置的时区获取本地时间
+  const { hour: nowHour, minute: nowMinute } = getLocalTime(nowDate, timezone);
+  const nowDay = getLocalWeekday(nowDate, timezone);
+  const { hour: pushHour, minute: pushMinute } = getLocalTime(scheduledTime, timezone);
 
   // 允许 ±2 分钟的时间窗口
   const timeDiffMinutes = Math.abs((nowHour - pushHour) * 60 + (nowMinute - pushMinute));
@@ -843,11 +848,12 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
       return isTimeMatch;
 
     case 'interval': {
-      const intervalHours = push.intervalHours || 2;
+      // 使用时区转换计算间隔
+      const scheduledLocal = getLocalTime(scheduledTime, timezone);
       const hoursSinceStart = Math.floor(
-        (nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60)
+        (nowHour - scheduledLocal.hour + 24) % 24 + Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60))
       );
-      return hoursSinceStart > 0 && hoursSinceStart % intervalHours === 0 && isTimeMatch;
+      return hoursSinceStart > 0 && hoursSinceStart % (push.intervalHours || 2) === 0 && isTimeMatch;
     }
 
     case 'daily':
@@ -860,7 +866,12 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-      // 处理月末 - 使用 UTC 时间
+      // 使用用户时区获取当前日期
+      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }); // YYYY-MM-DD format
+      const localDateStr = formatter.format(nowDate);
+      const nowDateOfMonth = parseInt(localDateStr.split('-')[2], 10);
+      
+      // 处理月末
       const lastDayOfMonth = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0)).getUTCDate();
       const effectiveDays = selectedMonthDays.map((day) =>
         day > lastDayOfMonth ? lastDayOfMonth : day
@@ -870,26 +881,26 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
-      const nowMonth = nowDate.getUTCMonth() + 1; // 1-12
-      const nowDay = nowDate.getUTCDate(); // 1-31
+      
+      // 使用用户时区获取当前月份和日期
+      const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
+      const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
+      const nowMonth = parseInt(monthFormatter.format(nowDate), 10);
+      const nowDayOfMonth = parseInt(dayFormatter.format(nowDate), 10);
       
       // 检查今天是否匹配任何一个配置的日期
       for (const dateConfig of yearlyDates) {
-        // 如果月份匹配
         if (dateConfig.month === nowMonth) {
           // 如果是2月29日，需要处理闰年
           if (dateConfig.month === 2 && dateConfig.day === 29) {
             const isLeapYear = (nowDate.getUTCFullYear() % 4 === 0 && nowDate.getUTCFullYear() % 100 !== 0) || nowDate.getUTCFullYear() % 400 === 0;
             if (isLeapYear) {
-              // 闰年，今天正好是2月29日
-              return nowDay === 29 && isTimeMatch;
+              return nowDayOfMonth === 29 && isTimeMatch;
             } else {
-              // 非闰年，应该在3月1日执行
-              return nowMonth === 3 && nowDay === 1 && isTimeMatch;
+              return nowMonth === 3 && nowDayOfMonth === 1 && isTimeMatch;
             }
           } else {
-            // 其他月份，直接比较日期
-            if (dateConfig.day === nowDay) {
+            if (dateConfig.day === nowDayOfMonth) {
               return isTimeMatch;
             }
           }
@@ -903,10 +914,16 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
         const parts = push.cronExpression.trim().split(/\s+/);
         if (parts.length === 5) {
           const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
+          // 使用用户时区的日期信息
+          const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
+          const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
+          const localMonth = parseInt(monthFormatter.format(nowDate), 10);
+          const localDayOfMonth = parseInt(dayFormatter.format(nowDate), 10);
+          
           const matchesMinute = matchCronField(minuteField, nowMinute);
           const matchesHour = matchCronField(hourField, nowHour);
-          const matchesDayOfMonth = matchCronField(dayOfMonthField, nowDateOfMonth);
-          const matchesMonth = matchCronField(monthField, nowDate.getUTCMonth() + 1);
+          const matchesDayOfMonth = matchCronField(dayOfMonthField, localDayOfMonth);
+          const matchesMonth = matchCronField(monthField, localMonth);
           const matchesDayOfWeek = matchCronField(dayOfWeekField, nowDay);
           return (
             matchesMinute && matchesHour && matchesDayOfMonth && matchesMonth && matchesDayOfWeek

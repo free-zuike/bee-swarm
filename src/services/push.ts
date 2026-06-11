@@ -97,6 +97,8 @@ export interface ScheduledPush {
   overdueReminderSent?: boolean;
   overdueAt?: string;
   enabled?: boolean;
+  // 时区配置，默认使用 Asia/Shanghai
+  timezone?: string;
 }
 
 type PushParams = {
