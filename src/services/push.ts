@@ -206,6 +206,7 @@ export class PushService {
       selectedWeekDays: result.selected_week_days ? JSON.parse(result.selected_week_days) : undefined,
       selectedMonthDays: result.selected_month_days ? JSON.parse(result.selected_month_days) : undefined,
       cronExpression: result.cron || undefined,
+      timezone: result.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
     };
   }
 
@@ -540,6 +541,7 @@ export class PushService {
       selectedWeekDays: row.selected_week_days ? JSON.parse(row.selected_week_days) : undefined,
       selectedMonthDays: row.selected_month_days ? JSON.parse(row.selected_month_days) : undefined,
       cronExpression: row.cron || undefined,
+      timezone: row.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
     }));
   }
 
@@ -552,39 +554,73 @@ export class PushService {
     const now = new Date().toISOString();
     const nextRun = new Date(push.scheduledAt).getTime();
 
-    await this.env.DB.prepare(
+    // 尝试使用新的列结构，如果失败则回退到旧结构
+    try {
+      await this.env.DB.prepare(
+        `
+        INSERT INTO scheduled_pushes (
+          id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
-      INSERT INTO scheduled_pushes (
-        id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    )
-      .bind(
-        id,
-        this.userId,
-        push.templateId || null,
-        push.cronExpression || '* * * * *',
-        nextRun,
-        push.title,
-        push.content || '',
-        push.url || null,
-        JSON.stringify(push.channels),
-        push.scheduleType === 'recurring' ? 1 : 0,
-        push.recurringType || null,
-        push.selectedWeekDays ? JSON.stringify(push.selectedWeekDays) : null,
-        push.selectedMonthDays ? JSON.stringify(push.selectedMonthDays) : null,
-        push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
-        now,
-        now
+        .bind(
+          id,
+          this.userId,
+          push.templateId || null,
+          push.cronExpression || '* * * * *',
+          nextRun,
+          push.title,
+          push.content || '',
+          push.url || null,
+          JSON.stringify(push.channels),
+          push.scheduleType === 'recurring' ? 1 : 0,
+          push.recurringType || null,
+          push.selectedWeekDays ? JSON.stringify(push.selectedWeekDays) : null,
+          push.selectedMonthDays ? JSON.stringify(push.selectedMonthDays) : null,
+          push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
+          push.timezone || 'Asia/Shanghai',
+          now,
+          now
+        )
+        .run();
+    } catch (e) {
+      // 回退到旧结构
+      await this.env.DB.prepare(
+        `
+        INSERT INTO scheduled_pushes (
+          id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
       )
-      .run();
+        .bind(
+          id,
+          this.userId,
+          push.templateId || null,
+          push.cronExpression || '* * * * *',
+          nextRun,
+          push.title,
+          push.content || '',
+          push.url || null,
+          JSON.stringify(push.channels),
+          push.scheduleType === 'recurring' ? 1 : 0,
+          push.recurringType || null,
+          push.selectedWeekDays ? JSON.stringify(push.selectedWeekDays) : null,
+          push.selectedMonthDays ? JSON.stringify(push.selectedMonthDays) : null,
+          push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
+          now,
+          now
+        )
+        .run();
+    }
 
     return {
       ...push,
       id,
       status: 'pending',
       createdBy: this.userId,
+      timezone: push.timezone || 'Asia/Shanghai',
     };
   }
 
@@ -645,14 +681,36 @@ export class PushService {
       fields.push('cron = ?');
       values.push(updates.cronExpression);
     }
+    if (updates.timezone !== undefined) {
+      fields.push('timezone = ?');
+      values.push(updates.timezone);
+    }
 
     values.push(id, this.userId);
 
-    await this.env.DB.prepare(
-      `UPDATE scheduled_pushes SET ${fields.join(', ')} WHERE id = ? AND user_id = ? AND status = 'pending'`
-    )
-      .bind(...values)
-      .run();
+    // 尝试更新，如果时区列不存在则回退到不包含时区字段
+    try {
+      await this.env.DB.prepare(
+        `UPDATE scheduled_pushes SET ${fields.join(', ')} WHERE id = ? AND user_id = ? AND status = 'pending'`
+      )
+        .bind(...values)
+        .run();
+    } catch (e) {
+      // 如果失败，尝试从 fields 中移除 timezone 字段并重试
+      const timezoneIndex = fields.findIndex(f => f.startsWith('timezone'));
+      if (timezoneIndex > -1) {
+        fields.splice(timezoneIndex, 1);
+        values.splice(timezoneIndex, 1);
+        // 重新绑定值（排除最后两个 id/userId）
+        await this.env.DB.prepare(
+          `UPDATE scheduled_pushes SET ${fields.join(', ')} WHERE id = ? AND user_id = ? AND status = 'pending'`
+        )
+          .bind(...values)
+          .run();
+      } else {
+        throw e;
+      }
+    }
 
     // 优化：直接查询单个记录，而不是整个列表
     return await this.getScheduledPushById(id);

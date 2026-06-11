@@ -1915,6 +1915,7 @@ adminApi.post('/scheduled', async (c) => {
     selectedMonthDays?: number[];
     intervalHours?: number;
     cronExpression?: string;
+    timezone?: string; // 自定义时区，例如 Asia/Shanghai, America/New_York, UTC
   };
 
   if (!body.title || !body.scheduledAt || !body.channels?.length) {
@@ -1959,6 +1960,7 @@ adminApi.post('/scheduled', async (c) => {
     selectedMonthDays: body.selectedMonthDays,
     intervalHours: body.intervalHours,
     cronExpression: body.cronExpression,
+    timezone: body.timezone || 'Asia/Shanghai', // 默认与备份任务保持一致
   });
 
   // 记录定时推送创建日志
@@ -1992,6 +1994,7 @@ adminApi.put('/scheduled/:id', async (c) => {
     selectedMonthDays?: number[];
     intervalHours?: number;
     cronExpression?: string;
+    timezone?: string; // 自定义时区
   };
 
   const pushService = new PushService(c.env, username);
