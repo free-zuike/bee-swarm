@@ -528,15 +528,16 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
   
   // 从最后一次预计执行时间开始，而不是从现在开始
   const baseTime = new Date(push.nextRun || push.scheduledAt);
-  baseTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+  // 使用 UTC 时间设置小时和分钟，保持时区一致性
+  baseTime.setUTCHours(scheduledTime.getUTCHours(), scheduledTime.getUTCMinutes(), 0, 0);
 
   switch (recurringType) {
     case 'hourly': {
       const nextTime = new Date(baseTime);
-      nextTime.setHours(nextTime.getHours() + 1);
+      nextTime.setUTCHours(nextTime.getUTCHours() + 1);
       // 确保在当前时间之后
       while (nextTime <= nowDate) {
-        nextTime.setHours(nextTime.getHours() + 1);
+        nextTime.setUTCHours(nextTime.getUTCHours() + 1);
       }
       return nextTime.toISOString();
     }
@@ -544,18 +545,18 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
     case 'interval': {
       const intervalHours = push.intervalHours || 2;
       const nextTime = new Date(baseTime);
-      nextTime.setHours(nextTime.getHours() + intervalHours);
+      nextTime.setUTCHours(nextTime.getUTCHours() + intervalHours);
       while (nextTime <= nowDate) {
-        nextTime.setHours(nextTime.getHours() + intervalHours);
+        nextTime.setUTCHours(nextTime.getUTCHours() + intervalHours);
       }
       return nextTime.toISOString();
     }
 
     case 'daily': {
       const nextTime = new Date(baseTime);
-      nextTime.setDate(nextTime.getDate() + 1);
+      nextTime.setUTCDate(nextTime.getUTCDate() + 1);
       while (nextTime <= nowDate) {
-        nextTime.setDate(nextTime.getDate() + 1);
+        nextTime.setUTCDate(nextTime.getUTCDate() + 1);
       }
       return nextTime.toISOString();
     }
@@ -567,8 +568,8 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       // 从下一天开始找
       for (let i = 1; i <= 14; i++) { // 最多找两周，确保能找到
         const checkDate = new Date(nextTime);
-        checkDate.setDate(nextTime.getDate() + i);
-        if (selectedWeekDays.includes(checkDate.getDay())) {
+        checkDate.setUTCDate(nextTime.getUTCDate() + i);
+        if (selectedWeekDays.includes(checkDate.getUTCDay())) {
           // 确保找到的日期在现在之后
           if (checkDate > nowDate) {
             return checkDate.toISOString();
@@ -578,9 +579,9 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       
       // 如果两周内没找到，默认下一周同一天
       const fallbackTime = new Date(baseTime);
-      fallbackTime.setDate(fallbackTime.getDate() + 7);
+      fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
       while (fallbackTime <= nowDate) {
-        fallbackTime.setDate(fallbackTime.getDate() + 7);
+        fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
       }
       return fallbackTime.toISOString();
     }
@@ -592,18 +593,15 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       // 从下一天开始找
       for (let i = 1; i <= 62; i++) { // 最多找两个月
         const checkDate = new Date(nextTime);
-        checkDate.setDate(nextTime.getDate() + i);
+        checkDate.setUTCDate(nextTime.getUTCDate() + i);
         
-        const lastDayOfMonth = new Date(
-          checkDate.getFullYear(),
-          checkDate.getMonth() + 1,
-          0
-        ).getDate();
+        // 使用 UTC 时间计算月末
+        const lastDayOfMonth = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth() + 1, 0)).getUTCDate();
         
         for (const day of selectedMonthDays) {
           const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
           
-          if (checkDate.getDate() === effectiveDay && checkDate > nowDate) {
+          if (checkDate.getUTCDate() === effectiveDay && checkDate > nowDate) {
             return checkDate.toISOString();
           }
         }
@@ -611,9 +609,9 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       
       // 默认下一个月同一天
       const fallbackTime = new Date(baseTime);
-      fallbackTime.setMonth(fallbackTime.getMonth() + 1);
+      fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
       while (fallbackTime <= nowDate) {
-        fallbackTime.setMonth(fallbackTime.getMonth() + 1);
+        fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
       }
       return fallbackTime.toISOString();
     }
@@ -621,34 +619,34 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
     case 'intervalMonth': {
       const intervalMonths = push.intervalMonths || 1;
       const nextTime = new Date(baseTime);
-      nextTime.setMonth(nextTime.getMonth() + intervalMonths);
+      nextTime.setUTCMonth(nextTime.getUTCMonth() + intervalMonths);
       while (nextTime <= nowDate) {
-        nextTime.setMonth(nextTime.getMonth() + intervalMonths);
+        nextTime.setUTCMonth(nextTime.getUTCMonth() + intervalMonths);
       }
       return nextTime.toISOString();
     }
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
-      const scheduledTime = new Date(push.scheduledAt);
-      const hours = scheduledTime.getHours();
-      const minutes = scheduledTime.getMinutes();
+      // 使用 UTC 时间
+      const hours = scheduledTime.getUTCHours();
+      const minutes = scheduledTime.getUTCMinutes();
       
       // 查找下一个有效日期
       for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
-        const checkYear = nowDate.getFullYear() + yearOffset;
+        const checkYear = nowDate.getUTCFullYear() + yearOffset;
         
         // 遍历所有配置的日期
         for (const dateConfig of yearlyDates) {
-          // 计算该年的这个日期
-          let targetDate = new Date(checkYear, dateConfig.month - 1, dateConfig.day, hours, minutes, 0, 0);
+          // 计算该年的这个日期 - 使用 UTC
+          let targetDate = new Date(Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hours, minutes, 0, 0));
           
           // 处理闰年2月29日的情况：顺延到3月1日
           if (dateConfig.month === 2 && dateConfig.day === 29) {
             const isLeapYear = (checkYear % 4 === 0 && checkYear % 100 !== 0) || checkYear % 400 === 0;
             if (!isLeapYear) {
               // 非闰年，顺延到3月1日
-              targetDate = new Date(checkYear, 2, 1, hours, minutes, 0, 0);
+              targetDate = new Date(Date.UTC(checkYear, 2, 1, hours, minutes, 0, 0));
             }
           }
           
@@ -659,17 +657,17 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
         }
       }
       
-      // 默认返回明年1月1日
-      const defaultDate = new Date(nowDate.getFullYear() + 1, 0, 1, hours, minutes, 0, 0);
+      // 默认返回明年1月1日 - 使用 UTC
+      const defaultDate = new Date(Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hours, minutes, 0, 0));
       return defaultDate.toISOString();
     }
 
     case 'intervalYear': {
       const intervalYears = push.intervalYears || 1;
       const nextTime = new Date(baseTime);
-      nextTime.setFullYear(nextTime.getFullYear() + intervalYears);
+      nextTime.setUTCFullYear(nextTime.getUTCFullYear() + intervalYears);
       while (nextTime <= nowDate) {
-        nextTime.setFullYear(nextTime.getFullYear() + intervalYears);
+        nextTime.setUTCFullYear(nextTime.getUTCFullYear() + intervalYears);
       }
       return nextTime.toISOString();
     }
@@ -683,18 +681,18 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date): string {
       }
       // 如果解析失败，默认加一天
       const nextTime = new Date(baseTime);
-      nextTime.setDate(nextTime.getDate() + 1);
+      nextTime.setUTCDate(nextTime.getUTCDate() + 1);
       while (nextTime <= nowDate) {
-        nextTime.setDate(nextTime.getDate() + 1);
+        nextTime.setUTCDate(nextTime.getUTCDate() + 1);
       }
       return nextTime.toISOString();
     }
 
     default: {
       const nextTime = new Date(baseTime);
-      nextTime.setDate(nextTime.getDate() + 1);
+      nextTime.setUTCDate(nextTime.getUTCDate() + 1);
       while (nextTime <= nowDate) {
-        nextTime.setDate(nextTime.getDate() + 1);
+        nextTime.setUTCDate(nextTime.getUTCDate() + 1);
       }
       return nextTime.toISOString();
     }
