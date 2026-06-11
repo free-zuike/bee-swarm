@@ -110,10 +110,22 @@ export class AIService {
             return response;
           }
           
-          // 标准响应格式
-          if (response.response) {
+          // 标准响应格式 - 确保是字符串
+          if (response.response && typeof response.response === 'string') {
             console.log('[AI Service] 返回 response.response:', response.response);
             return response.response;
+          } else if (response.response && typeof response.response === 'object') {
+            console.log('[AI Service] response.response 是对象，尝试提取内容');
+            // 如果 response.response 是对象，尝试提取 choices 或其他字段
+            if (response.response.choices && Array.isArray(response.response.choices) && response.response.choices.length > 0) {
+              const choice = response.response.choices[0];
+              if (choice.message?.content) {
+                console.log('[AI Service] 从 response.response.choices 提取:', choice.message.content);
+                return choice.message.content;
+              }
+            }
+            // 如果无法提取，转为字符串
+            return JSON.stringify(response.response);
           }
           
           // 工具调用格式 - tools 数组
@@ -157,8 +169,16 @@ export class AIService {
           if (typeof response === 'string') {
             return response;
           }
-          if (response.response) {
+          if (response.response && typeof response.response === 'string') {
             return response.response;
+          } else if (response.response && typeof response.response === 'object') {
+            if (response.response.choices && Array.isArray(response.response.choices) && response.response.choices.length > 0) {
+              const choice = response.response.choices[0];
+              if (choice.message?.content) {
+                return choice.message.content;
+              }
+            }
+            return JSON.stringify(response.response);
           }
           if (response.tools && Array.isArray(response.tools) && response.tools.length > 0) {
             const toolCall = response.tools[0];
