@@ -97,14 +97,60 @@ export class AIService {
         const model = settings.ai_model_name || '@cf/meta/llama-3.3-8b-instruct';
         try {
           const response = await this.env.AI.run(model, { messages });
-          return response.response || '';
+          console.log('[AI Service] Workers AI 原始响应:', JSON.stringify(response));
+          
+          // 处理不同的响应格式
+          if (typeof response === 'string') {
+            return response;
+          }
+          
+          // 标准响应格式
+          if (response.response) {
+            return response.response;
+          }
+          
+          // 工具调用格式 - tools 数组
+          if (response.tools && Array.isArray(response.tools) && response.tools.length > 0) {
+            const toolCall = response.tools[0];
+            const toolName = toolCall.Name || toolCall.name;
+            if (toolName) {
+              return JSON.stringify({ tool: toolName, params: toolCall.params || {} });
+            }
+          }
+          
+          // 工具调用格式 - tool_calls
+          if (response.tool_calls && Array.isArray(response.tool_calls) && response.tool_calls.length > 0) {
+            const toolCall = response.tool_calls[0];
+            return JSON.stringify({ tool: toolCall.function.name, params: JSON.parse(toolCall.function.arguments || '{}') });
+          }
+          
+          // 其他格式 - 返回响应的字符串表示
+          return typeof response === 'object' ? JSON.stringify(response) : String(response);
         } catch (error) {
           console.error(`[AI Service] Workers AI 调用失败，尝试备用模型:`, error);
-          // 如果主模型失败，尝试其他可用模型
           const fallbackModel = '@cf/meta/llama-3.2-3b-instruct';
           console.log(`[AI Service] 尝试备用模型: ${fallbackModel}`);
           const response = await this.env.AI.run(fallbackModel, { messages });
-          return response.response || '';
+          
+          // 同样处理备用模型的响应
+          if (typeof response === 'string') {
+            return response;
+          }
+          if (response.response) {
+            return response.response;
+          }
+          if (response.tools && Array.isArray(response.tools) && response.tools.length > 0) {
+            const toolCall = response.tools[0];
+            const toolName = toolCall.Name || toolCall.name;
+            if (toolName) {
+              return JSON.stringify({ tool: toolName, params: toolCall.params || {} });
+            }
+          }
+          if (response.tool_calls && Array.isArray(response.tool_calls) && response.tool_calls.length > 0) {
+            const toolCall = response.tool_calls[0];
+            return JSON.stringify({ tool: toolCall.function.name, params: JSON.parse(toolCall.function.arguments || '{}') });
+          }
+          return typeof response === 'object' ? JSON.stringify(response) : String(response);
         }
       }
 
@@ -548,7 +594,38 @@ ${toolsList}
         }
       }
 
-      // --- 方式 8: 如果没有 JSON，则使用关键词模糊匹配 ---
+      // --- 方式 8: 工具名+空圆括号格式 (如 "listTemplates()" 或 "listTemplates( )") ---
+      if (!jsonStr) {
+        const parenMatch = trimmedContent.match(/^(\w+)\s*\(\s*\)\s*$/);
+        if (parenMatch) {
+          const lowerTool = parenMatch[1].toLowerCase();
+          const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+          if (matched) {
+            return { tool: matched, params: {} };
+          }
+        }
+      }
+
+      // --- 方式 9: 工具名+圆括号+参数格式 (如 "listTemplates({name: 'test'})") ---
+      if (!jsonStr) {
+        const parenJsonMatch = trimmedContent.match(/^(\w+)\s*\(\s*(\{[\s\S]*\})\s*\)\s*$/);
+        if (parenJsonMatch) {
+          const toolName = parenJsonMatch[1];
+          let params = {};
+          try {
+            params = JSON.parse(parenJsonMatch[2]);
+          } catch {
+          }
+          const lowerTool = toolName.toLowerCase();
+          const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
+          if (matched) {
+            return { tool: matched, params };
+          }
+          return { tool: toolName, params };
+        }
+      }
+
+      // --- 方式 10: 如果没有 JSON，则使用关键词模糊匹配 ---
       if (!jsonStr) {
         const lowerContent = trimmedContent.toLowerCase();
 
@@ -623,7 +700,7 @@ ${toolsList}
         return null;
       }
 
-      // --- 方式 9: 解析 JSON 对象 ---
+      // --- 方式 11: 解析 JSON 对象 ---
       let parsed: any;
       try {
         parsed = JSON.parse(jsonStr);
@@ -641,7 +718,7 @@ ${toolsList}
         }
       }
 
-      // 9a: 标准格式: {"tool": "...", "params": {...}}
+      // 11a: 标准格式: {"tool": "...", "params": {...}}
       if (parsed.tool) {
         const toolName = String(parsed.tool);
         const matchedTool =
@@ -652,7 +729,7 @@ ${toolsList}
         };
       }
 
-      // 9b: OpenAI 风格: {"name": "...", "arguments": {...}}
+      // 11b: OpenAI 风格: {"name": "...", "arguments": {...}}
       if (parsed.name) {
         const toolName = String(parsed.name);
         const matchedTool =
@@ -663,7 +740,7 @@ ${toolsList}
         };
       }
 
-      // 9c: function_name 风格: {"function_name": "...", "parameters": {...}}
+      // 11c: function_name 风格: {"function_name": "...", "parameters": {...}}
       if (parsed.function_name) {
         const toolName = String(parsed.function_name);
         const matchedTool =
@@ -674,7 +751,7 @@ ${toolsList}
         };
       }
 
-      // 9d: LangChain 风格: {"action": "...", "action_input": {...}}
+      // 11d: LangChain 风格: {"action": "...", "action_input": {...}}
       if (parsed.action) {
         const toolName = String(parsed.action);
         const matchedTool =
@@ -685,7 +762,7 @@ ${toolsList}
         };
       }
 
-      // 9e: workers-ai 风格: {"tools": [{"Name": "listTemplates", "params": {}}]}
+      // 11e: workers-ai 风格: {"tools": [{"Name": "listTemplates", "params": {}}]}
       if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
         const toolCall = parsed.tools[0];
         const rawName = toolCall.Name || toolCall.name;
@@ -700,7 +777,7 @@ ${toolsList}
         }
       }
 
-      // 9f: tools 数组简写格式: {"tools": ["listTemplates"]}
+      // 11f: tools 数组简写格式: {"tools": ["listTemplates"]}
       if (parsed.tools && Array.isArray(parsed.tools) && typeof parsed.tools[0] === 'string') {
         const toolName = String(parsed.tools[0]);
         const matchedTool =
@@ -711,7 +788,7 @@ ${toolsList}
         };
       }
 
-      // 9g: 数组格式: [{"tool": "...", "params": {...}}]
+      // 11g: 数组格式: [{"tool": "...", "params": {...}}]
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].tool) {
         const firstCall = parsed[0];
         const toolName = String(firstCall.tool);
