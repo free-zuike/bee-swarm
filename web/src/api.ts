@@ -681,6 +681,7 @@ export async function updateScheduledPush(
     intervalMonths?: number;
     intervalYears?: number;
     cronExpression?: string;
+    timezone?: string;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
   const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(
@@ -728,6 +729,7 @@ export async function createScheduledPush(
     intervalMonths?: number;
     intervalYears?: number;
     cronExpression?: string;
+    timezone?: string;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
   const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(

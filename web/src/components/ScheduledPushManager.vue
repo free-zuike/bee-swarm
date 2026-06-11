@@ -430,6 +430,44 @@
             </select>
           </div>
 
+          <div class="form-group">
+            <label>{{ t('label.timezone') }}</label>
+            <select v-model="newPush.timezone">
+              <optgroup :label="t('timezone.asia')">
+                <option value="Asia/Shanghai">{{ t('timezone.shanghai') }}</option>
+                <option value="Asia/Hong_Kong">{{ t('timezone.hongkong') }}</option>
+                <option value="Asia/Taipei">{{ t('timezone.taipei') }}</option>
+                <option value="Asia/Tokyo">{{ t('timezone.tokyo') }}</option>
+                <option value="Asia/Seoul">{{ t('timezone.seoul') }}</option>
+                <option value="Asia/Singapore">{{ t('timezone.singapore') }}</option>
+                <option value="Asia/Kolkata">{{ t('timezone.india') }}</option>
+                <option value="Asia/Dubai">{{ t('timezone.dubai') }}</option>
+                <option value="Asia/Bangkok">{{ t('timezone.bangkok') }}</option>
+              </optgroup>
+              <optgroup :label="t('timezone.america')">
+                <option value="America/New_York">{{ t('timezone.newyork') }}</option>
+                <option value="America/Chicago">{{ t('timezone.chicago') }}</option>
+                <option value="America/Denver">{{ t('timezone.denver') }}</option>
+                <option value="America/Los_Angeles">{{ t('timezone.losangeles') }}</option>
+                <option value="America/Sao_Paulo">{{ t('timezone.saopaulo') }}</option>
+                <option value="America/Vancouver">{{ t('timezone.vancouver') }}</option>
+              </optgroup>
+              <optgroup :label="t('timezone.europe')">
+                <option value="Europe/London">{{ t('timezone.london') }}</option>
+                <option value="Europe/Paris">{{ t('timezone.paris') }}</option>
+                <option value="Europe/Berlin">{{ t('timezone.berlin') }}</option>
+                <option value="Europe/Moscow">{{ t('timezone.moscow') }}</option>
+              </optgroup>
+              <optgroup :label="t('timezone.oceania')">
+                <option value="Australia/Sydney">{{ t('timezone.sydney') }}</option>
+                <option value="Pacific/Auckland">{{ t('timezone.auckland') }}</option>
+              </optgroup>
+              <optgroup :label="t('timezone.other')">
+                <option value="UTC">UTC</option>
+              </optgroup>
+            </select>
+          </div>
+
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" @click="closeModal">
               {{ t('common.cancel') }}
@@ -868,6 +906,7 @@ const newPush = ref({
   channels: [] as string[],
   templateId: '',
   maxRetries: 3,
+  timezone: 'Asia/Shanghai',
 });
 
 const filteredPushes = computed(() => {
@@ -961,6 +1000,7 @@ function resetForm(): void {
     channels: [],
     templateId: '',
     maxRetries: 3,
+    timezone: 'Asia/Shanghai',
   };
   scheduleType.value = 'once';
   recurringType.value = 'daily';
@@ -1012,6 +1052,9 @@ function openRenewModal(push: ScheduledPush): void {
   if (push.cronExpression) {
     cronExpression.value = push.cronExpression;
   }
+  if (push.timezone) {
+    newPush.value.timezone = push.timezone;
+  }
   showModal.value = true;
 }
 
@@ -1055,6 +1098,9 @@ function openEditModal(push: ScheduledPush): void {
   const scheduledDate = new Date(push.scheduledAt);
   newPush.value.date = scheduledDate.toISOString().split('T')[0];
   newPush.value.time = scheduledDate.toTimeString().slice(0, 5);
+  if (push.timezone) {
+    newPush.value.timezone = push.timezone;
+  }
   showModal.value = true;
 }
 
@@ -1145,6 +1191,7 @@ async function updateScheduledPushHandler(): Promise<void> {
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
+      timezone: newPush.value.timezone,
     });
 
     showModal.value = false;
@@ -1206,6 +1253,7 @@ async function createScheduledPushHandler(): Promise<void> {
       // 每年任务：使用 yearlyDates 数组（每个元素包含 month 和 day）
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
+      timezone: newPush.value.timezone,
     });
 
     showModal.value = false;
@@ -1217,6 +1265,7 @@ async function createScheduledPushHandler(): Promise<void> {
       channels: [],
       templateId: '',
       maxRetries: 3,
+      timezone: 'Asia/Shanghai',
     };
     showToast(t('message.createScheduledSuccess'), 'success');
     await loadScheduledPushes();

@@ -391,6 +391,8 @@ export interface ScheduledPush {
   overdueReminderSent?: boolean;
   /** 超时时间 */
   overdueAt?: string;
+  /** 时区（如 Asia/Shanghai, America/New_York, UTC） */
+  timezone?: string;
 }
 
 // ==================== 统计相关类型 ====================
