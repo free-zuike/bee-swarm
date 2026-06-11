@@ -1604,12 +1604,17 @@ defineExpose({
 
 .backup-checkbox {
   flex-shrink: 0;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .backup-checkbox input[type='checkbox'] {
   cursor: pointer;
   width: 16px;
   height: 16px;
+  margin: 0;
 }
 
 .endpoint-backups-section h4 {
@@ -1661,9 +1666,11 @@ defineExpose({
 }
 
 .backup-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .backup-name {
@@ -1673,7 +1680,7 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 100%;
 }
 
 .backup-meta {
