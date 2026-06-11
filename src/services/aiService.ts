@@ -7,6 +7,7 @@ import { PushService } from './push';
 import { executeAllBackups } from './backup';
 import { loadUserChannelSettings, CHANNEL_DEFINITIONS } from './dispatcher';
 import type { UserSettings, AITool } from './userService';
+import { AIResponseParserFactory } from './aiResponseParser';
 
 /**
  * AI 生成消息请求
@@ -82,13 +83,38 @@ export class AIService {
     }
   }
 
+  /**
+   * 处理 AI 响应，统一解析不同提供商的响应格式
+   */
+  private processAIResponse(response: unknown, provider: string): string {
+    const factory = new AIResponseParserFactory();
+    const parser = factory.getParser(provider);
+    
+    console.log('[AI Service] === AI 响应处理 ===');
+    console.log('[AI Service] 提供商:', provider);
+    console.log('[AI Service] 原始响应类型:', typeof response);
+    console.log('[AI Service] 原始响应:', JSON.stringify(response, null, 2));
+    
+    const parsed = parser.parse(response);
+    
+    console.log('[AI Service] 解析结果 - 内容:', parsed.content);
+    console.log('[AI Service] 解析结果 - 工具调用:', parsed.toolCalls);
+    
+    // 如果有工具调用，返回工具调用的 JSON 格式
+    if (parsed.toolCalls && parsed.toolCalls.length > 0) {
+      return JSON.stringify({ tool: parsed.toolCalls[0].tool, params: parsed.toolCalls[0].params });
+    }
+    
+    // 返回内容
+    return parsed.content || '';
+  }
+
   private async callAI(
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     settings: UserSettings
   ): Promise<string> {
     const provider = settings.ai_provider || 'workers-ai';
 
-    // 检查是否是预定义的提供商
     switch (provider) {
       case 'workers-ai': {
         if (!this.env.AI) {
@@ -97,107 +123,13 @@ export class AIService {
         const model = settings.ai_model_name || '@cf/meta/llama-3.3-8b-instruct';
         try {
           const response = await this.env.AI.run(model, { messages });
-          
-          // 详细日志调试
-          console.log('[AI Service] === Worker AI 完整响应调试 ===');
-          console.log('[AI Service] 响应类型:', typeof response);
-          console.log('[AI Service] 响应 keys:', response ? Object.keys(response) : 'N/A');
-          console.log('[AI Service] 完整响应:', JSON.stringify(response, null, 2));
-          
-          // 处理不同的响应格式
-          if (typeof response === 'string') {
-            console.log('[AI Service] 返回字符串响应:', response);
-            return response;
-          }
-          
-          // 标准响应格式 - 确保是字符串
-          if (response.response && typeof response.response === 'string') {
-            console.log('[AI Service] 返回 response.response:', response.response);
-            return response.response;
-          } else if (response.response && typeof response.response === 'object') {
-            console.log('[AI Service] response.response 是对象，尝试提取内容');
-            // 如果 response.response 是对象，尝试提取 choices 或其他字段
-            if (response.response.choices && Array.isArray(response.response.choices) && response.response.choices.length > 0) {
-              const choice = response.response.choices[0];
-              if (choice.message?.content) {
-                console.log('[AI Service] 从 response.response.choices 提取:', choice.message.content);
-                return choice.message.content;
-              }
-            }
-            // 如果无法提取，转为字符串
-            return JSON.stringify(response.response);
-          }
-          
-          // 工具调用格式 - tools 数组
-          if (response.tools && Array.isArray(response.tools) && response.tools.length > 0) {
-            const toolCall = response.tools[0];
-            console.log('[AI Service] 检测到 tools 数组:', toolCall);
-            const toolName = toolCall.Name || toolCall.name;
-            if (toolName) {
-              return JSON.stringify({ tool: toolName, params: toolCall.params || {} });
-            }
-          }
-          
-          // 工具调用格式 - tool_calls
-          if (response.tool_calls && Array.isArray(response.tool_calls) && response.tool_calls.length > 0) {
-            const toolCall = response.tool_calls[0];
-            console.log('[AI Service] 检测到 tool_calls:', toolCall);
-            return JSON.stringify({ tool: toolCall.function.name, params: JSON.parse(toolCall.function.arguments || '{}') });
-          }
-          
-          // choices 格式 (某些 API 兼容格式)
-          if (response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
-            const choice = response.choices[0];
-            if (choice.message?.content) {
-              console.log('[AI Service] 返回 choices.message.content:', choice.message.content);
-              return choice.message.content;
-            }
-          }
-          
-          // 其他格式 - 返回响应的字符串表示
-          console.log('[AI Service] 返回其他格式，转为字符串');
-          return typeof response === 'object' ? JSON.stringify(response) : String(response);
+          return this.processAIResponse(response, provider);
         } catch (error) {
           console.error(`[AI Service] Workers AI 调用失败:`, error);
           const fallbackModel = '@cf/meta/llama-3.2-3b-instruct';
           console.log(`[AI Service] 尝试备用模型: ${fallbackModel}`);
           const response = await this.env.AI.run(fallbackModel, { messages });
-          
-          console.log('[AI Service] 备用模型响应:', JSON.stringify(response, null, 2));
-          
-          // 同样处理备用模型的响应
-          if (typeof response === 'string') {
-            return response;
-          }
-          if (response.response && typeof response.response === 'string') {
-            return response.response;
-          } else if (response.response && typeof response.response === 'object') {
-            if (response.response.choices && Array.isArray(response.response.choices) && response.response.choices.length > 0) {
-              const choice = response.response.choices[0];
-              if (choice.message?.content) {
-                return choice.message.content;
-              }
-            }
-            return JSON.stringify(response.response);
-          }
-          if (response.tools && Array.isArray(response.tools) && response.tools.length > 0) {
-            const toolCall = response.tools[0];
-            const toolName = toolCall.Name || toolCall.name;
-            if (toolName) {
-              return JSON.stringify({ tool: toolName, params: toolCall.params || {} });
-            }
-          }
-          if (response.tool_calls && Array.isArray(response.tool_calls) && response.tool_calls.length > 0) {
-            const toolCall = response.tool_calls[0];
-            return JSON.stringify({ tool: toolCall.function.name, params: JSON.parse(toolCall.function.arguments || '{}') });
-          }
-          if (response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
-            const choice = response.choices[0];
-            if (choice.message?.content) {
-              return choice.message.content;
-            }
-          }
-          return typeof response === 'object' ? JSON.stringify(response) : String(response);
+          return this.processAIResponse(response, provider);
         }
       }
 
