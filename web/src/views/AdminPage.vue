@@ -593,7 +593,11 @@ async function handleCleanup() {
   if (isCleaningUp.value) return;
   const pushDays = systemSettings.value.cleanup_push_history_days || 30;
   const auditDays = systemSettings.value.cleanup_audit_log_days || 90;
-  if (!confirm(t('confirm.cleanup_database', { pushDays: String(pushDays), auditDays: String(auditDays) }))) {
+  if (
+    !confirm(
+      t('confirm.cleanup_database', { pushDays: String(pushDays), auditDays: String(auditDays) })
+    )
+  ) {
     return;
   }
 
@@ -718,7 +722,10 @@ async function handleCleanupTables() {
     const result = await cleanupOrphanTables(accessToken.value);
     if (result.success) {
       if (result.deletedTables.length > 0) {
-        showToast(t('msg.tables_deleted', { count: String(result.deletedTables.length) }), 'success');
+        showToast(
+          t('msg.tables_deleted', { count: String(result.deletedTables.length) }),
+          'success'
+        );
       } else {
         showToast(t('msg.no_tables_to_delete'), 'success');
       }
@@ -1679,10 +1686,13 @@ async function handleBackupAll() {
     }
 
     await handleLoadEndpoints();
-    
+
     // 刷新当前选中的备份端点的备份列表
     if (backupManagerRef.value?.selectedEndpointId) {
-      const data = await listBackupsFromEndpoint(accessToken.value, backupManagerRef.value.selectedEndpointId);
+      const data = await listBackupsFromEndpoint(
+        accessToken.value,
+        backupManagerRef.value.selectedEndpointId
+      );
       backupManagerRef.value?.setBackups(data.backups || []);
     }
   } catch (err: unknown) {
@@ -1899,7 +1909,9 @@ function handleResend(record: PushHistoryRecord) {
               >
                 {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="addCustomProvider">{{ t('button.add') }}</button>
+              <button class="btn btn-primary" @click="addCustomProvider">
+                {{ t('button.add') }}
+              </button>
             </div>
           </div>
         </div>
@@ -1957,7 +1969,9 @@ function handleResend(record: PushHistoryRecord) {
               >
                 {{ t('button.cancel') }}
               </button>
-              <button class="btn btn-primary" @click="saveEditProvider">{{ t('button.save') }}</button>
+              <button class="btn btn-primary" @click="saveEditProvider">
+                {{ t('button.save') }}
+              </button>
             </div>
           </div>
         </div>
@@ -2189,7 +2203,11 @@ function handleResend(record: PushHistoryRecord) {
         <!-- 右侧内容 -->
         <div class="settings-content" :class="{ dark: isDark }">
           <!-- 主题设置 -->
-          <div v-if="activeSettingsTab === 'theme'" class="settings-panel" :class="{ dark: isDark }">
+          <div
+            v-if="activeSettingsTab === 'theme'"
+            class="settings-panel"
+            :class="{ dark: isDark }"
+          >
             <h3>🎨 {{ t('theme.settings') }}</h3>
             <div class="settings-card">
               <div class="theme-options">
@@ -2213,7 +2231,11 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- API Key 设置 -->
-          <div v-else-if="activeSettingsTab === 'apiKey'" class="settings-panel" :class="{ dark: isDark }">
+          <div
+            v-else-if="activeSettingsTab === 'apiKey'"
+            class="settings-panel"
+            :class="{ dark: isDark }"
+          >
             <h3>🔑 {{ t('label.api_key') }}</h3>
             <div class="settings-card">
               <p class="hint">{{ t('hint.api_key') }}</p>
@@ -2240,7 +2262,11 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- 缓存设置 -->
-          <div v-else-if="activeSettingsTab === 'cache'" class="settings-panel" :class="{ dark: isDark }">
+          <div
+            v-else-if="activeSettingsTab === 'cache'"
+            class="settings-panel"
+            :class="{ dark: isDark }"
+          >
             <h3>🗄️ {{ t('label.cache_settings') }}</h3>
             <div class="settings-card">
               <div class="setting-item">
@@ -2321,7 +2347,11 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- AI 设置 -->
-          <div v-else-if="activeSettingsTab === 'ai'" class="settings-panel" :class="{ dark: isDark }">
+          <div
+            v-else-if="activeSettingsTab === 'ai'"
+            class="settings-panel"
+            :class="{ dark: isDark }"
+          >
             <h3>🤖 {{ t('label.ai_settings') }}</h3>
             <div class="settings-card">
               <div class="setting-item">
@@ -2493,7 +2523,9 @@ function handleResend(record: PushHistoryRecord) {
                       <div class="tool-name">
                         <span class="expand-icon">{{ tool.expanded ? '▼' : '▶' }}</span>
                         {{ getToolDisplayName(tool) }}
-                        <span v-if="tool.isDefault" class="tool-badge">{{ t('label.tool_default') }}</span>
+                        <span v-if="tool.isDefault" class="tool-badge">{{
+                          t('label.tool_default')
+                        }}</span>
                       </div>
                       <div class="tool-desc">{{ getToolDisplayDescription(tool) }}</div>
                     </div>
@@ -2543,7 +2575,9 @@ function handleResend(record: PushHistoryRecord) {
                         <div v-for="param in tool.parameters" :key="param.name" class="param-item">
                           <span class="param-name">{{ getParamDisplayName(param) }}</span>
                           <span class="param-type">{{ getParamTypeLabel(param.type) }}</span>
-                          <span v-if="param.required" class="param-required">{{ t('label.tool_required') }}</span>
+                          <span v-if="param.required" class="param-required">{{
+                            t('label.tool_required')
+                          }}</span>
                         </div>
                       </div>
                     </div>
@@ -2556,7 +2590,11 @@ function handleResend(record: PushHistoryRecord) {
           </div>
 
           <!-- 头像设置 -->
-          <div v-else-if="activeSettingsTab === 'avatar'" class="settings-panel" :class="{ dark: isDark }">
+          <div
+            v-else-if="activeSettingsTab === 'avatar'"
+            class="settings-panel"
+            :class="{ dark: isDark }"
+          >
             <h3>🖼️ {{ t('label.avatar_settings') }}</h3>
             <div class="settings-card">
               <!-- 当前头像预览 -->
@@ -2954,7 +2992,9 @@ function handleResend(record: PushHistoryRecord) {
                   @click="handleCleanupTables"
                   :disabled="isCleaningTables || isLoadingTables"
                 >
-                  {{ isCleaningTables ? t('msg.cleaning_dots') : '🧹 ' + t('button.cleanup_tables') }}
+                  {{
+                    isCleaningTables ? t('msg.cleaning_dots') : '🧹 ' + t('button.cleanup_tables')
+                  }}
                 </button>
               </div>
               <div class="table-list" v-if="!isLoadingTables">
@@ -2967,9 +3007,15 @@ function handleResend(record: PushHistoryRecord) {
                   <div class="table-info">
                     <span class="table-name">{{ table.name }}</span>
                     <span class="table-meta">
-                      <span v-if="table.rowCount !== undefined">{{ table.rowCount.toLocaleString() }} {{ t('label.rows') }}</span>
-                      <span v-if="table.isSafe" class="badge badge-safe">{{ t('label.safe') }}</span>
-                      <span v-if="table.shouldDelete" class="badge badge-deletable">{{ t('label.deletable') }}</span>
+                      <span v-if="table.rowCount !== undefined"
+                        >{{ table.rowCount.toLocaleString() }} {{ t('label.rows') }}</span
+                      >
+                      <span v-if="table.isSafe" class="badge badge-safe">{{
+                        t('label.safe')
+                      }}</span>
+                      <span v-if="table.shouldDelete" class="badge badge-deletable">{{
+                        t('label.deletable')
+                      }}</span>
                     </span>
                   </div>
                   <button
@@ -3897,8 +3943,8 @@ function handleResend(record: PushHistoryRecord) {
 }
 
 .fab-avatar {
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
 }
