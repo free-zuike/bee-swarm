@@ -248,6 +248,10 @@ backupRoutes.get('/backup-endpoints/:id/backups', async (c) => {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
 
+  if (!endpoint.enabled) {
+    return c.json({ error: '该备份端已禁用', code: 'ENDPOINT_DISABLED' }, 400);
+  }
+
   try {
     const list = await listBackupsFromEndpoint(c.env, username, endpoint);
     return c.json({ backups: list });
@@ -272,6 +276,10 @@ backupRoutes.post('/backup-endpoints/:id/restore', async (c) => {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
 
+  if (!endpoint.enabled) {
+    return c.json({ error: '该备份端已禁用', code: 'ENDPOINT_DISABLED' }, 400);
+  }
+
   const result = await restoreBackupFromEndpoint(c.env, username, endpoint, key);
   return c.json(result);
 });
@@ -292,6 +300,10 @@ backupRoutes.delete('/backup-endpoints/:id/backups', async (c) => {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
   }
 
+  if (!endpoint.enabled) {
+    return c.json({ error: '该备份端已禁用', code: 'ENDPOINT_DISABLED' }, 400);
+  }
+
   const result = await deleteBackupFromEndpoint(c.env, username, endpoint, key);
   return c.json(result);
 });
@@ -306,6 +318,10 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
   const endpoint = endpoints.find((e) => e.id === id);
   if (!endpoint) {
     return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  if (!endpoint.enabled) {
+    return c.json({ error: '该备份端已禁用', code: 'ENDPOINT_DISABLED' }, 400);
   }
 
   // 动态导入以避免循环依赖

@@ -162,7 +162,7 @@ export default {
       await migrationService.runMigrations().catch((err) => {
         console.error('[Migration] Failed to run migrations:', err);
       });
-      
+
       await detectNewTables(env).catch((err) => {
         console.error('[Cleanup] Failed to detect new tables:', err);
       });
@@ -195,28 +195,39 @@ export default {
         // 如果是定时任务的推送，需要更新状态
         if (message.payload.scheduledPushId) {
           const pushService = new PushService(env, message.userId);
-          
+
           if (message.payload.isRecurring) {
             // 循环任务：计算下次执行时间
             const nowDate = new Date();
             const userTimezone = message.payload.timezone || 'Asia/Shanghai';
             const nextScheduledAt = calculateNextScheduledAt(
-              { 
+              {
                 scheduledAt: message.payload.scheduledAt || new Date().toISOString(),
                 nextRun: message.payload.scheduledAt || new Date().toISOString(),
                 recurringType: message.payload.recurringType || 'daily',
-                timezone: userTimezone
+                timezone: userTimezone,
               } as any,
               nowDate,
               userTimezone
             );
-            await pushService.updateScheduledPushAndTime(message.payload.scheduledPushId, 'pending', nextScheduledAt);
-            console.log(`[Queue] Recurring task ${message.payload.scheduledPushId} rescheduled to: ${nextScheduledAt} (timezone: ${userTimezone})`);
+            await pushService.updateScheduledPushAndTime(
+              message.payload.scheduledPushId,
+              'pending',
+              nextScheduledAt
+            );
+            console.log(
+              `[Queue] Recurring task ${message.payload.scheduledPushId} rescheduled to: ${nextScheduledAt} (timezone: ${userTimezone})`
+            );
           } else {
             // 非循环任务：更新状态
             const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
-            await pushService.updateScheduledPushStatus(message.payload.scheduledPushId, finalStatus);
-            console.log(`[Queue] One-time task ${message.payload.scheduledPushId} status: ${finalStatus}`);
+            await pushService.updateScheduledPushStatus(
+              message.payload.scheduledPushId,
+              finalStatus
+            );
+            console.log(
+              `[Queue] One-time task ${message.payload.scheduledPushId} status: ${finalStatus}`
+            );
           }
         }
 
@@ -226,7 +237,7 @@ export default {
           `[Queue] Failed to process message ${message.requestId}:`,
           (error as Error).message
         );
-        
+
         // 如果是定时任务的推送，需要将状态更新为 failed
         if (message.payload.scheduledPushId) {
           try {
@@ -237,7 +248,7 @@ export default {
             console.error(`[Queue] Failed to update task status:`, (updateError as Error).message);
           }
         }
-        
+
         throw error;
       }
     });
@@ -531,14 +542,18 @@ async function processScheduledPushesDirect(
  * @param nowDate 当前时间（UTC）
  * @param userTimezone 用户时区，默认 Asia/Shanghai
  */
-function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date, userTimezone?: string): string {
+function calculateNextScheduledAt(
+  push: ScheduledPush,
+  nowDate: Date,
+  userTimezone?: string
+): string {
   const scheduledTime = new Date(push.scheduledAt);
   const recurringType = push.recurringType || 'daily';
   const timezone = userTimezone || push.timezone || 'Asia/Shanghai';
-  
+
   // 从最后一次预计执行时间开始
   const baseTime = new Date(push.nextRun || push.scheduledAt);
-  
+
   // 使用用户时区设置小时和分钟
   const { hour, minute } = getLocalTime(scheduledTime, timezone);
 
@@ -576,7 +591,7 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date, userTimezo
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
       const nextTime = new Date(baseTime);
-      
+
       // 从下一天开始找
       for (let i = 1; i <= 14; i++) {
         const checkDate = new Date(nextTime);
@@ -587,7 +602,7 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date, userTimezo
           }
         }
       }
-      
+
       // 如果两周内没找到，默认下一周同一天
       const fallbackTime = new Date(baseTime);
       fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
@@ -600,23 +615,25 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date, userTimezo
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
       const nextTime = new Date(baseTime);
-      
+
       // 从下一天开始找
       for (let i = 1; i <= 62; i++) {
         const checkDate = new Date(nextTime);
         checkDate.setUTCDate(nextTime.getUTCDate() + i);
-        
-        const lastDayOfMonth = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth() + 1, 0)).getUTCDate();
-        
+
+        const lastDayOfMonth = new Date(
+          Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth() + 1, 0)
+        ).getUTCDate();
+
         for (const day of selectedMonthDays) {
           const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
-          
+
           if (checkDate.getUTCDate() === effectiveDay && checkDate > nowDate) {
             return checkDate.toISOString();
           }
         }
       }
-      
+
       // 默认下一个月同一天
       const fallbackTime = new Date(baseTime);
       fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
@@ -638,30 +655,35 @@ function calculateNextScheduledAt(push: ScheduledPush, nowDate: Date, userTimezo
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
-      
+
       // 查找下一个有效日期
       for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
         const checkYear = nowDate.getUTCFullYear() + yearOffset;
-        
+
         for (const dateConfig of yearlyDates) {
-          let targetDate = new Date(Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hour, minute, 0, 0));
-          
+          let targetDate = new Date(
+            Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hour, minute, 0, 0)
+          );
+
           // 处理闰年2月29日
           if (dateConfig.month === 2 && dateConfig.day === 29) {
-            const isLeapYear = (checkYear % 4 === 0 && checkYear % 100 !== 0) || checkYear % 400 === 0;
+            const isLeapYear =
+              (checkYear % 4 === 0 && checkYear % 100 !== 0) || checkYear % 400 === 0;
             if (!isLeapYear) {
               targetDate = new Date(Date.UTC(checkYear, 2, 1, hour, minute, 0, 0));
             }
           }
-          
+
           if (targetDate > nowDate) {
             return targetDate.toISOString();
           }
         }
       }
-      
+
       // 默认返回明年1月1日
-      const defaultDate = new Date(Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hour, minute, 0, 0));
+      const defaultDate = new Date(
+        Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hour, minute, 0, 0)
+      );
       return defaultDate.toISOString();
     }
 
@@ -726,7 +748,7 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
           values.add(i);
         }
       } else if (rangePart.includes('-')) {
-        const [start, end] = rangePart.split('-').map(v => parseInt(v, 10));
+        const [start, end] = rangePart.split('-').map((v) => parseInt(v, 10));
         if (!isNaN(start) && !isNaN(end)) {
           for (let i = start; i <= end; i += step) {
             if (i >= minVal && i <= maxVal) values.add(i);
@@ -780,7 +802,7 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
 
     if (!minuteMatches) {
       const currentMin = current.getMinutes();
-      const nextMinute = validMinutes.find(m => m > currentMin);
+      const nextMinute = validMinutes.find((m) => m > currentMin);
       if (nextMinute !== undefined) {
         current.setMinutes(nextMinute);
       } else {
@@ -793,7 +815,7 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
 
     if (!hourMatches) {
       const currentHour = current.getHours();
-      const nextHour = validHours.find(h => h > currentHour);
+      const nextHour = validHours.find((h) => h > currentHour);
       if (nextHour !== undefined) {
         current.setHours(nextHour);
       } else {
@@ -824,7 +846,12 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
  * @param scheduledTime 计划执行时间（UTC）
  * @param userTimezone 用户时区，默认 Asia/Shanghai
  */
-function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Date, userTimezone?: string): boolean {
+function shouldExecutePush(
+  push: ScheduledPush,
+  nowDate: Date,
+  scheduledTime: Date,
+  userTimezone?: string
+): boolean {
   const scheduleType = push.scheduleType || 'once';
 
   if (scheduleType !== 'recurring') {
@@ -833,7 +860,7 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
 
   const recurringType = push.recurringType || 'daily';
   const timezone = userTimezone || push.timezone || 'Asia/Shanghai';
-  
+
   // 使用用户配置的时区获取本地时间
   const { hour: nowHour, minute: nowMinute } = getLocalTime(nowDate, timezone);
   const nowDay = getLocalWeekday(nowDate, timezone);
@@ -845,7 +872,8 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
     case 'interval': {
       const scheduledLocal = getLocalTime(scheduledTime, timezone);
       const hoursSinceStart = Math.floor(
-        (nowHour - scheduledLocal.hour + 24) % 24 + Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60))
+        ((nowHour - scheduledLocal.hour + 24) % 24) +
+          Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60))
       );
       return hoursSinceStart > 0 && hoursSinceStart % (push.intervalHours || 2) === 0;
     }
@@ -863,8 +891,10 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
       const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
       const localDateStr = formatter.format(nowDate);
       const nowDateOfMonth = parseInt(localDateStr.split('-')[2], 10);
-      
-      const lastDayOfMonth = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0)).getUTCDate();
+
+      const lastDayOfMonth = new Date(
+        Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0)
+      ).getUTCDate();
       const effectiveDays = selectedMonthDays.map((day) =>
         day > lastDayOfMonth ? lastDayOfMonth : day
       );
@@ -873,16 +903,21 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
-      
-      const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
+
+      const monthFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        month: 'numeric',
+      });
       const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
       const nowMonth = parseInt(monthFormatter.format(nowDate), 10);
       const nowDayOfMonth = parseInt(dayFormatter.format(nowDate), 10);
-      
+
       for (const dateConfig of yearlyDates) {
         if (dateConfig.month === nowMonth) {
           if (dateConfig.month === 2 && dateConfig.day === 29) {
-            const isLeapYear = (nowDate.getUTCFullYear() % 4 === 0 && nowDate.getUTCFullYear() % 100 !== 0) || nowDate.getUTCFullYear() % 400 === 0;
+            const isLeapYear =
+              (nowDate.getUTCFullYear() % 4 === 0 && nowDate.getUTCFullYear() % 100 !== 0) ||
+              nowDate.getUTCFullYear() % 400 === 0;
             if (isLeapYear) {
               return nowDayOfMonth === 29;
             } else {
@@ -903,11 +938,17 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
         const parts = push.cronExpression.trim().split(/\s+/);
         if (parts.length === 5) {
           const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
-          const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
-          const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
+          const monthFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            month: 'numeric',
+          });
+          const dayFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            day: 'numeric',
+          });
           const localMonth = parseInt(monthFormatter.format(nowDate), 10);
           const localDayOfMonth = parseInt(dayFormatter.format(nowDate), 10);
-          
+
           const matchesMinute = matchCronField(minuteField, nowMinute);
           const matchesHour = matchCronField(hourField, nowHour);
           const matchesDayOfMonth = matchCronField(dayOfMonthField, localDayOfMonth);
