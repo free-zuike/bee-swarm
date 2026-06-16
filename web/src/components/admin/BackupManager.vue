@@ -316,6 +316,12 @@ async function testEndpoint() {
 
 function loadEndpointBackups() {
   if (!selectedEndpointId.value) return;
+  const endpoint = backupEndpoints.value.find((e) => e.id === selectedEndpointId.value);
+  if (endpoint && !endpoint.enabled) {
+    endpointBackups.value = [];
+    isLoadingEndpointBackups.value = false;
+    return;
+  }
   isLoadingEndpointBackups.value = true;
   emit('list-backups', selectedEndpointId.value);
 }
@@ -333,18 +339,24 @@ function setBackups(backups: Array<{ key: string; size: number; lastModified: st
 
 function restoreFromEndpoint(key: string) {
   if (!selectedEndpointId.value) return;
+  const endpoint = backupEndpoints.value.find((e) => e.id === selectedEndpointId.value);
+  if (endpoint && !endpoint.enabled) return;
   if (!confirm(t('msg.confirm_restore_backup'))) return;
   emit('restore-backup', selectedEndpointId.value, key);
 }
 
 function deleteEndpointBackup(key: string) {
   if (!selectedEndpointId.value) return;
+  const endpoint = backupEndpoints.value.find((e) => e.id === selectedEndpointId.value);
+  if (endpoint && !endpoint.enabled) return;
   if (!confirm(t('msg.confirm_delete_backup'))) return;
   emit('delete-backup', selectedEndpointId.value, key);
 }
 
 function downloadBackup(key: string) {
   if (!selectedEndpointId.value) return;
+  const endpoint = backupEndpoints.value.find((e) => e.id === selectedEndpointId.value);
+  if (endpoint && !endpoint.enabled) return;
   emit('download-backup', selectedEndpointId.value, key);
 }
 
