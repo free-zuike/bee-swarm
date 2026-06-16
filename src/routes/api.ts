@@ -345,11 +345,10 @@ api.post('/password-reset', async (c) => {
       return c.json({ success: true, message: '密码重置链接已发送' });
     }
 
-    // 注意：这里应该添加发送邮件的逻辑，但在这个项目中我们简化处理，直接返回令牌（仅用于测试）
-    console.log(`[Password Reset] Generated token for ${email}: ${resetToken}`);
+    // 注意：这里应该添加发送邮件的逻辑，但在这个项目中我们简化处理（仅用于测试）
+    console.log(`[Password Reset] Generated token for ${email}`);
 
     // 在实际生产环境中，应该通过邮件发送重置链接，而不是直接返回令牌
-    // 但在这里，我们返回一个提示，并且可以在控制台找到令牌用于测试
     return c.json({
       success: true,
       message: '密码重置请求已生成（测试模式下请查看控制台获取令牌）',
@@ -791,12 +790,10 @@ adminApi.get('/history', async (c) => {
 
 /** 获取审计日志列表 */
 adminApi.get('/audit', async (c) => {
-  const username = c.get('username');
-  const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
-  if (userRole !== 'admin') {
-    return c.json({ error: '无权限访问审计日志', code: 'FORBIDDEN' }, 403);
-  }
-  const auditLogger = createAuditLogger(c.env, username);
+  const adminCheck = requireAdmin(c);
+  if (adminCheck) return adminCheck;
+
+  const auditLogger = createAuditLogger(c.env, c.get('username'));
 
   const limit = parseInt(c.req.query('limit') || '50', 10);
   const offset = parseInt(c.req.query('offset') || '0', 10);
@@ -818,12 +815,10 @@ adminApi.get('/audit', async (c) => {
 
 /** 清除审计日志 */
 adminApi.delete('/audit', async (c) => {
-  const username = c.get('username');
-  const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
-  if (userRole !== 'admin') {
-    return c.json({ error: '无权限清除审计日志', code: 'FORBIDDEN' }, 403);
-  }
-  const auditLogger = createAuditLogger(c.env, username);
+  const adminCheck = requireAdmin(c);
+  if (adminCheck) return adminCheck;
+
+  const auditLogger = createAuditLogger(c.env, c.get('username'));
   await auditLogger.clearLogs({ allUsers: true });
 
   return c.json({ success: true, message: '审计日志已清除' });
@@ -2171,8 +2166,8 @@ adminApi.get('/stats', async (c) => {
     const pushService = new PushService(c.env, username);
     const stats = await pushService.getPushStats();
 
-    // 获取推送历史用于渠道使用统计
-    const { records } = await getPushHistory(username, c.env, { pageSize: 1000 });
+    // 获取推送历史用于渠道使用统计（限制最多 500 条避免内存压力）
+    const { records } = await getPushHistory(username, c.env, { pageSize: 500 });
 
     // 渠道使用统计
     const channelUsage: Record<

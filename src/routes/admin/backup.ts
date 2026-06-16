@@ -400,6 +400,10 @@ backupRoutes.post('/backup-endpoints/:id/backup', async (c) => {
       return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
     }
 
+    if (!endpoint.enabled) {
+      return c.json({ error: '该备份端已禁用', code: 'ENDPOINT_DISABLED' }, 400);
+    }
+
     const result = await uploadBackupToEndpoint(c.env, username, endpoint);
     result.endpointName = endpoint.name;
 
@@ -458,6 +462,9 @@ backupRoutes.post('/import', async (c) => {
 
   try {
     const body = await c.req.json();
+    if (!body.data) {
+      return c.json({ error: '请提供导入数据', code: 'VALIDATION_ERROR' }, 400);
+    }
     const options = {
       skipTables: body.skipTables || [],
       mergeMode: body.mergeMode || 'overwrite',
@@ -475,6 +482,9 @@ backupRoutes.post('/import', async (c) => {
 /** 验证备份数据 */
 backupRoutes.post('/validate', async (c) => {
   const body = await c.req.json();
+  if (!body.data) {
+    return c.json({ valid: false, errors: ['请提供验证数据'] });
+  }
   const validation = validateBackup(body.data);
   return c.json(validation);
 });

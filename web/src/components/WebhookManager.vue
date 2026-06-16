@@ -62,8 +62,8 @@
               <code>application/json</code>
             </div>
             <div class="info-item">
-              <span class="info-label">Authorization</span>
-              <code>Bearer YOUR_API_KEY</code>
+              <span class="info-label">Header</span>
+              <code>X-Token YOUR_API_KEY</code>
             </div>
           </div>
 
@@ -128,7 +128,7 @@ const exampleCode = computed(() => {
   switch (activeExample.value) {
     case 'curl':
       return `curl -X POST '${url}' \\
-  -H 'Authorization: Bearer YOUR_API_KEY' \\
+  -H 'X-Token: YOUR_API_KEY' \\
   -H 'Content-Type: application/json' \\
   -d '{
     "title": "${t('webhook.example.deploymentComplete')}",
@@ -139,7 +139,7 @@ const exampleCode = computed(() => {
       return `fetch('${url}', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer YOUR_API_KEY',
+    'X-Token': 'YOUR_API_KEY',
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
@@ -155,7 +155,7 @@ const exampleCode = computed(() => {
 response = requests.post(
     '${url}',
     headers={
-        'Authorization': 'Bearer YOUR_API_KEY',
+        'X-Token': 'YOUR_API_KEY',
         'Content-Type': 'application/json',
     },
     json={

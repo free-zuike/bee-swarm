@@ -51,24 +51,29 @@ app.use('*.webmanifest', staticCache());
 const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB
 app.use('*', async (c, next) => {
   const contentLength = c.req.header('Content-Length');
+  const transferEncoding = c.req.header('Transfer-Encoding');
   if (contentLength) {
     const size = parseInt(contentLength, 10);
     if (size > MAX_REQUEST_SIZE) {
       return c.json({ error: '请求体过大，最大支持 1MB', code: 'PAYLOAD_TOO_LARGE' }, 413);
     }
+  } else if (!transferEncoding || transferEncoding === 'identity') {
+    // 无 Content-Length 且非 chunked 传输，视为小请求放行
   }
   await next();
 });
 
-// 限流配置
-app.use(
-  '*',
-  rateLimit({
+// 限流配置（跳过 OPTIONS 预检请求）
+app.use('*', async (c, next) => {
+  if (c.req.method === 'OPTIONS') {
+    return next();
+  }
+  return rateLimit({
     windowMs: 60 * 1000,
     max: 100,
     message: '请求过于频繁，请稍后重试',
-  })
-);
+  })(c, next);
+});
 
 // 可选的 Turnstile 验证（如果配置了）
 app.use('/api/*', optionalTurnstile());
