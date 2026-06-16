@@ -2333,7 +2333,7 @@ adminApi.get('/webhook/url', async (c) => {
     (c.env as unknown as Record<string, string>).APP_URL || 'https://beeswarm.zuike.qzz.io';
   return c.json({
     webhookUrl: `${baseUrl}/api/admin/webhook/push`,
-    description: '使用 X-Token Header 发送 POST 请求到此 URL 来触发推送',
+    description: '使用 X-API-Key Header 发送 POST 请求到此 URL 来触发推送',
     exampleBody: {
       title: '推送标题',
       content: '推送内容',
