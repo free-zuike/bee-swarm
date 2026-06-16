@@ -1010,24 +1010,35 @@ async function processBackups(
         `[Cron Backup] ${endpoint.name}: local=${localHour}:${localMinute}, expected=${startHour}:${startMinute}, interval=${interval}h`
       );
 
-      // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
-      const timeDiffMinutes = Math.abs((localHour - startHour) * 60 + (localMinute - startMinute));
-      const inTimeWindow = timeDiffMinutes <= 2;
+      // 通过最后运行时间判断是否应该执行，而非精确时间匹配
+      const backupRun = await getBackupRun(env, username, endpoint.id);
+      const lastRunEpoch = backupRun ? backupRun.lastRun : 0;
+      const hoursSinceLastRun = (currentEpochMinute - lastRunEpoch) / 60;
+      const minIntervalHours = Math.max(1, interval * 0.8);
 
+      // 确保至少间隔 minIntervalHours 小时才再次运行
+      if (backupRun && hoursSinceLastRun < minIntervalHours) {
+        console.log(
+          `[Cron Backup] Skipping ${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`
+        );
+        continue;
+      }
+
+      // 对于 daily/weekly 备份，还需要检查当前时间是否在 startTime 附近
       let shouldRun = false;
       if (interval >= 168) {
+        // 每周备份：检查星期几
         const currentDay = getLocalWeekday(now, tz);
         const expectedDay = schedule.startDay ?? 0;
-        shouldRun = currentDay === expectedDay && inTimeWindow;
+        shouldRun = currentDay === expectedDay;
       } else if (interval >= 24) {
-        shouldRun = inTimeWindow;
+        // 每日备份：检查当前小时是否匹配 startTime
+        shouldRun = Math.abs(localHour - startHour) <= 1;
       } else {
-        // 对于小于24小时的间隔，检查是否在任何一个执行时间点附近
-        // 计算从startHour开始，每interval小时的时间点
+        // 小于 24 小时间隔：检查是否在任何一个执行时间点
         for (let h = startHour; h < 48; h += interval) {
           const hour = h % 24;
-          const intervalTimeDiff = Math.abs((hour - localHour) * 60 + (startMinute - localMinute));
-          if (intervalTimeDiff <= 2) {
+          if (Math.abs(localHour - hour) <= 1) {
             shouldRun = true;
             break;
           }
@@ -1036,21 +1047,7 @@ async function processBackups(
 
       if (!shouldRun) {
         console.log(
-          `[Cron Backup] Skipping ${endpoint.name}: not in time window (timeDiff=${timeDiffMinutes}min)`
-        );
-        continue;
-      }
-
-      // 检查最后一次运行时间，防止重复执行 - 使用 D1
-      const backupRun = await getBackupRun(env, username, endpoint.id);
-      const lastRunEpoch = backupRun ? backupRun.lastRun : 0;
-      const hoursSinceLastRun = (currentEpochMinute - lastRunEpoch) / 60;
-
-      // 确保至少间隔 interval * 0.8 小时才再次运行，避免重复执行
-      const minIntervalHours = Math.max(1, interval * 0.8);
-      if (backupRun && hoursSinceLastRun < minIntervalHours) {
-        console.log(
-          `[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`
+          `[Cron Backup] Skipping ${endpoint.name}: not in time window`
         );
         continue;
       }
