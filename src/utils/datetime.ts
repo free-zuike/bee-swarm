@@ -33,19 +33,20 @@ export function getLocalTime(now: Date, timezone: string): { hour: number; minut
  * 获取星期几（0-6，周日到周六）
  */
 export function getLocalWeekday(now: Date, timezone: string): number {
+  // 使用 en-US locale 的 weekday: 'long' 获取完整星期名，避免缩写变化
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
-    weekday: 'short',
+    weekday: 'long',
   });
 
   const dayMap: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
   };
 
   const localDay = formatter.format(now);

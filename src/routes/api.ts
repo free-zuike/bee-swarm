@@ -2257,18 +2257,55 @@ adminApi.post('/webhook/push', async (c) => {
     return c.json({ error: '请至少指定一个推送渠道', code: 'VALIDATION_ERROR' }, 400);
   }
 
-  const results = await dispatchPushWithOptions(
-    {
-      title: body.title || '',
-      body: body.content || '',
-      url: body.url,
-    },
-    body.channels,
-    username,
-    c.env
-  );
+  const queueService = new QueueService(c.env);
 
-  const success = results.every((r: ChannelResult) => r.success);
+  let results;
+  if (queueService.isAvailable()) {
+    const requestId = crypto.randomUUID();
+    await queueService.sendPushTask({
+      requestId,
+      userId: username,
+      payload: {
+        title: body.title || '',
+        body: body.content || '',
+        url: body.url,
+        channels: body.channels,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    // 记录 Webhook 推送日志
+    try {
+      const auditLogger = createAuditLogger(c.env, username);
+      await auditLogger.log('push_sent', {
+        source: 'webhook',
+        channels: body.channels,
+        success: true,
+      });
+    } catch {
+      // 审计日志失败不影响主流程
+    }
+
+    return c.json({
+      success: true,
+      message: '推送已加入队列',
+      requestId,
+    });
+  } else {
+    // 队列不可用时同步执行
+    results = await dispatchPushWithOptions(
+      {
+        title: body.title || '',
+        body: body.content || '',
+        url: body.url,
+      },
+      body.channels,
+      username,
+      c.env
+    );
+  }
+
+  const success = results!.every((r: ChannelResult) => r.success);
 
   // 记录 Webhook 推送日志
   try {

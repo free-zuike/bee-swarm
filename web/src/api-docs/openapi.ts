@@ -584,6 +584,44 @@ export function getOpenAPISpec(locale: Locale = 'zh'): OpenAPISpec {
           },
         },
       },
+      '/api/admin/webhook/push': {
+        post: {
+          tags: ['push'],
+          summary: t('Webhook 触发推送', 'Webhook Trigger Push'),
+          description: t(
+            '通过 X-Token Header 认证，发送 POST 请求触发推送',
+            'Authenticate with X-Token header and send POST request to trigger push'
+          ),
+          security: [{ ApiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['channels'],
+                  properties: {
+                    title: { type: 'string', description: t('推送标题', 'Push title') },
+                    content: { type: 'string', description: t('推送内容', 'Push content') },
+                    channels: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: t('推送渠道', 'Push channels'),
+                    },
+                    url: { type: 'string', description: t('跳转链接', 'Jump link') },
+                    templateId: { type: 'string', description: t('模板 ID', 'Template ID') },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: t('推送结果', 'Push result'),
+            },
+          },
+        },
+      },
     },
   };
 }
