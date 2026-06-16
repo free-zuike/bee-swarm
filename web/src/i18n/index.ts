@@ -634,7 +634,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'webhook.title': 'Webhook 触发推送',
     'webhook.url': 'Webhook URL',
     'webhook.copyUrl': '复制 URL',
-    'webhook.hint': '使用 API Key 作为 Bearer Token 发送 POST 请求到此 URL 来触发推送',
+    'webhook.hint': '使用 X-Token Header 发送 POST 请求到此 URL 来触发推送',
     'webhook.examples': '使用示例',
     'webhook.requestFormat': '请求格式',
     'webhook.requestBody': '请求体',
@@ -791,7 +791,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.archiving_dots': '归档中...',
     'msg.restoring_dots': '恢复中...',
     'msg.deleting_dots': '删除中...',
-    'confirm.cleanup_database': '确定要清理 {pushDays} 天前的推送历史和 {auditDays} 天前的审计日志吗？',
+    'confirm.cleanup_database':
+      '确定要清理 {pushDays} 天前的推送历史和 {auditDays} 天前的审计日志吗？',
     'confirm.archive_database': '确定要归档 {days} 天前的推送历史到 R2 吗？',
     'confirm.restore_archive': '确定要恢复这个归档吗？恢复的记录将重新添加到数据库。',
     'confirm.delete_table': '确定要删除表 "{table}" 吗？此操作不可撤销！',
@@ -1531,7 +1532,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'webhook.title': 'Webhook Trigger Push',
     'webhook.url': 'Webhook URL',
     'webhook.copyUrl': 'Copy URL',
-    'webhook.hint': 'Send POST request to this URL with API Key as Bearer Token to trigger push',
+    'webhook.hint': 'Send POST request to this URL with X-Token header to trigger push',
     'webhook.examples': 'Usage Examples',
     'webhook.requestFormat': 'Request Format',
     'webhook.requestBody': 'Request Body',
@@ -1606,7 +1607,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'cmd.create_template_query':
       'Create a template named "System Notification" with title "System Update Alert" and content "System maintenance scheduled for tonight at 22:00"',
     'cmd.create_group': 'Create Group',
-    'cmd.create_group_query': 'Create a group named "Urgent Notifications" with telegram and bark channels',
+    'cmd.create_group_query':
+      'Create a group named "Urgent Notifications" with telegram and bark channels',
     'cmd.list_groups': 'List All Groups',
     'cmd.list_groups_query': 'List all groups',
     'cmd.run_backup': 'Run Backup',
@@ -1640,7 +1642,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.turnstile_secret_key': 'Secret Key',
     'placeholder.turnstile_site_key': 'Enter Turnstile Site Key',
     'placeholder.turnstile_secret_key': 'Enter Turnstile Secret Key',
-    'hint.turnstile': 'Configure your domain in Cloudflare Turnstile to obtain Site Key and Secret Key',
+    'hint.turnstile':
+      'Configure your domain in Cloudflare Turnstile to obtain Site Key and Secret Key',
     // System Settings - Auto Cleanup
     'label.auto_cleanup': 'Auto Data Cleanup',
     'label.cleanup_enabled': 'Enable Auto Cleanup',
@@ -1652,8 +1655,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.cors_allowed_origins': 'Allowed Origins',
     'label.add_origin': 'Add Origin',
     'label.add': 'Add',
-    'hint.cors': 'Add domains allowed for cross-origin requests. Wildcards are supported (e.g., https://*.example.com)',
-    'msg.no_cors_origins': 'No origins configured. Localhost and workers.dev domains are allowed by default',
+    'hint.cors':
+      'Add domains allowed for cross-origin requests. Wildcards are supported (e.g., https://*.example.com)',
+    'msg.no_cors_origins':
+      'No origins configured. Localhost and workers.dev domains are allowed by default',
     'msg.invalid_origin': 'Please enter a valid domain',
     'msg.origin_exists': 'This domain already exists',
     // Database Management
@@ -1667,12 +1672,14 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.manual_cleanup': 'Uses settings from system configuration. Auto cleanup runs hourly.',
     'button.cleanup_now': 'Clean Up Now',
     'label.data_archive': 'Data Archive',
-    'hint.data_archive': 'Archive moves old data to R2 storage to free up database space. Archived data can be restored anytime.',
+    'hint.data_archive':
+      'Archive moves old data to R2 storage to free up database space. Archived data can be restored anytime.',
     'button.archive_to_r2': 'Archive to R2',
     'label.archive_list': 'Archive List',
     'label.restore': 'Restore',
     'label.table_management': 'Database Table Management',
-    'hint.table_management': 'View all database tables and clean up unnecessary ones. Safe tables (core business tables) will not be accidentally deleted.',
+    'hint.table_management':
+      'View all database tables and clean up unnecessary ones. Safe tables (core business tables) will not be accidentally deleted.',
     'button.refresh_tables': 'Refresh Table List',
     'button.cleanup_tables': 'Auto Clean Tables',
     'label.rows': 'rows',
@@ -1690,12 +1697,18 @@ const messages: Record<Locale, LocaleMessages> = {
     'msg.archiving_dots': 'Archiving...',
     'msg.restoring_dots': 'Restoring...',
     'msg.deleting_dots': 'Deleting...',
-    'confirm.cleanup_database': 'Are you sure you want to clean up push history older than {pushDays} days and audit logs older than {auditDays} days?',
-    'confirm.archive_database': 'Are you sure you want to archive push history older than {days} days to R2?',
-    'confirm.restore_archive': 'Are you sure you want to restore this archive? Restored records will be re-added to the database.',
-    'confirm.delete_table': 'Are you sure you want to delete table "{table}"? This action cannot be undone!',
-    'confirm.cleanup_tables': 'Are you sure you want to clean up all tables that should be deleted?',
-    'msg.cleanup_result': 'Cleaned up {pushDeleted} push history records and {auditDeleted} audit logs',
+    'confirm.cleanup_database':
+      'Are you sure you want to clean up push history older than {pushDays} days and audit logs older than {auditDays} days?',
+    'confirm.archive_database':
+      'Are you sure you want to archive push history older than {days} days to R2?',
+    'confirm.restore_archive':
+      'Are you sure you want to restore this archive? Restored records will be re-added to the database.',
+    'confirm.delete_table':
+      'Are you sure you want to delete table "{table}"? This action cannot be undone!',
+    'confirm.cleanup_tables':
+      'Are you sure you want to clean up all tables that should be deleted?',
+    'msg.cleanup_result':
+      'Cleaned up {pushDeleted} push history records and {auditDeleted} audit logs',
     'msg.archive_result': 'Archived {count} records',
     'msg.restore_result': 'Restored {count} records',
     'msg.table_deleted': 'Table "{table}" deleted',
