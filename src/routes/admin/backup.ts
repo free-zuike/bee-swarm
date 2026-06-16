@@ -117,6 +117,12 @@ backupRoutes.put('/backup-endpoints/:id', async (c) => {
       const existingWebDAV = existingConfig as Partial<WebDAVConfig>;
       const newConfig = body.config as Partial<S3Config & WebDAVConfig>;
 
+      const hasOriginalAccessKey = !!existingS3.accessKeyId;
+      const hasNewAccessKey = !!newConfig.accessKeyId;
+      if (hasOriginalAccessKey && !hasNewAccessKey) {
+        newConfig.accessKeyId = existingS3.accessKeyId;
+      }
+
       const hasOriginalSecret = !!existingS3.secretAccessKey;
       const hasNewSecret = !!newConfig.secretAccessKey;
       if (hasOriginalSecret && !hasNewSecret) {
