@@ -837,71 +837,60 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
   // 使用用户配置的时区获取本地时间
   const { hour: nowHour, minute: nowMinute } = getLocalTime(nowDate, timezone);
   const nowDay = getLocalWeekday(nowDate, timezone);
-  const { hour: pushHour, minute: pushMinute } = getLocalTime(scheduledTime, timezone);
-
-  // 允许 ±2 分钟的时间窗口
-  const timeDiffMinutes = Math.abs((nowHour - pushHour) * 60 + (nowMinute - pushMinute));
-  const isTimeMatch = timeDiffMinutes <= 2;
 
   switch (recurringType) {
     case 'hourly':
-      return isTimeMatch;
+      return true;
 
     case 'interval': {
-      // 使用时区转换计算间隔
       const scheduledLocal = getLocalTime(scheduledTime, timezone);
       const hoursSinceStart = Math.floor(
         (nowHour - scheduledLocal.hour + 24) % 24 + Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60))
       );
-      return hoursSinceStart > 0 && hoursSinceStart % (push.intervalHours || 2) === 0 && isTimeMatch;
+      return hoursSinceStart > 0 && hoursSinceStart % (push.intervalHours || 2) === 0;
     }
 
     case 'daily':
-      return isTimeMatch;
+      return true;
 
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-      return selectedWeekDays.includes(nowDay) && isTimeMatch;
+      return selectedWeekDays.includes(nowDay);
     }
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-      // 使用用户时区获取当前日期
-      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }); // YYYY-MM-DD format
+      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
       const localDateStr = formatter.format(nowDate);
       const nowDateOfMonth = parseInt(localDateStr.split('-')[2], 10);
       
-      // 处理月末
       const lastDayOfMonth = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0)).getUTCDate();
       const effectiveDays = selectedMonthDays.map((day) =>
         day > lastDayOfMonth ? lastDayOfMonth : day
       );
-      return effectiveDays.includes(nowDateOfMonth) && isTimeMatch;
+      return effectiveDays.includes(nowDateOfMonth);
     }
 
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
       
-      // 使用用户时区获取当前月份和日期
       const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
       const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
       const nowMonth = parseInt(monthFormatter.format(nowDate), 10);
       const nowDayOfMonth = parseInt(dayFormatter.format(nowDate), 10);
       
-      // 检查今天是否匹配任何一个配置的日期
       for (const dateConfig of yearlyDates) {
         if (dateConfig.month === nowMonth) {
-          // 如果是2月29日，需要处理闰年
           if (dateConfig.month === 2 && dateConfig.day === 29) {
             const isLeapYear = (nowDate.getUTCFullYear() % 4 === 0 && nowDate.getUTCFullYear() % 100 !== 0) || nowDate.getUTCFullYear() % 400 === 0;
             if (isLeapYear) {
-              return nowDayOfMonth === 29 && isTimeMatch;
+              return nowDayOfMonth === 29;
             } else {
-              return nowMonth === 3 && nowDayOfMonth === 1 && isTimeMatch;
+              return nowMonth === 3 && nowDayOfMonth === 1;
             }
           } else {
             if (dateConfig.day === nowDayOfMonth) {
-              return isTimeMatch;
+              return true;
             }
           }
         }
@@ -914,7 +903,6 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
         const parts = push.cronExpression.trim().split(/\s+/);
         if (parts.length === 5) {
           const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
-          // 使用用户时区的日期信息
           const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
           const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
           const localMonth = parseInt(monthFormatter.format(nowDate), 10);
@@ -930,10 +918,10 @@ function shouldExecutePush(push: ScheduledPush, nowDate: Date, scheduledTime: Da
           );
         }
       }
-      return isTimeMatch;
+      return true;
 
     default:
-      return isTimeMatch;
+      return true;
   }
 }
 
