@@ -176,7 +176,7 @@ async function doForgotPassword() {
       resetEmail.value = authEmail.value.trim();
       authEmail.value = '';
       authMode.value = 'enterToken';
-      showToast('请查看服务器控制台获取重置令牌（测试模式）', 'success');
+      showToast('重置链接已发送到您的邮箱，请查收', 'success');
     } else {
       localError.value = t('message.user_not_found');
     }
@@ -315,7 +315,7 @@ const displayError = computed(() => props.authError || localError.value);
 
       <form v-else-if="authMode === 'enterToken'" @submit.prevent="verifyAndReset">
         <input v-model="resetToken" type="text" placeholder="请输入重置令牌" />
-        <div class="forgot-hint">请输入从服务器控制台获取的令牌，或访问 ?token=xxx 的重置链接</div>
+        <div class="forgot-hint">请查收邮件中的重置链接，或直接粘贴令牌</div>
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isProcessing">
           {{ isProcessing ? t('label.processing') : '验证令牌' }}
