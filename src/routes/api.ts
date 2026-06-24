@@ -2133,7 +2133,34 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
   }
 
   const pushService = new PushService(c.env, username);
-  const rescheduled = await pushService.rescheduleOverdueTask(id, body.scheduledAt);
+  
+  // 获取任务详情，检查是否是循环任务
+  const pushResult = await c.env.DB.prepare(
+    'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
+  ).bind(id, username).first<any>();
+  
+  let finalScheduledAt = body.scheduledAt;
+  
+  // 如果是循环任务，验证并调整到下一个匹配的时间
+  if (pushResult && pushResult.enabled && pushResult.recurring_type) {
+    const tz = pushResult.timezone || 'Asia/Shanghai';
+    const recurringType = pushResult.recurring_type;
+    const selectedWeekDays = pushResult.selected_week_days ? JSON.parse(pushResult.selected_week_days) : undefined;
+    const selectedMonthDays = pushResult.selected_month_days ? JSON.parse(pushResult.selected_month_days) : undefined;
+    const yearlyDates = pushResult.yearly_dates ? JSON.parse(pushResult.yearly_dates) : undefined;
+    
+    const adjusted = findNextMatchingTime(newScheduledTime, recurringType, tz, {
+      selectedWeekDays,
+      selectedMonthDays,
+      yearlyDates,
+    });
+    
+    if (adjusted) {
+      finalScheduledAt = adjusted.toISOString();
+    }
+  }
+
+  const rescheduled = await pushService.rescheduleOverdueTask(id, finalScheduledAt);
 
   if (!rescheduled) {
     return c.json({ error: '定时推送不存在或状态不允许重新安排', code: 'NOT_FOUND' }, 404);
@@ -2404,6 +2431,115 @@ adminApi.post('/ai/execute', async (c) => {
 
 // 在备份路由中添加审计日志会更复杂，这里我们先完成当前的集成
 // 以后可以在 backupRoutes 中进一步集成
+
+// ============================================
+// 辅助函数：计算循环任务下一个匹配的时间
+// ============================================
+
+function findNextMatchingTime(
+  baseTime: Date,
+  recurringType: string,
+  timezone: string,
+  options: {
+    selectedWeekDays?: number[];
+    selectedMonthDays?: number[];
+    yearlyDates?: Array<{ month: number; day: number }>;
+  }
+): Date | null {
+  const getLocalParts = (date: Date) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      weekday: 'long',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(date);
+    const weekdayMap: Record<string, number> = {
+      Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+    };
+    return {
+      year: parseInt(parts.find((p) => p.type === 'year')?.value || '0', 10),
+      month: parseInt(parts.find((p) => p.type === 'month')?.value || '0', 10),
+      day: parseInt(parts.find((p) => p.type === 'day')?.value || '10', 10),
+      weekday: weekdayMap[parts.find((p) => p.type === 'weekday')?.value || 'Sunday'] ?? 0,
+      hour: parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10),
+      minute: parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10),
+    };
+  };
+
+  const now = new Date();
+  const local = getLocalParts(baseTime);
+
+  switch (recurringType) {
+    case 'daily': {
+      for (let offset = 0; offset <= 1; offset++) {
+        const candidate = new Date(
+          Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
+        );
+        if (candidate > now) return candidate;
+      }
+      return null;
+    }
+
+    case 'weekly': {
+      const days = options.selectedWeekDays && options.selectedWeekDays.length > 0
+        ? options.selectedWeekDays
+        : [1, 2, 3, 4, 5];
+      for (let offset = 0; offset <= 7; offset++) {
+        const candidate = new Date(
+          Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
+        );
+        const candidateLocal = getLocalParts(candidate);
+        if (days.includes(candidateLocal.weekday) && candidate > now) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    case 'monthly': {
+      const days = options.selectedMonthDays && options.selectedMonthDays.length > 0
+        ? options.selectedMonthDays
+        : [1, 15];
+      for (let offset = 0; offset <= 31; offset++) {
+        const candidate = new Date(
+          Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
+        );
+        const candidateLocal = getLocalParts(candidate);
+        if (days.includes(candidateLocal.day) && candidate > now) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    case 'yearly': {
+      const dates = options.yearlyDates && options.yearlyDates.length > 0
+        ? options.yearlyDates
+        : [{ month: 1, day: 1 }];
+      for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
+        for (const d of dates) {
+          const candidate = new Date(
+            Date.UTC(local.year + yearOffset, d.month - 1, d.day, local.hour, local.minute, 0, 0)
+          );
+          if (candidate > now) return candidate;
+        }
+      }
+      return null;
+    }
+
+    default: {
+      // hourly, interval, cron 等直接使用用户指定的时间
+      if (baseTime > now) return baseTime;
+      const next = new Date(baseTime);
+      next.setUTCDate(next.getUTCDate() + 1);
+      return next > now ? next : null;
+    }
+  }
+}
 
 api.route('/admin', adminApi);
 export default api;
