@@ -1268,6 +1268,7 @@ onMounted(async () => {
             loadCurrentUser(accessToken.value),
             loadHistory(),
             loadUserSettings(),
+            loadUserAvatar(),
           ]);
           // 需要 token 的请求（可能依赖用户信息）
           await Promise.all([
@@ -1289,6 +1290,7 @@ onMounted(async () => {
           loadCurrentUser(accessToken.value),
           loadHistory(),
           loadUserSettings(),
+          loadUserAvatar(),
         ]);
         await Promise.all([
           loadChannels(),
@@ -1369,6 +1371,7 @@ async function doLogin(authEmail: string, authPassword: string, turnstileToken?:
       await Promise.all([
         loadCurrentUser(accessToken.value),
         loadHistory(),
+        loadUserAvatar(),
       ]);
       await loadChannels();
     } catch {
@@ -1392,6 +1395,7 @@ async function doRegister(authEmail: string, authPassword: string, turnstileToke
       await Promise.all([
         loadCurrentUser(accessToken.value),
         loadHistory(),
+        loadUserAvatar(),
       ]);
       await loadChannels();
     } catch {
