@@ -336,6 +336,47 @@ api.post('/password-reset', async (c) => {
       return c.json({ success: false, message: '邮箱不能为空' }, 400);
     }
 
+    // 速率限制：同一邮箱每小时最多 3 次
+    const systemSettings = new SystemSettingsService(c.env);
+    await systemSettings.ensureTable();
+    const lastResetKey = `password_reset_last_${email}`;
+    const lastResetTime = await systemSettings.getSetting(lastResetKey);
+    const now = Date.now();
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    if (lastResetTime) {
+      const lastTime = parseInt(lastResetTime, 10);
+      if (now - lastTime < ONE_HOUR) {
+        const remaining = Math.ceil((ONE_HOUR - (now - lastTime)) / 60000);
+        return c.json({
+          success: false,
+          message: `发送过于频繁，请 ${remaining} 分钟后再试`,
+        }, 429);
+      }
+    }
+
+    // 记录本次请求时间
+    await systemSettings.setSetting(lastResetKey, String(now));
+
+    // 全局限制：每分钟最多 10 次
+    const globalResetKey = 'password_reset_global_count';
+    const globalResetTimeKey = 'password_reset_global_time';
+    const globalTime = await systemSettings.getSetting(globalResetTimeKey);
+    const globalCount = parseInt(await systemSettings.getSetting(globalResetKey) || '0', 10);
+
+    if (globalTime && now - parseInt(globalTime, 10) < 60000) {
+      if (globalCount >= 10) {
+        return c.json({
+          success: false,
+          message: '系统繁忙，请稍后再试',
+        }, 429);
+      }
+      await systemSettings.setSetting(globalResetKey, String(globalCount + 1));
+    } else {
+      await systemSettings.setSetting(globalResetTimeKey, String(now));
+      await systemSettings.setSetting(globalResetKey, '1');
+    }
+
     const userService = new UserService(c.env);
 
     // 生成重置令牌
