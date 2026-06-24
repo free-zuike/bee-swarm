@@ -16,52 +16,60 @@ export interface EmailOptions {
 /**
  * 发送邮件 - 使用 worker-mailer
  * 优先使用数据库中的 SMTP 配置，回退到环境变量
+ * 支持重试机制（最多3次）
  */
-export async function sendEmail(env: Env, options: EmailOptions): Promise<boolean> {
+export async function sendEmail(env: Env, options: EmailOptions, maxRetries = 3): Promise<boolean> {
   // 从数据库获取 SMTP 配置
   const settingsService = new SystemSettingsService(env);
   const smtpConfig = await settingsService.getSMTPConfig();
 
   if (!smtpConfig.host || !smtpConfig.username || !smtpConfig.password) {
-    console.warn('[Email] SMTP not configured');
     return false;
   }
 
-  try {
-    const { WorkerMailer } = await import('worker-mailer');
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const { WorkerMailer } = await import('worker-mailer');
 
-    const port = parseInt(smtpConfig.port || '587', 10);
-    const secure = port === 465;
+      const port = parseInt(smtpConfig.port || '587', 10);
+      const secure = port === 465;
 
-    const mailer = await WorkerMailer.connect({
-      host: smtpConfig.host,
-      port,
-      secure,
-      startTls: !secure,
-      credentials: {
-        username: smtpConfig.username,
-        password: smtpConfig.password,
-      },
-      authType: 'plain',
-    });
+      const mailer = await WorkerMailer.connect({
+        host: smtpConfig.host,
+        port,
+        secure,
+        startTls: !secure,
+        credentials: {
+          username: smtpConfig.username,
+          password: smtpConfig.password,
+        },
+        authType: 'plain',
+      });
 
-    await mailer.send({
-      from: {
-        name: '蜂群通知系统',
-        email: smtpConfig.mailFrom || smtpConfig.username,
-      },
-      to: { email: options.to },
-      subject: options.subject,
-      text: options.text || options.html.replace(/<[^>]*>/g, ''),
-      html: options.html,
-    });
+      await mailer.send({
+        from: {
+          name: '蜂群通知系统',
+          email: smtpConfig.mailFrom || smtpConfig.username,
+        },
+        to: { email: options.to },
+        subject: options.subject,
+        text: options.text || options.html.replace(/<[^>]*>/g, ''),
+        html: options.html,
+      });
 
-    console.log(`[Email] Sent to ${options.to}`);
-    return true;
-  } catch (error) {
-    console.error('[Email] Send failed:', (error as Error).message);
-    return false;
+      console.log(`[Email] Sent to ${options.to}`);
+      return true;
+    } catch (error) {
+      console.error(`[Email] Attempt ${attempt}/${maxRetries} failed:`, (error as Error).message);
+      if (attempt < maxRetries) {
+        // 等待后重试（1s, 2s, 4s...）
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+      }
+    }
   }
+
+  console.error(`[Email] All ${maxRetries} attempts failed for ${options.to}`);
+  return false;
 }
 
 /**

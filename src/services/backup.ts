@@ -209,7 +209,7 @@ async function ensureUserExists(env: Env, username: string): Promise<void> {
       .bind(id, username, 'placeholder', now, now, 'user', 0)
       .run();
 
-    console.log('[Backup] 用户不存在，已自动创建:', username);
+
   } catch (e) {
     const error = e as Error;
     // 唯一约束冲突（用户已存在）是预期情况，忽略
@@ -217,7 +217,7 @@ async function ensureUserExists(env: Env, username: string): Promise<void> {
       error.message.includes('UNIQUE constraint failed') ||
       error.message.includes('SQLITE_CONSTRAINT_UNIQUE')
     ) {
-      console.log('[Backup] 用户已存在，跳过创建:', username);
+
       return;
     }
 
@@ -309,7 +309,7 @@ export async function uploadBackupToEndpoint(
     // 获取用户信息用于加密
     const userService = new UserService(env);
     const user = await userService.findByEmail(username);
-    console.log(`[Backup] Found user: ${!!user}, username: ${username}`);
+
 
     if (!user) {
       console.error(`[Backup] User not found: ${username}`);
@@ -321,11 +321,9 @@ export async function uploadBackupToEndpoint(
     }
 
     // 导出用户数据（如果没有提供数据）
-    console.log(`[Backup] Exporting user data for: ${username}`);
+
     const backupData = data || (await exportUserData(env, username));
-    console.log(
-      `[Backup] Data exported successfully, size: ${JSON.stringify(backupData).length} bytes`
-    );
+
 
     const filename = generateSecureFilename(); // 使用安全的随机文件名
     let jsonContent = JSON.stringify(backupData, null, 2);
@@ -336,15 +334,11 @@ export async function uploadBackupToEndpoint(
     const encryptionSalt = user.id; // 使用用户ID作为盐
 
     if (encryptionSecret && encryptionSalt) {
-      console.log(
-        `[Backup] Encrypting data, secret length: ${encryptionSecret?.length || 0}, salt: ${encryptionSalt?.substring(0, 8) || 'empty'}...`
-      );
+
       try {
         jsonContent = await encryptData(jsonContent, encryptionSecret, encryptionSalt);
         encrypted = true;
-        console.log(
-          `[Backup] Data encrypted successfully, encrypted size: ${jsonContent.length} bytes`
-        );
+
       } catch (e) {
         console.error(
           `[Backup] Encryption failed, proceeding without encryption: ${(e as Error).message}`
@@ -352,9 +346,7 @@ export async function uploadBackupToEndpoint(
         // 加密失败，继续不加密
       }
     } else {
-      console.log(
-        `[Backup] Skipping encryption: secret=${!!encryptionSecret}, salt=${!!encryptionSalt}`
-      );
+
     }
 
     const dataHash = computeDataHash(backupData);
@@ -381,12 +373,11 @@ export async function uploadBackupToEndpoint(
         region: config.region || 'auto',
       });
 
-      console.log(`[Backup] S3: Strategy - Cleanup FIRST, then Upload`);
+
       
       // === 策略改变：先清理，再上传 ===
       
       // 1. 先查询现有备份数量
-      console.log(`[Backup] S3: Step 1 - Checking existing backups before cleanup`);
       const prefix = `${root}/backups/${username}/`;
       const listUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}`
@@ -420,17 +411,12 @@ export async function uploadBackupToEndpoint(
               size,
             });
           } else {
-            console.log(`[Backup] S3: Skipping non-backup file/folder: ${key} (size=${size})`);
           }
         }
       }
       
-      console.log(`[Backup] S3: Found ${existingFiles.length} existing backups, retention=${retention}`);
-      
       // 2. 如果已经达到或超过保留数量，先删除最旧的一个
       if (existingFiles.length >= retention) {
-        console.log(`[Backup] S3: Step 2 - Will delete oldest backup to make room`);
-        
         // 按时间排序，找到最旧的
         existingFiles.sort((a, b) => {
           const dateA = new Date(a.lastModified).getTime();
@@ -439,8 +425,6 @@ export async function uploadBackupToEndpoint(
         });
         
         const oldestFile = existingFiles[0];
-        console.log(`[Backup] S3: Deleting oldest backup: ${oldestFile.key} (${oldestFile.lastModified})`);
-        
         const deleteUrl = config.pathStyle
           ? `${config.endpoint}/${config.bucket}/${oldestFile.key}`
           : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${oldestFile.key}`;
@@ -450,23 +434,17 @@ export async function uploadBackupToEndpoint(
         if (!deleteResponse.ok) {
           console.error(`[Backup] S3: Failed to delete oldest backup: ${deleteResponse.status}`);
         } else {
-          console.log(`[Backup] S3: Successfully deleted oldest backup`);
         }
         
         // 等待删除生效
         await new Promise(resolve => setTimeout(resolve, 500));
       } else {
-        console.log(`[Backup] S3: Step 2 - No cleanup needed, only ${existingFiles.length} backups`);
       }
       
       // 3. 现在上传新备份
-      console.log(`[Backup] S3: Step 3 - Uploading new backup`);
       const url = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${key}`;
-
-      console.log(`[Backup] S3 upload: PUT ${url}`);
-      console.log(`[Backup] S3 upload: Content-Length = ${jsonContent.length}`);
 
       const response = await awsClient.fetch(url, {
         method: 'PUT',
@@ -475,8 +453,6 @@ export async function uploadBackupToEndpoint(
           'Content-Type': 'application/json',
         },
       });
-
-      console.log(`[Backup] S3 upload: Response status = ${response.status}`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -490,13 +466,10 @@ export async function uploadBackupToEndpoint(
       }
 
       // 验证文件是否真的上传成功
-      console.log(`[Backup] S3 upload: Verifying upload...`);
       const verifyUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${key}`;
       const verifyResponse = await awsClient.fetch(verifyUrl, { method: 'HEAD' });
-      console.log(`[Backup] S3 upload: Verify status = ${verifyResponse.status}`);
-      
       if (!verifyResponse.ok) {
         console.error(`[Backup] S3 upload verification failed: ${verifyResponse.status}`);
         return {
@@ -507,8 +480,6 @@ export async function uploadBackupToEndpoint(
         };
       }
 
-      console.log(`[Backup] S3 upload: Successfully verified!`);
-      console.log(`[Backup] S3: Done - New backup uploaded successfully!`);
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path || 'beeswarm';
@@ -635,13 +606,8 @@ async function cleanupOldBackupsS3(
       ? `${config.endpoint}/${config.bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}`
       : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}?list-type=2&prefix=${encodeURIComponent(prefix)}`;
 
-    console.log(`[Backup] S3 cleanup: LIST ${listUrl}`);
-
     const response = await awsClient.fetch(listUrl, { method: 'GET' });
     const xml = await response.text();
-
-    console.log(`[Backup] S3 cleanup: List response status = ${response.status}`);
-    console.log(`[Backup] S3 cleanup: XML length = ${xml.length}`);
 
     if (!response.ok) {
       console.error('[Backup] S3 list backups failed:', response.status, xml.substring(0, 500));
@@ -650,8 +616,6 @@ async function cleanupOldBackupsS3(
 
     // 解析每个 <Contents> 块，确保 Key 和 LastModified 正确配对
     const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
-    console.log(`[Backup] S3 cleanup: Found ${contentsMatches.length} <Contents> blocks`);
-
     const files: { key: string; lastModified: string; size?: number }[] = [];
     
     for (const match of contentsMatches) {
@@ -676,19 +640,13 @@ async function cleanupOldBackupsS3(
             size,
           };
           files.push(file);
-          console.log(`[Backup] S3 cleanup: Parsed file ${file.key} - ${file.lastModified} (size=${file.size})`);
         } else {
-          console.log(`[Backup] S3 cleanup: Skipping non-backup file/folder: ${key} (size=${size})`);
         }
       } else {
-        console.log(`[Backup] S3 cleanup: Skipping block (key=${!!keyMatch?.[1]}, lastModified=${!!lastModifiedMatch?.[1]})`);
       }
     }
 
-    console.log(`[Backup] S3 cleanup: Total parsed files = ${files.length}`);
-
     if (files.length === 0) {
-      console.log(`[Backup] S3 cleanup: No files to clean up`);
       return;
     }
 
@@ -699,18 +657,13 @@ async function cleanupOldBackupsS3(
       return dateB - dateA;
     });
 
-    console.log(`[Backup] S3 cleanup: After sorting (newest first):`);
     files.forEach((file, index) => {
-      console.log(`  [${index}] ${file.key} - ${file.lastModified}`);
     });
 
     const toDeleteCount = Math.max(0, files.length - retention);
-    console.log(
-      `[Backup] S3 cleanup: Keeping ${retention}, will delete ${toDeleteCount} backups`
-    );
+
     
     if (toDeleteCount === 0) {
-      console.log(`[Backup] S3 cleanup: No files to delete, keeping all ${files.length} backups`);
       return;
     }
     
@@ -719,8 +672,6 @@ async function cleanupOldBackupsS3(
         ? `${config.endpoint}/${config.bucket}/${files[i].key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${files[i].key}`;
       
-      console.log(`[Backup] S3 cleanup: DELETE ${deleteUrl}`);
-      console.log(`[Backup] S3 cleanup: Deleting backup[${i}]: ${files[i].key} (${files[i].lastModified})`);
       const deleteResponse = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
       
       if (!deleteResponse.ok) {
@@ -729,11 +680,9 @@ async function cleanupOldBackupsS3(
           `[Backup] Failed to delete S3 backup ${files[i].key}: ${deleteResponse.status} - ${errorText}`
         );
       } else {
-        console.log(`[Backup] Successfully deleted S3 backup: ${files[i].key}`);
       }
     }
 
-    console.log(`[Backup] S3 cleanup: Done, kept ${retention} newest backups`);
   } catch (e) {
     console.error('清理 S3 旧备份失败', e);
   }
@@ -822,14 +771,10 @@ async function cleanupOldBackupsWebDAV(
       return dateB - dateA;
     });
 
-    console.log(
-      `[Backup] WebDAV cleanup: ${backups.length} backups found, keeping ${retention}, deleting ${Math.max(0, backups.length - retention)}`
-    );
+
     for (let i = retention; i < backups.length; i++) {
       const backupKey = backups[i].key;
-      console.log(`[Backup] Deleting old backup: ${backupKey}`);
       const deleteUrl = `${baseUrl}/${backupKey}`;
-      console.log(`[Backup] DELETE URL: ${deleteUrl}`);
       const deleteResponse = await webdavRequest('DELETE', deleteUrl, config);
       if (!deleteResponse.ok) {
         const errorText = await deleteResponse.text().catch(() => '');
@@ -837,7 +782,6 @@ async function cleanupOldBackupsWebDAV(
           `[Backup] Failed to delete backup ${backupKey}: ${deleteResponse.status} - ${errorText}`
         );
       } else {
-        console.log(`[Backup] Successfully deleted backup: ${backupKey}`);
       }
     }
   } catch (e) {

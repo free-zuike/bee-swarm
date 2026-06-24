@@ -569,7 +569,6 @@ api.post('/password-reset', async (c) => {
       });
     } else {
       // 邮件发送失败，返回提示信息（开发模式下）
-      console.log(`[Password Reset] Email send failed, token for ${email}: ${resetToken}`);
       return c.json({
         success: true,
         message: '密码重置请求已生成（邮件服务未配置，请查看控制台获取令牌）',
@@ -921,13 +920,8 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
   const username = c.get('username');
   const body = (c as ValidatedContext).validatedBody as PushRequest & { async?: boolean };
 
-  console.log('[Push API] Received request:', { username, body });
-
   // 强制使用队列异步推送
-  console.log('[Push API] Queue mode enabled, initializing QueueService...');
   const queueService = new QueueService(c.env);
-  console.log('[Push API] Queue available:', queueService.isAvailable());
-
   if (!queueService.isAvailable()) {
     return c.json(
       {
@@ -940,17 +934,13 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
   }
 
   const requestId = crypto.randomUUID();
-  console.log('[Push API] Created requestId:', requestId);
-
   try {
-    console.log('[Push API] Sending push task to queue...');
     await queueService.sendPushTask({
       requestId,
       userId: username,
       payload: body,
       createdAt: new Date().toISOString(),
     });
-    console.log('[Push API] Push task sent to queue successfully');
   } catch (error) {
     console.error('[Push API] Failed to send task to queue:', error);
     return c.json(
@@ -974,7 +964,6 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
     // 审计日志失败不影响主流程
   }
 
-  console.log('[Push API] Returning success response');
   return c.json({
     success: true,
     message: '推送已加入队列',

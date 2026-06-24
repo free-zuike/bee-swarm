@@ -343,7 +343,6 @@ export class UserService {
           userId
         )
         .run();
-      console.log('[UserService] Migrated cache settings to columns for user:', userId);
     } catch (error) {
       console.warn('[UserService] Failed to migrate cache settings:', error);
     }
@@ -368,7 +367,6 @@ export class UserService {
           userId
         )
         .run();
-      console.log('[UserService] Migrated AI settings to columns for user:', userId);
     } catch (error) {
       console.warn('[UserService] Failed to migrate AI settings:', error);
     }

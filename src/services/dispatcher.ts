@@ -31,8 +31,6 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
     const hasStatus = columns.includes('status');
 
     if (!hasBody || !hasChannels || !hasResults || !hasStatus) {
-      console.log('[PushHistory] Schema needs migration, recreating table...');
-
       // 备份旧表
       await env.DB.prepare(
         'CREATE TABLE IF NOT EXISTS push_history_backup_20240603 AS SELECT * FROM push_history'
@@ -91,7 +89,6 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
       // 删除备份
       await env.DB.prepare('DROP TABLE IF EXISTS push_history_backup_20240603').run();
 
-      console.log('[PushHistory] Schema migrated successfully');
     }
 
     pushHistorySchemaFixed = true;
@@ -754,7 +751,6 @@ export async function dispatchPushWithOptions(
   // 保存到 D1 推送历史
   try {
     if (env.DB) {
-      console.log('[PushHistory] Saving to DB...');
       await env.DB.prepare(
         `
         INSERT INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at)
@@ -775,7 +771,6 @@ export async function dispatchPushWithOptions(
           new Date().toISOString()
         )
         .run();
-      console.log('[PushHistory] Saved successfully');
     }
   } catch (err) {
     console.error('[PushHistory] Failed to save:', (err as Error).message);

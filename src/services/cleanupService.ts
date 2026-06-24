@@ -63,12 +63,7 @@ export async function cleanupExpiredData(
       if (deletedThisBatch > 0) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-    } while (deletedThisBatch >= cfg.batchSize);
-
-    console.log(
-      `[Cleanup] Deleted ${pushHistoryDeleted} push history records older than ${cfg.pushHistoryRetentionDays} days`
-    );
-  } catch (err) {
+    } while (deletedThisBatch >= cfg.batchSize);  } catch (err) {
     console.error('[Cleanup] Error cleaning push_history:', err);
   }
 
@@ -91,12 +86,7 @@ export async function cleanupExpiredData(
       if (deletedThisBatch > 0) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-    } while (deletedThisBatch >= cfg.batchSize);
-
-    console.log(
-      `[Cleanup] Deleted ${auditLogsDeleted} audit logs older than ${cfg.auditLogRetentionDays} days`
-    );
-  } catch (err) {
+    } while (deletedThisBatch >= cfg.batchSize);  } catch (err) {
     console.error('[Cleanup] Error cleaning audit_logs:', err);
   }
 
@@ -206,14 +196,11 @@ async function cleanupOrphanTables(env: Env): Promise<string[]> {
       if (shouldDeleteTable(tableName)) {
         await env.DB!.prepare(`DROP TABLE IF EXISTS \`${tableName}\``).run();
         deletedTables.push(tableName);
-        console.log(`[Cleanup] Deleted orphan table: ${tableName}`);
       }
     }
 
     if (deletedTables.length > 0) {
-      console.log(`[Cleanup] Total orphan tables deleted: ${deletedTables.length}`);
     } else {
-      console.log('[Cleanup] No orphan tables found');
     }
   } catch (err) {
     console.error('[Cleanup] Error cleaning orphan tables:', err);
@@ -321,7 +308,6 @@ export async function deleteTable(env: Env, tableName: string): Promise<{ succes
 
   try {
     await env.DB!.prepare(`DROP TABLE IF EXISTS \`${tableName}\``).run();
-    console.log(`[Cleanup] Deleted table: ${tableName}`);
     return { success: true };
   } catch (err) {
     console.error('[Cleanup] Error deleting table:', err);

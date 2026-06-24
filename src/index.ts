@@ -180,13 +180,9 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
-    console.log(`[Queue] Processing ${batch.messages.length} messages`);
-
     const queueService = new QueueService(env);
 
     await queueService.processBatch(batch, async (message: PushQueueMessage) => {
-      console.log(`[Queue] Processing push request: ${message.requestId}`);
-
       try {
         const results = await dispatchPushWithOptions(
           message.payload,
@@ -194,8 +190,6 @@ export default {
           message.userId,
           env
         );
-
-        console.log(`[Queue] Push completed: ${message.requestId}, results:`, results);
 
         // 如果是定时任务的推送，需要更新状态
         if (message.payload.scheduledPushId) {
@@ -219,21 +213,13 @@ export default {
               message.payload.scheduledPushId,
               'pending',
               nextScheduledAt
-            );
-            console.log(
-              `[Queue] Recurring task ${message.payload.scheduledPushId} rescheduled to: ${nextScheduledAt} (timezone: ${userTimezone})`
-            );
-          } else {
+            );          } else {
             // 非循环任务：更新状态
             const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
             await pushService.updateScheduledPushStatus(
               message.payload.scheduledPushId,
               finalStatus
-            );
-            console.log(
-              `[Queue] One-time task ${message.payload.scheduledPushId} status: ${finalStatus}`
-            );
-          }
+            );          }
         }
 
         // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
@@ -243,12 +229,26 @@ export default {
           (error as Error).message
         );
 
-        // 如果是定时任务的推送，需要将状态更新为 failed
+        // 如果是定时任务的推送，需要将状态更新为 failed 并发送告警
         if (message.payload.scheduledPushId) {
           try {
             const pushService = new PushService(env, message.userId);
             await pushService.updateScheduledPushStatus(message.payload.scheduledPushId, 'failed');
-            console.log(`[Queue] Task ${message.payload.scheduledPushId} marked as failed`);
+
+            // 发送失败告警通知
+            try {
+              await dispatchPushWithOptions(
+                {
+                  title: '⚠️ 定时任务执行失败',
+                  body: `任务 "${message.payload.title || '未知'}" 执行失败：${(error as Error).message}`,
+                },
+                message.payload.channels || [],
+                message.userId,
+                env
+              );
+            } catch {
+              // 告警发送失败不影响主流程
+            }
           } catch (updateError) {
             console.error(`[Queue] Failed to update task status:`, (updateError as Error).message);
           }
@@ -258,7 +258,6 @@ export default {
       }
     });
 
-    console.log(`[Queue] Batch processing complete`);
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -272,16 +271,13 @@ export default {
       const cleanupConfig = await systemSettings.getCleanupConfig();
 
       if (cleanupConfig.enabled) {
-        console.log('[Cron] Starting automatic data cleanup...');
         const cleanupResult = await cleanupExpiredData(env, {
           pushHistoryRetentionDays: cleanupConfig.pushHistoryDays,
           auditLogRetentionDays: cleanupConfig.auditLogDays,
           batchSize: cleanupConfig.batchSize,
           autoDeleteOrphanTables: cleanupConfig.autoDeleteOrphanTables,
         });
-        console.log('[Cron] Cleanup completed:', cleanupResult);
       } else {
-        console.log('[Cron] Auto cleanup is disabled');
       }
 
       let processedUsers = 0;
@@ -309,7 +305,6 @@ export default {
         }
       }
 
-      console.log(`[Cron] Completed. Processed ${processedUsers} users`);
     } catch (err) {
       console.error(`[Cron] Fatal error: ${(err as Error).message}`, (err as Error).stack);
     }
@@ -376,7 +371,6 @@ async function sendOverdueReminder(env: Env, username: string, task: ScheduledPu
       env
     );
 
-    console.log(`[Overdue Reminder] Sent for task ${task.id}, results:`, results);
   } catch (err) {
     console.error(`[Overdue Reminder] Failed to send for ${task.id}:`, (err as Error).message);
   }
@@ -465,8 +459,6 @@ async function processScheduledPushes(
         },
         createdAt: new Date().toISOString(),
       });
-
-      console.log(`[Cron] Scheduled push ${push.id} queued with requestId: ${requestId}`);
 
       // 保存执行锁 - 使用 D1
       await insertScheduledLock(env, {
@@ -984,15 +976,7 @@ async function processBackups(
   try {
     const endpoints = await getBackupEndpoints(env, username);
 
-    // 调试日志：检查备份端点
-    console.log(
-      `[Cron Backup] Checking backups for ${username}, found ${endpoints.length} endpoints`
-    );
-    for (const ep of endpoints) {
-      console.log(
-        `[Cron Backup]   - ${ep.name}: enabled=${ep.enabled}, schedule.enabled=${ep.schedule?.enabled}, interval=${ep.schedule?.interval || 24}h`
-      );
-    }
+    // 调试日志：检查备份端点    for (const ep of endpoints) {    }
 
     for (const endpoint of endpoints) {
       if (!endpoint.enabled || !endpoint.schedule?.enabled) {
@@ -1006,12 +990,7 @@ async function processBackups(
       const tz = convertTimezone(schedule.timezone || 'Asia/Shanghai');
       const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
-      // 调试日志：检查时间条件
-      console.log(
-        `[Cron Backup] ${endpoint.name}: local=${localHour}:${localMinute}, expected=${startHour}:${startMinute}, interval=${interval}h`
-      );
-
-      // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
+      // 调试日志：检查时间条件      // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
       const timeDiffMinutes = Math.abs((localHour - startHour) * 60 + (localMinute - startMinute));
       const inTimeWindow = timeDiffMinutes <= 2;
 
@@ -1035,11 +1014,7 @@ async function processBackups(
         }
       }
 
-      if (!shouldRun) {
-        console.log(
-          `[Cron Backup] Skipping ${endpoint.name}: not in time window (timeDiff=${timeDiffMinutes}min)`
-        );
-        continue;
+      if (!shouldRun) {        continue;
       }
 
       // 检查最后一次运行时间，防止重复执行 - 使用 D1
@@ -1049,14 +1024,8 @@ async function processBackups(
 
       // 确保至少间隔 interval * 0.8 小时才再次运行，避免重复执行
       const minIntervalHours = Math.max(1, interval * 0.8);
-      if (backupRun && hoursSinceLastRun < minIntervalHours) {
-        console.log(
-          `[Cron Backup] Skipping ${username}/${endpoint.name}: ran ${hoursSinceLastRun.toFixed(1)}h ago (interval ${interval}h)`
-        );
-        continue;
+      if (backupRun && hoursSinceLastRun < minIntervalHours) {        continue;
       }
-
-      console.log(`[Cron Backup] Running backup for ${username}/${endpoint.name}`);
 
       const result = await uploadBackupToEndpoint(env, username, endpoint);
       endpoint.lastBackup = {
@@ -1075,12 +1044,7 @@ async function processBackups(
         lastRun: currentEpochMinute,
         createdAt: backupRun ? backupRun.createdAt : nowStr,
         updatedAt: nowStr,
-      });
-
-      console.log(
-        `[Cron Backup] ${result.success ? 'Success' : 'Failed'} for ${username}/${endpoint.name}: ${result.message}`
-      );
-    }
+      });    }
   } catch (err) {
     console.error(
       `[Cron Backup] Error for ${username}:`,
