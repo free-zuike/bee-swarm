@@ -10,6 +10,11 @@ export interface SystemSettings {
   cleanup_batch_size?: number;
   cleanup_auto_delete_orphan_tables?: boolean;
   cors_allowed_origins?: string[];
+  smtp_host?: string;
+  smtp_port?: string;
+  smtp_username?: string;
+  smtp_password?: string;
+  mail_from?: string;
 }
 
 export class SystemSettingsService {
@@ -142,8 +147,27 @@ export class SystemSettingsService {
     const envOrigins = this.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) || [];
     
     // 去重并返回
-    const allOrigins = [...new Set([...dbOrigins, ...envOrigins])];
+    const allOrigins = [...new Set([...dbOrigins, envOrigins])];
     
     return allOrigins;
+  }
+
+  /** 获取 SMTP 配置（优先使用数据库配置，回退到环境变量） */
+  async getSMTPConfig(): Promise<{
+    host?: string;
+    port?: string;
+    username?: string;
+    password?: string;
+    mailFrom?: string;
+  }> {
+    const settings = await this.getAllSettings();
+
+    return {
+      host: settings.smtp_host || this.env.SMTP_HOST,
+      port: settings.smtp_port || this.env.SMTP_PORT,
+      username: settings.smtp_username || this.env.SMTP_USERNAME,
+      password: settings.smtp_password || this.env.SMTP_PASSWORD,
+      mailFrom: settings.mail_from || this.env.MAIL_FROM,
+    };
   }
 }

@@ -4,6 +4,7 @@
 // ============================================
 
 import type { Env } from '../types';
+import { SystemSettingsService } from './systemSettingsService';
 
 export interface EmailOptions {
   to: string;
@@ -14,27 +15,32 @@ export interface EmailOptions {
 
 /**
  * 发送邮件 - 使用 worker-mailer
+ * 优先使用数据库中的 SMTP 配置，回退到环境变量
  */
 export async function sendEmail(env: Env, options: EmailOptions): Promise<boolean> {
-  if (!env.SMTP_HOST || !env.SMTP_USERNAME || !env.SMTP_PASSWORD) {
-    console.warn('[Email] SMTP not configured (SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD)');
+  // 从数据库获取 SMTP 配置
+  const settingsService = new SystemSettingsService(env);
+  const smtpConfig = await settingsService.getSMTPConfig();
+
+  if (!smtpConfig.host || !smtpConfig.username || !smtpConfig.password) {
+    console.warn('[Email] SMTP not configured');
     return false;
   }
 
   try {
     const { WorkerMailer } = await import('worker-mailer');
 
-    const port = parseInt(env.SMTP_PORT || '587', 10);
+    const port = parseInt(smtpConfig.port || '587', 10);
     const secure = port === 465;
 
     const mailer = await WorkerMailer.connect({
-      host: env.SMTP_HOST,
+      host: smtpConfig.host,
       port,
       secure,
       startTls: !secure,
       credentials: {
-        username: env.SMTP_USERNAME,
-        password: env.SMTP_PASSWORD,
+        username: smtpConfig.username,
+        password: smtpConfig.password,
       },
       authType: 'plain',
     });
@@ -42,7 +48,7 @@ export async function sendEmail(env: Env, options: EmailOptions): Promise<boolea
     await mailer.send({
       from: {
         name: '蜂群通知系统',
-        email: env.MAIL_FROM || env.SMTP_USERNAME,
+        email: smtpConfig.mailFrom || smtpConfig.username,
       },
       to: { email: options.to },
       subject: options.subject,

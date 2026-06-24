@@ -1383,6 +1383,11 @@ export interface SystemSettings {
   cleanup_audit_log_days?: number;
   cleanup_batch_size?: number;
   cors_allowed_origins?: string[];
+  smtp_host?: string;
+  smtp_port?: string;
+  smtp_username?: string;
+  smtp_password?: string;
+  mail_from?: string;
 }
 
 export async function getSystemSettings(

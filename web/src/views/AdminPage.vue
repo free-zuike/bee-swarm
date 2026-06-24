@@ -2876,6 +2876,67 @@ function handleResend(record: PushHistoryRecord) {
               </div>
             </div>
 
+            <!-- 邮件 SMTP 设置 -->
+            <div class="settings-card">
+              <h4>📧 邮件设置（SMTP）</h4>
+              <div class="setting-hint" style="margin-bottom: 16px">
+                配置 SMTP 服务器用于发送密码重置邮件。支持 QQ邮箱、163邮箱、Gmail、Outlook 等。
+              </div>
+
+              <div class="setting-item">
+                <label>SMTP 服务器</label>
+                <input
+                  v-model="systemSettings.smtp_host"
+                  type="text"
+                  placeholder="smtp.qq.com"
+                />
+              </div>
+
+              <div class="setting-item">
+                <label>SMTP 端口</label>
+                <input
+                  v-model="systemSettings.smtp_port"
+                  type="text"
+                  placeholder="587"
+                />
+              </div>
+
+              <div class="setting-item">
+                <label>SMTP 用户名</label>
+                <input
+                  v-model="systemSettings.smtp_username"
+                  type="text"
+                  placeholder="your-email@qq.com"
+                />
+              </div>
+
+              <div class="setting-item">
+                <label>SMTP 密码</label>
+                <input
+                  v-model="systemSettings.smtp_password"
+                  type="password"
+                  placeholder="应用专用密码"
+                />
+              </div>
+
+              <div class="setting-item">
+                <label>发件人地址</label>
+                <input
+                  v-model="systemSettings.mail_from"
+                  type="email"
+                  placeholder="noreply@your-domain.com"
+                />
+              </div>
+
+              <div class="setting-hint">
+                <strong>常见配置：</strong><br>
+                QQ邮箱：smtp.qq.com / 587（需开启SMTP并获取授权码）<br>
+                163邮箱：smtp.163.com / 465<br>
+                Gmail：smtp.gmail.com / 587（需开启2FA并创建应用专用密码）<br>
+                Outlook：smtp.office365.com / 587
+              </div>
+            </div>
+
             <button
               class="btn btn-primary"
               @click="handleSaveSystemSettings"
