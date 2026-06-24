@@ -480,12 +480,22 @@ async function loadUserSettings() {
   try {
     const result = await getUserSettings(accessToken.value);
     if (result.success) {
-      userSettings.value = result.settings;
-
-      // 确保 ai_provider_configs 存在
-      if (!userSettings.value.ai_provider_configs) {
-        userSettings.value.ai_provider_configs = {};
-      }
+      // 合并设置，确保缓存 TTL 有默认值
+      userSettings.value = {
+        cache_ttl_backup: result.settings.cache_ttl_backup ?? 5 * 60 * 1000,
+        cache_ttl_channels: result.settings.cache_ttl_channels ?? 5 * 60 * 1000,
+        cache_ttl_templates: result.settings.cache_ttl_templates ?? 5 * 60 * 1000,
+        cache_ttl_groups: result.settings.cache_ttl_groups ?? 5 * 60 * 1000,
+        cache_ttl_scheduled: result.settings.cache_ttl_scheduled ?? 5 * 60 * 1000,
+        ai_model: result.settings.ai_model ?? 'workers-ai',
+        ai_enabled: result.settings.ai_enabled ?? false,
+        ai_provider: result.settings.ai_provider ?? 'workers-ai',
+        ai_api_key: result.settings.ai_api_key ?? '',
+        ai_api_url: result.settings.ai_api_url ?? '',
+        ai_model_name: result.settings.ai_model_name ?? '',
+        custom_ai_providers: result.settings.custom_ai_providers ?? [],
+        ai_provider_configs: result.settings.ai_provider_configs ?? {},
+      };
 
       // 确保 custom_ai_providers 存在
       if (!userSettings.value.custom_ai_providers) {
