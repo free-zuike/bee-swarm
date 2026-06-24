@@ -63,6 +63,9 @@ export interface User {
   cache_ttl_templates?: number;
   cache_ttl_groups?: number;
   cache_ttl_scheduled?: number;
+  email_verified?: number;
+  verification_code?: string | null;
+  verification_expires_at?: number | null;
 }
 
 export interface CacheSettings {
