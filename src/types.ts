@@ -51,7 +51,9 @@ export interface Env {
   /** Turnstile 站点密钥，用于前端显示（可选） */
   TURNSTILE_SITE_KEY?: string;
   /** Workers AI，用于 AI 生成功能（可选） */
-  AI?: any;
+  AI?: {
+    run(model: string, body: Record<string, unknown>): Promise<unknown>;
+  };
   /** SMTP 服务器地址（如 smtp.gmail.com） */
   SMTP_HOST?: string;
   /** SMTP 端口（如 587 或 465） */

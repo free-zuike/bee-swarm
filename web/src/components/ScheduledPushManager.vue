@@ -92,7 +92,7 @@
                     </div>
                   </template>
                   <div v-else class="execution-empty">
-                    {{ push.recurringType === 'cron' ? '无法解析 Cron 表达式，请检查格式' : '暂无预计执行时间' }}
+                    {{ push.recurringType === 'cron' ? t('scheduled.cron_parse_error') : t('scheduled.no_upcoming') }}
                   </div>
                 </div>
               </div>

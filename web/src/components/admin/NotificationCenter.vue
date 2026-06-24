@@ -4,10 +4,10 @@
       <div v-if="show" class="notification-overlay" @click="close">
         <div class="notification-panel" @click.stop>
           <div class="panel-header">
-            <h3>通知中心</h3>
+            <h3>{{ t('notification.center') }}</h3>
             <div class="header-actions">
               <button v-if="notifications.length > 0" class="btn-text" @click="markAllAsRead">
-                全部已读
+                {{ t('notification.mark_all_read') }}
               </button>
               <button class="btn-close" @click="close">✕</button>
             </div>
@@ -16,7 +16,7 @@
           <div class="panel-body">
             <div v-if="notifications.length === 0" class="empty-state">
               <span class="empty-icon">🔔</span>
-              <p>暂无新通知</p>
+              <p>{{ t('notification.no_new') }}</p>
             </div>
 
             <div v-else class="notification-list">
@@ -92,10 +92,10 @@ const formatTime = (timestamp: number): string => {
   const now = Date.now();
   const diff = now - timestamp;
 
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  return `${Math.floor(diff / 86400000)} 天前`;
+  if (diff < 60000) return t('time.just_now');
+  if (diff < 3600000) return t('time.minutes_ago', { minutes: String(Math.floor(diff / 60000)) });
+  if (diff < 86400000) return t('time.hours_ago', { hours: String(Math.floor(diff / 3600000)) });
+  return t('time.days_ago', { days: String(Math.floor(diff / 86400000)) });
 };
 
 const close = () => {

@@ -163,8 +163,8 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   try {
     const auditLogger = createAuditLogger(c.env, email);
     await auditLogger.log('register', { role });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Register] Audit log failed:', error);
   }
 
   const message = emailSent
@@ -310,7 +310,9 @@ api.post('/login', validateBody(schemas.login), async (c) => {
     try {
       const auditLogger = createAuditLogger(c.env, email);
       await auditLogger.log('login_failed', { reason: 'user_not_found' });
-    } catch {}
+    } catch (error) {
+      console.error('[Login] Audit log failed:', error);
+    }
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
 
@@ -322,7 +324,9 @@ api.post('/login', validateBody(schemas.login), async (c) => {
     try {
       const auditLogger = createAuditLogger(c.env, email);
       await auditLogger.log('login_failed', { reason: 'wrong_password' });
-    } catch {}
+    } catch (error) {
+      console.error('[Login] Audit log failed:', error);
+    }
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
 
@@ -333,8 +337,8 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, email);
     await auditLogger.log('login', {});
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Login] Audit log failed:', error);
   }
 
   return c.json({ success: true, message: '登录成功', email });
@@ -674,7 +678,9 @@ adminApi.put('/system/settings', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('system_settings_updated', {});
-  } catch {}
+  } catch (error) {
+    console.error('[System Settings] Audit log failed:', error);
+  }
 
   return c.json({ success: true, message: '系统设置已保存' });
 });
@@ -716,7 +722,9 @@ adminApi.post('/database/cleanup', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, currentUser.email);
     await auditLogger.log('database_cleanup', result);
-  } catch {}
+  } catch (error) {
+    console.error('[Database Cleanup] Audit log failed:', error);
+  }
 
   return c.json({ success: true, ...result });
 });
@@ -741,7 +749,9 @@ adminApi.post('/database/archive', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('database_archive', result);
-  } catch {}
+  } catch (error) {
+    console.error('[Database Archive] Audit log failed:', error);
+  }
 
   return c.json({ success: true, ...result });
 });
@@ -777,7 +787,9 @@ adminApi.post('/database/archives/:key/restore', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('database_archive_restore', { archiveKey, restored: result.restored });
-  } catch {}
+  } catch (error) {
+    console.error('[Archive Restore] Audit log failed:', error);
+  }
 
   return c.json({ success: true, ...result });
 });
@@ -811,7 +823,9 @@ adminApi.delete('/database/tables/:name', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, currentUser.email);
     await auditLogger.log('table_deleted', { tableName, success: result.success });
-  } catch {}
+  } catch (error) {
+    console.error('[Table Delete] Audit log failed:', error);
+  }
 
   return c.json({ success: result.success, error: result.error });
 });
@@ -831,7 +845,9 @@ adminApi.post('/database/cleanup-tables', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, currentUser.email);
     await auditLogger.log('tables_cleanup', result);
-  } catch {}
+  } catch (error) {
+    console.error('[Tables Cleanup] Audit log failed:', error);
+  }
 
   return c.json({ success: true, ...result });
 });
@@ -890,8 +906,8 @@ adminApi.put('/channels/:id', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('channel_updated', { channelId });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Channel Update] Audit log failed:', error);
   }
 
   const settings = await loadUserChannelSettings(username, c.env);
@@ -948,8 +964,8 @@ adminApi.post('/push', validateBody(schemas.push), async (c) => {
       channels: body.channels,
       requestId,
     });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Push Queue] Audit log failed:', error);
   }
 
   return c.json({
@@ -1477,7 +1493,9 @@ adminApi.post('/users', validateBody(schemas.register), async (c) => {
       const auditLogger = createAuditLogger(env, username);
       await auditLogger.log('user_created', { email, role: 'user' });
     }
-  } catch {}
+  } catch (error) {
+    console.error('[User Create] Audit log failed:', error);
+  }
 
   return c.json({
     id: newUser.id,
@@ -1522,7 +1540,9 @@ adminApi.put('/users/:id/role', validateBody(schemas.userRole), async (c) => {
       const auditLogger = createAuditLogger(env, username);
       await auditLogger.log('user_role_updated', { targetUserId: userId, newRole: role });
     }
-  } catch {}
+  } catch (error) {
+    console.error('[User Role Update] Audit log failed:', error);
+  }
 
   return c.json({ success: true, message: '角色已更新' });
 });
@@ -1569,7 +1589,9 @@ adminApi.post('/users/:id/disable', async (c) => {
       const auditLogger = createAuditLogger(env, username);
       await auditLogger.log('user_disabled', { targetUserId: userId, reason });
     }
-  } catch {}
+  } catch (error) {
+    console.error('[User Disable] Audit log failed:', error);
+  }
 
   return c.json({ success: true, message: '用户已禁用' });
 });
@@ -1596,7 +1618,9 @@ adminApi.post('/users/:id/enable', async (c) => {
       const auditLogger = createAuditLogger(env, username);
       await auditLogger.log('user_enabled', { targetUserId: userId });
     }
-  } catch {}
+  } catch (error) {
+    console.error('[User Enable] Audit log failed:', error);
+  }
 
   return c.json({ success: true, message: '用户已启用' });
 });
@@ -1628,7 +1652,9 @@ adminApi.delete('/users/:id', async (c) => {
       const auditLogger = createAuditLogger(env, username);
       await auditLogger.log('user_deleted', { email: target.email });
     }
-  } catch {}
+  } catch (error) {
+    console.error('[User Delete] Audit log failed:', error);
+  }
 
   return c.json({ success: true, message: '用户已删除' });
 });
@@ -1875,8 +1901,8 @@ adminApi.post('/templates', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('template_created', { templateId: template.id, name: template.name });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Template Create] Audit log failed:', error);
   }
 
   return c.json({ success: true, template });
@@ -1907,8 +1933,8 @@ adminApi.put('/templates/:id', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('template_updated', { templateId: id });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Template Update] Audit log failed:', error);
   }
 
   return c.json({ success: true, template });
@@ -1930,8 +1956,8 @@ adminApi.delete('/templates/:id', async (c) => {
   try {
     const auditLogger = createAuditLogger(c.env, username);
     await auditLogger.log('template_deleted', { templateId: id });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Template Delete] Audit log failed:', error);
   }
 
   return c.json({ success: true, message: '模板已删除' });
@@ -2193,8 +2219,8 @@ adminApi.post('/scheduled', async (c) => {
       scheduledPushId: push.id,
       scheduledAt: push.scheduledAt,
     });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Scheduled Push Create] Audit log failed:', error);
   }
 
   return c.json({ success: true, scheduled: push });
@@ -2264,8 +2290,8 @@ adminApi.post('/scheduled/batch-cancel', async (c) => {
       cancelled: result.cancelled,
       count: body.ids.length,
     });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Scheduled Push Cancel] Audit log failed:', error);
   }
 
   return c.json({ success: true, message: `已取消 ${result.cancelled} 个任务`, ...result });
@@ -2373,8 +2399,8 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
       scheduledPushId: id,
       newScheduledAt: body.scheduledAt,
     });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Scheduled Push Reschedule] Audit log failed:', error);
   }
 
   return c.json({ success: true, scheduled: rescheduled, message: '任务已重新安排' });
@@ -2509,8 +2535,8 @@ adminApi.post('/webhook/push', async (c) => {
         channels: body.channels,
         success: true,
       });
-    } catch {
-      // 审计日志失败不影响主流程
+    } catch (error) {
+      console.error('[Webhook Push] Audit log failed:', error);
     }
 
     return c.json({
@@ -2542,8 +2568,8 @@ adminApi.post('/webhook/push', async (c) => {
       channels: body.channels,
       success,
     });
-  } catch {
-    // 审计日志失败不影响主流程
+  } catch (error) {
+    console.error('[Webhook Push] Audit log failed:', error);
   }
 
   return c.json({

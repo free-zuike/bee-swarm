@@ -244,7 +244,7 @@ async function loadData() {
       };
     }
   } catch (err) {
-    error.value = (err as Error).message || '加载统计数据失败';
+    error.value = (err as Error).message || t('error.load_stats_failed');
     console.error('Failed to load stats:', err);
   } finally {
     loading.value = false;

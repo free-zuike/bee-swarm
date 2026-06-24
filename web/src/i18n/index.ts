@@ -915,6 +915,22 @@ const messages: Record<Locale, LocaleMessages> = {
     'verify.code_placeholder': '请输入6位验证码',
     'verify.email_sent_to': '验证码已发送到',
     'verify.button': '验证邮箱',
+    // API
+    'api.request_failed': '请求失败',
+    // 通知中心
+    'notification.center': '通知中心',
+    'notification.mark_all_read': '全部已读',
+    'notification.no_new': '暂无新通知',
+    // 时间
+    'time.just_now': '刚刚',
+    'time.minutes_ago': '{minutes} 分钟前',
+    'time.hours_ago': '{hours} 小时前',
+    'time.days_ago': '{days} 天前',
+    // 定时推送
+    'scheduled.cron_parse_error': '无法解析 Cron 表达式，请检查格式',
+    'scheduled.no_upcoming': '暂无预计执行时间',
+    // 错误
+    'error.load_stats_failed': '加载统计数据失败',
     // Login security
     'error.account_locked': '登录尝试次数过多，请 {minutes} 分钟后重试',
     'error.email_not_verified': '邮箱未验证，请先完成验证',
@@ -1982,6 +1998,22 @@ const messages: Record<Locale, LocaleMessages> = {
     'auth.spam_hint': 'Check spam folder if not received',
     'auth.verify_button_email': 'Verify Email',
     'auth.resend_code': 'Resend Code',
+    // API
+    'api.request_failed': 'Request failed',
+    // Notification center
+    'notification.center': 'Notification Center',
+    'notification.mark_all_read': 'Mark All Read',
+    'notification.no_new': 'No new notifications',
+    // Time
+    'time.just_now': 'Just now',
+    'time.minutes_ago': '{minutes} minutes ago',
+    'time.hours_ago': '{hours} hours ago',
+    'time.days_ago': '{days} days ago',
+    // Scheduled push
+    'scheduled.cron_parse_error': 'Unable to parse cron expression, please check format',
+    'scheduled.no_upcoming': 'No upcoming execution times',
+    // Error
+    'error.load_stats_failed': 'Failed to load statistics data',
   },
 };
 

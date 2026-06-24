@@ -18,7 +18,7 @@ const BASE = '/api';
 
 /** 通用错误处理函数 */
 async function handleResponseError(res: Response): Promise<Error> {
-  let errorMsg = `请求失败 (${res.status})`;
+  let errorMsg = `Request failed (${res.status})`;
   try {
     const body = (await res.json()) as { error?: string; message?: string };
     if (body.error) errorMsg = body.error;
@@ -86,7 +86,7 @@ async function tokenRequest<T>(url: string, token: string, options?: RequestInit
       } catch {
         isRefreshing = false;
         clearAuthAndRedirect();
-        throw new Error('认证已过期，请重新登录');
+        throw new Error('Authentication expired, please login again');
       }
     } else if (refreshSubscribers.length > 0) {
       return new Promise((resolve, reject) => {
