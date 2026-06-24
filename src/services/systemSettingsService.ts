@@ -147,7 +147,7 @@ export class SystemSettingsService {
     const envOrigins = this.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) || [];
     
     // 去重并返回
-    const allOrigins = [...new Set([...dbOrigins, envOrigins])];
+    const allOrigins = [...new Set([...dbOrigins, ...envOrigins])];
     
     return allOrigins;
   }
