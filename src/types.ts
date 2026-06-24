@@ -38,7 +38,7 @@ export interface Env {
   BUCKET?: R2Bucket;
   /** 推送任务队列，用于异步发送推送通知（可选） */
   PUSH_QUEUE?: Queue;
-  /** Worker Mailer 邮件发送服务（可选） */
+  /** Worker Mailer 邮件发送服务（可选，已弃用） */
   MAILER?: any;
   /** 允许的跨域来源，逗号分隔 */
   ALLOWED_ORIGINS?: string;
@@ -54,7 +54,9 @@ export interface Env {
   TURNSTILE_SITE_KEY?: string;
   /** Workers AI，用于 AI 生成功能（可选） */
   AI?: any;
-  /** 邮件发件人地址（可选） */
+  /** Resend API Key（推荐，免费 100封/天） */
+  RESEND_API_KEY?: string;
+  /** 邮件发件人地址（Resend 或 MailChannels） */
   MAIL_FROM?: string;
 }
 

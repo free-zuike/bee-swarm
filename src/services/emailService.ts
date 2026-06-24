@@ -1,6 +1,6 @@
 // ============================================
 // 邮件发送服务
-// 使用 worker-mailer 发送邮件
+// 支持 Resend API（推荐）和 MailChannels（免费）
 // ============================================
 
 import type { Env } from '../types';
@@ -13,41 +13,105 @@ export interface EmailOptions {
 }
 
 /**
- * 通过 worker-mailer 发送邮件
+ * 发送邮件 - 自动选择可用的邮件服务
  */
 export async function sendEmail(env: Env, options: EmailOptions): Promise<boolean> {
-  if (!env.MAILER) {
-    console.warn('[Email] MAILER binding not configured, email not sent');
-    return false;
+  // 优先使用 Resend API
+  if (env.RESEND_API_KEY) {
+    return sendViaResend(env, options);
   }
 
-  const mailFrom = env.MAIL_FROM || 'noreply@bee-swarm.app';
+  // 其次使用 MailChannels（Cloudflare Workers 免费）
+  if (env.MAIL_FROM) {
+    return sendViaMailChannels(env, options);
+  }
+
+  console.warn('[Email] No email service configured (RESEND_API_KEY or MAIL_FROM)');
+  return false;
+}
+
+/**
+ * 通过 Resend API 发送邮件
+ * 注册: https://resend.com （免费 100封/天）
+ * 文档: https://resend.com/docs/introduction
+ */
+async function sendViaResend(env: Env, options: EmailOptions): Promise<boolean> {
+  const mailFrom = env.MAIL_FROM || 'noreply@resend.dev';
 
   try {
-    const response = await env.MAILER.fetch(new Request('https://worker-mailer.example.com/send', {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: mailFrom,
+        to: [options.to],
+        subject: options.subject,
+        html: options.html,
+        text: options.text || options.html.replace(/<[^>]*>/g, ''),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[Email] Resend failed:', error);
+      return false;
+    }
+
+    console.log(`[Email] Sent via Resend to ${options.to}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Resend error:', (error as Error).message);
+    return false;
+  }
+}
+
+/**
+ * 通过 MailChannels 发送邮件（Cloudflare Workers 专用，免费）
+ * 文档: https://developers.cloudflare.com/email-routing/workers/
+ * 注意: 需要在 Cloudflare Dashboard 验证域名
+ */
+async function sendViaMailChannels(env: Env, options: EmailOptions): Promise<boolean> {
+  const mailFrom = env.MAIL_FROM;
+
+  try {
+    const response = await fetch('https://api.mailchannels.net/tx/v1/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: mailFrom,
-        to: options.to,
+        personalizations: [
+          {
+            to: [{ email: options.to }],
+          },
+        ],
+        from: {
+          email: mailFrom,
+          name: '蜂群通知系统',
+        },
         subject: options.subject,
-        html: options.html,
-        text: options.text || options.html.replace(/<[^>]*>/g, ''),
+        content: [
+          {
+            type: 'text/html',
+            value: options.html,
+          },
+        ],
       }),
-    }));
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Email] Failed to send:', errorText);
+      const error = await response.text();
+      console.error('[Email] MailChannels failed:', error);
       return false;
     }
 
-    console.log(`[Email] Sent to ${options.to}`);
+    console.log(`[Email] Sent via MailChannels to ${options.to}`);
     return true;
   } catch (error) {
-    console.error('[Email] Error:', (error as Error).message);
+    console.error('[Email] MailChannels error:', (error as Error).message);
     return false;
   }
 }

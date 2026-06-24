@@ -100,10 +100,15 @@ head_sampling_rate = 1
 binding = "AI"
 
 # ------------------------------------------
-# Worker Mailer（邮件发送服务）
-# 需要先部署 worker-mailer：https://github.com/nicholasgriffintn/worker-mailer
-# 然后在 wrangler.toml 中添加以下配置
+# 邮件服务配置（密码重置功能）
+# 推荐使用 Resend（免费 100封/天）：
+#   1. 注册 https://resend.com
+#   2. 创建 API Key
+#   3. 运行: npx wrangler secret put RESEND_API_KEY
+#   4. 运行: npx wrangler secret put MAIL_FROM（如 noreply@your-domain.com）
+#
+# 或使用 MailChannels（Cloudflare Workers 免费）：
+#   1. 在 Cloudflare Dashboard 验证域名
+#   2. 运行: npx wrangler secret put MAIL_FROM（使用已验证的域名邮箱）
 # ------------------------------------------
-# [services]
-# MAILER = { binding = "MAILER", service = "worker-mailer" }
 
