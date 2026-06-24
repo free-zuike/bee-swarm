@@ -894,4 +894,82 @@ onMounted(async () => {
     text-align: center;
   }
 }
+
+/* Dark mode */
+.dark .summary-card {
+  background: var(--bg-secondary, #1e1e2e);
+  border-color: var(--border-color, #333);
+}
+
+.dark .summary-healthy {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.08) 100%);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.dark .summary-warning {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.dark .summary-icon {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .summary-healthy .summary-icon {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.dark .summary-warning .summary-icon {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.dark .summary-healthy .summary-value {
+  color: #4ade80;
+}
+
+.dark .summary-warning .summary-value {
+  color: #f87171;
+}
+
+.dark .channel-card {
+  background: var(--bg-secondary, #1e1e2e);
+  border-color: var(--border-color, #333);
+}
+
+.dark .channel-card.healthy {
+  border-left-color: #22c55e;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(34, 197, 94, 0.03) 100%);
+}
+
+.dark .channel-card.error {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%);
+}
+
+.dark .channel-name {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.dark .channel-id {
+  color: var(--text-secondary, #999);
+}
+
+.dark .status-badge.healthy {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.dark .status-badge.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.dark .last-check {
+  color: var(--text-secondary, #888);
+}
+
+.dark .error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
 </style>
