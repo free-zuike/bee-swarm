@@ -320,73 +320,72 @@ export class AIAgentService {
     steps: AgentStep[],
     pushService: PushService
   ): Promise<string> {
-    switch (intent.action) {
-      case 'getHistory': {
-        const limit = (intent.params.limit as number) || 10;
-        const step: AgentStep = { action: 'get_history', params: { limit } };
+    const action = intent.action.toLowerCase();
 
-        try {
-          const { records } = await getPushHistory(userId, this.env, { pageSize: limit });
-          step.result = records;
-          steps.push(step);
+    if (/history|历史|记录/.test(action)) {
+      const limit = (intent.params.limit as number) || 10;
+      const step: AgentStep = { action: 'get_history', params: { limit } };
 
-          if (records.length === 0) return '暂无推送记录';
+      try {
+        const { records } = await getPushHistory(userId, this.env, { pageSize: limit });
+        step.result = records;
+        steps.push(step);
 
-          const summary = records.slice(0, 5).map((r, i) =>
-            `${i + 1}. ${r.title} (${new Date(r.createdAt).toLocaleString('zh-CN')}) - ${r.status}`
-          ).join('\n');
-          return `最近 ${records.length} 条推送记录：\n${summary}`;
-        } catch (error) {
-          step.error = (error as Error).message;
-          steps.push(step);
-          return `查询失败：${(error as Error).message}`;
-        }
+        if (records.length === 0) return '暂无推送记录';
+
+        const summary = records.slice(0, 5).map((r, i) =>
+          `${i + 1}. ${r.title} (${new Date(r.createdAt).toLocaleString('zh-CN')}) - ${r.status}`
+        ).join('\n');
+        return `最近 ${records.length} 条推送记录：\n${summary}`;
+      } catch (error) {
+        step.error = (error as Error).message;
+        steps.push(step);
+        return `查询失败：${(error as Error).message}`;
       }
+    }
 
-      case 'getStats': {
-        const step: AgentStep = { action: 'get_stats', params: {} };
-        try {
-          const stats = await pushService.getPushStats();
-          step.result = stats;
-          steps.push(step);
+    if (/stat|统计|success|rate|成功率/.test(action)) {
+      const step: AgentStep = { action: 'get_stats', params: {} };
+      try {
+        const stats = await pushService.getPushStats();
+        step.result = stats;
+        steps.push(step);
 
-          const { session } = stats;
-          const rate = session.total > 0 ? ((session.success / session.total) * 100).toFixed(1) : '0';
-          return `推送统计：
+        const { session } = stats;
+        const rate = session.total > 0 ? ((session.success / session.total) * 100).toFixed(1) : '0';
+        return `推送统计：
 - 总推送：${session.total}
 - 成功：${session.success}
 - 失败：${session.failed}
 - 成功率：${rate}%`;
-        } catch (error) {
-          step.error = (error as Error).message;
-          steps.push(step);
-          return `获取统计失败：${(error as Error).message}`;
-        }
+      } catch (error) {
+        step.error = (error as Error).message;
+        steps.push(step);
+        return `获取统计失败：${(error as Error).message}`;
       }
-
-      case 'listScheduled': {
-        const step: AgentStep = { action: 'list_scheduled', params: {} };
-        try {
-          const pushes = await pushService.getScheduledPushes('pending');
-          step.result = pushes;
-          steps.push(step);
-
-          if (pushes.length === 0) return '暂无待执行的定时任务';
-
-          const summary = pushes.slice(0, 5).map((p, i) =>
-            `${i + 1}. ${p.title} - 下次执行：${new Date(p.scheduledAt).toLocaleString('zh-CN')}`
-          ).join('\n');
-          return `待执行的定时任务（${pushes.length}个）：\n${summary}`;
-        } catch (error) {
-          step.error = (error as Error).message;
-          steps.push(step);
-          return `查询失败：${(error as Error).message}`;
-        }
-      }
-
-      default:
-        return '未知的查询操作';
     }
+
+    if (/schedule|定时|任务|task/.test(action)) {
+      const step: AgentStep = { action: 'list_scheduled', params: {} };
+      try {
+        const pushes = await pushService.getScheduledPushes('pending');
+        step.result = pushes;
+        steps.push(step);
+
+        if (pushes.length === 0) return '暂无待执行的定时任务';
+
+        const summary = pushes.slice(0, 5).map((p, i) =>
+          `${i + 1}. ${p.title} - 下次执行：${new Date(p.scheduledAt).toLocaleString('zh-CN')}`
+        ).join('\n');
+        return `待执行的定时任务（${pushes.length}个）：\n${summary}`;
+      } catch (error) {
+        step.error = (error as Error).message;
+        steps.push(step);
+        return `查询失败：${(error as Error).message}`;
+      }
+    }
+
+    return '未知的查询操作';
   }
 
   /**
@@ -397,30 +396,30 @@ export class AIAgentService {
     userId: string,
     steps: AgentStep[]
   ): Promise<string> {
-    switch (intent.action) {
-      case 'listChannels': {
-        const step: AgentStep = { action: 'list_channels', params: {} };
-        try {
-          const settings = await loadUserChannelSettings(userId, this.env);
-          step.result = settings;
-          steps.push(step);
+    // 灵活匹配 action（支持多种命名方式）
+    const action = intent.action.toLowerCase();
 
-          const channels = CHANNEL_DEFINITIONS.map((ch) => {
-            const enabled = settings[`channel:${ch.id}:enabled`] !== 'false';
-            return `${enabled ? '✅' : '❌'} ${ch.name} (${ch.id})`;
-          }).join('\n');
+    if (/channel|渠道|通道/.test(action)) {
+      const step: AgentStep = { action: 'list_channels', params: {} };
+      try {
+        const settings = await loadUserChannelSettings(userId, this.env);
+        step.result = settings;
+        steps.push(step);
 
-          return `可用渠道：\n${channels}`;
-        } catch (error) {
-          step.error = (error as Error).message;
-          steps.push(step);
-          return `获取渠道失败：${(error as Error).message}`;
-        }
+        const channels = CHANNEL_DEFINITIONS.map((ch) => {
+          const enabled = settings[`channel:${ch.id}:enabled`] !== 'false';
+          return `${enabled ? '✅' : '❌'} ${ch.name} (${ch.id})`;
+        }).join('\n');
+
+        return `可用渠道：\n${channels}`;
+      } catch (error) {
+        step.error = (error as Error).message;
+        steps.push(step);
+        return `获取渠道失败：${(error as Error).message}`;
       }
-
-      default:
-        return '未知的信息查询操作';
     }
+
+    return '未知的信息查询操作';
   }
 
   /**
@@ -432,30 +431,29 @@ export class AIAgentService {
     steps: AgentStep[],
     pushService: PushService
   ): Promise<string> {
-    switch (intent.action) {
-      case 'createTemplate': {
-        const name = (intent.params.name as string) || '新模板';
-        const step: AgentStep = { action: 'create_template', params: { name } };
+    const action = intent.action.toLowerCase();
 
-        try {
-          const template = await pushService.saveTemplate({
-            name,
-            title: name,
-            content: '请编辑模板内容',
-            channels: ['wework'],
-          });
-          step.result = template;
-          steps.push(step);
-          return `已创建模板：${template.name}`;
-        } catch (error) {
-          step.error = (error as Error).message;
-          steps.push(step);
-          return `创建失败：${(error as Error).message}`;
-        }
+    if (/template|模板/.test(action)) {
+      const name = (intent.params.name as string) || '新模板';
+      const step: AgentStep = { action: 'create_template', params: { name } };
+
+      try {
+        const template = await pushService.saveTemplate({
+          name,
+          title: name,
+          content: '请编辑模板内容',
+          channels: ['wework'],
+        });
+        step.result = template;
+        steps.push(step);
+        return `已创建模板：${template.name}`;
+      } catch (error) {
+        step.error = (error as Error).message;
+        steps.push(step);
+        return `创建失败：${(error as Error).message}`;
       }
-
-      default:
-        return '未知的创建操作';
     }
+
+    return '未知的创建操作';
   }
 }
