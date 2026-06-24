@@ -1304,6 +1304,30 @@ onMounted(async () => {
   }
 });
 
+// ==================== 页面焦点检测 ====================
+// 当用户从其他标签/应用返回时，检查 token 是否仍然有效
+// 场景：用户在手机上通过邮件链接重置了密码，电脑端应自动登出
+onMounted(() => {
+  const handleVisibilityChange = async () => {
+    if (document.visibilityState === 'visible' && pageState.value === 'dashboard') {
+      try {
+        const { refreshToken: rt } = await import('@/api');
+        // 尝试刷新 token，如果失败说明已被登出
+        await rt(authStore.refreshTokenValue);
+      } catch {
+        // token 无效，自动登出
+        authStore.logout();
+        pageState.value = 'auth';
+      }
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  onUnmounted(() => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  });
+});
+
 // ==================== Tab 切换软刷新 ====================
 watch(activeTab, (newTab, oldTab) => {
   // 离开推送 tab 时清空渠道选择（使用分组的选择是临时的）
