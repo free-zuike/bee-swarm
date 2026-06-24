@@ -24,6 +24,23 @@ interface RateLimitEntry {
 // 内存存储（Workers 实例间不共享，需注意）
 const memoryStore = new Map<string, RateLimitEntry>();
 
+// 登录失败计数器（用于暴力破解防护）
+const loginFailStore = new Map<string, { count: number; lockUntil: number }>();
+
+const IP_HEADER_PRIORITY = ['CF-Connecting-IP', 'X-Forwarded-For'];
+
+function getClientIP(c: Context<{ Bindings: Env }>): string {
+  for (const header of IP_HEADER_PRIORITY) {
+    const value = c.req.header(header);
+    if (value) {
+      // CF-Connecting-IP 是 Cloudflare 直接设置的，最可信
+      // X-Forwarded-For 取第一个值（最接近用户的 IP）
+      return header === 'CF-Connecting-IP' ? value : value.split(',')[0].trim();
+    }
+  }
+  return 'unknown';
+}
+
 export function rateLimit(config: RateLimitConfig = {}) {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
   const windowMs = mergedConfig.windowMs!;
@@ -32,7 +49,7 @@ export function rateLimit(config: RateLimitConfig = {}) {
   const headers = mergedConfig.headers!;
 
   return async function rateLimitMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
-    const ip = c.req.header('X-Forwarded-For') || c.req.header('CF-Connecting-IP') || 'unknown';
+    const ip = getClientIP(c);
     const key = `rate_limit:${ip}`;
     const now = Date.now();
 
@@ -87,4 +104,63 @@ export function rateLimit(config: RateLimitConfig = {}) {
       c.res.headers.set('X-RateLimit-Reset', String(Math.floor(entry.resetTime / 1000)));
     }
   };
+}
+
+// ============================================
+// 登录专用限流 + 暴力破解防护
+// ============================================
+
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 锁定 15 分钟
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 分钟窗口
+
+export function recordLoginFailure(email: string, ip: string): boolean {
+  const key = `login_fail:${email}:${ip}`;
+  const now = Date.now();
+  const entry = loginFailStore.get(key);
+
+  if (entry && entry.lockUntil > now) {
+    return false; // 已锁定
+  }
+
+  if (!entry || now > entry.lockUntil) {
+    loginFailStore.set(key, { count: 1, lockUntil: 0 });
+  } else {
+    entry.count++;
+    if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+      entry.lockUntil = now + LOGIN_LOCKOUT_MS;
+    }
+    loginFailStore.set(key, entry);
+  }
+
+  // 清理过期条目
+  if (loginFailStore.size > 10000) {
+    for (const [k, v] of loginFailStore.entries()) {
+      if (now > v.lockUntil && v.lockUntil > 0) {
+        loginFailStore.delete(k);
+      }
+    }
+  }
+
+  return true;
+}
+
+export function isLoginLocked(email: string, ip: string): { locked: boolean; retryAfter?: number } {
+  const key = `login_fail:${email}:${ip}`;
+  const entry = loginFailStore.get(key);
+  const now = Date.now();
+
+  if (entry && entry.lockUntil > now) {
+    return {
+      locked: true,
+      retryAfter: Math.ceil((entry.lockUntil - now) / 1000),
+    };
+  }
+
+  return { locked: false };
+}
+
+export function clearLoginFailure(email: string, ip: string): void {
+  const key = `login_fail:${email}:${ip}`;
+  loginFailStore.delete(key);
 }

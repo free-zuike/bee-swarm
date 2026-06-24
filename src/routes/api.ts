@@ -8,7 +8,7 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
 import { createAuditLogger, type AuditAction } from '../utils/audit';
-import { rateLimit } from '../middleware/rateLimit';
+import { rateLimit, isLoginLocked, recordLoginFailure, clearLoginFailure } from '../middleware/rateLimit';
 import { UserService } from '../services/userService';
 import {
   dispatchPush,
@@ -289,18 +289,43 @@ api.post('/login', validateBody(schemas.login), async (c) => {
     }
   }
 
+  // 登录限流 + 暴力破解防护
+  const loginIP = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown';
+  const lockStatus = isLoginLocked(email, loginIP);
+  if (lockStatus.locked) {
+    return c.json({
+      error: `登录尝试次数过多，请 ${Math.ceil(lockStatus.retryAfter! / 60)} 分钟后重试`,
+      code: 'ACCOUNT_LOCKED',
+    }, 429);
+  }
+
   const userService = new UserService(c.env);
 
   const user = await userService.findByEmail(email);
   if (!user) {
+    recordLoginFailure(email, loginIP);
+    // 记录失败尝试
+    try {
+      const auditLogger = createAuditLogger(c.env, email);
+      await auditLogger.log('login_failed', { reason: 'user_not_found' });
+    } catch {}
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
 
   const valid = await verifyPassword(password, user.password);
 
   if (!valid) {
+    recordLoginFailure(email, loginIP);
+    // 记录失败尝试
+    try {
+      const auditLogger = createAuditLogger(c.env, email);
+      await auditLogger.log('login_failed', { reason: 'wrong_password' });
+    } catch {}
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
   }
+
+  // 登录成功，清除失败计数
+  clearLoginFailure(email, loginIP);
 
   // 检查邮箱是否已验证（如果配置了邮件服务）
   const systemSettings2 = new SystemSettingsService(c.env);
@@ -1052,7 +1077,7 @@ adminApi.get('/users', async (c) => {
 
   try {
     const result = await svc['env'].DB.prepare(
-      'SELECT id, email, role, disabled, disabled_reason, created_at, avatar_url FROM users ORDER BY created_at ASC'
+      'SELECT id, email, role, disabled, disabled_reason, created_at, avatar_url FROM users ORDER BY created_at ASC LIMIT 500'
     ).all<{
       id: string;
       email: string;
@@ -1065,7 +1090,7 @@ adminApi.get('/users', async (c) => {
     users = result.results || [];
   } catch {
     const result = await svc['env'].DB.prepare(
-      'SELECT id, email, role, created_at FROM users ORDER BY created_at ASC'
+      'SELECT id, email, role, created_at FROM users ORDER BY created_at ASC LIMIT 500'
     ).all<{ id: string; email: string; role: string | null; created_at: string }>();
     users = (result.results || []).map((u) => ({
       ...u,

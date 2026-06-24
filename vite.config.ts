@@ -17,6 +17,15 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'charts': ['echarts', 'vue-echarts'],
+        },
+      },
+    },
   },
 
   // 开发服务器代理：API 请求转发到 Workers

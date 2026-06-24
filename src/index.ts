@@ -289,7 +289,7 @@ export default {
 
       // 从 D1 获取所有用户
       if (env.DB) {
-        const result = await env.DB.prepare('SELECT email FROM users').all<{ email: string }>();
+        const result = await env.DB.prepare('SELECT email FROM users LIMIT 1000').all<{ email: string }>();
         const users = result.results || [];
 
         for (const row of users) {

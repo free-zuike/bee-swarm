@@ -13,6 +13,7 @@ export function isD1Enabled(env: Env): env is Env & { DB: D1Database } {
 
 export type AuditAction =
   | 'login'
+  | 'login_failed'
   | 'logout'
   | 'register'
   | 'push_sent'
