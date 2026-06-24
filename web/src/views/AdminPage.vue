@@ -517,6 +517,11 @@ async function loadSystemSettings() {
         cleanup_audit_log_days: result.settings.cleanup_audit_log_days ?? 90,
         cleanup_batch_size: result.settings.cleanup_batch_size ?? 100,
         cors_allowed_origins: result.settings.cors_allowed_origins ?? [],
+        smtp_host: result.settings.smtp_host ?? '',
+        smtp_port: result.settings.smtp_port ?? '',
+        smtp_username: result.settings.smtp_username ?? '',
+        smtp_password: result.settings.smtp_password ?? '',
+        mail_from: result.settings.mail_from ?? '',
       };
     }
   } catch {
@@ -4682,9 +4687,23 @@ function handleResend(record: PushHistoryRecord) {
 }
 
 .settings-panel.dark .setting-item .input-sm,
-.settings-panel.dark .setting-item select {
+.settings-panel.dark .setting-item select,
+.settings-panel.dark .setting-item input {
   background: var(--bg-dark-primary, #16162a);
   border-color: var(--border-dark-color, #333);
+  color: var(--text-dark-primary, #ffffff);
+}
+
+.settings-panel.dark .setting-item input::placeholder {
+  color: var(--text-dark-secondary, #666);
+}
+
+.settings-panel.dark .setting-hint {
+  background: var(--bg-dark-secondary, #1e1e2e);
+  color: var(--text-dark-secondary, #999);
+}
+
+.settings-panel.dark .settings-card h4 {
   color: var(--text-dark-primary, #ffffff);
 }
 
