@@ -129,16 +129,13 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   const isFirstUser = !userCountResult || userCountResult.count === 0;
   const isAdminEmail = c.env.ADMIN_EMAIL && email.toLowerCase() === c.env.ADMIN_EMAIL.toLowerCase();
 
-  const role = isFirstUser || isAdminEmail ? 'admin' : 'user';
-
-  const hashed = await hashPassword(password);
-  await userService.createUser(email, hashed, role);
-
   // 发送验证邮件（如果配置了 SMTP）
   let emailSent = false;
+  let smtpConfigured = false;
   try {
     const smtpConfig = await systemSettings.getSMTPConfig();
-    if (smtpConfig.host && smtpConfig.username && smtpConfig.password) {
+    smtpConfigured = !!(smtpConfig.host && smtpConfig.username && smtpConfig.password);
+    if (smtpConfigured) {
       // 生成验证码
       const verificationCode = await userService.generateVerificationCode(email);
       if (verificationCode) {
@@ -157,6 +154,12 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   } catch {
     // 邮件发送失败不影响注册
   }
+
+  // 角色逻辑：管理员邮箱 → admin，SMTP已配置且发送了邮件 → viewer（未验证），否则 → user
+  const role = isAdminEmail ? 'admin' : (smtpConfigured && emailSent ? 'viewer' : 'user');
+
+  const hashed = await hashPassword(password);
+  await userService.createUser(email, hashed, role);
 
   try {
     const auditLogger = createAuditLogger(c.env, email);

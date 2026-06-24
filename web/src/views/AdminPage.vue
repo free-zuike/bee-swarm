@@ -1306,18 +1306,18 @@ onMounted(async () => {
 
 // ==================== 页面焦点检测 ====================
 // 当用户从其他标签/应用返回时，检查 token 是否仍然有效
-// 场景：用户在手机上通过邮件链接重置了密码，电脑端应自动登出
 onMounted(() => {
   const handleVisibilityChange = async () => {
     if (document.visibilityState === 'visible' && pageState.value === 'dashboard') {
-      try {
-        const { refreshToken: rt } = await import('@/api');
-        // 尝试刷新 token，如果失败说明已被登出
-        await rt(authStore.refreshTokenValue);
-      } catch {
-        // token 无效，自动登出
-        authStore.logout();
-        pageState.value = 'auth';
+      // 仅在 token 已过期时才尝试刷新，不要每次都刷新
+      if (authStore.tokenExpiresAt <= Date.now()) {
+        try {
+          const { refreshToken: rt } = await import('@/api');
+          await rt(authStore.refreshTokenValue);
+        } catch {
+          authStore.logout();
+          pageState.value = 'auth';
+        }
       }
     }
   };
