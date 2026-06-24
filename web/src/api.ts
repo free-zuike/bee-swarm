@@ -1201,6 +1201,23 @@ export async function executeAICommand(
   });
 }
 
+/** AI Agent - 自动分析并执行任务 */
+export async function executeAIAgent(
+  token: string,
+  query: string
+): Promise<{
+  success: boolean;
+  thinking: string;
+  steps: Array<{ action: string; params: unknown; result?: unknown; error?: string }>;
+  result: string;
+}> {
+  return tokenRequest(`${BASE}/admin/ai/agent`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+}
+
 // -------------------------------------------
 // 用户管理接口（管理员专用）
 // -------------------------------------------

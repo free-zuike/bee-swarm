@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
-import { checkAIAvailable, executeAICommand } from '@/api';
+import { checkAIAvailable, executeAIAgent } from '@/api';
 
 const props = defineProps<{
   accessToken: string;
@@ -19,37 +19,32 @@ const t = useTranslation();
 const aiAvailable = ref(false);
 const aiLoading = ref(false);
 const userQuery = ref('');
-const chatHistory = ref<Array<{ type: 'user' | 'ai'; content: string; data?: unknown }>>([]);
+const chatHistory = ref<Array<{ type: 'user' | 'ai' | 'system'; content: string; thinking?: string; steps?: unknown[] }>>([]);
 const showPanel = ref(false);
 
 // 如果 AI 未启用，不显示组件
 const shouldShow = computed(() => props.aiEnabled !== false);
 
 const quickCommands = computed(() => [
-  { label: t('cmd.list_templates'), query: t('cmd.list_templates_query') },
-  { label: t('cmd.create_template'), query: t('cmd.create_template_query') },
-  { label: t('cmd.create_group'), query: t('cmd.create_group_query') },
-  { label: t('cmd.list_groups'), query: t('cmd.list_groups_query') },
-  { label: t('cmd.run_backup'), query: t('cmd.run_backup_query') },
-  { label: t('cmd.list_scheduled_tasks'), query: t('cmd.list_scheduled_tasks_query') },
-  { label: t('cmd.list_channels'), query: t('cmd.list_channels_query') },
+  { icon: '📨', label: '发送测试消息', query: '发送一条测试消息到企业微信' },
+  { icon: '📊', label: '推送统计', query: '查看推送统计数据' },
+  { icon: '📋', label: '推送历史', query: '查看最近的推送历史' },
+  { icon: '📡', label: '渠道状态', query: '有哪些渠道可用' },
+  { icon: '⏰', label: '定时任务', query: '查看待执行的定时任务' },
+  { icon: '📝', label: '创建模板', query: '创建一个新的推送模板' },
 ]);
 
 async function checkAI() {
   try {
     const result = await checkAIAvailable();
     aiAvailable.value = result.available;
-  } catch (error) {
-    console.error('Failed to check AI availability:', error);
+  } catch {
     aiAvailable.value = false;
   }
 }
 
 async function handleSubmit() {
-  if (!userQuery.value.trim()) {
-    showToast(t('error.required', { field: t('label.query') }), 'error');
-    return;
-  }
+  if (!userQuery.value.trim()) return;
 
   const query = userQuery.value.trim();
   chatHistory.value.push({ type: 'user', content: query });
@@ -57,25 +52,39 @@ async function handleSubmit() {
 
   aiLoading.value = true;
   try {
-    const result = await executeAICommand(props.accessToken, query);
-    chatHistory.value.push({
-      type: 'ai',
-      content: result.result,
-      data: result.data,
-    });
-    if (result.success && result.data) {
+    const result = await executeAIAgent(props.accessToken, query);
+
+    if (result.success) {
+      // 显示思考过程和结果
+      let content = result.result;
+      if (result.steps && result.steps.length > 0) {
+        const stepsSummary = result.steps
+          .filter((s) => s.result)
+          .map((s) => `✓ ${s.action}`)
+          .join(' → ');
+        if (stepsSummary) {
+          content = `${stepsSummary}\n\n${content}`;
+        }
+      }
+      chatHistory.value.push({
+        type: 'ai',
+        content,
+        thinking: result.thinking,
+        steps: result.steps,
+      });
       emit('refresh');
+    } else {
+      chatHistory.value.push({
+        type: 'ai',
+        content: result.result || '处理失败',
+      });
     }
-    if (!result.success && result.error) {
-      showToast(result.error, 'error');
-    }
-  } catch (error) {
-    console.error('AI command execution failed:', error);
+  } catch {
     chatHistory.value.push({
       type: 'ai',
-      content: t('msg.ai_execute_failed'),
+      content: 'AI Agent 执行失败，请稍后重试',
     });
-    showToast(t('msg.ai_execute_failed'), 'error');
+    showToast('AI Agent 执行失败', 'error');
   } finally {
     aiLoading.value = false;
   }
@@ -83,6 +92,7 @@ async function handleSubmit() {
 
 function useQuickCommand(query: string) {
   userQuery.value = query;
+  handleSubmit();
 }
 
 function clearHistory() {
@@ -112,7 +122,7 @@ onMounted(() => {
       </div>
 
       <div class="ai-quick-commands">
-        <span class="quick-label">{{ t('label.quick_actions') }}:</span>
+        <span class="quick-label">快捷操作：</span>
         <div class="quick-buttons">
           <button
             v-for="cmd in quickCommands"
@@ -120,15 +130,16 @@ onMounted(() => {
             class="quick-btn"
             @click="useQuickCommand(cmd.query)"
           >
-            {{ cmd.label }}
+            {{ cmd.icon }} {{ cmd.label }}
           </button>
         </div>
       </div>
 
       <div class="ai-chat-container">
         <div v-if="chatHistory.length === 0" class="ai-empty-state">
-          <p>{{ t('hint.ai_helper_welcome') }}</p>
-          <p class="example">{{ t('hint.ai_helper_example') }}</p>
+          <p>👋 你好！我是 AI Agent</p>
+          <p class="example">我可以帮你：<br>• 发送推送消息<br>• 查看统计数据<br>• 管理模板和分组<br>• 执行定时任务</p>
+          <p class="example">试试输入："发送测试消息" 或 "查看推送历史"</p>
         </div>
 
         <div v-else class="chat-messages">
@@ -140,10 +151,8 @@ onMounted(() => {
           >
             <div class="message-avatar">{{ msg.type === 'user' ? '👤' : '🤖' }}</div>
             <div class="message-content">
+              <p v-if="msg.thinking" class="thinking">{{ msg.thinking }}</p>
               <p>{{ msg.content }}</p>
-              <pre v-if="msg.data" class="message-data">{{
-                JSON.stringify(msg.data, null, 2)
-              }}</pre>
             </div>
           </div>
         </div>
@@ -288,14 +297,20 @@ onMounted(() => {
 }
 
 .quick-btn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   background: var(--bg-secondary, #f5f5f5);
-  border: none;
-  border-radius: 4px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
-  color: var(--text-secondary, #666);
+  color: var(--text-primary, #333);
   transition: all 0.2s;
+}
+
+.quick-btn:hover {
+  background: var(--primary-color, #667eea);
+  color: white;
+  border-color: var(--primary-color, #667eea);
 }
 
 .quick-btn:hover {
@@ -325,6 +340,16 @@ onMounted(() => {
   font-size: 12px;
   color: var(--text-secondary, #999);
   opacity: 0.8;
+  line-height: 1.6;
+}
+
+.thinking {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  font-style: italic;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--border-color, #e0e0e0);
 }
 
 .chat-messages {

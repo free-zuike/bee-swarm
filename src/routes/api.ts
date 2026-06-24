@@ -2626,6 +2626,24 @@ adminApi.post('/ai/execute', async (c) => {
   return c.json(result);
 });
 
+/** AI Agent - 自动分析并执行任务 */
+adminApi.post('/ai/agent', async (c) => {
+  const body = await c.req.json<{ query: string }>();
+
+  if (!body.query) {
+    return c.json({ error: '请提供指令', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const userId = c.get('userId');
+  const username = c.get('username');
+
+  const { AIAgentService } = await import('../services/aiAgentService');
+  const agent = new AIAgentService(c.env);
+  const result = await agent.execute({ query: body.query, userId, username });
+
+  return c.json(result);
+});
+
 // ============================================
 // 备份相关审计日志
 // ============================================
