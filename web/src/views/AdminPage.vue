@@ -2,7 +2,7 @@
 // ============================================
 // 管理后台 - 多渠道推送管理（邮箱+密码认证）
 // ============================================
-import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
