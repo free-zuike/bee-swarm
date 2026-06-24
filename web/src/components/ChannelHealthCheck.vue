@@ -894,81 +894,83 @@ onMounted(async () => {
     text-align: center;
   }
 }
+</style>
 
-/* Dark mode */
-.dark .summary-card {
+<style>
+/* Dark mode - non-scoped to penetrate parent .dark class */
+.dark .channel-health-check .summary-card {
   background: var(--bg-secondary, #1e1e2e);
   border-color: var(--border-color, #333);
 }
 
-.dark .summary-healthy {
+.dark .channel-health-check .summary-healthy {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.08) 100%);
   border-color: rgba(34, 197, 94, 0.3);
 }
 
-.dark .summary-warning {
+.dark .channel-health-check .summary-warning {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-.dark .summary-icon {
+.dark .channel-health-check .summary-icon {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.dark .summary-healthy .summary-icon {
+.dark .channel-health-check .summary-healthy .summary-icon {
   background: rgba(34, 197, 94, 0.2);
 }
 
-.dark .summary-warning .summary-icon {
+.dark .channel-health-check .summary-warning .summary-icon {
   background: rgba(239, 68, 68, 0.2);
 }
 
-.dark .summary-healthy .summary-value {
+.dark .channel-health-check .summary-healthy .summary-value {
   color: #4ade80;
 }
 
-.dark .summary-warning .summary-value {
+.dark .channel-health-check .summary-warning .summary-value {
   color: #f87171;
 }
 
-.dark .channel-card {
+.dark .channel-health-check .channel-card {
   background: var(--bg-secondary, #1e1e2e);
   border-color: var(--border-color, #333);
 }
 
-.dark .channel-card.healthy {
+.dark .channel-health-check .channel-card.healthy {
   border-left-color: #22c55e;
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(34, 197, 94, 0.03) 100%);
 }
 
-.dark .channel-card.error {
+.dark .channel-health-check .channel-card.error {
   border-left-color: #ef4444;
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%);
 }
 
-.dark .channel-name {
+.dark .channel-health-check .channel-name {
   color: var(--text-primary, #e0e0e0);
 }
 
-.dark .channel-id {
+.dark .channel-health-check .channel-id {
   color: var(--text-secondary, #999);
 }
 
-.dark .status-badge.healthy {
+.dark .channel-health-check .status-badge.healthy {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
 }
 
-.dark .status-badge.error {
+.dark .channel-health-check .status-badge.error {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
 }
 
-.dark .last-check {
+.dark .channel-health-check .last-check {
   color: var(--text-secondary, #888);
 }
 
-.dark .error-message {
+.dark .channel-health-check .error-message {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
 }
