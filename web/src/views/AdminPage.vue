@@ -1258,13 +1258,17 @@ onMounted(async () => {
       // 检查 token 是否过期
       if (authStore.isAuthenticated) {
         try {
-          // 加载用户信息
-          await loadCurrentUser(accessToken.value);
-          await loadChannels();
-          await loadHistory();
-          await loadUserAvatar();
-          await loadUserSettings();
-          await loadAITools();
+          // 并行加载独立数据（无依赖关系）
+          await Promise.all([
+            loadCurrentUser(accessToken.value),
+            loadHistory(),
+            loadUserSettings(),
+          ]);
+          // 需要 token 的请求（可能依赖用户信息）
+          await Promise.all([
+            loadChannels(),
+            loadAITools(),
+          ]);
           pageState.value = 'dashboard';
           return;
         } catch {
@@ -1275,13 +1279,16 @@ onMounted(async () => {
       // 尝试刷新 token
       const refreshSuccess = await authStore.doRefreshToken();
       if (refreshSuccess) {
-        // 加载用户信息
-        await loadCurrentUser(accessToken.value);
-        await loadChannels();
-        await loadHistory();
-        await loadUserAvatar();
-        await loadUserSettings();
-        await loadAITools();
+        // 并行加载独立数据
+        await Promise.all([
+          loadCurrentUser(accessToken.value),
+          loadHistory(),
+          loadUserSettings(),
+        ]);
+        await Promise.all([
+          loadChannels(),
+          loadAITools(),
+        ]);
         pageState.value = 'dashboard';
         return;
       }
@@ -1329,10 +1336,12 @@ async function doLogin(authEmail: string, authPassword: string, turnstileToken?:
   const success = await authStore.doLogin(authEmail, authPassword, turnstileToken);
   if (success) {
     try {
-      await loadCurrentUser(accessToken.value);
+      // 并行加载独立数据
+      await Promise.all([
+        loadCurrentUser(accessToken.value),
+        loadHistory(),
+      ]);
       await loadChannels();
-      await loadHistory();
-      await loadUserAvatar();
     } catch {
       // 数据加载失败不影响登录
     }
@@ -1350,10 +1359,12 @@ async function doRegister(authEmail: string, authPassword: string, turnstileToke
   }
   if (result.success) {
     try {
-      await loadCurrentUser(accessToken.value);
+      // 并行加载独立数据
+      await Promise.all([
+        loadCurrentUser(accessToken.value),
+        loadHistory(),
+      ]);
       await loadChannels();
-      await loadHistory();
-      await loadUserAvatar();
     } catch {
       // 数据加载失败不影响注册
     }
