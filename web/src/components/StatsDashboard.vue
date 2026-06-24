@@ -16,8 +16,7 @@
       </div>
 
       <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <span>{{ t('label.loading') }}</span>
+        <StatsSkeleton />
       </div>
 
       <div v-else-if="error" class="error-state">
@@ -119,6 +118,7 @@ import PushTrendChart from './admin/PushTrendChart.vue';
 import ChannelDistributionChart from './admin/ChannelDistributionChart.vue';
 import SuccessRateChart from './admin/SuccessRateChart.vue';
 import LatencyDistributionChart from './admin/LatencyDistributionChart.vue';
+import { StatsSkeleton } from './skeletons';
 
 const t = useTranslation();
 

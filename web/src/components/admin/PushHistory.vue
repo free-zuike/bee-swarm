@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import { useExport } from '@/composables/useExport';
+import { TableSkeleton } from '../skeletons';
 import type { ChannelConfig } from '@/types';
 
 const { showToast } = useGlobalToast();
@@ -304,8 +305,7 @@ const activeFilters = computed(() => {
       </div>
 
       <div v-if="loading" class="loading-placeholder">
-        <div class="loading-spinner"></div>
-        <p>{{ t('label.loading') }}</p>
+        <TableSkeleton :rows="5" :columns="5" />
       </div>
 
       <div v-else-if="history.length === 0" class="empty">
