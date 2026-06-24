@@ -81,7 +81,8 @@ export const useAuthStore = defineStore('auth', () => {
     authError.value = null;
 
     try {
-      await register(authEmail, authPassword, turnstileToken);
+      const result = await register(authEmail, authPassword, turnstileToken);
+      // 注册成功，如果配置了邮件会发送欢迎邮件
       return await doLogin(authEmail, authPassword, turnstileToken);
     } catch (error: unknown) {
       authError.value = (error as { message?: string })?.message || t('error.register_failed');

@@ -136,3 +136,87 @@ ${resetUrl}
 
   return { subject, html, text };
 }
+
+/**
+ * 生成欢迎邮件内容
+ */
+export function generateWelcomeEmail(
+  email: string,
+  baseUrl: string,
+  isAdmin: boolean
+): { subject: string; html: string; text: string } {
+  const subject = '欢迎加入蜂群通知系统';
+
+  const roleText = isAdmin ? '管理员' : '普通用户';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { background: #f9f9f9; border-radius: 12px; padding: 32px; margin: 20px 0; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { color: #667eea; font-size: 24px; margin: 0; }
+    .content { background: white; border-radius: 8px; padding: 24px; margin: 20px 0; }
+    .button { display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+    .button:hover { opacity: 0.9; }
+    .footer { text-align: center; font-size: 12px; color: #999; margin-top: 24px; }
+    .info { background: #e8f4fd; border: 1px solid #bee5eb; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 14px; }
+    .warning { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🐝 蜂群通知系统</h1>
+    </div>
+    <div class="content">
+      <h2>欢迎注册！</h2>
+      <p>您好，</p>
+      <p>您已成功注册蜂群通知系统账号。</p>
+      
+      <div class="info">
+        <strong>账号信息：</strong><br>
+        邮箱：${email}<br>
+        角色：${roleText}
+      </div>
+
+      <p style="text-align: center;">
+        <a href="${baseUrl}" class="button">立即登录</a>
+      </p>
+
+      <div class="warning">
+        <strong>提示：</strong>如果您没有注册此账号，请忽略此邮件。密码重置链接在 24 小时内有效。
+      </div>
+    </div>
+    <div class="footer">
+      <p>此邮件由蜂群通知系统自动发送，请勿回复。</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = `
+蜂群通知系统 - 欢迎注册
+
+您好，
+
+您已成功注册蜂群通知系统账号。
+
+账号信息：
+  邮箱：${email}
+  角色：${roleText}
+
+立即登录：${baseUrl}
+
+如果您没有注册此账号，请忽略此邮件。
+
+---
+此邮件由蜂群通知系统自动发送，请勿回复。
+`;
+
+  return { subject, html, text };
+}

@@ -28,7 +28,7 @@ import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
-import { sendEmail, generatePasswordResetEmail } from '../services/emailService';
+import { sendEmail, generatePasswordResetEmail, generateWelcomeEmail } from '../services/emailService';
 import {
   cleanupExpiredData,
   getDatabaseStats,
@@ -134,6 +134,26 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   const hashed = await hashPassword(password);
   await userService.createUser(email, hashed, role);
 
+  // 发送欢迎邮件（如果配置了 SMTP）
+  let emailSent = false;
+  try {
+    const smtpConfig = await systemSettings.getSMTPConfig();
+    if (smtpConfig.host && smtpConfig.username && smtpConfig.password) {
+      const url = new URL(c.req.url);
+      const baseUrl = `${url.protocol}//${url.host}`;
+      const emailContent = generateWelcomeEmail(email, baseUrl, role === 'admin');
+
+      emailSent = await sendEmail(c.env, {
+        to: email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      });
+    }
+  } catch {
+    // 邮件发送失败不影响注册
+  }
+
   try {
     const auditLogger = createAuditLogger(c.env, email);
     await auditLogger.log('register', { role });
@@ -141,7 +161,11 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
     // 审计日志失败不影响主流程
   }
 
-  return c.json({ success: true, message: '注册成功', isAdmin: role === 'admin' });
+  const message = emailSent
+    ? '注册成功，欢迎邮件已发送到您的邮箱（如未收到请检查垃圾邮件）'
+    : '注册成功';
+
+  return c.json({ success: true, message, isAdmin: role === 'admin' });
 });
 
 api.post('/login', validateBody(schemas.login), async (c) => {
