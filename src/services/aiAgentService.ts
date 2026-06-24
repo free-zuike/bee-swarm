@@ -167,7 +167,24 @@ export class AIAgentService {
 
     // 发送消息
     if (/(发送|推送|通知|send|push)/.test(q)) {
-      return { type: 'push', description: '发送消息', action: 'sendTest', params: {} };
+      // 尝试从查询中提取消息内容
+      // 格式：发送XXX / 推送XXX / 发送消息：XXX / 发送消息给XXX
+      let message = query
+        .replace(/^(发送|推送|通知|send|push)\s*(消息|通知|message)?\s*(给|到|至|to)?\s*/i, '')
+        .replace(/(企业微信|飞书|钉钉|telegram|邮件|email|bark|slack|discord|webhook)/gi, '')
+        .trim();
+
+      // 如果提取后为空，使用原始查询（去掉发送相关词汇）
+      if (!message) {
+        message = query.replace(/(发送|推送|通知|send|push|消息|给|到|至|测试)/gi, '').trim() || '测试消息';
+      }
+
+      return {
+        type: 'push',
+        description: '发送消息',
+        action: 'sendTest',
+        params: { title: message, body: message }
+      };
     }
 
     return null;
@@ -283,15 +300,78 @@ export class AIAgentService {
     if (channels.length === 0) {
       channels = ['wework'];
     }
-    const title = (intent.params.title as string) || '测试消息';
-    const body = (intent.params.body as string) || '这是一条来自 AI Agent 的测试消息';
+
+    // 从原始查询中提取消息内容
+    let title = (intent.params.title as string) || '';
+    let body = (intent.params.body as string) || '';
+
+    if (originalQuery) {
+      // 提取消息内容：去掉渠道名称和发送相关词汇
+      let message = originalQuery
+        .replace(/^(发送|推送|通知|send|push)\s*(消息|通知|message)?\s*(给|到|至|to)?\s*/i, '')
+        .replace(/(企业微信|飞书|钉钉|telegram|邮件|email|bark|slack|discord|webhook|ntfy|server酱|pushplus|gotify|line|teams|pushover)/gi, '')
+        .replace(/^(给|到|至|to)\s*/i, '')
+        .trim();
+
+      if (message) {
+        title = title || message;
+        body = body || message;
+      }
+    }
+
+    // 如果还是没有内容，使用默认值
+    title = title || '来自 AI Agent 的消息';
+    body = body || '这是一条通过 AI Agent 发送的消息';
+
+    // 提取邮件收件人（如果指定了）
+    let emailTo: string | undefined;
+    if (channels.includes('email') && originalQuery) {
+      // 匹配邮箱格式
+      const emailMatch = originalQuery.match(/[\w.-]+@[\w.-]+\.\w+/);
+      if (emailMatch) {
+        emailTo = emailMatch[0];
+      }
+      // 匹配 "发给xxx" 格式
+      const toMatch = originalQuery.match(/(?:发给|发送给|to)\s*([^\s,，]+)/i);
+      if (toMatch && toMatch[1] && !emailTo) {
+        emailTo = toMatch[1];
+      }
+    }
 
     const step: AgentStep = {
       action: 'send_push',
-      params: { channels, title, body },
+      params: { channels, title, body, to: emailTo },
     };
 
     try {
+      // 如果指定了邮件收件人，临时修改配置
+      if (emailTo && channels.includes('email')) {
+        const { loadUserChannelSettings } = await import('./dispatcher');
+        const settings = await loadUserChannelSettings(userId, this.env);
+        const emailConfig = settings['channel:email:to'];
+
+        // 临时覆盖收件人
+        if (emailConfig) {
+          settings['channel:email:to'] = emailTo;
+        }
+
+        // 使用自定义配置发送
+        const { dispatchPush } = await import('./dispatcher');
+        const results = await dispatchPush(
+          { title, body },
+          channels,
+          username,
+          this.env
+        );
+
+        step.result = results;
+        steps.push(step);
+
+        const successCount = results.filter((r) => r.success).length;
+        return `已发送消息到 ${successCount}/${channels.length} 个渠道${emailTo ? `（收件人：${emailTo}）` : ''}`;
+      }
+
+      // 默认发送
       const results = await dispatchPushWithOptions(
         { title, body },
         channels,
