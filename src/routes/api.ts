@@ -28,7 +28,7 @@ import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
-import { sendEmail, generatePasswordResetEmail, generateWelcomeEmail } from '../services/emailService';
+import { sendEmail, generatePasswordResetEmail, generateWelcomeEmail, generateVerificationEmail } from '../services/emailService';
 import {
   cleanupExpiredData,
   getDatabaseStats,
@@ -134,21 +134,25 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   const hashed = await hashPassword(password);
   await userService.createUser(email, hashed, role);
 
-  // 发送欢迎邮件（如果配置了 SMTP）
+  // 发送验证邮件（如果配置了 SMTP）
   let emailSent = false;
   try {
     const smtpConfig = await systemSettings.getSMTPConfig();
     if (smtpConfig.host && smtpConfig.username && smtpConfig.password) {
-      const url = new URL(c.req.url);
-      const baseUrl = `${url.protocol}//${url.host}`;
-      const emailContent = generateWelcomeEmail(email, baseUrl, role === 'admin');
+      // 生成验证码
+      const verificationCode = await userService.generateVerificationCode(email);
+      if (verificationCode) {
+        const url = new URL(c.req.url);
+        const baseUrl = `${url.protocol}//${url.host}`;
+        const emailContent = generateVerificationEmail(email, verificationCode, baseUrl);
 
-      emailSent = await sendEmail(c.env, {
-        to: email,
-        subject: emailContent.subject,
-        html: emailContent.html,
-        text: emailContent.text,
-      });
+        emailSent = await sendEmail(c.env, {
+          to: email,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+        });
+      }
     }
   } catch {
     // 邮件发送失败不影响注册
@@ -162,10 +166,103 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   }
 
   const message = emailSent
-    ? '注册成功，欢迎邮件已发送到您的邮箱（如未收到请检查垃圾邮件）'
+    ? '注册成功，验证码已发送到您的邮箱（如未收到请检查垃圾邮件）'
     : '注册成功';
 
-  return c.json({ success: true, message, isAdmin: role === 'admin' });
+  return c.json({ success: true, message, isAdmin: role === 'admin', needVerification: emailSent });
+});
+
+/** 验证邮箱验证码 */
+api.post('/verify-email', async (c) => {
+  try {
+    const body = await c.req.json<{ email: string; code: string }>();
+    const { email, code } = body;
+
+    if (!email || !code) {
+      return c.json({ success: false, message: '邮箱和验证码不能为空' }, 400);
+    }
+
+    const userService = new UserService(c.env);
+    const success = await userService.verifyEmail(email, code);
+
+    if (success) {
+      return c.json({ success: true, message: '邮箱验证成功' });
+    } else {
+      return c.json({ success: false, message: '验证码无效或已过期' }, 400);
+    }
+  } catch (error) {
+    console.error('[Verify Email] Error:', error);
+    return c.json({ success: false, message: '验证失败，请稍后重试' }, 500);
+  }
+});
+
+/** 重新发送验证邮件 */
+api.post('/resend-verification', async (c) => {
+  try {
+    const body = await c.req.json<{ email: string }>();
+    const { email } = body;
+
+    if (!email) {
+      return c.json({ success: false, message: '邮箱不能为空' }, 400);
+    }
+
+    const userService = new UserService(c.env);
+    const user = await userService.findByEmail(email);
+    if (!user) {
+      return c.json({ success: false, message: '用户不存在' }, 400);
+    }
+
+    if ((user as any).email_verified) {
+      return c.json({ success: false, message: '邮箱已验证' }, 400);
+    }
+
+    // 速率限制：每小时最多 3 次
+    const systemSettings = new SystemSettingsService(c.env);
+    await systemSettings.ensureTable();
+    const lastVerifyKey = `verify_last_${email}`;
+    const lastVerifyTime = await systemSettings.getSetting(lastVerifyKey);
+    const now = Date.now();
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    if (lastVerifyTime) {
+      const lastTime = parseInt(lastVerifyTime, 10);
+      if (now - lastTime < ONE_HOUR) {
+        const remaining = Math.ceil((ONE_HOUR - (now - lastTime)) / 60000);
+        return c.json({
+          success: false,
+          message: `发送过于频繁，请 ${remaining} 分钟后再试`,
+        }, 429);
+      }
+    }
+
+    await systemSettings.setSetting(lastVerifyKey, String(now));
+
+    // 生成验证码
+    const verificationCode = await userService.generateVerificationCode(email);
+    if (!verificationCode) {
+      return c.json({ success: false, message: '生成验证码失败' }, 500);
+    }
+
+    // 发送邮件
+    const smtpConfig = await systemSettings.getSMTPConfig();
+    if (smtpConfig.host && smtpConfig.username && smtpConfig.password) {
+      const url = new URL(c.req.url);
+      const baseUrl = `${url.protocol}//${url.host}`;
+      const emailContent = generateVerificationEmail(email, verificationCode, baseUrl);
+
+      await sendEmail(c.env, {
+        to: email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      });
+    }
+
+    return c.json({ success: true, message: '验证码已发送' });
+  } catch (error) {
+    console.error('[Resend Verification] Error:', error);
+    return c.json({ success: false, message: '发送失败，请稍后重试' }, 500);
+  }
 });
 
 api.post('/login', validateBody(schemas.login), async (c) => {
@@ -203,6 +300,20 @@ api.post('/login', validateBody(schemas.login), async (c) => {
 
   if (!valid) {
     return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
+  }
+
+  // 检查邮箱是否已验证（如果配置了邮件服务）
+  const systemSettings2 = new SystemSettingsService(c.env);
+  const smtpConfig = await systemSettings2.getSMTPConfig();
+  if (smtpConfig.host && smtpConfig.username && smtpConfig.password) {
+    const isVerified = await userService.isEmailVerified(email);
+    if (!isVerified) {
+      return c.json({
+        error: '邮箱未验证，请先完成验证',
+        code: 'EMAIL_NOT_VERIFIED',
+        email,
+      }, 403);
+    }
   }
 
   // 记录登录日志

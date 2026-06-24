@@ -1341,8 +1341,14 @@ async function doLogin(authEmail: string, authPassword: string, turnstileToken?:
 }
 
 async function doRegister(authEmail: string, authPassword: string, turnstileToken?: string) {
-  const success = await authStore.doRegister(authEmail, authPassword, turnstileToken);
-  if (success) {
+  const result = await authStore.doRegister(authEmail, authPassword, turnstileToken);
+  if (result.needVerification) {
+    // 需要邮箱验证，显示验证表单
+    authStore.setAuthError(null);
+    // 通过 AuthForm 显示验证界面
+    return;
+  }
+  if (result.success) {
     try {
       await loadCurrentUser(accessToken.value);
       await loadChannels();

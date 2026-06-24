@@ -626,4 +626,68 @@ export class UserService {
 
     return true;
   }
+
+  /** 生成邮箱验证码 */
+  async generateVerificationCode(email: string): Promise<string | null> {
+    this.checkDB();
+    const user = await this.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+
+    // 生成 6 位数字验证码
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 30 * 60 * 1000; // 30 分钟过期
+
+    await this.updateUser(user.id, {
+      verification_code: code,
+      verification_expires_at: expiresAt,
+    });
+
+    return code;
+  }
+
+  /** 验证邮箱验证码 */
+  async verifyEmail(email: string, code: string): Promise<boolean> {
+    this.checkDB();
+    const user = await this.findByEmail(email);
+    if (!user) {
+      return false;
+    }
+
+    const storedCode = (user as any).verification_code;
+    const expiresAt = (user as any).verification_expires_at;
+
+    if (!storedCode || !expiresAt) {
+      return false;
+    }
+
+    if (expiresAt < Date.now()) {
+      return false;
+    }
+
+    if (storedCode !== code) {
+      return false;
+    }
+
+    // 验证通过，更新状态
+    await this.updateUser(user.id, {
+      email_verified: 1,
+      verification_code: null,
+      verification_expires_at: null,
+    });
+
+    return true;
+  }
+
+  /** 检查邮箱是否已验证 */
+  async isEmailVerified(email: string): Promise<boolean> {
+    this.checkDB();
+    const user = await this.findByEmail(email);
+    if (!user) {
+      return false;
+    }
+
+    return (user as any).email_verified === 1;
+  }
 }

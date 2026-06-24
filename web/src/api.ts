@@ -139,13 +139,36 @@ export async function register(
   email: string,
   password: string,
   turnstileToken?: string
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; needVerification?: boolean }> {
   const body: { email: string; password: string; turnstileToken?: string } = { email, password };
   if (turnstileToken) body.turnstileToken = turnstileToken;
   return request(`${BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+/** 验证邮箱验证码 */
+export async function verifyEmail(
+  email: string,
+  code: string
+): Promise<{ success: boolean; message: string }> {
+  return request(`${BASE}/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+/** 重新发送验证邮件 */
+export async function resendVerification(
+  email: string
+): Promise<{ success: boolean; message: string }> {
+  return request(`${BASE}/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
   });
 }
 

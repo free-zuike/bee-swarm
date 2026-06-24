@@ -15,14 +15,16 @@ const emit = defineEmits<{
   register: [email: string, password: string, turnstileToken?: string];
 }>();
 
-const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset'>('login');
+const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset' | 'verifyEmail'>('login');
 const authEmail = ref('');
 const authPassword = ref('');
 const authConfirmPassword = ref('');
 const resetToken = ref('');
+const verificationCode = ref('');
 const localError = ref('');
 const isProcessing = ref(false);
 const resetEmail = ref('');
+const verifyEmail = ref('');
 
 // 检查 URL 中是否有重置令牌
 const urlToken = ref('');
@@ -137,7 +139,7 @@ function doLogin() {
   emit('login', authEmail.value.trim(), authPassword.value, turnstileToken.value);
 }
 
-function doRegister() {
+async function doRegister() {
   localError.value = '';
   if (!authEmail.value.trim() || !authPassword.value) {
     localError.value = t('error.required', { field: t('label.email') + t('label.password') });
@@ -158,7 +160,69 @@ function doRegister() {
     return;
   }
 
-  emit('register', authEmail.value.trim(), authPassword.value, turnstileToken.value);
+  isProcessing.value = true;
+  try {
+    const { register: apiRegister } = await import('@/api');
+    const result = await apiRegister(authEmail.value.trim(), authPassword.value, turnstileToken.value);
+    
+    if (result.needVerification) {
+      // 需要邮箱验证
+      verifyEmail.value = authEmail.value.trim();
+      authMode.value = 'verifyEmail';
+      showToast('验证码已发送到您的邮箱（如未收到请检查垃圾邮件）', 'success');
+    } else {
+      // 不需要验证，直接登录
+      emit('register', authEmail.value.trim(), authPassword.value, turnstileToken.value);
+    }
+  } catch (err) {
+    localError.value = (err as Error).message || t('error.register_failed');
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
+async function doVerifyEmail() {
+  localError.value = '';
+  if (!verificationCode.value.trim()) {
+    localError.value = '请输入验证码';
+    return;
+  }
+
+  isProcessing.value = true;
+  try {
+    const { verifyEmail: apiVerify } = await import('@/api');
+    const result = await apiVerify(verifyEmail.value, verificationCode.value.trim());
+    if (result.success) {
+      showToast('邮箱验证成功，请登录', 'success');
+      authMode.value = 'login';
+      authEmail.value = verifyEmail.value;
+      authPassword.value = '';
+    } else {
+      localError.value = result.message || '验证失败';
+    }
+  } catch (err) {
+    localError.value = (err as Error).message || '验证失败';
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
+async function doResendVerification() {
+  localError.value = '';
+  isProcessing.value = true;
+  try {
+    const { resendVerification } = await import('@/api');
+    const result = await resendVerification(verifyEmail.value);
+    if (result.success) {
+      showToast('验证码已重新发送', 'success');
+    } else {
+      localError.value = result.message || '发送失败';
+    }
+  } catch (err) {
+    localError.value = (err as Error).message || '发送失败';
+  } finally {
+    isProcessing.value = false;
+  }
 }
 
 async function doForgotPassword() {
@@ -342,6 +406,30 @@ const displayError = computed(() => props.authError || localError.value);
         <div v-if="displayError" class="login-error">{{ displayError }}</div>
         <button class="btn btn-primary" type="submit" :disabled="isProcessing">
           {{ isProcessing ? t('label.processing') : t('button.reset_password') }}
+        </button>
+        <button type="button" class="forgot-password-btn" @click="switchMode('login')">
+          {{ t('button.back_to_login') }}
+        </button>
+      </form>
+
+      <form v-else-if="authMode === 'verifyEmail'" @submit.prevent="doVerifyEmail">
+        <div class="forgot-hint" style="margin-bottom: 12px">
+          验证码已发送到 <strong>{{ verifyEmail }}</strong>
+        </div>
+        <input
+          v-model="verificationCode"
+          type="text"
+          placeholder="请输入6位验证码"
+          maxlength="6"
+          autocomplete="one-time-code"
+        />
+        <div class="forgot-hint">如未收到邮件请检查垃圾邮件文件夹</div>
+        <div v-if="displayError" class="login-error">{{ displayError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isProcessing">
+          {{ isProcessing ? t('label.processing') : '验证邮箱' }}
+        </button>
+        <button type="button" class="forgot-password-btn" @click="doResendVerification" :disabled="isProcessing">
+          重新发送验证码
         </button>
         <button type="button" class="forgot-password-btn" @click="switchMode('login')">
           {{ t('button.back_to_login') }}

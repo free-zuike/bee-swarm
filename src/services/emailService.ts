@@ -220,3 +220,71 @@ export function generateWelcomeEmail(
 
   return { subject, html, text };
 }
+
+/**
+ * 生成邮箱验证邮件内容
+ */
+export function generateVerificationEmail(
+  email: string,
+  code: string,
+  baseUrl: string
+): { subject: string; html: string; text: string } {
+  const subject = '验证您的邮箱 - 蜂群通知系统';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { background: #f9f9f9; border-radius: 12px; padding: 32px; margin: 20px 0; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { color: #667eea; font-size: 24px; margin: 0; }
+    .content { background: white; border-radius: 8px; padding: 24px; margin: 20px 0; }
+    .code { font-size: 36px; font-weight: bold; color: #667eea; text-align: center; letter-spacing: 8px; margin: 24px 0; padding: 16px; background: #f0f0ff; border-radius: 8px; }
+    .footer { text-align: center; font-size: 12px; color: #999; margin-top: 24px; }
+    .warning { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🐝 蜂群通知系统</h1>
+    </div>
+    <div class="content">
+      <h2>邮箱验证</h2>
+      <p>您好，</p>
+      <p>请使用以下验证码完成邮箱验证：</p>
+      
+      <div class="code">${code}</div>
+
+      <div class="warning">
+        <strong>注意：</strong>验证码将在 30 分钟后过期。如果您没有注册此账号，请忽略此邮件。
+      </div>
+    </div>
+    <div class="footer">
+      <p>此邮件由蜂群通知系统自动发送，请勿回复。</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = `
+蜂群通知系统 - 邮箱验证
+
+您好，
+
+请使用以下验证码完成邮箱验证：
+
+${code}
+
+注意：验证码将在 30 分钟后过期。如果您没有注册此账号，请忽略此邮件。
+
+---
+此邮件由蜂群通知系统自动发送，请勿回复。
+`;
+
+  return { subject, html, text };
+}

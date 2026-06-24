@@ -82,11 +82,16 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const result = await register(authEmail, authPassword, turnstileToken);
-      // 注册成功，如果配置了邮件会发送欢迎邮件
-      return await doLogin(authEmail, authPassword, turnstileToken);
+      // 如果需要验证邮箱，返回 needVerification 状态
+      if (result.needVerification) {
+        return { success: true, needVerification: true, email: authEmail };
+      }
+      // 不需要验证，直接登录
+      const loginSuccess = await doLogin(authEmail, authPassword, turnstileToken);
+      return { success: loginSuccess, needVerification: false };
     } catch (error: unknown) {
       authError.value = (error as { message?: string })?.message || t('error.register_failed');
-      return false;
+      return { success: false, needVerification: false };
     } finally {
       isAuthenticating.value = false;
     }
