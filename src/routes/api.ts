@@ -327,20 +327,6 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   // 登录成功，清除失败计数
   clearLoginFailure(email, loginIP);
 
-  // 检查邮箱是否已验证（如果配置了邮件服务）
-  const systemSettings2 = new SystemSettingsService(c.env);
-  const smtpConfig = await systemSettings2.getSMTPConfig();
-  if (smtpConfig.host && smtpConfig.username && smtpConfig.password) {
-    const isVerified = await userService.isEmailVerified(email);
-    if (!isVerified) {
-      return c.json({
-        error: '邮箱未验证，请先完成验证',
-        code: 'EMAIL_NOT_VERIFIED',
-        email,
-      }, 403);
-    }
-  }
-
   // 记录登录日志
   try {
     const auditLogger = createAuditLogger(c.env, email);
