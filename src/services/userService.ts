@@ -689,8 +689,17 @@ export class UserService {
       return false;
     }
 
-    // null 或未设置视为已验证（兼容功能上线前的老用户）
-    const verified = (user as any).email_verified;
-    return verified === null || verified === undefined || verified === 1;
+    // 1 = 已验证
+    if ((user as any).email_verified === 1) {
+      return true;
+    }
+
+    // 没有 verification_code = 老用户（功能上线前创建），视为已验证
+    if (!(user as any).verification_code) {
+      return true;
+    }
+
+    // 有 verification_code 但 email_verified 不是 1 = 新用户未验证
+    return false;
   }
 }
