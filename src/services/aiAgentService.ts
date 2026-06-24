@@ -45,8 +45,8 @@ export class AIAgentService {
       const intent = await this.analyzeIntent(query, userId);
       steps.push({ action: 'analyze_intent', params: { query }, result: intent });
 
-      // 2. 根据意图执行任务
-      const result = await this.executeIntent(intent, userId, username, steps);
+      // 2. 根据意图执行任务（传递原始查询用于渠道识别等）
+      const result = await this.executeIntent(intent, userId, username, steps, query);
 
       return {
         success: true,
@@ -80,16 +80,19 @@ export class AIAgentService {
     const systemPrompt = `你是一个任务分析助手。分析用户请求，返回JSON格式的意图。
 
 可用操作类型：
-1. push - 发送推送消息
-2. query - 查询数据（历史、统计等）
-3. create - 创建（模板、分组、定时任务）
-4. manage - 管理（启用/禁用、删除等）
-5. info - 获取信息（渠道状态、系统状态等）
+1. capability - 询问能做什么、有什么功能
+2. push - 发送推送消息
+3. query - 查询数据（历史、统计等）
+4. create - 创建（模板、分组、定时任务）
+5. manage - 管理（启用/禁用、删除等）
+6. info - 获取信息（渠道状态、系统状态等）
 
 输出格式（纯JSON，不要markdown）：
 {"type":"操作类型","description":"简短描述","action":"具体动作","params":{...}}
 
 示例：
+- "你可以干什么" → {"type":"capability","description":"介绍功能","action":"listCapabilities","params":{}}
+- "有什么功能" → {"type":"capability","description":"介绍功能","action":"listCapabilities","params":{}}
 - "发送一条测试消息" → {"type":"push","description":"发送测试推送","action":"sendTest","params":{}}
 - "查看最近的推送历史" → {"type":"query","description":"查询推送历史","action":"getHistory","params":{"limit":10}}
 - "统计推送成功率" → {"type":"query","description":"获取推送统计","action":"getStats","params":{}}
@@ -127,13 +130,42 @@ export class AIAgentService {
     intent: { type: string; action: string; params: Record<string, unknown> },
     userId: string,
     username: string,
-    steps: AgentStep[]
+    steps: AgentStep[],
+    originalQuery?: string
   ): Promise<string> {
     const pushService = new PushService(this.env, userId);
 
     switch (intent.type) {
+      case 'capability':
+        return `我可以帮你完成以下任务：
+
+📨 **发送消息**
+• "发送测试消息到飞书"
+• "发一条消息到钉钉"
+• "给企业微信发通知"
+
+📊 **查询数据**
+• "查看推送历史"
+• "统计推送成功率"
+• "最近7天的推送数据"
+
+📋 **管理资源**
+• "查看所有模板"
+• "创建一个新模板"
+• "查看渠道分组"
+
+⏰ **定时任务**
+• "查看定时任务"
+• "有什么待执行的任务"
+
+📡 **系统信息**
+• "有哪些可用渠道"
+• "渠道状态如何"
+
+试试用自然语言告诉我你想做什么！`;
+
       case 'push':
-        return await this.executePushIntent(intent, userId, username, steps);
+        return await this.executePushIntent(intent, userId, username, steps, originalQuery);
 
       case 'query':
         return await this.executeQueryIntent(intent, userId, steps, pushService);
@@ -160,10 +192,47 @@ export class AIAgentService {
     intent: { action: string; params: Record<string, unknown> },
     userId: string,
     username: string,
-    steps: AgentStep[]
+    steps: AgentStep[],
+    originalQuery?: string
   ): Promise<string> {
-    // 发送测试消息
-    const channels = (intent.params.channels as PushChannel[]) || ['wework'];
+    // 渠道名称映射
+    const channelMap: Record<string, PushChannel> = {
+      '企业微信': 'wework', 'wework': 'wework', '企微': 'wework',
+      '飞书': 'feishu', 'feishu': 'feishu', 'lark': 'feishu',
+      '钉钉': 'dingtalk', 'dingtalk': 'dingtalk', '钉': 'dingtalk',
+      'telegram': 'telegram', 'tg': 'telegram', '电报': 'telegram',
+      'bark': 'bark',
+      'ntfy': 'ntfy',
+      '邮件': 'email', 'email': 'email', '邮箱': 'email',
+      'slack': 'slack',
+      'discord': 'discord',
+      'serverchan': 'serverchan', 'server酱': 'serverchan',
+      'pushplus': 'pushplus',
+      'webhook': 'webhook',
+      'gotify': 'gotify',
+      'line': 'line', 'line notify': 'line',
+      'teams': 'teams', '微软': 'teams',
+      'pushover': 'pushover',
+    };
+
+    // 从 AI 参数或原始查询中提取渠道
+    let channels: PushChannel[] = (intent.params.channels as PushChannel[]) || [];
+
+    // 如果 AI 没有提取到渠道，从原始查询中检测
+    if (channels.length === 0 && originalQuery) {
+      const queryLower = originalQuery.toLowerCase();
+      for (const [name, id] of Object.entries(channelMap)) {
+        if (queryLower.includes(name.toLowerCase())) {
+          channels = [id];
+          break;
+        }
+      }
+    }
+
+    // 默认使用企业微信
+    if (channels.length === 0) {
+      channels = ['wework'];
+    }
     const title = (intent.params.title as string) || '测试消息';
     const body = (intent.params.body as string) || '这是一条来自 AI Agent 的测试消息';
 

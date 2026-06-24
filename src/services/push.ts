@@ -847,22 +847,72 @@ export class PushService {
     trend: { rate: number; direction: 'up' | 'down' | 'stable' };
     recent: Array<{ date: string; pushes: number; success: number; failed: number }>;
   }> {
-    await this.metrics.loadSessionMetrics();
-    const sessionMetrics = this.metrics.getSessionMetrics();
-    const successRate = await this.metrics.getSuccessRate();
-    const dailyMetrics = await this.metrics.getDailyMetrics(days);
+    // 从数据库查询实际推送数据
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = since.toISOString();
+
+    // 总体统计
+    const totalResult = await this.env.DB.prepare(
+      `SELECT COUNT(*) as total FROM push_history WHERE user_id = ? AND created_at >= ?`
+    ).bind(this.userId, sinceStr).first<{ total: number }>();
+
+    const successResult = await this.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM push_history WHERE user_id = ? AND created_at >= ? AND status = 'success'`
+    ).bind(this.userId, sinceStr).first<{ count: number }>();
+
+    const failedResult = await this.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM push_history WHERE user_id = ? AND created_at >= ? AND status != 'success'`
+    ).bind(this.userId, sinceStr).first<{ count: number }>();
+
+    const total = totalResult?.total || 0;
+    const success = successResult?.count || 0;
+    const failed = failedResult?.count || 0;
+
+    // 每日统计
+    const dailyResult = await this.env.DB.prepare(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as pushes,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) as failed
+      FROM push_history 
+      WHERE user_id = ? AND created_at >= ?
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+      LIMIT ?`
+    ).bind(this.userId, sinceStr, days).all<{
+      date: string;
+      pushes: number;
+      success: number;
+      failed: number;
+    }>();
+
+    // 计算趋势（最近 vs 之前）
+    const halfDays = Math.max(1, Math.floor(days / 2));
+    const recentHalf = await this.env.DB.prepare(
+      `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
+       FROM push_history WHERE user_id = ? AND created_at >= ?`
+    ).bind(this.userId, new Date(Date.now() - halfDays * 86400000).toISOString())
+      .first<{ total: number; success: number }>();
+
+    const olderHalf = await this.env.DB.prepare(
+      `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
+       FROM push_history WHERE user_id = ? AND created_at >= ? AND created_at < ?`
+    ).bind(this.userId, sinceStr, new Date(Date.now() - halfDays * 86400000).toISOString())
+      .first<{ total: number; success: number }>();
+
+    const recentRate = recentHalf?.total ? ((recentHalf.success || 0) / recentHalf.total) * 100 : 0;
+    const olderRate = olderHalf?.total ? ((olderHalf.success || 0) / olderHalf.total) * 100 : 0;
+    const rateDiff = recentRate - olderRate;
 
     return {
-      session: {
-        total: sessionMetrics.total,
-        success: sessionMetrics.success,
-        failed: sessionMetrics.failed,
-      },
+      session: { total, success, failed },
       trend: {
-        rate: successRate.rate,
-        direction: successRate.trend,
+        rate: total > 0 ? (success / total) * 100 : 0,
+        direction: rateDiff > 5 ? 'up' : rateDiff < -5 ? 'down' : 'stable',
       },
-      recent: dailyMetrics.slice(0, days).reverse(),
+      recent: (dailyResult.results || []).reverse(),
     };
   }
 
