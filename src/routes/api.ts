@@ -2,7 +2,6 @@
 // API 路由
 // ============================================
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 import type { Env, PushRequest, PushChannel, ChannelResult } from '../types';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
@@ -47,7 +46,7 @@ type ValidatedContext = {
 
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
-api.use('/*', cors());
+// CORS 已在 index.ts 中全局配置，这里不需要重复
 
 // ============================================
 // 公开接口

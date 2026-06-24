@@ -45,6 +45,9 @@ const themes: Record<'light' | 'dark', ThemeColors> = {
   },
 };
 
+// 保存 media query listener 引用（避免内存泄漏）
+let mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null;
+
 export const useThemeStore = defineStore('theme', () => {
   const currentTheme = ref<ThemeType>('auto');
   const isDark = ref(false);
@@ -56,13 +59,15 @@ export const useThemeStore = defineStore('theme', () => {
     }
     applyTheme();
 
-    // 监听系统主题变化
-    if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    // 监听系统主题变化（保存引用以便清理）
+    if (window.matchMedia && !mediaQueryListener) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQueryListener = () => {
         if (currentTheme.value === 'auto') {
           applyTheme();
         }
-      });
+      };
+      mediaQuery.addEventListener('change', mediaQueryListener);
     }
   };
 
@@ -104,6 +109,14 @@ export const useThemeStore = defineStore('theme', () => {
     });
   };
 
+  // 清理函数
+  const dispose = () => {
+    if (mediaQueryListener && window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', mediaQueryListener);
+      mediaQueryListener = null;
+    }
+  };
+
   initTheme();
 
   return {
@@ -112,5 +125,6 @@ export const useThemeStore = defineStore('theme', () => {
     setTheme,
     toggleTheme,
     initTheme,
+    dispose,
   };
 });
