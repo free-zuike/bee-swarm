@@ -842,7 +842,7 @@ export class PushService {
     return this.metrics;
   }
 
-  async getPushStats(): Promise<{
+  async getPushStats(days: number = 7): Promise<{
     session: { total: number; success: number; failed: number };
     trend: { rate: number; direction: 'up' | 'down' | 'stable' };
     recent: Array<{ date: string; pushes: number; success: number; failed: number }>;
@@ -850,7 +850,7 @@ export class PushService {
     await this.metrics.loadSessionMetrics();
     const sessionMetrics = this.metrics.getSessionMetrics();
     const successRate = await this.metrics.getSuccessRate();
-    const dailyMetrics = await this.metrics.getDailyMetrics(7);
+    const dailyMetrics = await this.metrics.getDailyMetrics(days);
 
     return {
       session: {
@@ -862,7 +862,7 @@ export class PushService {
         rate: successRate.rate,
         direction: successRate.trend,
       },
-      recent: dailyMetrics.slice(0, 7).reverse(),
+      recent: dailyMetrics.slice(0, days).reverse(),
     };
   }
 

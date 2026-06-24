@@ -2392,7 +2392,7 @@ adminApi.get('/stats', async (c) => {
 
   try {
     const pushService = new PushService(c.env, username);
-    const stats = await pushService.getPushStats();
+    const stats = await pushService.getPushStats(days);
 
     // 获取推送历史用于渠道使用统计（限制最多 500 条避免内存压力）
     const { records } = await getPushHistory(username, c.env, { pageSize: 500 });
