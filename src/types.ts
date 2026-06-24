@@ -38,8 +38,6 @@ export interface Env {
   BUCKET?: R2Bucket;
   /** 推送任务队列，用于异步发送推送通知（可选） */
   PUSH_QUEUE?: Queue;
-  /** Worker Mailer 邮件发送服务（可选，已弃用） */
-  MAILER?: any;
   /** 允许的跨域来源，逗号分隔 */
   ALLOWED_ORIGINS?: string;
   /** 日志级别 */
@@ -54,9 +52,15 @@ export interface Env {
   TURNSTILE_SITE_KEY?: string;
   /** Workers AI，用于 AI 生成功能（可选） */
   AI?: any;
-  /** Resend API Key（推荐，免费 100封/天） */
-  RESEND_API_KEY?: string;
-  /** 邮件发件人地址（Resend 或 MailChannels） */
+  /** SMTP 服务器地址（如 smtp.gmail.com） */
+  SMTP_HOST?: string;
+  /** SMTP 端口（如 587 或 465） */
+  SMTP_PORT?: string;
+  /** SMTP 用户名（如 your-email@gmail.com） */
+  SMTP_USERNAME?: string;
+  /** SMTP 密码（应用专用密码） */
+  SMTP_PASSWORD?: string;
+  /** 邮件发件人地址 */
   MAIL_FROM?: string;
 }
 

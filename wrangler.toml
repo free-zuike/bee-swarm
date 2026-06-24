@@ -101,14 +101,22 @@ binding = "AI"
 
 # ------------------------------------------
 # 邮件服务配置（密码重置功能）
-# 推荐使用 Resend（免费 100封/天）：
-#   1. 注册 https://resend.com
-#   2. 创建 API Key
-#   3. 运行: npx wrangler secret put RESEND_API_KEY
-#   4. 运行: npx wrangler secret put MAIL_FROM（如 noreply@your-domain.com）
+# 使用 worker-mailer 通过 SMTP 发送邮件
 #
-# 或使用 MailChannels（Cloudflare Workers 免费）：
-#   1. 在 Cloudflare Dashboard 验证域名
-#   2. 运行: npx wrangler secret put MAIL_FROM（使用已验证的域名邮箱）
+# 1. 安装依赖: npm i worker-mailer
+#
+# 2. 配置 SMTP 环境变量:
+#    npx wrangler secret put SMTP_HOST      # 如 smtp.gmail.com
+#    npx wrangler secret put SMTP_PORT      # 如 587
+#    npx wrangler secret put SMTP_USERNAME  # 如 your-email@gmail.com
+#    npx wrangler secret put SMTP_PASSWORD  # 应用专用密码
+#    npx wrangler secret put MAIL_FROM      # 如 noreply@your-domain.com
+#
+# 常见 SMTP 配置:
+#   QQ邮箱:    smtp.qq.com:587
+#   163邮箱:   smtp.163.com:465
+#   Gmail:     smtp.gmail.com:587
+#   Outlook:   smtp.office365.com:587
+#   SendGrid:  smtp.sendgrid.net:587
 # ------------------------------------------
 
