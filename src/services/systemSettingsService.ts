@@ -33,14 +33,18 @@ export class SystemSettingsService {
   /** 确保系统设置表存在 */
   async ensureTable(): Promise<void> {
     this.checkDB();
-    await this.env.DB.prepare(
-      `CREATE TABLE IF NOT EXISTS system_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )`
-    ).run();
+    try {
+      await this.env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS system_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+      ).run();
+    } catch {
+      // 表可能已存在，忽略错误
+    }
   }
 
   /** 获取单个设置 */
@@ -73,6 +77,9 @@ export class SystemSettingsService {
   async getAllSettings(): Promise<SystemSettings> {
     this.checkDB();
     try {
+      // 先确保表存在
+      await this.ensureTable();
+      
       const results = await this.env.DB.prepare('SELECT key, value FROM system_settings').all<{
         key: string;
         value: string;
@@ -160,14 +167,26 @@ export class SystemSettingsService {
     password?: string;
     mailFrom?: string;
   }> {
-    const settings = await this.getAllSettings();
+    try {
+      await this.ensureTable();
+      const settings = await this.getAllSettings();
 
-    return {
-      host: settings.smtp_host || this.env.SMTP_HOST,
-      port: settings.smtp_port || this.env.SMTP_PORT,
-      username: settings.smtp_username || this.env.SMTP_USERNAME,
-      password: settings.smtp_password || this.env.SMTP_PASSWORD,
-      mailFrom: settings.mail_from || this.env.MAIL_FROM,
-    };
+      return {
+        host: settings.smtp_host || this.env.SMTP_HOST,
+        port: settings.smtp_port || this.env.SMTP_PORT,
+        username: settings.smtp_username || this.env.SMTP_USERNAME,
+        password: settings.smtp_password || this.env.SMTP_PASSWORD,
+        mailFrom: settings.mail_from || this.env.MAIL_FROM,
+      };
+    } catch {
+      // 数据库不可用时回退到环境变量
+      return {
+        host: this.env.SMTP_HOST,
+        port: this.env.SMTP_PORT,
+        username: this.env.SMTP_USERNAME,
+        password: this.env.SMTP_PASSWORD,
+        mailFrom: this.env.MAIL_FROM,
+      };
+    }
   }
 }
