@@ -3,7 +3,7 @@
  * 卡片网格骨架屏
  */
 import { computed } from 'vue';
-import { themeState } from '@/stores/theme';
+import { useThemeStore } from '@/stores/theme';
 
 interface Props {
   count?: number;
@@ -15,7 +15,8 @@ const props = withDefaults(defineProps<Props>(), {
   columns: 3,
 });
 
-const isDark = computed(() => themeState.isDark);
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 </script>
 
 <template>

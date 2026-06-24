@@ -3,7 +3,7 @@
  * 表格列表骨架屏
  */
 import { computed } from 'vue';
-import { themeState } from '@/stores/theme';
+import { useThemeStore } from '@/stores/theme';
 
 interface Props {
   rows?: number;
@@ -15,7 +15,8 @@ const props = withDefaults(defineProps<Props>(), {
   columns: 4,
 });
 
-const isDark = computed(() => themeState.isDark);
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 </script>
 
 <template>

@@ -3,9 +3,10 @@
  * 统计面板骨架屏
  */
 import { computed } from 'vue';
-import { themeState } from '@/stores/theme';
+import { useThemeStore } from '@/stores/theme';
 
-const isDark = computed(() => themeState.isDark);
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 </script>
 
 <template>
