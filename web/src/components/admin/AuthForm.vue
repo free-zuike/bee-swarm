@@ -24,6 +24,20 @@ const localError = ref('');
 const isProcessing = ref(false);
 const resetEmail = ref('');
 
+// 检查 URL 中是否有重置令牌
+const urlToken = ref('');
+onMounted(() => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (token) {
+    urlToken.value = token;
+    resetToken.value = token;
+    authMode.value = 'reset';
+    // 清除 URL 中的 token 参数
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+});
+
 // Turnstile 人机验证
 const turnstileToken = ref('');
 const turnstileWidgetId = ref<string | null>(null);
@@ -233,16 +247,6 @@ async function doResetPassword() {
 }
 
 const displayError = computed(() => props.authError || localError.value);
-
-const isResetMode = computed(() => {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (token && authMode.value === 'login') {
-    resetToken.value = token;
-    return true;
-  }
-  return authMode.value === 'reset';
-});
 </script>
 
 <template>
@@ -321,7 +325,7 @@ const isResetMode = computed(() => {
         </button>
       </form>
 
-      <form v-else-if="authMode === 'reset' || isResetMode" @submit.prevent="doResetPassword">
+      <form v-else-if="authMode === 'reset'" @submit.prevent="doResetPassword">
         <input
           v-model="authPassword"
           type="password"
