@@ -11,6 +11,7 @@ import type {
   PushHistoryRecord,
 } from '@/types';
 import { showToast } from './useToast';
+import { useTranslation } from '@/i18n';
 import { withLoading } from '@/stores/loading';
 
 const channelsRef = ref<ChannelConfig[]>([]);
@@ -19,6 +20,7 @@ const channelSettingsRef = ref<ChannelSettings>({});
 const selectedChannelsRef = ref<Set<PushChannel>>(new Set());
 
 export function useChannels() {
+  const t = useTranslation();
   async function loadChannels(accessToken: string): Promise<void> {
     try {
       const { getChannelsWithToken } = await import('@/api');
@@ -32,7 +34,7 @@ export function useChannels() {
 
       restoreChannelSelection();
     } catch (err) {
-      showToast(getErrorMessage(err, '加载渠道失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.load_channels_failed')), 'error');
     }
   }
 
@@ -56,10 +58,10 @@ export function useChannels() {
       channelSettingsRef.value = data.settings;
       channelDefinitionsRef.value = data.definitions as ChannelDefinition[];
 
-      showToast(result.message || '保存成功', 'success');
+      showToast(result.message || t('toast.save_success'), 'success');
       return true;
     } catch (err) {
-      showToast(getErrorMessage(err, '保存失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.save_failed')), 'error');
       return false;
     }
   }
@@ -86,7 +88,7 @@ export function useChannels() {
 
       return true;
     } catch (err) {
-      showToast(getErrorMessage(err, '保存失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.save_failed')), 'error');
       return false;
     }
   }
@@ -171,6 +173,7 @@ interface HistoryOptions {
 }
 
 export function usePushHistory() {
+  const t = useTranslation();
   async function loadHistory(accessToken: string, options: HistoryOptions = {}): Promise<void> {
     isLoadingRef.value = true;
     pageRef.value = options.page || 1;
@@ -190,7 +193,7 @@ export function usePushHistory() {
       historyRef.value = data.history || [];
       totalRef.value = data.total || 0;
     } catch (err) {
-      showToast(getErrorMessage(err, '加载历史失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.load_history_failed')), 'error');
     } finally {
       isLoadingRef.value = false;
     }
@@ -203,11 +206,11 @@ export function usePushHistory() {
         return await clearHistory(accessToken);
       }, 'clearHistory');
 
-      showToast('推送历史已清空', 'success');
+      showToast(t('toast.history_cleared'), 'success');
       await loadHistory(accessToken);
       return true;
     } catch (err) {
-      showToast(getErrorMessage(err, '清空失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.clear_failed')), 'error');
       return false;
     }
   }
@@ -219,11 +222,11 @@ export function usePushHistory() {
         return await batchDeleteHistory(accessToken, ids);
       }, 'deleteHistory');
 
-      showToast(`已删除 ${ids.length} 条记录`, 'success');
+      showToast(t('toast.records_deleted', { count: String(ids.length) }), 'success');
       await loadHistory(accessToken);
       return true;
     } catch (err) {
-      showToast(getErrorMessage(err, '删除失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.delete_failed')), 'error');
       return false;
     }
   }

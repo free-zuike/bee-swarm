@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { showToast } from './useToast';
+import { useTranslation } from '@/i18n';
 import { withLoading } from '@/stores/loading';
 
 interface AsyncState {
@@ -27,6 +28,7 @@ interface UseAsyncOptions {
  * await execute(() => fetchUsers());
  */
 export function useAsync<T>(options: UseAsyncOptions = {}) {
+  const t = useTranslation();
   const { loadingKey, showErrorToast = true, showSuccessToast = false } = options;
 
   const data = ref<T | null>(null);
@@ -56,7 +58,7 @@ export function useAsync<T>(options: UseAsyncOptions = {}) {
 
       return result;
     } catch (err) {
-      const errorMsg = getErrorMessage(err, '操作失败');
+      const errorMsg = getErrorMessage(err, t('toast.operation_failed'));
       error.value = errorMsg;
 
       if (showErrorToast) {
@@ -96,6 +98,7 @@ export function useAsync<T>(options: UseAsyncOptions = {}) {
  * await state.execute(() => fetchUsers());
  */
 export function useAsyncState(options: UseAsyncOptions = {}) {
+  const t = useTranslation();
   const { loadingKey, showErrorToast = true } = options;
 
   const state = ref<AsyncState>({
@@ -119,7 +122,7 @@ export function useAsyncState(options: UseAsyncOptions = {}) {
       state.value.data = result;
       return result;
     } catch (err) {
-      const errorMsg = getErrorMessage(err, '操作失败');
+      const errorMsg = getErrorMessage(err, t('toast.operation_failed'));
       state.value.error = errorMsg;
 
       if (showErrorToast) {
@@ -174,7 +177,7 @@ export function getErrorMessage(err: unknown, fallback: string): string {
 export function useErrorHandler() {
   const error = ref<string | null>(null);
 
-  function handleError(err: unknown, fallback: string = '操作失败') {
+  function handleError(err: unknown, fallback: string = 'Operation failed') {
     error.value = getErrorMessage(err, fallback);
     showToast(error.value, 'error');
   }

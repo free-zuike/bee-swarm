@@ -5,8 +5,8 @@
 import { ref, computed } from 'vue';
 import type { PushChannel, PushResult, PushPayload, ScheduledPush } from '@/types';
 import { showToast } from './useToast';
-import { withLoading } from '@/stores/loading';
 import { useTranslation } from '@/i18n';
+import { withLoading } from '@/stores/loading';
 
 interface UsePushOptions {
   onSuccess?: (results: PushResult[]) => void;
@@ -73,7 +73,7 @@ export function usePush(options: UsePushOptions = {}) {
 
       return resultsRef.value;
     } catch (err) {
-      const errorMsg = getErrorMessage(err, '推送失败');
+      const errorMsg = getErrorMessage(err, t('toast.push_failed'));
       resultsRef.value = [{ channel: 'wework' as PushChannel, success: false, message: errorMsg }];
       showToast(errorMsg, 'error');
       options.onError?.(errorMsg);
@@ -129,6 +129,7 @@ const scheduledPushesRef = ref<ScheduledPush[]>([]);
 const isLoadingRef = ref(false);
 
 export function useScheduledPushes() {
+  const t = useTranslation();
   async function loadScheduledPushes(accessToken: string, status?: string): Promise<void> {
     isLoadingRef.value = true;
 
@@ -141,7 +142,7 @@ export function useScheduledPushes() {
       // 处理可能的返回格式（可能返回数组或带scheduled属性的对象）
       scheduledPushesRef.value = Array.isArray(result) ? result : result.scheduled || [];
     } catch (err) {
-      showToast(getErrorMessage(err, '加载定时推送失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.load_scheduled_failed')), 'error');
     } finally {
       isLoadingRef.value = false;
     }
@@ -157,11 +158,11 @@ export function useScheduledPushes() {
         return await createScheduledPush(accessToken, data);
       }, 'createScheduled');
 
-      showToast('定时推送已创建', 'success');
+      showToast(t('toast.scheduled_created'), 'success');
       await loadScheduledPushes(accessToken);
       return true;
     } catch (err) {
-      showToast(getErrorMessage(err, '创建失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.create_failed')), 'error');
       return false;
     }
   }
@@ -173,11 +174,11 @@ export function useScheduledPushes() {
         return await deleteScheduledPush(accessToken, id);
       }, 'deleteScheduled');
 
-      showToast('定时推送已删除', 'success');
+      showToast(t('toast.scheduled_deleted'), 'success');
       await loadScheduledPushes(accessToken);
       return true;
     } catch (err) {
-      showToast(getErrorMessage(err, '删除失败'), 'error');
+      showToast(getErrorMessage(err, t('toast.delete_failed')), 'error');
       return false;
     }
   }
