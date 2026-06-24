@@ -99,3 +99,11 @@ head_sampling_rate = 1
 [ai]
 binding = "AI"
 
+# ------------------------------------------
+# Worker Mailer（邮件发送服务）
+# 需要先部署 worker-mailer：https://github.com/nicholasgriffintn/worker-mailer
+# 然后在 wrangler.toml 中添加以下配置
+# ------------------------------------------
+# [services]
+# MAILER = { binding = "MAILER", service = "worker-mailer" }
+

@@ -28,6 +28,7 @@ import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
+import { sendEmail, generatePasswordResetEmail } from '../services/emailService';
 import {
   cleanupExpiredData,
   getDatabaseStats,
@@ -345,14 +346,35 @@ api.post('/password-reset', async (c) => {
       return c.json({ success: true, message: '密码重置链接已发送' });
     }
 
-    // 注意：这里应该添加发送邮件的逻辑，但在这个项目中我们简化处理（仅用于测试）
-    console.log(`[Password Reset] Generated token for ${email}`);
+    // 生成重置链接
+    const url = new URL(c.req.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
 
-    // 在实际生产环境中，应该通过邮件发送重置链接，而不是直接返回令牌
-    return c.json({
-      success: true,
-      message: '密码重置请求已生成（测试模式下请查看控制台获取令牌）',
+    // 生成邮件内容
+    const emailContent = generatePasswordResetEmail(email, resetToken, baseUrl);
+
+    // 尝试发送邮件
+    const emailSent = await sendEmail(c.env, {
+      to: email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
     });
+
+    if (emailSent) {
+      return c.json({
+        success: true,
+        message: '密码重置链接已发送到您的邮箱',
+      });
+    } else {
+      // 邮件发送失败，返回提示信息（开发模式下）
+      console.log(`[Password Reset] Email send failed, token for ${email}: ${resetToken}`);
+      return c.json({
+        success: true,
+        message: '密码重置请求已生成（邮件服务未配置，请查看控制台获取令牌）',
+        resetToken, // 仅在邮件发送失败时返回，便于调试
+      });
+    }
   } catch (error) {
     console.error('[Password Reset] Error:', error);
     return c.json({ success: false, message: '请求失败，请稍后重试' }, 500);
