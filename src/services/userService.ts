@@ -689,6 +689,8 @@ export class UserService {
       return false;
     }
 
-    return (user as any).email_verified === 1;
+    // null 或未设置视为已验证（兼容功能上线前的老用户）
+    const verified = (user as any).email_verified;
+    return verified === null || verified === undefined || verified === 1;
   }
 }
