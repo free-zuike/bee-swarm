@@ -321,17 +321,17 @@ async function saveAITools() {
       })),
     });
     if (result.success) {
-      showToast('AI 工具已保存', 'success');
+      showToast(t('toast.tool_saved'), 'success');
     }
   } catch (err) {
     console.error('保存 AI 工具失败:', err);
-    showToast('保存失败', 'error');
+    showToast(t('toast.save_failed'), 'error');
   }
 }
 
 function addTool() {
   if (!newToolName.value.trim()) {
-    showToast('请输入工具名称', 'error');
+    showToast(t('toast.enter_tool_name'), 'error');
     return;
   }
 
@@ -350,7 +350,7 @@ function addTool() {
   showAddToolModal.value = false;
 
   saveAITools();
-  showToast('工具添加成功', 'success');
+  showToast(t('toast.tool_added'), 'success');
 }
 
 function updateTool() {
@@ -366,7 +366,7 @@ function updateTool() {
   editingTool.value = null;
 
   saveAITools();
-  showToast('工具更新成功', 'success');
+  showToast(t('toast.tool_updated'), 'success');
 }
 
 const userAvatar = ref('');
@@ -870,7 +870,7 @@ async function selectProvider(provider: string) {
     loadProviderConfig(provider);
   } catch {
     // 失败时什么都不做，保持原样
-    showToast('切换失败，请重试', 'error');
+    showToast(t('toast.switch_failed'), 'error');
   } finally {
     isSavingSettings.value = false;
   }
@@ -931,10 +931,10 @@ async function saveCustomProviders() {
       })),
     });
     if (result.success) {
-      showToast('设置已保存', 'success');
+      showToast(t('toast.settings_saved'), 'success');
     }
   } catch (err: unknown) {
-    showToast(getErrorMessage(err, '保存失败'), 'error');
+    showToast(getErrorMessage(err, t('toast.save_failed')), 'error');
   } finally {
     isSavingSettings.value = false;
   }
@@ -942,7 +942,7 @@ async function saveCustomProviders() {
 
 function addCustomProvider() {
   if (!newProviderName.value.trim()) {
-    showToast('请输入提供商名称', 'error');
+    showToast(t('toast.enter_provider_name'), 'error');
     return;
   }
 
@@ -967,7 +967,7 @@ function addCustomProvider() {
   // 保存到后端
   saveCustomProviders();
 
-  showToast('自定义提供商添加成功', 'success');
+  showToast(t('toast.provider_added'), 'success');
 }
 
 function startEditProvider(providerId: string, event: Event) {
@@ -984,7 +984,7 @@ function startEditProvider(providerId: string, event: Event) {
 
 function saveEditProvider() {
   if (!editingProviderName.value.trim()) {
-    showToast('请输入提供商名称', 'error');
+    showToast(t('toast.enter_provider_name'), 'error');
     return;
   }
 
@@ -1004,7 +1004,7 @@ function saveEditProvider() {
   // 保存到后端
   saveCustomProviders();
 
-  showToast('提供商信息已更新', 'success');
+  showToast(t('toast.provider_updated'), 'success');
 }
 
 function deleteCustomProvider(providerId: string, event: Event) {
@@ -1012,7 +1012,7 @@ function deleteCustomProvider(providerId: string, event: Event) {
 
   // 检查是否是当前选中的提供商
   if (userSettings.value.ai_provider === providerId) {
-    showToast('无法删除当前正在使用的提供商', 'error');
+    showToast(t('toast.cannot_delete_current_provider'), 'error');
     return;
   }
 
@@ -1028,7 +1028,7 @@ function deleteCustomProvider(providerId: string, event: Event) {
   // 保存到后端
   saveCustomProviders();
 
-  showToast('自定义提供商删除成功', 'success');
+  showToast(t('toast.provider_deleted'), 'success');
 }
 
 async function handleSaveCacheSettings() {
@@ -1045,7 +1045,7 @@ async function handleSaveCacheSettings() {
       cache_ttl_scheduled: userSettings.value.cache_ttl_scheduled,
     });
     if (result.success) {
-      showToast('缓存设置已保存', 'success');
+      showToast(t('toast.cache_saved'), 'success');
       await loadUserSettings(); // 重新从后端加载最新设置
       updateCacheSettings();
     }
@@ -1062,20 +1062,20 @@ async function handleSaveAISettings() {
   // AI 设置验证
   if (userSettings.value.ai_enabled) {
     if (!userSettings.value.ai_provider) {
-      showToast('请选择 AI 提供商', 'error');
+      showToast(t('toast.select_ai_provider'), 'error');
       return;
     }
 
     // 所有提供商都需要模型名称
     if (!userSettings.value.ai_model_name?.trim()) {
-      showToast('请输入模型名称', 'error');
+      showToast(t('toast.enter_model_name'), 'error');
       return;
     }
 
     // 除了 workers-ai，其他提供商需要 API Key
     if (userSettings.value.ai_provider !== 'workers-ai') {
       if (!userSettings.value.ai_api_key?.trim()) {
-        showToast('请输入 API Key', 'error');
+        showToast(t('toast.enter_api_key'), 'error');
         return;
       }
       // 对于 azure-openai 和所有自定义提供商，需要 API URL
@@ -1084,7 +1084,7 @@ async function handleSaveAISettings() {
           isCustomProvider(userSettings.value.ai_provider)) &&
         !userSettings.value.ai_api_url?.trim()
       ) {
-        showToast('请输入 API URL', 'error');
+        showToast(t('toast.enter_api_url'), 'error');
         return;
       }
     }
@@ -2884,13 +2884,13 @@ function handleResend(record: PushHistoryRecord) {
 
             <!-- 邮件 SMTP 设置 -->
             <div class="settings-card">
-              <h4>📧 邮件设置（SMTP）</h4>
+              <h4>📧 {{ t('smtp.title') }}</h4>
               <div class="setting-hint" style="margin-bottom: 16px">
-                配置 SMTP 服务器用于发送密码重置邮件。支持 QQ邮箱、163邮箱、Gmail、Outlook 等。
+                {{ t('smtp.hint') }}
               </div>
 
               <div class="setting-item">
-                <label>SMTP 服务器</label>
+                <label>{{ t('smtp.host') }}</label>
                 <input
                   v-model="systemSettings.smtp_host"
                   type="text"
@@ -2899,7 +2899,7 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <div class="setting-item">
-                <label>SMTP 端口</label>
+                <label>{{ t('smtp.port') }}</label>
                 <input
                   v-model="systemSettings.smtp_port"
                   type="text"
@@ -2908,7 +2908,7 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <div class="setting-item">
-                <label>SMTP 用户名</label>
+                <label>{{ t('smtp.username') }}</label>
                 <input
                   v-model="systemSettings.smtp_username"
                   type="text"
@@ -2917,16 +2917,16 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <div class="setting-item">
-                <label>SMTP 密码</label>
+                <label>{{ t('smtp.password') }}</label>
                 <input
                   v-model="systemSettings.smtp_password"
                   type="password"
-                  placeholder="应用专用密码"
+                  :placeholder="t('smtp.password_placeholder')"
                 />
               </div>
 
               <div class="setting-item">
-                <label>发件人地址</label>
+                <label>{{ t('smtp.from') }}</label>
                 <input
                   v-model="systemSettings.mail_from"
                   type="email"
@@ -2935,11 +2935,11 @@ function handleResend(record: PushHistoryRecord) {
               </div>
 
               <div class="setting-hint">
-                <strong>常见配置：</strong><br>
-                QQ邮箱：smtp.qq.com / 587（需开启SMTP并获取授权码）<br>
-                163邮箱：smtp.163.com / 465<br>
-                Gmail：smtp.gmail.com / 587（需开启2FA并创建应用专用密码）<br>
-                Outlook：smtp.office365.com / 587
+                <strong>{{ t('smtp.config_guide') }}</strong><br>
+                {{ t('smtp.qq') }}<br>
+                {{ t('smtp.163') }}<br>
+                {{ t('smtp.gmail') }}<br>
+                {{ t('smtp.outlook') }}
               </div>
             </div>
 
