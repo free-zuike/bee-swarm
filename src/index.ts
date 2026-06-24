@@ -461,6 +461,7 @@ async function processScheduledPushes(
           isRecurring: push.scheduleType === 'recurring',
           recurringType: push.recurringType,
           timezone: userTimezone,
+          scheduledAt: push.scheduledAt,
         },
         createdAt: new Date().toISOString(),
       });

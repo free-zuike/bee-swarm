@@ -492,9 +492,6 @@ async function loadUserSettings() {
         userSettings.value.custom_ai_providers = [];
       }
 
-      console.log('加载的用户设置:', userSettings.value);
-      console.log('自定义提供商:', userSettings.value.custom_ai_providers);
-
       // 如果当前提供商有配置，加载到临时字段用于绑定
       const currentProvider = userSettings.value.ai_provider || 'workers-ai';
       loadProviderConfig(currentProvider);
@@ -962,9 +959,6 @@ function addCustomProvider() {
   }
   userSettings.value.custom_ai_providers.push(newProvider);
 
-  console.log('添加自定义提供商:', newProvider);
-  console.log('当前自定义提供商列表:', userSettings.value.custom_ai_providers);
-
   // 重置表单
   newProviderName.value = '';
   newProviderIcon.value = '🤖';
@@ -1334,10 +1328,14 @@ watch(activeSettingsTab, (newTab) => {
 async function doLogin(authEmail: string, authPassword: string, turnstileToken?: string) {
   const success = await authStore.doLogin(authEmail, authPassword, turnstileToken);
   if (success) {
-    await loadCurrentUser(accessToken.value);
-    await loadChannels();
-    await loadHistory();
-    await loadUserAvatar();
+    try {
+      await loadCurrentUser(accessToken.value);
+      await loadChannels();
+      await loadHistory();
+      await loadUserAvatar();
+    } catch {
+      // 数据加载失败不影响登录
+    }
     pageState.value = 'dashboard';
   }
 }
@@ -1345,10 +1343,14 @@ async function doLogin(authEmail: string, authPassword: string, turnstileToken?:
 async function doRegister(authEmail: string, authPassword: string, turnstileToken?: string) {
   const success = await authStore.doRegister(authEmail, authPassword, turnstileToken);
   if (success) {
-    await loadCurrentUser(accessToken.value);
-    await loadChannels();
-    await loadHistory();
-    await loadUserAvatar();
+    try {
+      await loadCurrentUser(accessToken.value);
+      await loadChannels();
+      await loadHistory();
+      await loadUserAvatar();
+    } catch {
+      // 数据加载失败不影响注册
+    }
     pageState.value = 'dashboard';
   }
 }

@@ -749,7 +749,11 @@ interface ScheduledPush {
   selectedWeekDays?: number[];
   selectedMonthDays?: number[];
   yearlyDates?: Array<{ month: number; day: number }>;
+  intervalHours?: number;
+  intervalMonths?: number;
+  intervalYears?: number;
   cronExpression?: string;
+  timezone?: string;
   overdueReminderSent?: boolean;
   overdueAt?: string;
 }
@@ -1748,13 +1752,187 @@ function confirmTestPush(push: ScheduledPush): void {
 
 function openRescheduleModal(push: ScheduledPush): void {
   reschedulePush.value = push;
-  // 初始化时间为明天 9 点
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(9, 0, 0, 0);
-  rescheduleDate.value = tomorrow.toISOString().split('T')[0];
-  rescheduleTime.value = '09:00';
+
+  const tz = push.timezone || 'Asia/Shanghai';
+  const now = new Date();
+  let nextDate = new Date(now);
+
+  if (push.scheduleType === 'recurring' && push.recurringType) {
+    const originalTime = new Date(push.scheduledAt);
+    const { hour, minute } = getTimeInTimezone(originalTime, tz);
+
+    switch (push.recurringType) {
+      case 'daily': {
+        nextDate = getNextDaily(hour, minute, tz);
+        break;
+      }
+      case 'weekly': {
+        nextDate = getNextWeekly(push.selectedWeekDays, hour, minute, tz);
+        break;
+      }
+      case 'monthly': {
+        nextDate = getNextMonthly(push.selectedMonthDays, hour, minute, tz);
+        break;
+      }
+      case 'hourly': {
+        nextDate.setHours(nextDate.getHours() + 1, 0, 0, 0);
+        break;
+      }
+      case 'interval': {
+        const hours = push.intervalHours || 2;
+        nextDate.setHours(nextDate.getHours() + hours, 0, 0, 0);
+        break;
+      }
+      case 'intervalMonth': {
+        const months = push.intervalMonths || 1;
+        nextDate.setMonth(nextDate.getMonth() + months);
+        nextDate.setHours(hour, minute, 0, 0);
+        break;
+      }
+      case 'intervalYear': {
+        const years = push.intervalYears || 1;
+        nextDate.setFullYear(nextDate.getFullYear() + years);
+        nextDate.setHours(hour, minute, 0, 0);
+        break;
+      }
+      case 'yearly': {
+        nextDate = getNextYearly(push.yearlyDates, hour, minute, tz);
+        break;
+      }
+      case 'cron': {
+        nextDate = getNextCron(push.cronExpression, hour, minute);
+        break;
+      }
+      default: {
+        nextDate.setDate(nextDate.getDate() + 1);
+        nextDate.setHours(hour, minute, 0, 0);
+      }
+    }
+  } else {
+    nextDate.setDate(nextDate.getDate() + 1);
+    nextDate.setHours(9, 0, 0, 0);
+  }
+
+  const localDate = formatDateInTimezone(nextDate, tz);
+  const localTime = formatTimeInTimezone(nextDate, tz);
+  rescheduleDate.value = localDate;
+  rescheduleTime.value = localTime;
   showRescheduleModal.value = true;
+}
+
+function getTimeInTimezone(date: Date, tz: string): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(date);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  return { hour, minute };
+}
+
+function getLocalDateInTimezone(date: Date, tz: string): { year: number; month: number; day: number; weekday: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'long',
+  }).formatToParts(date);
+  const weekdayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+  return {
+    year: parseInt(parts.find(p => p.type === 'year')?.value || '0', 10),
+    month: parseInt(parts.find(p => p.type === 'month')?.value || '0', 10),
+    day: parseInt(parts.find(p => p.type === 'day')?.value || '0', 10),
+    weekday: weekdayMap[parts.find(p => p.type === 'weekday')?.value || 'Sunday'] ?? 0,
+  };
+}
+
+function formatDateInTimezone(date: Date, tz: string): string {
+  const d = getLocalDateInTimezone(date, tz);
+  return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
+}
+
+function formatTimeInTimezone(date: Date, tz: string): string {
+  const { hour, minute } = getTimeInTimezone(date, tz);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function getNextDaily(hour: number, minute: number, tz: string): Date {
+  const now = new Date();
+  const todayLocal = getLocalDateInTimezone(now, tz);
+  const candidate = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day, hour, minute, 0, 0));
+  const nowUtc = now.getTime();
+  if (candidate.getTime() > nowUtc) return candidate;
+  candidate.setUTCDate(candidate.getUTCDate() + 1);
+  return candidate;
+}
+
+function getNextWeekly(selectedWeekDays: number[] | undefined, hour: number, minute: number, tz: string): Date {
+  const days = selectedWeekDays && selectedWeekDays.length > 0 ? selectedWeekDays : [1, 2, 3, 4, 5];
+  const now = new Date();
+  const todayLocal = getLocalDateInTimezone(now, tz);
+  for (let offset = 0; offset <= 7; offset++) {
+    const candidate = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0));
+    const candidateLocal = getLocalDateInTimezone(candidate, tz);
+    if (days.includes(candidateLocal.weekday) && candidate.getTime() > now.getTime()) {
+      return candidate;
+    }
+  }
+  const fallback = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + 7, hour, minute, 0, 0));
+  return fallback;
+}
+
+function getNextMonthly(selectedMonthDays: number[] | undefined, hour: number, minute: number, tz: string): Date {
+  const days = selectedMonthDays && selectedMonthDays.length > 0 ? selectedMonthDays : [1, 15];
+  const now = new Date();
+  const todayLocal = getLocalDateInTimezone(now, tz);
+  for (let offset = 0; offset <= 31; offset++) {
+    const candidate = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0));
+    const candidateLocal = getLocalDateInTimezone(candidate, tz);
+    if (days.includes(candidateLocal.day) && candidate.getTime() > now.getTime()) {
+      return candidate;
+    }
+  }
+  const fallback = new Date(Date.UTC(todayLocal.year, todayLocal.month, days[0], hour, minute, 0, 0));
+  return fallback;
+}
+
+function getNextYearly(yearlyDates: Array<{ month: number; day: number }> | undefined, hour: number, minute: number, tz: string): Date {
+  const dates = yearlyDates && yearlyDates.length > 0 ? yearlyDates : [{ month: 1, day: 1 }];
+  const now = new Date();
+  const todayLocal = getLocalDateInTimezone(now, tz);
+  for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
+    for (const d of dates) {
+      const candidate = new Date(Date.UTC(todayLocal.year + yearOffset, d.month - 1, d.day, hour, minute, 0, 0));
+      if (candidate.getTime() > now.getTime()) return candidate;
+    }
+  }
+  return new Date(Date.UTC(todayLocal.year + 1, dates[0].month - 1, dates[0].day, hour, minute, 0, 0));
+}
+
+function getNextCron(cronExpression: string | undefined, fallbackHour: number, fallbackMinute: number): Date {
+  if (!cronExpression) {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    next.setHours(fallbackHour, fallbackMinute, 0, 0);
+    return next;
+  }
+  const parts = cronExpression.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    next.setHours(fallbackHour, fallbackMinute, 0, 0);
+    return next;
+  }
+  const [minutePart, hourPart] = parts;
+  const hour = hourPart === '*' ? fallbackHour : parseInt(hourPart, 10);
+  const minute = minutePart === '*' ? fallbackMinute : parseInt(minutePart, 10);
+  const next = new Date();
+  next.setDate(next.getDate() + 1);
+  next.setHours(hour, minute, 0, 0);
+  return next;
 }
 
 async function doReschedule(): Promise<void> {
