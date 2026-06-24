@@ -94,10 +94,21 @@ export class AIAgentService {
 - "你可以干什么" → {"type":"capability","description":"介绍功能","action":"listCapabilities","params":{}}
 - "有什么功能" → {"type":"capability","description":"介绍功能","action":"listCapabilities","params":{}}
 - "发送一条测试消息" → {"type":"push","description":"发送测试推送","action":"sendTest","params":{}}
+- "发送到飞书" → {"type":"push","description":"发送到飞书","action":"sendTest","params":{"channels":["feishu"]}}
+- "给钉钉发消息" → {"type":"push","description":"发送到钉钉","action":"sendTest","params":{"channels":["dingtalk"]}}
 - "查看最近的推送历史" → {"type":"query","description":"查询推送历史","action":"getHistory","params":{"limit":10}}
 - "统计推送成功率" → {"type":"query","description":"获取推送统计","action":"getStats","params":{}}
 - "有哪些渠道" → {"type":"info","description":"查询渠道列表","action":"listChannels","params":{}}
+- "现在启用了哪些渠道" → {"type":"info","description":"查询渠道状态","action":"listChannels","params":{}}
+- "渠道配置" → {"type":"info","description":"查询渠道配置","action":"listChannels","params":{}}
+- "哪个渠道可用" → {"type":"info","description":"查询渠道状态","action":"listChannels","params":{}}
 - "创建一个每日早报模板" → {"type":"create","description":"创建推送模板","action":"createTemplate","params":{"name":"每日早报"}}`;
+
+    // 先尝试本地模式匹配（快速，不依赖AI）
+    const localMatch = this.matchLocalPatterns(query);
+    if (localMatch) {
+      return localMatch;
+    }
 
     try {
       const response = await aiService['callAI'](
@@ -121,6 +132,45 @@ export class AIAgentService {
         params: { query },
       };
     }
+  }
+
+  /**
+   * 本地模式匹配 - 不依赖AI的快速匹配
+   */
+  private matchLocalPatterns(query: string): { type: string; description: string; action: string; params: Record<string, unknown> } | null {
+    const q = query.toLowerCase();
+
+    // 能力查询
+    if (/(你可以|你能|能做什么|有什么功能|功能列表|帮助)/.test(q)) {
+      return { type: 'capability', description: '介绍功能', action: 'listCapabilities', params: {} };
+    }
+
+    // 渠道查询
+    if (/(渠道|通道|channel|启用了|哪些|配置|可用)/.test(q) && /(渠道|channel)/.test(q)) {
+      return { type: 'info', description: '查询渠道', action: 'listChannels', params: {} };
+    }
+
+    // 统计查询
+    if (/(统计|成功率|数据|分析)/.test(q)) {
+      return { type: 'query', description: '查询统计', action: 'getStats', params: {} };
+    }
+
+    // 历史查询
+    if (/(历史|记录|最近|之前)/.test(q)) {
+      return { type: 'query', description: '查询历史', action: 'getHistory', params: { limit: 10 } };
+    }
+
+    // 定时任务
+    if (/(定时|计划|任务|scheduled)/.test(q)) {
+      return { type: 'query', description: '查询定时任务', action: 'listScheduled', params: {} };
+    }
+
+    // 发送消息
+    if (/(发送|推送|通知|send|push)/.test(q)) {
+      return { type: 'push', description: '发送消息', action: 'sendTest', params: {} };
+    }
+
+    return null;
   }
 
   /**
