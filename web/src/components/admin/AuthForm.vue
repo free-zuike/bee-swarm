@@ -47,6 +47,8 @@ const turnstileSiteKey = ref<string | null>(null);
 const showTurnstile = ref(false);
 
 // 加载 Turnstile 脚本并初始化
+let turnstileLoaded = false;
+
 onMounted(async () => {
   // 从后端获取 Turnstile Site Key
   try {
@@ -56,21 +58,28 @@ onMounted(async () => {
       turnstileSiteKey.value = data.siteKey;
       showTurnstile.value = true;
 
-      // 加载 Turnstile 脚本
-      const script = document.createElement('script');
-      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-
-      // 等待脚本加载完成后渲染 widget
-      script.onload = () => {
+      // 如果脚本已加载，直接渲染
+      if (window.turnstile) {
         renderTurnstile();
-      };
+        return;
+      }
+
+      // 加载 Turnstile 脚本
+      if (!turnstileLoaded) {
+        turnstileLoaded = true;
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        document.head.appendChild(script);
+
+        script.onload = () => {
+          // 等待一小段时间确保 API 可用
+          setTimeout(() => renderTurnstile(), 100);
+        };
+      }
     }
   } catch {
     // Turnstile 未配置，跳过
-    console.log('Turnstile 未配置');
   }
 });
 
@@ -81,32 +90,46 @@ function renderTurnstile() {
   const container = document.getElementById('turnstile-container');
   if (!container) return;
 
-  // 清除旧的 widget
+  // 检查是否已有 widget
   if (turnstileWidgetId.value) {
-    window.turnstile.remove(turnstileWidgetId.value);
+    try {
+      window.turnstile.remove(turnstileWidgetId.value);
+    } catch {
+      // 忽略错误
+    }
+    turnstileWidgetId.value = null;
   }
 
-  // 渲染新的 widget
-  turnstileWidgetId.value = window.turnstile.render('#turnstile-container', {
-    sitekey: turnstileSiteKey.value,
-    theme: 'light',
-    callback: (token: string) => {
-      turnstileToken.value = token;
-    },
-    'expired-callback': () => {
-      turnstileToken.value = '';
-    },
-    'error-callback': () => {
-      turnstileToken.value = '';
-      localError.value = t('error.turnstile_failed');
-    },
-  });
+  try {
+    // 渲染新的 widget
+    turnstileWidgetId.value = window.turnstile.render('#turnstile-container', {
+      sitekey: turnstileSiteKey.value,
+      theme: 'light',
+      callback: (token: string) => {
+        turnstileToken.value = token;
+      },
+      'expired-callback': () => {
+        turnstileToken.value = '';
+      },
+      'error-callback': () => {
+        turnstileToken.value = '';
+        localError.value = t('error.turnstile_failed');
+      },
+    });
+  } catch (err) {
+    console.error('Turnstile render error:', err);
+  }
 }
 
 // 切换模式时重置 Turnstile
 watch(authMode, () => {
   if (showTurnstile.value && window.turnstile && turnstileWidgetId.value) {
-    window.turnstile.reset(turnstileWidgetId.value);
+    try {
+      window.turnstile.reset(turnstileWidgetId.value);
+    } catch {
+      // 如果 reset 失败，重新渲染
+      renderTurnstile();
+    }
     turnstileToken.value = '';
   }
 });
@@ -114,7 +137,11 @@ watch(authMode, () => {
 // 清理 Turnstile widget
 onUnmounted(() => {
   if (turnstileWidgetId.value && window.turnstile) {
-    window.turnstile.remove(turnstileWidgetId.value);
+    try {
+      window.turnstile.remove(turnstileWidgetId.value);
+    } catch {
+      // 忽略清理错误
+    }
   }
 });
 
