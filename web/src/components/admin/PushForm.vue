@@ -150,14 +150,6 @@ function doPush() {
         <input v-model="pushUrl" type="url" placeholder="https://example.com" />
       </div>
 
-      <div class="form-group">
-        <label class="checkbox-label">
-          <input v-model="useAsync" type="checkbox" disabled />
-          <span>{{ t('label.async_push') }}</span>
-          <span class="hint-text">{{ t('hint.async_push') }}</span>
-        </label>
-      </div>
-
       <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
         🚀 {{ t('button.push_async') }}
       </button>

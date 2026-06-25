@@ -52,6 +52,7 @@ import AIHelper from '@/components/admin/AIHelper.vue';
 import AISettingsPanel from '@/components/admin/AISettingsPanel.vue';
 import AvatarSettings from '@/components/admin/AvatarSettings.vue';
 import SystemSettingsPanel from '@/components/admin/SystemSettingsPanel.vue';
+import DatabaseManager from '@/components/admin/DatabaseManager.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -138,6 +139,16 @@ const systemCleanupSettings = ref<{
 const systemSettingsPanelRef = ref<InstanceType<typeof SystemSettingsPanel> | null>(null);
 
 const userAvatar = ref('');
+
+async function loadUserAvatar() {
+  try {
+    const { getCurrentUser } = await import('@/api');
+    const user = await getCurrentUser(accessToken.value);
+    userAvatar.value = user.avatar_url || '';
+  } catch {
+    // ignore
+  }
+}
 
 const settingsMenu = [
   { id: 'theme', icon: '🎨', label: 'theme.settings' },
@@ -368,6 +379,7 @@ onMounted(async () => {
             loadCurrentUser(accessToken.value),
             loadHistory(),
             loadUserSettings(),
+            loadUserAvatar(),
           ]);
           // 需要 token 的请求（可能依赖用户信息）
           await loadChannels();
