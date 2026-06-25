@@ -16,6 +16,7 @@ const props = defineProps<{
   isPushing?: boolean;
   pushResults?: PushResult[];
   lastPushTime?: string;
+  token?: string;
 }>();
 
 const emit = defineEmits<{
@@ -29,8 +30,20 @@ const pushBody = ref('');
 const pushUrl = ref('');
 const useAsync = ref(true);
 
-// 消息预览相关状态
-const showPreview = ref(false);
+// 草稿箱相关状态
+const drafts = ref<
+  Array<{
+    id: string;
+    title: string;
+    body: string;
+    url: string;
+    channels: PushChannel[];
+    createdAt: string;
+    updatedAt: string;
+  }>
+>([]);
+const showDraftDropdown = ref(false);
+const currentDraftId = ref<string | null>(null);
 
 function fillFromTemplate(template: PushTemplate) {
   pushTitle.value = template.title;
@@ -78,6 +91,113 @@ function doPush() {
     useAsync.value
   );
 }
+
+// 草稿箱操作
+async function loadDrafts() {
+  if (!props.token) return;
+  try {
+    const { getDrafts } = await import('@/api');
+    const result = await getDrafts(props.token);
+    drafts.value = result.drafts || [];
+    showDraftDropdown.value = !showDraftDropdown.value;
+  } catch {
+    showToast('加载草稿失败', 'error');
+  }
+}
+
+function loadDraft(draft: (typeof drafts.value)[0]) {
+  pushTitle.value = draft.title;
+  pushBody.value = draft.body;
+  pushUrl.value = draft.url;
+  currentDraftId.value = draft.id;
+  if (draft.channels && draft.channels.length > 0) {
+    const newSelection = new Set<PushChannel>(draft.channels);
+    emit('update:selectedChannels', newSelection);
+    sessionStorage.setItem('bee_swarm_selected_channels', JSON.stringify(Array.from(newSelection)));
+  }
+  showDraftDropdown.value = false;
+  showToast('草稿已加载', 'success');
+}
+
+async function saveDraft() {
+  if (!props.token) return;
+  if (!pushTitle.value.trim()) {
+    showToast(t('error.required', { field: t('label.title') }), 'error');
+    return;
+  }
+  try {
+    const channels = props.selectedChannels.size > 0 ? Array.from(props.selectedChannels) : [];
+    const { createDraft, updateDraft } = await import('@/api');
+    if (currentDraftId.value) {
+      await updateDraft(props.token, currentDraftId.value, {
+        title: pushTitle.value.trim(),
+        body: pushBody.value.trim(),
+        url: pushUrl.value.trim(),
+        channels,
+      });
+      showToast('草稿已更新', 'success');
+    } else {
+      const result = await createDraft(props.token, {
+        title: pushTitle.value.trim(),
+        body: pushBody.value.trim(),
+        url: pushUrl.value.trim(),
+        channels,
+      });
+      currentDraftId.value = result.draft.id;
+      showToast('草稿已保存', 'success');
+    }
+    await loadDrafts();
+  } catch {
+    showToast('保存草稿失败', 'error');
+  }
+}
+
+async function deleteDraft(id: string) {
+  if (!props.token) return;
+  try {
+    const { deleteDraft: apiDeleteDraft } = await import('@/api');
+    await apiDeleteDraft(props.token, id);
+    if (currentDraftId.value === id) {
+      currentDraftId.value = null;
+    }
+    showToast('草稿已删除', 'success');
+    await loadDrafts();
+  } catch {
+    showToast('删除草稿失败', 'error');
+  }
+}
+
+// 预览渠道效果
+const showPreviewModal = ref(false);
+const previewChannels = computed(() => {
+  return Array.from(props.selectedChannels);
+});
+
+function openPreviewModal() {
+  showPreviewModal.value = true;
+}
+
+function getChannelPreview(channel: PushChannel): { icon: string; name: string; desc: string } {
+  const previews: Record<string, { icon: string; name: string; desc: string }> = {
+    wework: { icon: '💬', name: '企业微信', desc: '企业微信群机器人消息卡片' },
+    dingtalk: { icon: '🔔', name: '钉钉', desc: '钉钉群机器人 Markdown 消息' },
+    feishu: { icon: '🦢', name: '飞书', desc: '飞书群机器人富文本卡片' },
+    telegram: { icon: '✈️', name: 'Telegram', desc: 'Telegram Bot 消息' },
+    bark: { icon: '📱', name: 'Bark', desc: 'iOS Bark 推送通知' },
+    ntfy: { icon: '📣', name: 'ntfy', desc: 'ntfy 推送通知' },
+    email: { icon: '📧', name: '邮件', desc: 'HTML 格式邮件' },
+    slack: { icon: '💼', name: 'Slack', desc: 'Slack 频道消息' },
+    discord: { icon: '🎮', name: 'Discord', desc: 'Discord Webhook 消息' },
+    webhook: { icon: '🔗', name: 'Webhook', desc: '自定义 Webhook POST 请求' },
+    pushplus: { icon: '📦', name: 'PushPlus', desc: 'PushPlus 推送通知' },
+    serverchan: { icon: '🍵', name: 'Server酱', desc: 'Server酱推送通知' },
+    gotify: { icon: '🔔', name: 'Gotify', desc: 'Gotify 推送通知' },
+    line: { icon: '🟢', name: 'LINE Notify', desc: 'LINE Notify 推送通知' },
+    teams: { icon: '🏢', name: 'Microsoft Teams', desc: 'Teams Webhook 消息' },
+    pushover: { icon: '🔔', name: 'Pushover', desc: 'Pushover 推送通知' },
+  };
+  return previews[channel] || { icon: '📱', name: channel, desc: '推送通知' };
+}
 </script>
 
 <template>
@@ -97,26 +217,9 @@ function doPush() {
       <div class="panel-header">
         <h2>📤 {{ t('label.push_notification') }}</h2>
         <div class="panel-actions">
-          <button class="btn btn-sm btn-secondary" @click="showPreview = !showPreview">
+          <button class="btn btn-sm btn-secondary" @click="openPreviewModal">
             👁️ {{ t('button.preview') }}
           </button>
-        </div>
-      </div>
-
-      <!-- 消息预览面板 -->
-      <div v-if="showPreview" class="preview-panel">
-        <div class="preview-title">
-          {{ pushTitle || t('label.title_placeholder') }}
-        </div>
-        <div v-if="pushBody" class="preview-body">
-          {{ pushBody }}
-        </div>
-        <div v-if="pushUrl" class="preview-url">🔗 {{ pushUrl }}</div>
-        <div v-if="selectedChannels.size > 0" class="preview-channels">
-          <span class="label">{{ t('label.selected_channels') }}: </span>
-          <span v-for="ch in Array.from(selectedChannels)" :key="ch" class="preview-channel">
-            {{ t(`channel.${ch}`) }}
-          </span>
         </div>
       </div>
 
@@ -150,12 +253,80 @@ function doPush() {
         <input v-model="pushUrl" type="url" placeholder="https://example.com" />
       </div>
 
-      <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
-        🚀 {{ t('button.push_async') }}
-      </button>
-      <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">
-        {{ t('button.refresh_channels') }}
-      </button>
+      <div class="button-row">
+        <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
+          🚀 {{ t('button.push_async') }}
+        </button>
+        <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">
+          {{ t('button.refresh_channels') }}
+        </button>
+        <button class="btn btn-secondary btn-fixed" @click="saveDraft">
+          💾 {{ currentDraftId ? '更新草稿' : '保存草稿' }}
+        </button>
+      </div>
+
+      <!-- 草稿箱 -->
+      <div class="draft-section">
+        <div class="draft-header" @click="loadDrafts">
+          <span>📋 草稿箱</span>
+          <span v-if="drafts.length > 0" class="draft-count">({{ drafts.length }})</span>
+          <span class="draft-arrow" :class="{ open: showDraftDropdown }">▼</span>
+        </div>
+        <div v-if="showDraftDropdown" class="draft-dropdown">
+          <div v-if="drafts.length === 0" class="draft-empty">暂无草稿</div>
+          <div
+            v-for="draft in drafts"
+            :key="draft.id"
+            class="draft-item"
+            :class="{ active: currentDraftId === draft.id }"
+          >
+            <div class="draft-info" @click="loadDraft(draft)">
+              <div class="draft-title">{{ draft.title || '无标题' }}</div>
+              <div class="draft-time">{{ new Date(draft.updatedAt).toLocaleString() }}</div>
+            </div>
+            <button class="draft-delete" @click.stop="deleteDraft(draft.id)">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div v-if="showPreviewModal" class="modal-overlay" @click.self="showPreviewModal = false">
+      <div class="modal-content preview-modal">
+        <div class="modal-header">
+          <h3>👁️ 消息预览</h3>
+          <button class="modal-close" @click="showPreviewModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="previewChannels.length === 0" class="preview-empty">请先选择推送渠道</div>
+          <div v-else class="preview-grid">
+            <div v-for="channel in previewChannels" :key="channel" class="preview-card">
+              <div class="preview-card-header">
+                <span class="preview-icon">{{ getChannelPreview(channel).icon }}</span>
+                <span class="preview-name">{{ getChannelPreview(channel).name }}</span>
+              </div>
+              <div class="preview-card-desc">{{ getChannelPreview(channel).desc }}</div>
+              <div class="preview-card-body">
+                <div class="preview-field">
+                  <span class="preview-label">标题:</span>
+                  <span class="preview-value">{{ pushTitle || '（无标题）' }}</span>
+                </div>
+                <div v-if="pushBody" class="preview-field">
+                  <span class="preview-label">内容:</span>
+                  <span class="preview-value">{{ pushBody }}</span>
+                </div>
+                <div v-if="pushUrl" class="preview-field">
+                  <span class="preview-label">链接:</span>
+                  <span class="preview-value preview-url">{{ pushUrl }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showPreviewModal = false">关闭</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -257,56 +428,6 @@ function doPush() {
   font-size: 13px;
   min-width: auto;
   width: auto;
-}
-
-.preview-panel {
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.preview-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
-  margin-bottom: 8px;
-}
-
-.preview-body {
-  font-size: 14px;
-  color: var(--text-secondary, #666);
-  margin-bottom: 8px;
-  line-height: 1.5;
-}
-
-.preview-url {
-  font-size: 13px;
-  color: #667eea;
-  margin-bottom: 8px;
-  word-break: break-all;
-}
-
-.preview-channels {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color, #e0e0e0);
-}
-
-.preview-channels .label {
-  font-size: 12px;
-  color: var(--text-secondary, #999);
-}
-
-.preview-channel {
-  display: inline-block;
-  background: #667eea;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  margin-right: 4px;
-  margin-bottom: 4px;
 }
 
 .panel h2 {
@@ -417,6 +538,12 @@ function doPush() {
   overflow: hidden;
 }
 
+.button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .btn {
   padding: 12px 24px;
   border: none;
@@ -445,7 +572,6 @@ function doPush() {
 .btn-secondary {
   background: var(--bg-secondary, #f0f0f0);
   color: var(--text-primary, #333);
-  margin-left: 8px;
 }
 
 .btn-secondary:hover {
@@ -453,12 +579,253 @@ function doPush() {
 }
 
 .btn-fixed {
-  min-width: 180px;
-  width: 180px;
+  min-width: 140px;
   box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 草稿箱 */
+.draft-section {
+  margin-top: 16px;
+  border-top: 1px solid var(--border-color, #f0f0f0);
+  padding-top: 12px;
+}
+
+.draft-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  user-select: none;
+}
+
+.draft-count {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  font-weight: 400;
+}
+
+.draft-arrow {
+  font-size: 10px;
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+
+.draft-arrow.open {
+  transform: rotate(180deg);
+}
+
+.draft-dropdown {
+  margin-top: 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.draft-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+}
+
+.draft-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  transition: background 0.2s;
+}
+
+.draft-item:last-child {
+  border-bottom: none;
+}
+
+.draft-item:hover {
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.draft-item.active {
+  background: #f0f0ff;
+}
+
+.draft-info {
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.draft-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draft-time {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  margin-top: 2px;
+}
+
+.draft-delete {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.draft-delete:hover {
+  color: #e74c3c;
+  background: #fff5f5;
+}
+
+/* 预览模态框 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: var(--bg-panel, white);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-secondary, #999);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #333);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color, #f0f0f0);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.preview-empty {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-secondary, #999);
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.preview-card {
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.preview-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.preview-icon {
+  font-size: 16px;
+}
+
+.preview-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.preview-card-desc {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 8px;
+}
+
+.preview-card-body {
+  background: var(--bg-panel, white);
+  border-radius: 6px;
+  padding: 10px;
+  border: 1px solid var(--border-color, #e8e8e8);
+}
+
+.preview-field {
+  margin-bottom: 6px;
+}
+
+.preview-field:last-child {
+  margin-bottom: 0;
+}
+
+.preview-label {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.preview-value {
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  word-break: break-all;
+}
+
+.preview-url {
+  color: #667eea;
 }
 
 .result-list {
@@ -511,6 +878,7 @@ function doPush() {
   .panel h3 {
     font-size: 14px;
     height: auto;
+    line-height: 1.4;
   }
 
   .channel-grid {
@@ -553,11 +921,23 @@ function doPush() {
     top: 32px;
   }
 
+  .button-row {
+    flex-direction: column;
+  }
+
   .btn-fixed {
     min-width: 140px;
-    width: 140px;
+    width: 100%;
     font-size: 13px;
     padding: 10px 16px;
+  }
+
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-content {
+    width: 95%;
   }
 }
 
@@ -576,7 +956,6 @@ function doPush() {
 
   .btn-fixed {
     min-width: 120px;
-    width: 120px;
     font-size: 12px;
     padding: 8px 12px;
   }

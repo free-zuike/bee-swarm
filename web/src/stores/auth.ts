@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { login, register, getToken, refreshToken } from '@/api';
+import { login, register, getToken, refreshToken, login2FA } from '@/api';
 import { t } from '@/i18n';
 
 export interface AuthState {
@@ -10,6 +10,8 @@ export interface AuthState {
   tokenExpiresAt: number;
   isAuthenticating: boolean;
   authError: string | null;
+  pending2FA: boolean;
+  pendingPassword: string;
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -19,6 +21,8 @@ export const useAuthStore = defineStore('auth', () => {
   const tokenExpiresAt = ref<number>(0);
   const isAuthenticating = ref<boolean>(false);
   const authError = ref<string | null>(null);
+  const pending2FA = ref<boolean>(false);
+  const pendingPassword = ref<string>('');
   const isAuthenticated = computed(() => !!accessToken.value && tokenExpiresAt.value > Date.now());
 
   const initAuth = () => {
@@ -60,7 +64,14 @@ export const useAuthStore = defineStore('auth', () => {
     authError.value = null;
 
     try {
-      await login(authEmail, authPassword, turnstileToken);
+      const result = await login(authEmail, authPassword, turnstileToken);
+      if (result.need2FA) {
+        // 需要 2FA 验证
+        pending2FA.value = true;
+        email.value = authEmail;
+        pendingPassword.value = authPassword;
+        return { need2FA: true } as { need2FA: true };
+      }
       const tokenData = await getToken(authEmail, authPassword);
       email.value = authEmail;
       accessToken.value = tokenData.token;
@@ -76,17 +87,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  const doLogin2FA = async (authEmail: string, authPassword: string, code: string) => {
+    isAuthenticating.value = true;
+    authError.value = null;
+
+    try {
+      await login2FA(authEmail, authPassword, code);
+      const tokenData = await getToken(authEmail, authPassword);
+      email.value = authEmail;
+      accessToken.value = tokenData.token;
+      refreshTokenValue.value = tokenData.refreshToken;
+      tokenExpiresAt.value = tokenData.expiresAt;
+      saveToStorage();
+      pending2FA.value = false;
+      pendingPassword.value = '';
+      return true;
+    } catch (error: unknown) {
+      authError.value = (error as { message?: string })?.message || '验证码无效';
+      return false;
+    } finally {
+      isAuthenticating.value = false;
+    }
+  };
+
   const doRegister = async (authEmail: string, authPassword: string, turnstileToken?: string) => {
     isAuthenticating.value = true;
     authError.value = null;
 
     try {
       const result = await register(authEmail, authPassword, turnstileToken);
-      // 如果需要验证邮箱，返回 needVerification 状态
       if (result.needVerification) {
         return { success: true, needVerification: true, email: authEmail };
       }
-      // 不需要验证，直接登录
       const loginSuccess = await doLogin(authEmail, authPassword, turnstileToken);
       return { success: loginSuccess, needVerification: false };
     } catch (error: unknown) {
@@ -118,6 +150,8 @@ export const useAuthStore = defineStore('auth', () => {
     refreshTokenValue.value = '';
     tokenExpiresAt.value = 0;
     authError.value = null;
+    pending2FA.value = false;
+    pendingPassword.value = '';
     clearStorage();
   };
 
@@ -129,8 +163,11 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAuthenticating,
     authError,
+    pending2FA,
+    pendingPassword,
     initAuth,
     doLogin,
+    doLogin2FA,
     doRegister,
     doRefreshToken,
     logout,

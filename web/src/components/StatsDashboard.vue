@@ -29,6 +29,31 @@
       <div v-else class="stats-content">
         <PerformanceMetricsChart :metrics="performanceMetrics" />
 
+        <div v-if="stats.comparison" class="comparison-card" :class="stats.comparison.direction">
+          <div class="comparison-header">
+            <span class="comparison-title">{{ t('label.period_comparison') || '环比对比' }}</span>
+          </div>
+          <div class="comparison-body">
+            <div class="comparison-item">
+              <span class="comparison-label">{{ t('label.current_period') || '当前周期' }}</span>
+              <span class="comparison-value">{{ stats.comparison.currentPeriodRate }}%</span>
+            </div>
+            <div class="comparison-item">
+              <span class="comparison-label">{{ t('label.previous_period') || '上一周期' }}</span>
+              <span class="comparison-value">{{ stats.comparison.prevPeriodRate }}%</span>
+            </div>
+            <div class="comparison-item change">
+              <span class="comparison-label">{{ t('label.change') || '变化' }}</span>
+              <span class="comparison-value" :class="stats.comparison.direction">
+                {{ stats.comparison.change > 0 ? '+' : '' }}{{ stats.comparison.change }}%
+                <span v-if="stats.comparison.direction === 'up'" class="trend-arrow">↑</span>
+                <span v-else-if="stats.comparison.direction === 'down'" class="trend-arrow">↓</span>
+                <span v-else class="trend-arrow">→</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div class="charts-row">
           <div class="section chart-section">
             <h3>{{ t('dashboard.recentActivity') }}</h3>
@@ -132,7 +157,21 @@ const timeRange = ref('30');
 const stats = ref({
   session: { total: 0, success: 0, failed: 0 },
   trend: { rate: 0, direction: 'stable' as 'up' | 'down' | 'stable' },
-  recent: [] as Array<{ date: string; pushes: number; success: number; failed: number }>,
+  recent: [] as Array<{
+    date: string;
+    pushes: number;
+    success: number;
+    failed: number;
+    successRate?: number;
+  }>,
+  comparison: undefined as
+    | undefined
+    | {
+        prevPeriodRate: number;
+        currentPeriodRate: number;
+        change: number;
+        direction: 'up' | 'down' | 'stable';
+      },
   channelUsage: {} as Record<
     string,
     { count: number; success: number; failed: number; avgLatency: number }
@@ -240,6 +279,7 @@ async function loadData() {
         session: response.data.session || { total: 0, success: 0, failed: 0 },
         trend: response.data.trend || { rate: 0, direction: 'stable' },
         recent: response.data.recent || [],
+        comparison: response.data.comparison,
         channelUsage: response.data.channelUsage || {},
       };
     }
@@ -513,6 +553,74 @@ watch(
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.comparison-card {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-top: 24px;
+  border-left: 4px solid #667eea;
+  transition: all 0.3s;
+}
+
+.comparison-card.up {
+  border-left-color: #52c41a;
+}
+
+.comparison-card.down {
+  border-left-color: #ff4d4f;
+}
+
+.comparison-header {
+  margin-bottom: 12px;
+}
+
+.comparison-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.comparison-body {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.comparison-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comparison-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.comparison-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.comparison-value.up {
+  color: #52c41a;
+}
+
+.comparison-value.down {
+  color: #ff4d4f;
+}
+
+.comparison-value.stable {
+  color: #faad14;
+}
+
+.trend-arrow {
+  font-size: 14px;
+  margin-left: 2px;
 }
 
 @media (max-width: 768px) {

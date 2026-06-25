@@ -12,17 +12,19 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   login: [email: string, password: string, turnstileToken?: string];
+  'login-2fa': [email: string, password: string, code: string];
   register: [email: string, password: string, turnstileToken?: string];
 }>();
 
-const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset' | 'verifyEmail'>(
-  'login'
-);
+const authMode = ref<
+  'login' | 'register' | 'forgot' | 'enterToken' | 'reset' | 'verifyEmail' | 'verify2FA'
+>('login');
 const authEmail = ref('');
 const authPassword = ref('');
 const authConfirmPassword = ref('');
 const resetToken = ref('');
 const verificationCode = ref('');
+const totpCode = ref('');
 const localError = ref('');
 const isProcessing = ref(false);
 const resetEmail = ref('');
@@ -144,6 +146,15 @@ function doLogin() {
   }
 
   emit('login', authEmail.value.trim(), authPassword.value, turnstileToken.value);
+}
+
+function doVerify2FA() {
+  localError.value = '';
+  if (!totpCode.value || totpCode.value.length !== 6) {
+    localError.value = '请输入6位验证码';
+    return;
+  }
+  emit('login-2fa', authEmail.value.trim(), authPassword.value, totpCode.value);
 }
 
 async function doRegister() {
@@ -368,6 +379,33 @@ const displayError = computed(() => props.authError || localError.value);
         </button>
         <button type="button" class="forgot-password-btn" @click="switchMode('forgot')">
           {{ t('button.forgot_password') }}
+        </button>
+      </form>
+
+      <form v-else-if="authMode === 'verify2FA'" @submit.prevent="doVerify2FA">
+        <div class="forgot-hint" style="margin-bottom: 12px">请输入认证应用中的6位验证码</div>
+        <input
+          v-model="totpCode"
+          type="text"
+          placeholder="6位验证码"
+          maxlength="6"
+          autocomplete="one-time-code"
+          style="text-align: center; font-size: 18px; letter-spacing: 6px; font-family: monospace"
+          @keydown.enter="doVerify2FA"
+        />
+        <div v-if="displayError" class="login-error">{{ displayError }}</div>
+        <button class="btn btn-primary" type="submit" :disabled="isAuthing">
+          {{ isAuthing ? t('label.logging_in') : '验证' }}
+        </button>
+        <button
+          type="button"
+          class="forgot-password-btn"
+          @click="
+            authMode = 'login';
+            totpCode = '';
+          "
+        >
+          {{ t('button.back_to_login') }}
         </button>
       </form>
 

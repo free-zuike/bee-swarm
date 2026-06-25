@@ -176,7 +176,7 @@ export async function login(
   email: string,
   password: string,
   turnstileToken?: string
-): Promise<{ success: boolean; message: string; email: string }> {
+): Promise<{ success: boolean; message: string; email: string; need2FA?: boolean }> {
   const body: { email: string; password: string; turnstileToken?: string } = { email, password };
   if (turnstileToken) body.turnstileToken = turnstileToken;
   return request(`${BASE}/login`, {
@@ -1108,6 +1108,36 @@ export async function saveCacheSettings(
   return result;
 }
 
+// ============================================
+// IP 白名单管理
+// ============================================
+
+export async function getAllowedIPs(token: string): Promise<{ success: boolean; ips: string[] }> {
+  return tokenRequest(`${BASE}/admin/me/allowed-ips`, token);
+}
+
+export async function addAllowedIP(
+  token: string,
+  ip: string
+): Promise<{ success: boolean; ips: string[]; message: string }> {
+  return tokenRequest(`${BASE}/admin/me/allowed-ips`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip }),
+  });
+}
+
+export async function removeAllowedIP(
+  token: string,
+  ip: string
+): Promise<{ success: boolean; ips: string[]; message: string }> {
+  return tokenRequest(`${BASE}/admin/me/allowed-ips`, token, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip }),
+  });
+}
+
 export interface AITool {
   id: string;
   name: string;
@@ -1239,6 +1269,24 @@ export async function getCurrentUser(
   token: string
 ): Promise<UserInfo & { avatar_url?: string; use_avatar_as_popup?: number }> {
   return tokenRequest(`${BASE}/admin/me`, token);
+}
+
+// ============================================
+// 系统健康监控
+// ============================================
+
+export interface SystemHealth {
+  database: { status: string; message: string };
+  lastCronRun: string | null;
+  activeUsers: number;
+  recentPushCount: number;
+  queueStatus: { available: boolean; message: string };
+}
+
+export async function getSystemHealth(
+  token: string
+): Promise<{ success: boolean; health: SystemHealth }> {
+  return tokenRequest(`${BASE}/admin/system/health`, token);
 }
 
 // 检查头像存储服务状态
@@ -1375,6 +1423,130 @@ export async function deleteUser(
 }
 
 export { apiCache };
+
+// -------------------------------------------
+// 推送草稿箱接口
+// -------------------------------------------
+
+export interface PushDraft {
+  id: string;
+  title: string;
+  body: string;
+  url: string;
+  channels: PushChannel[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 获取草稿列表
+export async function getDrafts(token: string): Promise<{ drafts: PushDraft[] }> {
+  return tokenRequest(`${BASE}/admin/drafts`, token);
+}
+
+// 创建草稿
+export async function createDraft(
+  token: string,
+  draft: { title: string; body?: string; url?: string; channels?: PushChannel[] }
+): Promise<{ success: boolean; draft: PushDraft }> {
+  const result = await tokenRequest<{ success: boolean; draft: PushDraft }>(
+    `${BASE}/admin/drafts`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    }
+  );
+  return result;
+}
+
+// 更新草稿
+export async function updateDraft(
+  token: string,
+  id: string,
+  draft: { title?: string; body?: string; url?: string; channels?: PushChannel[] }
+): Promise<{ success: boolean; draft: PushDraft }> {
+  const result = await tokenRequest<{ success: boolean; draft: PushDraft }>(
+    `${BASE}/admin/drafts/${id}`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    }
+  );
+  return result;
+}
+
+// 删除草稿
+export async function deleteDraft(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/drafts/${id}`,
+    token,
+    { method: 'DELETE' }
+  );
+  return result;
+}
+
+// -------------------------------------------
+// 双因素认证 (2FA) 接口
+// -------------------------------------------
+
+// 获取 2FA 状态
+export async function get2FAStatus(
+  token: string
+): Promise<{ enabled: boolean; hasSecret: boolean }> {
+  return tokenRequest(`${BASE}/admin/2fa/status`, token);
+}
+
+// 设置 2FA（生成 secret）
+export async function setup2FA(
+  token: string
+): Promise<{ success: boolean; secret: string; qrCode: string; otpauthUrl: string }> {
+  return tokenRequest(`${BASE}/admin/2fa/setup`, token, {
+    method: 'POST',
+  });
+}
+
+// 验证并启用 2FA
+export async function verify2FASetup(
+  token: string,
+  code: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/2fa/verify-setup`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+}
+
+// 禁用 2FA
+export async function disable2FA(
+  token: string,
+  code: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/2fa/disable`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+}
+
+// 登录时 2FA 验证
+export async function login2FA(
+  email: string,
+  password: string,
+  code: string
+): Promise<{ success: boolean; message: string; email: string }> {
+  return request(`${BASE}/login/2fa`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, code }),
+  });
+}
 
 // -------------------------------------------
 // 审计日志接口（管理员专用）

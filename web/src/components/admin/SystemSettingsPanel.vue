@@ -196,9 +196,7 @@ onMounted(() => {
             class="cors-item"
           >
             <span>{{ origin }}</span>
-            <button class="btn btn-sm btn-danger" @click="removeCORSOrigin(index)">
-              ×
-            </button>
+            <button class="btn btn-sm btn-danger" @click="removeCORSOrigin(index)">×</button>
           </div>
           <div v-if="systemSettings.cors_allowed_origins?.length === 0" class="empty-state">
             {{ t('msg.no_cors_origins') }}
@@ -243,11 +241,7 @@ onMounted(() => {
 
       <div class="setting-item">
         <label>{{ t('smtp.username') }}</label>
-        <input
-          v-model="systemSettings.smtp_username"
-          type="text"
-          placeholder="your-email@qq.com"
-        />
+        <input v-model="systemSettings.smtp_username" type="text" placeholder="your-email@qq.com" />
       </div>
 
       <div class="setting-item">

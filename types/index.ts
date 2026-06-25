@@ -454,7 +454,19 @@ export interface PushStats {
     pushes: number;
     success: number;
     failed: number;
+    successRate?: number;
   }>;
+  /** 同比环比数据 */
+  comparison?: {
+    /** 上一周期成功率 */
+    prevPeriodRate: number;
+    /** 当前周期成功率 */
+    currentPeriodRate: number;
+    /** 环比变化（百分点） */
+    change: number;
+    /** 环比方向 */
+    direction: 'up' | 'down' | 'stable';
+  };
   /** 渠道使用统计 */
   channelUsage?: Record<
     string,

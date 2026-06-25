@@ -67,6 +67,8 @@ export interface User {
   email_verified?: number;
   verification_code?: string | null;
   verification_expires_at?: number | null;
+  totp_secret?: string | null;
+  totp_enabled?: number;
 }
 
 export interface CacheSettings {
@@ -568,6 +570,47 @@ export class UserService {
 
     await this.saveCacheSettings(userId, cacheSettings);
     await this.saveAISettings(userId, aiSettings);
+  }
+
+  // ============================================
+  // IP 白名单管理
+  // ============================================
+
+  async getAllowedIPs(userId: string): Promise<string[]> {
+    this.checkDB();
+    const result = await this.env.DB.prepare('SELECT allowed_ips FROM users WHERE id = ?')
+      .bind(userId)
+      .first<{ allowed_ips: string | null }>();
+    if (!result || !result.allowed_ips) return [];
+    try {
+      return JSON.parse(result.allowed_ips) as string[];
+    } catch {
+      return [];
+    }
+  }
+
+  async setAllowedIPs(userId: string, ips: string[]): Promise<void> {
+    this.checkDB();
+    const now = new Date().toISOString();
+    await this.env.DB.prepare('UPDATE users SET allowed_ips = ?, updated_at = ? WHERE id = ?')
+      .bind(JSON.stringify(ips), now, userId)
+      .run();
+  }
+
+  async addAllowedIP(userId: string, ip: string): Promise<string[]> {
+    const current = await this.getAllowedIPs(userId);
+    if (!current.includes(ip)) {
+      current.push(ip);
+      await this.setAllowedIPs(userId, current);
+    }
+    return current;
+  }
+
+  async removeAllowedIP(userId: string, ip: string): Promise<string[]> {
+    const current = await this.getAllowedIPs(userId);
+    const updated = current.filter((i) => i !== ip);
+    await this.setAllowedIPs(userId, updated);
+    return updated;
   }
 
   async deleteUser(id: string): Promise<boolean> {

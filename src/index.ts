@@ -271,6 +271,10 @@ export default {
       // 自动清理过期数据（每小时执行一次）
       const systemSettings = new SystemSettingsService(env);
       await systemSettings.ensureTable();
+
+      // 记录 cron 执行时间
+      await systemSettings.setSetting('last_cron_execution', new Date().toISOString());
+
       const cleanupConfig = await systemSettings.getCleanupConfig();
 
       if (cleanupConfig.enabled) {

@@ -53,6 +53,9 @@ import AISettingsPanel from '@/components/admin/AISettingsPanel.vue';
 import AvatarSettings from '@/components/admin/AvatarSettings.vue';
 import SystemSettingsPanel from '@/components/admin/SystemSettingsPanel.vue';
 import DatabaseManager from '@/components/admin/DatabaseManager.vue';
+import TwoFactorSettings from '@/components/admin/TwoFactorSettings.vue';
+import AllowedIPsPanel from '@/components/admin/AllowedIPsPanel.vue';
+import SystemHealthPanel from '@/components/admin/SystemHealthPanel.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -158,8 +161,11 @@ const settingsMenu = [
   { id: 'avatar', icon: '🖼️', label: 'label.avatar_settings' },
   { id: 'backup', icon: '💾', label: 'label.backup_settings' },
   { id: 'channels', icon: '📡', label: 'label.channel_settings' },
+  { id: '2fa', icon: '🔐', label: 'label.2fa_settings' },
+  { id: 'ipWhitelist', icon: '🌐', label: 'label.ip_whitelist' },
   { id: 'database', icon: '🗃️', label: 'label.database_management', permission: 'users:manage' },
   { id: 'system', icon: '⚙️', label: 'label.system_settings', permission: 'users:manage' },
+  { id: 'health', icon: '🩺', label: 'label.system_health', permission: 'users:manage' },
   { id: 'users', icon: '👥', label: 'tab.users', permission: 'users:manage' },
   { id: 'audit', icon: '📋', label: 'tab.audit', permission: 'users:manage' },
 ];
@@ -311,8 +317,6 @@ async function copyApiKey() {
   }
 }
 
-
-
 // ==================== 历史记录加载 ====================
 const historyFilters = reactive({
   channel: '' as string,
@@ -394,11 +398,7 @@ onMounted(async () => {
       const refreshSuccess = await authStore.doRefreshToken();
       if (refreshSuccess) {
         // 并行加载独立数据
-        await Promise.all([
-          loadCurrentUser(accessToken.value),
-          loadHistory(),
-          loadUserSettings(),
-        ]);
+        await Promise.all([loadCurrentUser(accessToken.value), loadHistory(), loadUserSettings()]);
         await loadChannels();
         pageState.value = 'dashboard';
         return;
@@ -449,14 +449,29 @@ watch(activeTab, (newTab, oldTab) => {
   }
 });
 
-
-
 // ==================== 认证函数 ====================
 async function doLogin(authEmail: string, authPassword: string, turnstileToken?: string) {
-  const success = await authStore.doLogin(authEmail, authPassword, turnstileToken);
-  if (success) {
+  const result = await authStore.doLogin(authEmail, authPassword, turnstileToken);
+  if (result && typeof result === 'object' && result.need2FA) {
+    // 需要 2FA，切换到验证模式
+    return;
+  }
+  if (result) {
     try {
       // 并行加载独立数据
+      await Promise.all([loadCurrentUser(accessToken.value), loadHistory()]);
+      await loadChannels();
+    } catch {
+      // 数据加载失败不影响登录
+    }
+    pageState.value = 'dashboard';
+  }
+}
+
+async function doLogin2FA(authEmail: string, authPassword: string, code: string) {
+  const success = await authStore.doLogin2FA(authEmail, authPassword, code);
+  if (success) {
+    try {
       await Promise.all([loadCurrentUser(accessToken.value), loadHistory()]);
       await loadChannels();
     } catch {
@@ -702,6 +717,7 @@ function handleResend(record: PushHistoryRecord) {
     :is-authing="isAuthing"
     :auth-error="authError"
     @login="doLogin"
+    @login-2fa="doLogin2FA"
     @register="doRegister"
   />
 
@@ -812,9 +828,7 @@ function handleResend(record: PushHistoryRecord) {
               v-show="!item.permission || hasPermission(item.permission)"
               class="settings-menu-item"
               :class="{ active: activeSettingsTab === item.id, dark: isDark }"
-              @click="
-                activeSettingsTab = item.id;
-              "
+              @click="activeSettingsTab = item.id"
             >
               <span class="menu-icon">{{ item.icon }}</span>
               <span class="menu-label">{{ t(item.label) }}</span>
@@ -1016,12 +1030,27 @@ function handleResend(record: PushHistoryRecord) {
             @toggle-enabled="handleToggleChannelEnabled"
           />
 
+          <!-- 双因素认证 -->
+          <TwoFactorSettings v-else-if="activeSettingsTab === '2fa'" :token="accessToken" />
+
+          <!-- IP 白名单 -->
+          <AllowedIPsPanel
+            v-else-if="activeSettingsTab === 'ipWhitelist'"
+            :access-token="accessToken"
+          />
+
           <!-- 系统设置 -->
           <SystemSettingsPanel
             v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')"
             ref="systemSettingsPanelRef"
             :access-token="accessToken"
             @update="systemCleanupSettings = $event"
+          />
+
+          <!-- 系统健康监控 -->
+          <SystemHealthPanel
+            v-else-if="activeSettingsTab === 'health' && hasPermission('users:manage')"
+            :access-token="accessToken"
           />
 
           <!-- 用户管理 -->
@@ -1116,6 +1145,7 @@ function handleResend(record: PushHistoryRecord) {
           :is-pushing="isPushing"
           :push-results="pushResults"
           :last-push-time="lastPushTime"
+          :token="accessToken"
           @push="handlePush"
           @refresh="loadChannels"
         />

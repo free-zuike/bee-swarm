@@ -48,7 +48,7 @@ watch(
       loadUserAvatar();
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 function closeAvatarModal() {
@@ -204,12 +204,7 @@ defineExpose({
           <!-- 悬浮窗设置 -->
           <div class="form-group">
             <label class="checkbox-label">
-              <input
-                v-model="useAvatarAsPopup"
-                type="checkbox"
-                :true-value="1"
-                :false-value="0"
-              />
+              <input v-model="useAvatarAsPopup" type="checkbox" :true-value="1" :false-value="0" />
               <span>{{ t('label.use_avatar_as_popup') }}</span>
             </label>
           </div>
@@ -286,12 +281,7 @@ defineExpose({
       <!-- 悬浮窗设置 -->
       <div class="form-group">
         <label class="checkbox-label">
-          <input
-            v-model="useAvatarAsPopup"
-            type="checkbox"
-            :true-value="1"
-            :false-value="0"
-          />
+          <input v-model="useAvatarAsPopup" type="checkbox" :true-value="1" :false-value="0" />
           <span>{{ t('label.use_avatar_as_popup') }}</span>
         </label>
       </div>

@@ -886,6 +886,174 @@ export class PushService {
     return await this.getScheduledPushById(id);
   }
 
+  // ============================================
+  // 推送草稿箱
+  // ============================================
+
+  async saveDraft(draft: {
+    title: string;
+    body?: string;
+    url?: string;
+    channels?: PushChannel[];
+  }): Promise<{
+    id: string;
+    title: string;
+    body: string;
+    url: string;
+    channels: PushChannel[];
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    if (!this.env.DB) throw new Error('D1 数据库未配置');
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await this.env.DB.prepare(
+      `INSERT INTO push_drafts (id, user_id, title, body, url, channels, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        id,
+        this.userId,
+        draft.title,
+        draft.body || '',
+        draft.url || null,
+        draft.channels ? JSON.stringify(draft.channels) : '[]',
+        now,
+        now
+      )
+      .run();
+
+    return {
+      id,
+      title: draft.title,
+      body: draft.body || '',
+      url: draft.url || '',
+      channels: draft.channels || [],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async getDrafts(): Promise<
+    Array<{
+      id: string;
+      title: string;
+      body: string;
+      url: string;
+      channels: PushChannel[];
+      createdAt: string;
+      updatedAt: string;
+    }>
+  > {
+    if (!this.env.DB) return [];
+
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM push_drafts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50'
+    )
+      .bind(this.userId)
+      .all<{
+        id: string;
+        title: string;
+        body: string;
+        url: string;
+        channels: string;
+        created_at: string;
+        updated_at: string;
+      }>();
+
+    return (result.results || []).map((row) => ({
+      id: row.id,
+      title: row.title,
+      body: row.body || '',
+      url: row.url || '',
+      channels: row.channels ? JSON.parse(row.channels) : [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async updateDraft(
+    id: string,
+    draft: { title?: string; body?: string; url?: string; channels?: PushChannel[] }
+  ): Promise<{
+    id: string;
+    title: string;
+    body: string;
+    url: string;
+    channels: PushChannel[];
+    createdAt: string;
+    updatedAt: string;
+  } | null> {
+    if (!this.env.DB) return null;
+
+    const now = new Date().toISOString();
+    const fields: string[] = ['updated_at = ?'];
+    const values: (string | number | null)[] = [now];
+
+    if (draft.title !== undefined) {
+      fields.push('title = ?');
+      values.push(draft.title);
+    }
+    if (draft.body !== undefined) {
+      fields.push('body = ?');
+      values.push(draft.body);
+    }
+    if (draft.url !== undefined) {
+      fields.push('url = ?');
+      values.push(draft.url || null);
+    }
+    if (draft.channels !== undefined) {
+      fields.push('channels = ?');
+      values.push(JSON.stringify(draft.channels));
+    }
+
+    values.push(id, this.userId);
+
+    await this.env.DB.prepare(
+      `UPDATE push_drafts SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM push_drafts WHERE id = ? AND user_id = ?'
+    )
+      .bind(id, this.userId)
+      .first<{
+        id: string;
+        title: string;
+        body: string;
+        url: string;
+        channels: string;
+        created_at: string;
+        updated_at: string;
+      }>();
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      title: result.title,
+      body: result.body || '',
+      url: result.url || '',
+      channels: result.channels ? JSON.parse(result.channels) : [],
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  async deleteDraft(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+
+    const result = await this.env.DB.prepare('DELETE FROM push_drafts WHERE id = ? AND user_id = ?')
+      .bind(id, this.userId)
+      .run();
+
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
   getMetrics(): MetricsCollector {
     return this.metrics;
   }
@@ -893,7 +1061,19 @@ export class PushService {
   async getPushStats(days: number = 7): Promise<{
     session: { total: number; success: number; failed: number };
     trend: { rate: number; direction: 'up' | 'down' | 'stable' };
-    recent: Array<{ date: string; pushes: number; success: number; failed: number }>;
+    recent: Array<{
+      date: string;
+      pushes: number;
+      success: number;
+      failed: number;
+      successRate?: number;
+    }>;
+    comparison?: {
+      prevPeriodRate: number;
+      currentPeriodRate: number;
+      change: number;
+      direction: 'up' | 'down' | 'stable';
+    };
   }> {
     // 从数据库查询实际推送数据
     const since = new Date();
@@ -944,6 +1124,11 @@ export class PushService {
         failed: number;
       }>();
 
+    const dailyData = (dailyResult.results || []).reverse().map((d) => ({
+      ...d,
+      successRate: d.pushes > 0 ? Math.round((d.success / d.pushes) * 100) : 0,
+    }));
+
     // 计算趋势（最近 vs 之前）
     const halfDays = Math.max(1, Math.floor(days / 2));
     const recentHalf = await this.env.DB.prepare(
@@ -964,13 +1149,37 @@ export class PushService {
     const olderRate = olderHalf?.total ? ((olderHalf.success || 0) / olderHalf.total) * 100 : 0;
     const rateDiff = recentRate - olderRate;
 
+    // 环比对比：当前周期 vs 上一周期
+    const prevSince = new Date(since);
+    prevSince.setDate(prevSince.getDate() - days);
+    const prevSinceStr = prevSince.toISOString();
+
+    const prevPeriodResult = await this.env.DB.prepare(
+      `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
+       FROM push_history WHERE user_id = ? AND created_at >= ? AND created_at < ?`
+    )
+      .bind(this.userId, prevSinceStr, sinceStr)
+      .first<{ total: number; success: number }>();
+
+    const prevPeriodRate = prevPeriodResult?.total
+      ? Math.round(((prevPeriodResult.success || 0) / prevPeriodResult.total) * 100)
+      : 0;
+    const currentPeriodRate = total > 0 ? Math.round((success / total) * 100) : 0;
+    const comparisonChange = currentPeriodRate - prevPeriodRate;
+
     return {
       session: { total, success, failed },
       trend: {
         rate: total > 0 ? (success / total) * 100 : 0,
         direction: rateDiff > 5 ? 'up' : rateDiff < -5 ? 'down' : 'stable',
       },
-      recent: (dailyResult.results || []).reverse(),
+      recent: dailyData,
+      comparison: {
+        prevPeriodRate,
+        currentPeriodRate,
+        change: comparisonChange,
+        direction: comparisonChange > 2 ? 'up' : comparisonChange < -2 ? 'down' : 'stable',
+      },
     };
   }
 

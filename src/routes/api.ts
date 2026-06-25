@@ -39,6 +39,7 @@ import {
   generateWelcomeEmail,
   generateVerificationEmail,
 } from '../services/emailService';
+import { generateTOTPSecret, verifyTOTP, generateQRCodeDataURL } from '../utils/totp';
 import {
   cleanupExpiredData,
   getDatabaseStats,
@@ -355,12 +356,67 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   // 登录成功，清除失败计数
   clearLoginFailure(email, loginIP);
 
+  // 检查是否启用了 2FA
+  if (user.totp_enabled) {
+    return c.json({ success: true, need2FA: true, message: '需要验证码', email });
+  }
+
   // 记录登录日志
   try {
     const auditLogger = createAuditLogger(c.env, email);
     await auditLogger.log('login', {});
   } catch (error) {
     console.error('[Login] Audit log failed:', error);
+  }
+
+  return c.json({ success: true, message: '登录成功', email });
+});
+
+/** 2FA 验证码校验（登录时使用） */
+api.post('/login/2fa', validateBody(schemas.login), async (c) => {
+  const body = (c as ValidatedContext).validatedBody as {
+    email: string;
+    password: string;
+    code: string;
+  };
+  const { email, password, code } = body;
+
+  if (!code || code.length !== 6) {
+    return errResponse(c, '请输入6位验证码', 'VALIDATION_ERROR');
+  }
+
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(email);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'AUTH_ERROR' }, 401);
+  }
+
+  const valid = await verifyPassword(password, user.password);
+  if (!valid) {
+    return c.json({ error: '邮箱或密码错误', code: 'AUTH_ERROR' }, 401);
+  }
+
+  if (!user.totp_enabled || !user.totp_secret) {
+    return c.json({ error: '2FA 未启用', code: 'NOT_ENABLED' }, 400);
+  }
+
+  const totpValid = verifyTOTP(user.totp_secret, code);
+  if (!totpValid) {
+    try {
+      const auditLogger = createAuditLogger(c.env, email);
+      await auditLogger.log('login_failed', { reason: 'invalid_totp' });
+    } catch (error) {
+      console.error('[Login 2FA] Audit log failed:', error);
+    }
+    return c.json({ error: '验证码无效', code: 'AUTH_ERROR' }, 401);
+  }
+
+  // 记录登录日志
+  try {
+    const auditLogger = createAuditLogger(c.env, email);
+    await auditLogger.log('login', { twoFactor: true });
+  } catch (error) {
+    console.error('[Login 2FA] Audit log failed:', error);
   }
 
   return c.json({ success: true, message: '登录成功', email });
@@ -1681,6 +1737,96 @@ adminApi.delete('/users/:id', async (c) => {
 adminApi.route('/', backupRoutes);
 
 // ============================================
+// 系统健康监控
+// ============================================
+
+/** 获取系统健康状态（需要 admin 权限） */
+adminApi.get('/system/health', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(username);
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+
+  const env = c.env as Env;
+  const health: {
+    database: { status: string; message: string };
+    lastCronRun: string | null;
+    activeUsers: number;
+    recentPushCount: number;
+    queueStatus: { available: boolean; message: string };
+  } = {
+    database: { status: 'unknown', message: '' },
+    lastCronRun: null,
+    activeUsers: 0,
+    recentPushCount: 0,
+    queueStatus: { available: false, message: '' },
+  };
+
+  // 1. 数据库连接状态
+  try {
+    const testResult = await env.DB.prepare('SELECT 1 as ok').first<{ ok: number }>();
+    if (testResult && testResult.ok === 1) {
+      health.database = { status: 'ok', message: '数据库连接正常' };
+    } else {
+      health.database = { status: 'error', message: '数据库查询异常' };
+    }
+  } catch (err) {
+    health.database = { status: 'error', message: `数据库连接失败: ${(err as Error).message}` };
+  }
+
+  // 2. 最近一次 cron 执行时间（从 system_settings 获取）
+  try {
+    const systemSettings = await getSystemSettings(env);
+    const lastCronStr = await systemSettings.getSetting('last_cron_execution');
+    health.lastCronRun = lastCronStr || null;
+  } catch {
+    // ignore
+  }
+
+  // 3. 活跃用户数（最近 7 天有登录的用户）
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const usersResult = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT user_id) as count FROM audit_logs WHERE action = 'login' AND created_at >= ?`
+    )
+      .bind(sevenDaysAgo)
+      .first<{ count: number }>();
+    health.activeUsers = usersResult?.count || 0;
+  } catch {
+    // ignore
+  }
+
+  // 4. 最近 24 小时推送量
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const pushCount = await env.DB.prepare(
+      `SELECT COUNT(*) as count FROM push_history WHERE created_at >= ?`
+    )
+      .bind(oneDayAgo)
+      .first<{ count: number }>();
+    health.recentPushCount = pushCount?.count || 0;
+  } catch {
+    // ignore
+  }
+
+  // 5. 队列状态
+  try {
+    const queueService = new QueueService(env);
+    health.queueStatus = {
+      available: queueService.isAvailable(),
+      message: queueService.isAvailable() ? '队列服务可用' : '队列服务未配置',
+    };
+  } catch {
+    health.queueStatus = { available: false, message: '队列状态未知' };
+  }
+
+  return c.json({ success: true, health });
+});
+
+// ============================================
 // 测试接口（需要认证）
 // ============================================
 
@@ -2608,6 +2754,88 @@ adminApi.post('/webhook/push', async (c) => {
   });
 });
 
+// ============================================
+// IP 白名单管理
+// ============================================
+
+/** 获取当前用户 IP 白名单 */
+adminApi.get('/me/allowed-ips', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+  const ips = await svc.getAllowedIPs(user.id);
+  return c.json({ success: true, ips });
+});
+
+/** 添加 IP 到白名单 */
+adminApi.post('/me/allowed-ips', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const body = await c.req.json<{ ip: string }>();
+
+  if (!body.ip || !body.ip.trim()) {
+    return c.json({ error: 'IP 地址不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const ip = body.ip.trim();
+  // 简单验证 IPv4/IPv6 格式
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const ipv6Regex = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+  const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+  if (!ipv4Regex.test(ip) && !ipv6Regex.test(ip) && !cidrRegex.test(ip)) {
+    return c.json({ error: '无效的 IP 地址格式', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const ips = await svc.addAllowedIP(user.id, ip);
+
+  try {
+    const auditLogger = createAuditLogger(env, username);
+    await auditLogger.log('allowed_ip_added', { ip });
+  } catch (error) {
+    console.error('[Allowed IP] Audit log failed:', error);
+  }
+
+  return c.json({ success: true, ips, message: 'IP 已添加到白名单' });
+});
+
+/** 从白名单删除 IP */
+adminApi.delete('/me/allowed-ips', async (c) => {
+  const env = c.env as Env;
+  const username = c.get('username');
+  const body = await c.req.json<{ ip: string }>();
+
+  if (!body.ip) {
+    return c.json({ error: 'IP 地址不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const svc = new UserService(env);
+  const user = await svc.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在' }, 404);
+  }
+
+  const ips = await svc.removeAllowedIP(user.id, body.ip);
+
+  try {
+    const auditLogger = createAuditLogger(env, username);
+    await auditLogger.log('allowed_ip_removed', { ip: body.ip });
+  } catch (error) {
+    console.error('[Allowed IP] Audit log failed:', error);
+  }
+
+  return c.json({ success: true, ips, message: 'IP 已从白名单删除' });
+});
+
 /** 获取用户的 Webhook URL */
 adminApi.get('/webhook/url', async (c) => {
   c.get('username'); // 保留用于中间件验证
@@ -2626,6 +2854,172 @@ adminApi.get('/webhook/url', async (c) => {
       content: '可选：覆盖模板内容',
       channels: ['wework'],
     },
+  });
+});
+
+// ============================================
+// 推送草稿箱
+// ============================================
+
+/** 获取草稿列表 */
+adminApi.get('/drafts', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const drafts = await pushService.getDrafts();
+  return c.json({ drafts });
+});
+
+/** 创建草稿 */
+adminApi.post('/drafts', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    title: string;
+    body?: string;
+    url?: string;
+    channels?: PushChannel[];
+  };
+
+  if (!body.title) {
+    return c.json({ error: '标题不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const draft = await pushService.saveDraft(body);
+  return c.json({ success: true, draft });
+});
+
+/** 更新草稿 */
+adminApi.put('/drafts/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as {
+    title?: string;
+    body?: string;
+    url?: string;
+    channels?: PushChannel[];
+  };
+
+  const pushService = new PushService(c.env, username);
+  const draft = await pushService.updateDraft(id, body);
+  if (!draft) {
+    return c.json({ error: '草稿不存在', code: 'NOT_FOUND' }, 404);
+  }
+  return c.json({ success: true, draft });
+});
+
+/** 删除草稿 */
+adminApi.delete('/drafts/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const pushService = new PushService(c.env, username);
+  const deleted = await pushService.deleteDraft(id);
+  if (!deleted) {
+    return c.json({ error: '草稿不存在', code: 'NOT_FOUND' }, 404);
+  }
+  return c.json({ success: true, message: '草稿已删除' });
+});
+
+// ============================================
+// 双因素认证 (2FA / TOTP)
+// ============================================
+
+/** 生成 TOTP secret（设置 2FA） */
+adminApi.post('/2fa/setup', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  if (user.totp_enabled) {
+    return c.json({ error: '2FA 已启用，请先禁用后再重新设置', code: 'ALREADY_ENABLED' }, 400);
+  }
+
+  const secret = generateTOTPSecret();
+  const otpauthUrl = `otpauth://totp/BeeSwarm:${encodeURIComponent(username)}?secret=${secret}&issuer=BeeSwarm&algorithm=SHA1&digits=6&period=30`;
+  const qrDataUrl = await generateQRCodeDataURL(otpauthUrl);
+
+  // 临时存储 secret（未启用）
+  await userService.updateUser(user.id, { totp_secret: secret });
+
+  return c.json({
+    success: true,
+    secret,
+    qrCode: qrDataUrl,
+    otpauthUrl,
+  });
+});
+
+/** 验证 TOTP code 并启用 2FA */
+adminApi.post('/2fa/verify-setup', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { code: string };
+  const { code } = body;
+
+  if (!code || code.length !== 6) {
+    return c.json({ error: '请输入6位验证码', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  if (!user.totp_secret) {
+    return c.json({ error: '请先生成 TOTP secret', code: 'NOT_SETUP' }, 400);
+  }
+
+  const valid = verifyTOTP(user.totp_secret, code);
+  if (!valid) {
+    return c.json({ error: '验证码无效', code: 'INVALID_CODE' }, 400);
+  }
+
+  await userService.updateUser(user.id, { totp_enabled: 1 });
+  return c.json({ success: true, message: '2FA 已启用' });
+});
+
+/** 禁用 2FA */
+adminApi.post('/2fa/disable', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { code: string };
+  const { code } = body;
+
+  if (!code || code.length !== 6) {
+    return c.json({ error: '请输入6位验证码', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  if (!user.totp_enabled || !user.totp_secret) {
+    return c.json({ error: '2FA 未启用', code: 'NOT_ENABLED' }, 400);
+  }
+
+  const valid = verifyTOTP(user.totp_secret, code);
+  if (!valid) {
+    return c.json({ error: '验证码无效', code: 'INVALID_CODE' }, 400);
+  }
+
+  await userService.updateUser(user.id, { totp_enabled: 0, totp_secret: null });
+  return c.json({ success: true, message: '2FA 已禁用' });
+});
+
+/** 获取 2FA 状态 */
+adminApi.get('/2fa/status', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+  return c.json({
+    enabled: !!user.totp_enabled,
+    hasSecret: !!user.totp_secret,
   });
 });
 

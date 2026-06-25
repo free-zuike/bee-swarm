@@ -52,6 +52,9 @@ export class MigrationService {
       await this.addColumnIfNotExists('push_history', 'results', 'TEXT');
       await this.addColumnIfNotExists('push_history', 'status', 'TEXT');
 
+      // 检查 users 表是否有 IP 白名单列
+      await this.addColumnIfNotExists('users', 'allowed_ips', 'TEXT');
+
       // 检查 scheduled_locks 表是否存在
       await this.env.DB.prepare(
         `CREATE TABLE IF NOT EXISTS scheduled_locks (

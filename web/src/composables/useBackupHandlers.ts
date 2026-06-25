@@ -175,9 +175,7 @@ export function useBackupHandlers({
         });
       }
     } catch (err: unknown) {
-      backupManagerRef.value?.handleError(
-        getErrorMessage(err, t('msg.batch_delete_failed'))
-      );
+      backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.batch_delete_failed')));
     }
   }
 
@@ -202,7 +200,9 @@ export function useBackupHandlers({
           })
           .join('; ');
         backupManagerRef.value?.handleBackupAllResult(
-          t('msg.backup_partial', { success: String(successCount), total: String(totalCount) }) + ' — ' + details,
+          t('msg.backup_partial', { success: String(successCount), total: String(totalCount) }) +
+            ' — ' +
+            details,
           'error'
         );
       }

@@ -40,7 +40,9 @@ export type AuditAction =
   | 'user_deleted'
   | 'user_role_updated'
   | 'user_disabled'
-  | 'user_enabled';
+  | 'user_enabled'
+  | 'allowed_ip_added'
+  | 'allowed_ip_removed';
 
 export interface AuditLog {
   id: string;
