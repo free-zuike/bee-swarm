@@ -393,6 +393,10 @@ export interface ScheduledPush {
   overdueAt?: string;
   /** 时区（如 Asia/Shanghai, America/New_York, UTC） */
   timezone?: string;
+  /** A/B 测试是否启用 */
+  abTestEnabled?: boolean;
+  /** A/B 测试变体列表 */
+  abTestVariants?: Array<{ name: string; content: string; weight: number }>;
 }
 
 // ==================== 统计相关类型 ====================

@@ -367,7 +367,29 @@ export async function getHistoryWithToken(
   if (options?.keyword) params.set('keyword', options.keyword);
   const query = params.toString();
   const url = query ? `${BASE}/admin/history?${query}` : `${BASE}/admin/history`;
-  return tokenRequest(url, token);
+  return tokenRequest<{
+    history: Array<{
+      id: string;
+      createdAt: string;
+      title: string;
+      body: string;
+      url: string;
+      channels: string[];
+      status: string;
+      deliveredAt?: string;
+      readAt?: string;
+      clickedAt?: string;
+      results: Array<{
+        channel: PushChannel;
+        success: boolean;
+        message: string;
+        latencyMs?: number;
+        retries?: number;
+      }>;
+    }>;
+    total: number;
+    hasMore: boolean;
+  }>(url, token);
 }
 
 export async function getApiKeyWithToken(
@@ -705,6 +727,8 @@ export async function updateScheduledPush(
     intervalYears?: number;
     cronExpression?: string;
     timezone?: string;
+    abTestEnabled?: boolean;
+    abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
   const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(
@@ -753,6 +777,8 @@ export async function createScheduledPush(
     intervalYears?: number;
     cronExpression?: string;
     timezone?: string;
+    abTestEnabled?: boolean;
+    abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   }
 ): Promise<{ success: boolean; scheduled: ScheduledPush }> {
   const result = await tokenRequest<{ success: boolean; scheduled: ScheduledPush }>(
@@ -969,6 +995,49 @@ export async function batchDeleteHistoryByFilter(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(filter),
+  });
+}
+
+// 标记推送回执
+export async function markReceipt(
+  token: string,
+  id: string,
+  action: 'delivered' | 'read' | 'clicked'
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/history/${id}/receipt`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+}
+
+// 标记推送已送达
+export async function markDelivered(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/history/${id}/delivered`, token, {
+    method: 'POST',
+  });
+}
+
+// 标记推送已读
+export async function markRead(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/history/${id}/read`, token, {
+    method: 'POST',
+  });
+}
+
+// 标记推送已点击
+export async function markClicked(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/history/${id}/clicked`, token, {
+    method: 'POST',
   });
 }
 
@@ -1425,6 +1494,170 @@ export async function deleteUser(
 export { apiCache };
 
 // -------------------------------------------
+// 模板市场接口
+// -------------------------------------------
+
+export async function getMarketTemplates(
+  token: string,
+  options?: { limit?: number; offset?: number; category?: string; search?: string }
+): Promise<{ templates: PushTemplate[]; total: number }> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+  if (options?.category) params.set('category', options.category);
+  if (options?.search) params.set('search', options.search);
+  const query = params.toString();
+  const url = query ? `${BASE}/admin/templates/market?${query}` : `${BASE}/admin/templates/market`;
+  return tokenRequest(url, token);
+}
+
+export async function publishTemplate(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/templates/${id}/publish`,
+    token,
+    { method: 'POST' }
+  );
+  apiCache.invalidate(`${BASE}/admin/templates`, token);
+  return result;
+}
+
+export async function unpublishTemplate(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/templates/${id}/unpublish`,
+    token,
+    { method: 'POST' }
+  );
+  apiCache.invalidate(`${BASE}/admin/templates`, token);
+  return result;
+}
+
+export async function copyFromMarket(
+  token: string,
+  templateId: string
+): Promise<{ success: boolean; template: PushTemplate }> {
+  const result = await tokenRequest<{ success: boolean; template: PushTemplate }>(
+    `${BASE}/admin/templates/market/${templateId}/copy`,
+    token,
+    { method: 'POST' }
+  );
+  apiCache.invalidate(`${BASE}/admin/templates`, token);
+  return result;
+}
+
+export async function forkTemplate(
+  token: string,
+  templateId: string
+): Promise<{ success: boolean; template: PushTemplate }> {
+  const result = await tokenRequest<{ success: boolean; template: PushTemplate }>(
+    `${BASE}/admin/templates/${templateId}/fork`,
+    token,
+    { method: 'POST' }
+  );
+  apiCache.invalidate(`${BASE}/admin/templates`, token);
+  return result;
+}
+
+// -------------------------------------------
+// 推送工作流接口
+// -------------------------------------------
+
+export interface WorkflowStep {
+  type: 'push' | 'delay' | 'condition';
+  config: Record<string, unknown>;
+}
+
+export interface PushWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+  enabled: boolean;
+  triggerType: string;
+  triggerConfig: Record<string, unknown>;
+  lastRunAt?: string;
+  lastStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getWorkflows(token: string): Promise<{ workflows: PushWorkflow[] }> {
+  return tokenRequest(`${BASE}/admin/workflows`, token);
+}
+
+export async function createWorkflow(
+  token: string,
+  workflow: {
+    name: string;
+    description?: string;
+    steps: WorkflowStep[];
+    enabled?: boolean;
+    triggerType?: string;
+    triggerConfig?: Record<string, unknown>;
+  }
+): Promise<{ success: boolean; workflow: PushWorkflow }> {
+  const result = await tokenRequest<{ success: boolean; workflow: PushWorkflow }>(
+    `${BASE}/admin/workflows`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(workflow),
+    }
+  );
+  apiCache.invalidate(`${BASE}/admin/workflows`, token);
+  return result;
+}
+
+export async function updateWorkflow(
+  token: string,
+  id: string,
+  workflow: Partial<PushWorkflow>
+): Promise<{ success: boolean; workflow: PushWorkflow }> {
+  const result = await tokenRequest<{ success: boolean; workflow: PushWorkflow }>(
+    `${BASE}/admin/workflows/${id}`,
+    token,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(workflow),
+    }
+  );
+  apiCache.invalidate(`${BASE}/admin/workflows`, token);
+  return result;
+}
+
+export async function deleteWorkflow(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/workflows/${id}`,
+    token,
+    { method: 'DELETE' }
+  );
+  apiCache.invalidate(`${BASE}/admin/workflows`, token);
+  return result;
+}
+
+export async function executeWorkflow(
+  token: string,
+  id: string
+): Promise<{
+  success: boolean;
+  results: Array<{ step: number; status: string; message: string }>;
+}> {
+  return tokenRequest(`${BASE}/admin/workflows/${id}/execute`, token, {
+    method: 'POST',
+  });
+}
+
+// -------------------------------------------
 // 推送草稿箱接口
 // -------------------------------------------
 
@@ -1742,4 +1975,41 @@ export async function cleanupOrphanTables(
   apiCache.invalidate(`${BASE}/admin/database/tables`, token);
   apiCache.invalidate(`${BASE}/admin/database/stats`, token);
   return result;
+}
+
+// -------------------------------------------
+// 数据导出接口（增强版）
+// -------------------------------------------
+
+export async function exportData(
+  token: string,
+  options?: { format?: 'json' | 'csv'; dateRange?: { start?: string; end?: string } }
+): Promise<void> {
+  const res = await fetch(`${BASE}/admin/export`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Token': token,
+    },
+    body: JSON.stringify(options || {}),
+  });
+
+  if (!res.ok) {
+    throw await handleResponseError(res);
+  }
+
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const filename =
+    disposition.match(/filename="([^"]+)"/)?.[1] ||
+    `data-export.${options?.format === 'csv' ? 'csv' : 'json'}`;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

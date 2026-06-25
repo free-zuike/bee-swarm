@@ -26,6 +26,9 @@ interface HistoryRecord {
   channels: string[];
   status: string;
   results: ChannelResult[];
+  deliveredAt?: string;
+  readAt?: string;
+  clickedAt?: string;
 }
 
 const props = defineProps<{
@@ -40,7 +43,9 @@ const emit = defineEmits<{
   'load-page': [page: number];
   clear: [];
   'batch-delete': [ids: string[]];
-  'filter-change': [filters: { channel?: string; status?: string; search?: string }];
+  'filter-change': [
+    filters: { channel?: string; status?: string; search?: string; receipt?: string },
+  ];
   resend: [record: HistoryRecord];
 }>();
 
@@ -54,21 +59,41 @@ const pageSize = ref(20);
 const showFilters = ref(false);
 const filterChannel = ref<string>('');
 const filterStatus = ref<string>('');
+const filterReceipt = ref<string>('');
 const searchKeyword = ref<string>('');
 const selectedIds = ref<Set<string>>(new Set());
 const showBatchDeleteConfirm = ref(false);
 const batchDeleting = ref(false);
 
-const { exportToJSON, exportToCSV } = useExport();
+const { exportData, progress, isExporting } = useExport();
 
-const handleExportJSON = () => {
-  exportToJSON(props.history, `push-history-${new Date().toISOString().split('T')[0]}.json`);
-  showToast(t('message.json_export_success'), 'success');
-};
+const exportFormat = ref<'json' | 'csv'>('json');
+const exportDateStart = ref('');
+const exportDateEnd = ref('');
+const showExportOptions = ref(false);
 
-const handleExportCSV = () => {
-  exportToCSV(props.history, `push-history-${new Date().toISOString().split('T')[0]}.csv`);
-  showToast(t('message.csv_export_success'), 'success');
+const handleExport = () => {
+  const ext = exportFormat.value;
+  const dateStr = new Date().toISOString().split('T')[0];
+  const filename = `push-history-${dateStr}.${ext}`;
+
+  const options: Parameters<typeof exportData>[2] = {
+    format: exportFormat.value,
+    onProgress: (p) => {
+      if (p === 100) {
+        showToast(t('message.export_success'), 'success');
+      }
+    },
+  };
+
+  if (exportDateStart.value || exportDateEnd.value) {
+    options.dateRange = {
+      start: exportDateStart.value || '',
+      end: exportDateEnd.value ? `${exportDateEnd.value}T23:59:59` : '',
+    };
+  }
+
+  exportData(props.history, filename, options);
 };
 
 const getChannelName = (channelId: string) => {
@@ -138,10 +163,11 @@ const successRate = computed(() => {
 function resetFilters() {
   filterChannel.value = '';
   filterStatus.value = '';
+  filterReceipt.value = '';
   searchKeyword.value = '';
   currentPage.value = 1;
   selectedIds.value.clear();
-  emit('filter-change', { channel: '', status: '', search: '' });
+  emit('filter-change', { channel: '', status: '', search: '', receipt: '' });
   emit('load-page', 1);
 }
 
@@ -151,6 +177,7 @@ function applyFilters() {
     channel: filterChannel.value || undefined,
     status: filterStatus.value || undefined,
     search: searchKeyword.value || undefined,
+    receipt: filterReceipt.value || undefined,
   });
   emit('load-page', 1);
 }
@@ -208,9 +235,12 @@ const uniqueChannels = computed(() => {
 });
 
 const activeFilters = computed(() => {
-  const count = [filterChannel.value, filterStatus.value, searchKeyword.value].filter(
-    Boolean
-  ).length;
+  const count = [
+    filterChannel.value,
+    filterStatus.value,
+    filterReceipt.value,
+    searchKeyword.value,
+  ].filter(Boolean).length;
   return count;
 });
 </script>
@@ -239,13 +269,37 @@ const activeFilters = computed(() => {
           >
             {{ t('label.deselect') }}
           </button>
-          <div class="export-buttons">
-            <button class="btn btn-sm btn-secondary" @click="handleExportCSV">
-              📊 {{ t('label.export_csv') }}
+          <div class="export-section">
+            <button
+              class="btn btn-sm btn-secondary"
+              @click="showExportOptions = !showExportOptions"
+            >
+              📥 {{ t('label.export') }}
             </button>
-            <button class="btn btn-sm btn-secondary" @click="handleExportJSON">
-              📋 {{ t('label.export_json') }}
-            </button>
+            <div v-if="showExportOptions" class="export-options">
+              <div class="export-option-row">
+                <label>{{ t('label.format') }}</label>
+                <select v-model="exportFormat" class="export-select">
+                  <option value="json">JSON</option>
+                  <option value="csv">CSV</option>
+                </select>
+              </div>
+              <div class="export-option-row">
+                <label>{{ t('label.dateRange') }}</label>
+                <input v-model="exportDateStart" type="date" class="export-date" />
+                <span class="export-separator">-</span>
+                <input v-model="exportDateEnd" type="date" class="export-date" />
+              </div>
+              <div v-if="isExporting" class="export-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: `${progress}%` }"></div>
+                </div>
+                <span class="progress-text">{{ progress }}%</span>
+              </div>
+              <button class="btn btn-sm btn-primary" @click="handleExport" :disabled="isExporting">
+                {{ isExporting ? t('label.exporting') : t('label.export') }}
+              </button>
+            </div>
           </div>
           <button class="btn btn-sm btn-danger" @click="emit('clear')">
             🗑️ {{ t('label.clear_all') }}
@@ -296,6 +350,15 @@ const activeFilters = computed(() => {
               <option value="success">{{ t('label.status_all_success') }}</option>
               <option value="partial">{{ t('label.status_partial') }}</option>
               <option value="failed">{{ t('label.status_all_failed') }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">回执状态</label>
+            <select v-model="filterReceipt" class="filter-select" @change="applyFilters">
+              <option value="">全部</option>
+              <option value="delivered">已送达</option>
+              <option value="read">已读</option>
+              <option value="clicked">已点击</option>
             </select>
           </div>
           <button class="btn btn-sm btn-secondary" @click="resetFilters">
@@ -358,6 +421,17 @@ const activeFilters = computed(() => {
                     >
                     <span v-if="getTotalRetries(record) > 0" class="meta-retries">
                       🔄 {{ t('label.retries_count', { count: getTotalRetries(record) }) }}
+                    </span>
+                  </div>
+                  <div class="receipt-status">
+                    <span class="receipt-item" :class="{ active: record.deliveredAt }">
+                      📬 {{ record.deliveredAt ? '已送达' : '未送达' }}
+                    </span>
+                    <span class="receipt-item" :class="{ active: record.readAt }">
+                      👁 {{ record.readAt ? '已读' : '未读' }}
+                    </span>
+                    <span class="receipt-item" :class="{ active: record.clickedAt }">
+                      🖱 {{ record.clickedAt ? '已点击' : '未点击' }}
                     </span>
                   </div>
                 </div>
@@ -520,9 +594,85 @@ const activeFilters = computed(() => {
   align-items: center;
 }
 
-.export-buttons {
+.export-section {
+  position: relative;
+}
+
+.export-options {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: var(--bg-panel, white);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.export-option-row {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.export-option-row label {
+  min-width: 60px;
+  color: var(--text-secondary, #666);
+}
+
+.export-select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--bg-panel, white);
+}
+
+.export-date {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.export-separator {
+  color: var(--text-secondary, #999);
+}
+
+.export-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--border-color, #e0e0e0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  min-width: 35px;
+  text-align: right;
 }
 
 .stats-bar {
@@ -911,6 +1061,26 @@ const activeFilters = computed(() => {
 .meta-retries {
   font-size: 11px;
   color: var(--text-secondary, #666);
+}
+
+.receipt-status {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.receipt-item {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.receipt-item.active {
+  color: #065f46;
+  background: #d1fae5;
 }
 
 .channel-tags {

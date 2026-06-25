@@ -51,6 +51,13 @@ export class MigrationService {
       await this.addColumnIfNotExists('push_history', 'channels', 'TEXT');
       await this.addColumnIfNotExists('push_history', 'results', 'TEXT');
       await this.addColumnIfNotExists('push_history', 'status', 'TEXT');
+      await this.addColumnIfNotExists('push_history', 'delivered_at', 'TEXT');
+      await this.addColumnIfNotExists('push_history', 'read_at', 'TEXT');
+      await this.addColumnIfNotExists('push_history', 'clicked_at', 'TEXT');
+
+      // 检查 scheduled_pushes 表是否有 A/B 测试列
+      await this.addColumnIfNotExists('scheduled_pushes', 'ab_test_enabled', 'INTEGER DEFAULT 0');
+      await this.addColumnIfNotExists('scheduled_pushes', 'ab_test_variants', 'TEXT');
 
       // 检查 users 表是否有 IP 白名单列
       await this.addColumnIfNotExists('users', 'allowed_ips', 'TEXT');

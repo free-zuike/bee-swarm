@@ -146,6 +146,9 @@ interface PushHistoryRow {
   results?: string;
   status?: string;
   created_at?: string;
+  delivered_at?: string;
+  read_at?: string;
+  clicked_at?: string;
 }
 
 interface PushHistoryRecord {
@@ -159,6 +162,9 @@ interface PushHistoryRecord {
   status: string | undefined;
   results: ChannelResult[];
   createdAt: string | undefined;
+  deliveredAt?: string;
+  readAt?: string;
+  clickedAt?: string;
 }
 
 interface PushOptions {
@@ -766,14 +772,18 @@ export async function dispatchPushWithOptions(
   // 保存到 D1 推送历史
   try {
     if (env.DB) {
+      const historyId = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const allSuccess = results.every((r) => r.success);
+
       await env.DB.prepare(
         `
-        INSERT INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at, delivered_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       )
         .bind(
-          crypto.randomUUID(),
+          historyId,
           username,
           payload.title,
           payload.body || '',
@@ -782,8 +792,9 @@ export async function dispatchPushWithOptions(
           payload.markdown ? 1 : 0,
           JSON.stringify(enabledChannels.map((c) => c.id)),
           JSON.stringify(results),
-          results.every((r) => r.success) ? 'success' : 'partial',
-          new Date().toISOString()
+          allSuccess ? 'success' : 'partial',
+          now,
+          allSuccess ? now : null
         )
         .run();
     }
@@ -942,6 +953,9 @@ export async function getPushHistory(
     results: JSON.parse(row.results || '[]'),
     status: row.status,
     createdAt: row.created_at,
+    deliveredAt: row.delivered_at,
+    readAt: row.read_at,
+    clickedAt: row.clicked_at,
   }));
 
   const hasMore = records.length > pageSize;

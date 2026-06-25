@@ -24,6 +24,7 @@ export type AuditAction =
   | 'template_created'
   | 'template_updated'
   | 'template_deleted'
+  | 'template_forked'
   | 'scheduled_push_created'
   | 'scheduled_push_cancelled'
   | 'scheduled_push_rescheduled'
@@ -42,7 +43,9 @@ export type AuditAction =
   | 'user_disabled'
   | 'user_enabled'
   | 'allowed_ip_added'
-  | 'allowed_ip_removed';
+  | 'allowed_ip_removed'
+  | 'workflow_created'
+  | 'workflow_executed';
 
 export interface AuditLog {
   id: string;

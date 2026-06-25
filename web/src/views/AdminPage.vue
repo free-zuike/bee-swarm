@@ -45,6 +45,7 @@ import TemplateManager from '@/components/TemplateManager.vue';
 import GroupManager from '@/components/GroupManager.vue';
 import ScheduledPushManager from '@/components/ScheduledPushManager.vue';
 import WebhookManager from '@/components/WebhookManager.vue';
+import WorkflowManager from '@/components/WorkflowManager.vue';
 import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import AuditLogs from '@/components/admin/AuditLogs.vue';
@@ -56,6 +57,7 @@ import DatabaseManager from '@/components/admin/DatabaseManager.vue';
 import TwoFactorSettings from '@/components/admin/TwoFactorSettings.vue';
 import AllowedIPsPanel from '@/components/admin/AllowedIPsPanel.vue';
 import SystemHealthPanel from '@/components/admin/SystemHealthPanel.vue';
+import DataExportPanel from '@/components/admin/DataExportPanel.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -111,7 +113,15 @@ const accessToken = computed(() => authStore.accessToken);
 
 // ==================== Dashboard Tab ====================
 const activeTab = ref<
-  'push' | 'history' | 'stats' | 'templates' | 'groups' | 'scheduled' | 'webhook' | 'health'
+  | 'push'
+  | 'history'
+  | 'stats'
+  | 'templates'
+  | 'groups'
+  | 'scheduled'
+  | 'webhook'
+  | 'health'
+  | 'workflows'
 >('stats');
 
 // ==================== 设置面板 ====================
@@ -160,6 +170,7 @@ const settingsMenu = [
   { id: 'ai', icon: '🤖', label: 'label.ai_settings' },
   { id: 'avatar', icon: '🖼️', label: 'label.avatar_settings' },
   { id: 'backup', icon: '💾', label: 'label.backup_settings' },
+  { id: 'export', icon: '📥', label: 'label.dataExport' },
   { id: 'channels', icon: '📡', label: 'label.channel_settings' },
   { id: '2fa', icon: '🔐', label: 'label.2fa_settings' },
   { id: 'ipWhitelist', icon: '🌐', label: 'label.ip_whitelist' },
@@ -1017,6 +1028,9 @@ function handleResend(record: PushHistoryRecord) {
             @backup-single="handleBackupSingle"
           />
 
+          <!-- 数据导出 -->
+          <DataExportPanel v-else-if="activeSettingsTab === 'export'" :access-token="accessToken" />
+
           <!-- 渠道设置 -->
           <ChannelSettingsPanel
             v-else-if="activeSettingsTab === 'channels'"
@@ -1129,7 +1143,14 @@ function handleResend(record: PushHistoryRecord) {
             :class="{ active: activeTab === 'health', dark: isDark }"
             @click="activeTab = 'health'"
           >
-            💚 {{ t('tab.health') }}
+            🏥 {{ t('tab.health') }}
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'workflows', dark: isDark }"
+            @click="activeTab = 'workflows'"
+          >
+            ⚡ {{ t('tab.workflows') || '工作流' }}
           </button>
         </div>
 
@@ -1188,6 +1209,13 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 渠道健康检查 Tab ==================== -->
         <ChannelHealthCheck v-if="activeTab === 'health'" :access-token="accessToken" />
+
+        <!-- ==================== 工作流 Tab ==================== -->
+        <WorkflowManager
+          v-if="activeTab === 'workflows'"
+          :access-token="accessToken"
+          :channels="channelConfigs"
+        />
 
         <!-- ==================== 用户管理 Tab（从悬浮菜单进入） ==================== -->
         <UserManagement v-if="activeTab === 'users' && hasPermission('users:manage')" />

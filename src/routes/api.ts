@@ -2013,9 +2013,75 @@ adminApi.post('/history/batch-delete-filter', async (c) => {
   return c.json(result);
 });
 
+/** 标记推送回执 */
+adminApi.post('/history/:id/receipt', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as { action?: 'delivered' | 'read' | 'clicked' };
+
+  if (!body.action || !['delivered', 'read', 'clicked'].includes(body.action)) {
+    return c.json({ error: '无效的回执操作', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const columnMap: Record<string, string> = {
+    delivered: 'delivered_at',
+    read: 'read_at',
+    clicked: 'clicked_at',
+  };
+
+  const column = columnMap[body.action];
+  const now = new Date().toISOString();
+
+  try {
+    await c.env.DB.prepare(`UPDATE push_history SET ${column} = ? WHERE id = ? AND user_id = ?`)
+      .bind(now, id, username)
+      .run();
+    return c.json({ success: true, message: `标记${body.action}成功` });
+  } catch (error) {
+    console.error('[Receipt] Error:', error);
+    return c.json({ error: '标记回执失败', code: 'RECEIPT_ERROR' }, 500);
+  }
+});
+
 // ============================================
 // 模板管理
 // ============================================
+
+/** 标记推送已送达 */
+adminApi.post('/history/:id/delivered', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const pushService = new PushService(c.env, username);
+  const updated = await pushService.markDelivered(id);
+  if (!updated) {
+    return c.json({ success: false, message: '记录不存在或已标记' });
+  }
+  return c.json({ success: true, message: '已标记为送达' });
+});
+
+/** 标记推送已读 */
+adminApi.post('/history/:id/read', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const pushService = new PushService(c.env, username);
+  const updated = await pushService.markRead(id);
+  if (!updated) {
+    return c.json({ success: false, message: '记录不存在或已标记' });
+  }
+  return c.json({ success: true, message: '已标记为已读' });
+});
+
+/** 标记推送已点击 */
+adminApi.post('/history/:id/clicked', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const pushService = new PushService(c.env, username);
+  const updated = await pushService.markClicked(id);
+  if (!updated) {
+    return c.json({ success: false, message: '记录不存在或已标记' });
+  }
+  return c.json({ success: true, message: '已标记为已点击' });
+});
 
 /** 获取所有模板 */
 adminApi.get('/templates', async (c) => {
@@ -2858,6 +2924,217 @@ adminApi.get('/webhook/url', async (c) => {
 });
 
 // ============================================
+// 模板市场
+// ============================================
+
+/** 获取公开模板市场列表 */
+adminApi.get('/templates/market', async (c) => {
+  const username = c.get('username');
+  const limit = parseInt(c.req.query('limit') || '20', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const category = c.req.query('category');
+  const search = c.req.query('search');
+
+  const pushService = new PushService(c.env, username);
+  const result = await pushService.getMarketTemplates({ limit, offset, category, search });
+  return c.json(result);
+});
+
+/** 发布模板到市场 */
+adminApi.post('/templates/:id/publish', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const success = await pushService.publishTemplate(id);
+
+  if (!success) {
+    return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, message: '模板已发布到市场' });
+});
+
+/** 取消发布模板 */
+adminApi.post('/templates/:id/unpublish', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const success = await pushService.unpublishTemplate(id);
+
+  if (!success) {
+    return c.json({ error: '模板不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, message: '模板已从市场下架' });
+});
+
+/** 从市场复制模板 */
+adminApi.post('/templates/market/:id/copy', async (c) => {
+  const username = c.get('username');
+  const templateId = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const template = await pushService.copyFromMarket(templateId);
+
+  if (!template) {
+    return c.json({ error: '模板不存在或已下架', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, template });
+});
+
+/** Fork（复制）模板 */
+adminApi.post('/templates/:id/fork', async (c) => {
+  const username = c.get('username');
+  const templateId = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const template = await pushService.copyFromMarket(templateId);
+
+  if (!template) {
+    return c.json({ error: '模板不存在或已下架', code: 'NOT_FOUND' }, 404);
+  }
+
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('template_forked', { sourceId: templateId, newId: template.id });
+  } catch (error) {
+    console.error('[Template Fork] Audit log failed:', error);
+  }
+
+  return c.json({ success: true, template });
+});
+
+// ============================================
+// 推送自动化工作流
+// ============================================
+
+/** 获取工作流列表 */
+adminApi.get('/workflows', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const workflows = await pushService.getWorkflows();
+  return c.json({ workflows });
+});
+
+/** 创建工作流 */
+adminApi.post('/workflows', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    name: string;
+    description?: string;
+    steps: Array<{ type: string; config: Record<string, unknown> }>;
+    enabled?: boolean;
+    triggerType?: string;
+    triggerConfig?: Record<string, unknown>;
+  };
+
+  if (!body.name || !body.steps?.length) {
+    return c.json({ error: '工作流名称和步骤不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const workflow = await pushService.createWorkflow({
+    ...body,
+    steps: body.steps.map((s) => ({
+      type: s.type as 'push' | 'delay' | 'condition',
+      config: s.config,
+    })),
+  });
+
+  try {
+    const auditLogger = createAuditLogger(c.env, username);
+    await auditLogger.log('workflow_created', { workflowId: workflow.id, name: workflow.name });
+  } catch (error) {
+    console.error('[Workflow Create] Audit log failed:', error);
+  }
+
+  return c.json({ success: true, workflow });
+});
+
+/** 更新工作流 */
+adminApi.put('/workflows/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const body = (await c.req.json()) as Partial<{
+    name: string;
+    description: string;
+    steps: Array<{ type: string; config: Record<string, unknown> }>;
+    enabled: boolean;
+    triggerType: string;
+    triggerConfig: Record<string, unknown>;
+  }>;
+
+  const pushService = new PushService(c.env, username);
+  const updateData: Record<string, unknown> = { ...body };
+  if (body.steps) {
+    updateData.steps = body.steps.map((s) => ({
+      type: s.type as 'push' | 'delay' | 'condition',
+      config: s.config,
+    }));
+  }
+  const workflow = await pushService.updateWorkflow(
+    id,
+    updateData as Parameters<typeof pushService.updateWorkflow>[1]
+  );
+
+  if (!workflow) {
+    return c.json({ error: '工作流不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, workflow });
+});
+
+/** 删除工作流 */
+adminApi.delete('/workflows/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  const deleted = await pushService.deleteWorkflow(id);
+
+  if (!deleted) {
+    return c.json({ error: '工作流不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, message: '工作流已删除' });
+});
+
+/** 执行工作流 */
+adminApi.post('/workflows/:id/execute', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  const pushService = new PushService(c.env, username);
+  try {
+    const result = await pushService.executeWorkflow(id, () =>
+      loadUserChannelSettings(username, c.env).then((loadUserChannelSettings_result) => {
+        return getChannelConfigs(loadUserChannelSettings_result).reduce(
+          (acc, ch) => {
+            acc[ch.id] = { enabled: ch.enabled } as import('../types').ChannelConfig;
+            return acc;
+          },
+          {} as Record<string, import('../types').ChannelConfig>
+        );
+      })
+    );
+
+    try {
+      const auditLogger = createAuditLogger(c.env, username);
+      await auditLogger.log('workflow_executed', { workflowId: id, success: result.success });
+    } catch (error) {
+      console.error('[Workflow Execute] Audit log failed:', error);
+    }
+
+    return c.json({ message: result.success ? '工作流执行成功' : '工作流部分执行失败', ...result });
+  } catch (err) {
+    return c.json({ error: (err as Error).message, code: 'EXECUTION_ERROR' }, 500);
+  }
+});
+
+// ============================================
 // 推送草稿箱
 // ============================================
 
@@ -3090,6 +3367,37 @@ adminApi.post('/ai/agent', async (c) => {
   const result = await agent.execute({ query: body.query, userId, username });
 
   return c.json(result);
+});
+
+// ============================================
+// 数据导出增强
+// ============================================
+
+/** 导出用户数据（支持 JSON/CSV 格式和时间范围过滤） */
+adminApi.post('/export', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    format?: 'json' | 'csv';
+    dateRange?: { start?: string; end?: string };
+  };
+
+  const { exportUserData, exportAsCsv } = await import('../services/dataExportService');
+
+  const data = await exportUserData(c.env, username, {
+    dateRange: body.dateRange,
+  });
+
+  if (body.format === 'csv') {
+    const csv = exportAsCsv(data);
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="data-export-${new Date().toISOString().split('T')[0]}.csv"`,
+      },
+    });
+  }
+
+  return c.json(data);
 });
 
 // ============================================

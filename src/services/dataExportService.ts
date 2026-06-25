@@ -175,7 +175,11 @@ export interface BackupRecord {
 /**
  * 导出用户所有数据
  */
-export async function exportUserData(env: Env, userId: string): Promise<UserDataExport> {
+export async function exportUserData(
+  env: Env,
+  userId: string,
+  options?: { dateRange?: { start?: string; end?: string } }
+): Promise<UserDataExport> {
   const result: UserDataExport = {
     version: '2.0',
     exportedAt: new Date().toISOString(),
@@ -310,11 +314,21 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
     result.metadata.tableCounts!.channelGroups = result.tables.channelGroups.length;
   }
 
-  // 导出推送历史（最多 1000 条）
-  const pushHistory = await env.DB.prepare(
-    'SELECT * FROM push_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 1000'
-  )
-    .bind(userId)
+  // 导出推送历史（最多 1000 条，支持时间范围过滤）
+  let pushHistorySQL = 'SELECT * FROM push_history WHERE user_id = ?';
+  const pushHistoryParams: (string | number)[] = [userId];
+  if (options?.dateRange?.start) {
+    pushHistorySQL += ' AND created_at >= ?';
+    pushHistoryParams.push(options.dateRange.start);
+  }
+  if (options?.dateRange?.end) {
+    pushHistorySQL += ' AND created_at <= ?';
+    pushHistoryParams.push(options.dateRange.end);
+  }
+  pushHistorySQL += ' ORDER BY created_at DESC LIMIT 1000';
+
+  const pushHistory = await env.DB.prepare(pushHistorySQL)
+    .bind(...pushHistoryParams)
     .all<{
       id: string;
       channel_id: string;
@@ -352,11 +366,21 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
     result.metadata.tableCounts!.pushHistory = result.tables.pushHistory.length;
   }
 
-  // 导出审计日志（最多 1000 条）
-  const auditLogs = await env.DB.prepare(
-    'SELECT * FROM audit_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 1000'
-  )
-    .bind(userId)
+  // 导出审计日志（最多 1000 条，支持时间范围过滤）
+  let auditSQL = 'SELECT * FROM audit_logs WHERE user_id = ?';
+  const auditParams: (string | number)[] = [userId];
+  if (options?.dateRange?.start) {
+    auditSQL += ' AND created_at >= ?';
+    auditParams.push(options.dateRange.start);
+  }
+  if (options?.dateRange?.end) {
+    auditSQL += ' AND created_at <= ?';
+    auditParams.push(options.dateRange.end);
+  }
+  auditSQL += ' ORDER BY created_at DESC LIMIT 1000';
+
+  const auditLogs = await env.DB.prepare(auditSQL)
+    .bind(...auditParams)
     .all<{ id: string; action: string; data?: string; created_at: string }>();
 
   if (auditLogs.results?.length) {
@@ -1120,7 +1144,158 @@ async function ensureBackupRecordsTable(env: Env): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_backup_records_created ON backup_records(created_at)
     `
     ).run();
-  } catch (error) {
+  } catch (_error) {
     // 表可能已经存在，忽略错误
   }
+}
+
+// ============================================
+// CSV 格式导出
+// ============================================
+
+function escapeCsvField(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function recordsToCsv(headers: string[], records: Record<string, unknown>[]): string {
+  const lines = [headers.join(',')];
+  for (const record of records) {
+    const row = headers.map((h) => escapeCsvField(record[h]));
+    lines.push(row.join(','));
+  }
+  return lines.join('\n');
+}
+
+/**
+ * 将导出数据转换为 CSV 格式
+ * 返回一个以表名为键的 CSV 字符串映射
+ */
+export function convertExportToCsv(data: UserDataExport): Record<string, string> {
+  const csvMap: Record<string, string> = {};
+
+  if (data.tables.channelConfigs?.length) {
+    csvMap['channelConfigs'] = recordsToCsv(
+      ['id', 'channelId', 'config', 'enabled', 'createdAt', 'updatedAt'],
+      data.tables.channelConfigs.map((r) => ({
+        id: r.id,
+        channelId: r.channelId,
+        config: JSON.stringify(r.config),
+        enabled: r.enabled,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }))
+    );
+  }
+
+  if (data.tables.pushTemplates?.length) {
+    csvMap['pushTemplates'] = recordsToCsv(
+      ['id', 'name', 'title', 'body', 'url', 'imageUrl', 'channels', 'createdAt', 'updatedAt'],
+      data.tables.pushTemplates.map((r) => ({
+        id: r.id,
+        name: r.name,
+        title: r.title,
+        body: r.body,
+        url: r.url,
+        imageUrl: r.imageUrl,
+        channels: r.channels?.join(';'),
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }))
+    );
+  }
+
+  if (data.tables.pushHistory?.length) {
+    csvMap['pushHistory'] = recordsToCsv(
+      [
+        'id',
+        'channelId',
+        'channelType',
+        'title',
+        'content',
+        'url',
+        'success',
+        'error',
+        'latencyMs',
+        'timestamp',
+        'createdAt',
+      ],
+      data.tables.pushHistory.map((r) => ({
+        id: r.id,
+        channelId: r.channelId,
+        channelType: r.channelType,
+        title: r.title,
+        content: r.content,
+        url: r.url,
+        success: r.success,
+        error: r.error,
+        latencyMs: r.latencyMs,
+        timestamp: r.timestamp,
+        createdAt: r.createdAt,
+      }))
+    );
+  }
+
+  if (data.tables.auditLogs?.length) {
+    csvMap['auditLogs'] = recordsToCsv(
+      ['id', 'action', 'data', 'createdAt'],
+      data.tables.auditLogs.map((r) => ({
+        id: r.id,
+        action: r.action,
+        data: JSON.stringify(r.data),
+        createdAt: r.createdAt,
+      }))
+    );
+  }
+
+  if (data.tables.scheduledPushes?.length) {
+    csvMap['scheduledPushes'] = recordsToCsv(
+      [
+        'id',
+        'templateId',
+        'title',
+        'body',
+        'channels',
+        'scheduledAt',
+        'recurringType',
+        'enabled',
+        'status',
+        'createdAt',
+        'updatedAt',
+      ],
+      data.tables.scheduledPushes.map((r) => ({
+        id: r.id,
+        templateId: r.templateId,
+        title: r.title,
+        body: r.body,
+        channels: r.channels?.join(';'),
+        scheduledAt: r.scheduledAt,
+        recurringType: r.recurringType,
+        enabled: r.enabled,
+        status: r.status,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }))
+    );
+  }
+
+  return csvMap;
+}
+
+/**
+ * 导出为 CSV（返回合并的 CSV 字符串，用表名分隔）
+ */
+export function exportAsCsv(data: UserDataExport): string {
+  const csvMap = convertExportToCsv(data);
+  const parts: string[] = [];
+  for (const [table, csv] of Object.entries(csvMap)) {
+    parts.push(`=== ${table} ===`);
+    parts.push(csv);
+    parts.push('');
+  }
+  return parts.join('\n');
 }

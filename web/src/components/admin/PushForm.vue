@@ -2,7 +2,7 @@
 // ============================================
 // 推送表单组件
 // ============================================
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import type { ChannelConfig, PushChannel, PushResult, PushTemplate } from '@/types';
@@ -29,6 +29,8 @@ const pushTitle = ref('');
 const pushBody = ref('');
 const pushUrl = ref('');
 const useAsync = ref(true);
+const showPreview = ref(false);
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
 // 草稿箱相关状态
 const drafts = ref<
@@ -90,6 +92,65 @@ function doPush() {
     channels,
     useAsync.value
   );
+}
+
+// Markdown 编辑器工具栏操作
+function insertMarkdown(syntax: 'bold' | 'italic' | 'link' | 'list') {
+  const ta = textareaRef.value;
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const selected = pushBody.value.substring(start, end);
+  let before = '';
+  let after = '';
+  let cursorOffset = 0;
+
+  switch (syntax) {
+    case 'bold':
+      before = '**';
+      after = '**';
+      cursorOffset = selected ? 0 : 2;
+      break;
+    case 'italic':
+      before = '*';
+      after = '*';
+      cursorOffset = selected ? 0 : 1;
+      break;
+    case 'link':
+      before = '[';
+      after = '](url)';
+      cursorOffset = selected ? 0 : 1;
+      break;
+    case 'list':
+      before = '\n- ';
+      after = '';
+      cursorOffset = selected ? 0 : 3;
+      break;
+  }
+
+  const newText =
+    pushBody.value.substring(0, start) + before + selected + after + pushBody.value.substring(end);
+  pushBody.value = newText;
+
+  nextTick(() => {
+    ta.focus();
+    const newPos = start + before.length + (selected ? selected.length : 0) + cursorOffset;
+    ta.setSelectionRange(newPos, newPos);
+  });
+}
+
+function renderMarkdown(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    .replace(/\n/g, '<br>');
 }
 
 // 草稿箱操作
@@ -246,7 +307,43 @@ function getChannelPreview(channel: PushChannel): { icon: string; name: string; 
       </div>
       <div class="form-group">
         <label>{{ t('label.content') }}</label>
-        <textarea v-model="pushBody" :placeholder="t('placeholder.content')"></textarea>
+        <div class="markdown-editor">
+          <div class="md-toolbar">
+            <button type="button" class="md-btn" title="粗体" @click="insertMarkdown('bold')">
+              B
+            </button>
+            <button
+              type="button"
+              class="md-btn md-italic"
+              title="斜体"
+              @click="insertMarkdown('italic')"
+            >
+              I
+            </button>
+            <button type="button" class="md-btn" title="链接" @click="insertMarkdown('link')">
+              🔗
+            </button>
+            <button type="button" class="md-btn" title="列表" @click="insertMarkdown('list')">
+              ☰
+            </button>
+            <button
+              type="button"
+              class="md-btn md-toggle"
+              :class="{ active: showPreview }"
+              @click="showPreview = !showPreview"
+            >
+              👁
+            </button>
+          </div>
+          <div class="md-body">
+            <textarea
+              ref="textareaRef"
+              v-model="pushBody"
+              :placeholder="t('placeholder.content')"
+            ></textarea>
+            <div v-if="showPreview" class="md-preview" v-html="renderMarkdown(pushBody)"></div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>{{ t('label.url') }} ({{ t('label.optional') }})</label>
@@ -525,6 +622,109 @@ function getChannelPreview(channel: PushChannel): { icon: string; name: string; 
 .form-group textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* Markdown Editor */
+.markdown-editor {
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.markdown-editor:focus-within {
+  border-color: #667eea;
+}
+
+.md-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.md-btn {
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary, #666);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.md-btn:hover {
+  background: var(--border-color, #e0e0e0);
+  color: var(--text-primary, #333);
+}
+
+.md-btn.md-italic {
+  font-style: italic;
+}
+
+.md-btn.md-toggle.active {
+  background: #667eea;
+  color: white;
+}
+
+.md-body {
+  display: flex;
+  min-height: 80px;
+}
+
+.md-body textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #1a1a2e);
+  box-sizing: border-box;
+}
+
+.md-preview {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  border-left: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-panel, white);
+  overflow-y: auto;
+  min-height: 80px;
+  max-height: 240px;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.md-preview :deep(ul) {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.md-preview :deep(li) {
+  margin-bottom: 2px;
+}
+
+.md-preview :deep(a) {
+  color: #667eea;
+}
+
+.md-preview :deep(strong) {
+  font-weight: 700;
+}
+
+.md-preview :deep(em) {
+  font-style: italic;
 }
 
 .hint {
@@ -930,6 +1130,16 @@ function getChannelPreview(channel: PushChannel): { icon: string; name: string; 
     width: 100%;
     font-size: 13px;
     padding: 10px 16px;
+  }
+
+  .md-body {
+    flex-direction: column;
+  }
+
+  .md-preview {
+    border-left: none;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+    max-height: 160px;
   }
 
   .preview-grid {

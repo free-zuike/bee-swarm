@@ -12,6 +12,9 @@ interface PushTemplateRow {
   markdown?: number;
   category?: string;
   variables?: string;
+  is_public?: number;
+  downloads?: number;
+  author?: string;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +46,8 @@ interface ScheduledPushRow {
   user_id?: string;
   created_at?: string;
   overdue_reminder_sent?: number;
+  ab_test_enabled?: number;
+  ab_test_variants?: string;
 }
 
 export interface PushTemplate {
@@ -56,6 +61,9 @@ export interface PushTemplate {
   useMarkdown?: boolean;
   category?: string;
   variables?: TemplateVariable[];
+  isPublic?: boolean;
+  downloads?: number;
+  author?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +151,9 @@ export interface ScheduledPush {
   enabled?: boolean;
   // 时区配置，默认使用 Asia/Shanghai
   timezone?: string;
+  // A/B 测试
+  abTestEnabled?: boolean;
+  abTestVariants?: Array<{ name: string; content: string; weight: number }>;
 }
 
 type PushParams = {
@@ -152,6 +163,25 @@ type PushParams = {
   imageUrl?: string;
   markdown?: boolean;
 };
+
+export interface WorkflowStep {
+  type: 'push' | 'delay' | 'condition';
+  config: Record<string, unknown>;
+}
+
+export interface PushWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+  enabled: boolean;
+  triggerType: string;
+  triggerConfig: Record<string, unknown>;
+  lastRunAt?: string;
+  lastStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export class PushService {
   private env: Env;
@@ -189,6 +219,9 @@ export class PushService {
       useMarkdown: result.markdown === 1,
       category: result.category,
       variables: result.variables ? JSON.parse(result.variables) : [],
+      isPublic: result.is_public === 1,
+      downloads: result.downloads || 0,
+      author: result.author,
       createdAt: result.created_at,
       updatedAt: result.updated_at,
     };
@@ -255,6 +288,8 @@ export class PushService {
         : undefined,
       cronExpression: result.cron || undefined,
       timezone: result.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
+      abTestEnabled: result.ab_test_enabled === 1,
+      abTestVariants: result.ab_test_variants ? JSON.parse(result.ab_test_variants) : undefined,
     };
   }
 
@@ -334,6 +369,9 @@ export class PushService {
       useMarkdown: row.markdown === 1,
       category: row.category,
       variables: row.variables ? JSON.parse(row.variables) : [],
+      isPublic: row.is_public === 1,
+      downloads: row.downloads || 0,
+      author: row.author,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -590,6 +628,8 @@ export class PushService {
       selectedMonthDays: row.selected_month_days ? JSON.parse(row.selected_month_days) : undefined,
       cronExpression: row.cron || undefined,
       timezone: row.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
+      abTestEnabled: row.ab_test_enabled === 1,
+      abTestVariants: row.ab_test_variants ? JSON.parse(row.ab_test_variants) : undefined,
     }));
   }
 
@@ -607,9 +647,9 @@ export class PushService {
       await this.env.DB.prepare(
         `
         INSERT INTO scheduled_pushes (
-          id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, created_at, updated_at
+          id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       )
         .bind(
@@ -628,6 +668,8 @@ export class PushService {
           push.selectedMonthDays ? JSON.stringify(push.selectedMonthDays) : null,
           push.yearlyDates ? JSON.stringify(push.yearlyDates) : null,
           push.timezone || 'Asia/Shanghai',
+          push.abTestEnabled ? 1 : 0,
+          push.abTestVariants ? JSON.stringify(push.abTestVariants) : null,
           now,
           now
         )
@@ -732,6 +774,14 @@ export class PushService {
     if (updates.timezone !== undefined) {
       fields.push('timezone = ?');
       values.push(updates.timezone);
+    }
+    if (updates.abTestEnabled !== undefined) {
+      fields.push('ab_test_enabled = ?');
+      values.push(updates.abTestEnabled ? 1 : 0);
+    }
+    if (updates.abTestVariants !== undefined) {
+      fields.push('ab_test_variants = ?');
+      values.push(updates.abTestVariants ? JSON.stringify(updates.abTestVariants) : null);
     }
 
     values.push(id, this.userId);
@@ -1054,6 +1104,393 @@ export class PushService {
     return result.success && (result.meta?.changes || 0) > 0;
   }
 
+  // ============================================
+  // 模板市场
+  // ============================================
+
+  async getMarketTemplates(options?: {
+    limit?: number;
+    offset?: number;
+    category?: string;
+    search?: string;
+  }): Promise<{ templates: PushTemplate[]; total: number }> {
+    if (!this.env.DB) return { templates: [], total: 0 };
+
+    const limit = options?.limit || 20;
+    const offset = options?.offset || 0;
+
+    let sql = 'SELECT * FROM push_templates WHERE is_public = 1';
+    const params: (string | number)[] = [];
+
+    if (options?.category) {
+      sql += ' AND category = ?';
+      params.push(options.category);
+    }
+    if (options?.search) {
+      sql += ' AND (name LIKE ? OR title LIKE ?)';
+      params.push(`%${options.search}%`, `%${options.search}%`);
+    }
+
+    const countResult = await this.env.DB.prepare(
+      sql.replace('SELECT *', 'SELECT COUNT(*) as count')
+    )
+      .bind(...params)
+      .first<{ count: number }>();
+
+    const total = countResult?.count || 0;
+
+    sql += ' ORDER BY downloads DESC, created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const result = await this.env.DB.prepare(sql)
+      .bind(...params)
+      .all<PushTemplateRow>();
+
+    return {
+      templates: (result.results || []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        title: row.title || '',
+        content: row.body || '',
+        channels: row.channels ? JSON.parse(row.channels) : [],
+        url: row.url,
+        imageUrl: row.image_url,
+        useMarkdown: row.markdown === 1,
+        category: row.category,
+        variables: row.variables ? JSON.parse(row.variables) : [],
+        isPublic: row.is_public === 1,
+        downloads: row.downloads || 0,
+        author: row.author,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+      total,
+    };
+  }
+
+  async publishTemplate(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+
+    const result = await this.env.DB.prepare(
+      'UPDATE push_templates SET is_public = 1, updated_at = ? WHERE id = ? AND user_id = ?'
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  async unpublishTemplate(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+
+    const result = await this.env.DB.prepare(
+      'UPDATE push_templates SET is_public = 0, updated_at = ? WHERE id = ? AND user_id = ?'
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  async copyFromMarket(templateId: string): Promise<PushTemplate | null> {
+    if (!this.env.DB) return null;
+
+    const source = await this.env.DB.prepare(
+      'SELECT * FROM push_templates WHERE id = ? AND is_public = 1'
+    )
+      .bind(templateId)
+      .first<PushTemplateRow>();
+
+    if (!source) return null;
+
+    const newId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await this.env.DB.prepare(
+      `INSERT INTO push_templates (id, user_id, name, title, body, channels, url, image_url, markdown, category, variables, is_public, downloads, author, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`
+    )
+      .bind(
+        newId,
+        this.userId,
+        source.name,
+        source.title,
+        source.body,
+        source.channels,
+        source.url,
+        source.image_url,
+        source.markdown,
+        source.category,
+        source.variables,
+        source.author || '',
+        now,
+        now
+      )
+      .run();
+
+    await this.env.DB.prepare('UPDATE push_templates SET downloads = downloads + 1 WHERE id = ?')
+      .bind(templateId)
+      .run();
+
+    return this.getTemplateById(newId);
+  }
+
+  async getWorkflows(): Promise<PushWorkflow[]> {
+    if (!this.env.DB) return [];
+
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM push_workflows WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(this.userId)
+      .all<{
+        id: string;
+        name: string;
+        description: string;
+        steps: string;
+        enabled: number;
+        trigger_type: string;
+        trigger_config: string;
+        last_run_at?: string;
+        last_status?: string;
+        created_at: string;
+        updated_at: string;
+      }>();
+
+    return (result.results || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      steps: JSON.parse(row.steps || '[]'),
+      enabled: row.enabled === 1,
+      triggerType: row.trigger_type,
+      triggerConfig: JSON.parse(row.trigger_config || '{}'),
+      lastRunAt: row.last_run_at,
+      lastStatus: row.last_status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async createWorkflow(workflow: {
+    name: string;
+    description?: string;
+    steps: WorkflowStep[];
+    enabled?: boolean;
+    triggerType?: string;
+    triggerConfig?: Record<string, unknown>;
+  }): Promise<PushWorkflow> {
+    if (!this.env.DB) throw new Error('D1 数据库未配置');
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await this.env.DB.prepare(
+      `INSERT INTO push_workflows (id, user_id, name, description, steps, enabled, trigger_type, trigger_config, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        id,
+        this.userId,
+        workflow.name,
+        workflow.description || '',
+        JSON.stringify(workflow.steps),
+        workflow.enabled !== false ? 1 : 0,
+        workflow.triggerType || 'manual',
+        JSON.stringify(workflow.triggerConfig || {}),
+        now,
+        now
+      )
+      .run();
+
+    return {
+      id,
+      name: workflow.name,
+      description: workflow.description || '',
+      steps: workflow.steps,
+      enabled: workflow.enabled !== false,
+      triggerType: workflow.triggerType || 'manual',
+      triggerConfig: workflow.triggerConfig || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async updateWorkflow(
+    id: string,
+    updates: Partial<Omit<PushWorkflow, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Promise<PushWorkflow | null> {
+    if (!this.env.DB) return null;
+
+    const now = new Date().toISOString();
+    const fields: string[] = ['updated_at = ?'];
+    const values: (string | number | null)[] = [now];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.steps !== undefined) {
+      fields.push('steps = ?');
+      values.push(JSON.stringify(updates.steps));
+    }
+    if (updates.enabled !== undefined) {
+      fields.push('enabled = ?');
+      values.push(updates.enabled ? 1 : 0);
+    }
+    if (updates.triggerType !== undefined) {
+      fields.push('trigger_type = ?');
+      values.push(updates.triggerType);
+    }
+    if (updates.triggerConfig !== undefined) {
+      fields.push('trigger_config = ?');
+      values.push(JSON.stringify(updates.triggerConfig));
+    }
+
+    values.push(id, this.userId);
+
+    await this.env.DB.prepare(
+      `UPDATE push_workflows SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM push_workflows WHERE id = ? AND user_id = ?'
+    )
+      .bind(id, this.userId)
+      .first<{
+        id: string;
+        name: string;
+        description: string;
+        steps: string;
+        enabled: number;
+        trigger_type: string;
+        trigger_config: string;
+        last_run_at?: string;
+        last_status?: string;
+        created_at: string;
+        updated_at: string;
+      }>();
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      name: result.name,
+      description: result.description,
+      steps: JSON.parse(result.steps || '[]'),
+      enabled: result.enabled === 1,
+      triggerType: result.trigger_type,
+      triggerConfig: JSON.parse(result.trigger_config || '{}'),
+      lastRunAt: result.last_run_at,
+      lastStatus: result.last_status,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  async deleteWorkflow(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+
+    const result = await this.env.DB.prepare(
+      'DELETE FROM push_workflows WHERE id = ? AND user_id = ?'
+    )
+      .bind(id, this.userId)
+      .run();
+
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  async executeWorkflow(
+    id: string,
+    getSettings: () => Promise<Record<string, import('../types').ChannelConfig>>
+  ): Promise<{
+    success: boolean;
+    results: Array<{ step: number; status: string; message: string }>;
+  }> {
+    if (!this.env.DB) throw new Error('D1 数据库未配置');
+
+    const workflows = await this.getWorkflows();
+    const workflow = workflows.find((w) => w.id === id);
+    if (!workflow) throw new Error('工作流不存在');
+    if (!workflow.enabled) throw new Error('工作流已禁用');
+
+    const results: Array<{ step: number; status: string; message: string }> = [];
+    const settings = await getSettings();
+    const now = new Date().toISOString();
+
+    for (let i = 0; i < workflow.steps.length; i++) {
+      const step = workflow.steps[i];
+      try {
+        if (step.type === 'push') {
+          const config = step.config as {
+            title?: string;
+            body?: string;
+            channels?: PushChannel[];
+          };
+          const payload: PushParams = {
+            title: config.title || workflow.name,
+            body: config.body || '',
+          };
+          const channels = config.channels || [];
+
+          const channelConfigs: Record<string, import('../types').ChannelConfig> = {};
+          for (const ch of channels) {
+            if (settings[ch]) {
+              channelConfigs[ch] = settings[ch];
+            }
+          }
+
+          const { dispatchPush } = await import('../services/dispatcher');
+          const channelResults = await dispatchPush(payload, channels, this.userId, this.env);
+
+          const allSuccess = channelResults.every((r) => r.success);
+          results.push({
+            step: i + 1,
+            status: allSuccess ? 'success' : 'partial',
+            message: allSuccess ? `推送成功到 ${channels.length} 个渠道` : `部分渠道推送失败`,
+          });
+        } else if (step.type === 'delay') {
+          const config = step.config as { seconds?: number };
+          const delayMs = (config.seconds || 5) * 1000;
+          await new Promise((resolve) => setTimeout(resolve, Math.min(delayMs, 30000)));
+          results.push({
+            step: i + 1,
+            status: 'success',
+            message: `延迟 ${config.seconds || 5} 秒完成`,
+          });
+        } else if (step.type === 'condition') {
+          results.push({
+            step: i + 1,
+            status: 'success',
+            message: '条件检查完成',
+          });
+        }
+      } catch (err) {
+        results.push({
+          step: i + 1,
+          status: 'error',
+          message: (err as Error).message,
+        });
+      }
+    }
+
+    const allSuccess = results.every((r) => r.status === 'success');
+    const lastStatus = allSuccess ? 'success' : 'failed';
+
+    await this.env.DB.prepare(
+      'UPDATE push_workflows SET last_run_at = ?, last_status = ?, updated_at = ? WHERE id = ? AND user_id = ?'
+    )
+      .bind(now, lastStatus, now, id, this.userId)
+      .run();
+
+    return { success: allSuccess, results };
+  }
+
   getMetrics(): MetricsCollector {
     return this.metrics;
   }
@@ -1219,5 +1656,35 @@ export class PushService {
       .first<{ overdue_reminder_sent: number }>();
 
     return result?.overdue_reminder_sent === 1;
+  }
+
+  async markDelivered(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+    const result = await this.env.DB.prepare(
+      'UPDATE push_history SET delivered_at = ? WHERE id = ? AND user_id = ? AND delivered_at IS NULL'
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  async markRead(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+    const result = await this.env.DB.prepare(
+      'UPDATE push_history SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL'
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  async markClicked(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+    const result = await this.env.DB.prepare(
+      'UPDATE push_history SET clicked_at = ? WHERE id = ? AND user_id = ? AND clicked_at IS NULL'
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+    return result.success && (result.meta?.changes || 0) > 0;
   }
 }

@@ -48,6 +48,7 @@
                           : t('scheduled.scheduleType.once')
                       }}
                     </span>
+                    <span v-if="push.abTestEnabled" class="type-badge ab-test">A/B</span>
                   </div>
                 </div>
               </div>
@@ -478,6 +479,46 @@
             </select>
           </div>
 
+          <div class="form-group">
+            <label class="ab-toggle-label">
+              <input type="checkbox" v-model="abTestEnabled" class="ab-toggle-checkbox" />
+              <span>A/B 测试</span>
+              <span class="ab-hint">启用后将按权重随机发送不同内容变体</span>
+            </label>
+            <div v-if="abTestEnabled" class="ab-variants-editor">
+              <div v-for="(variant, idx) in abTestVariants" :key="idx" class="ab-variant-row">
+                <div class="ab-variant-header">
+                  <span class="ab-variant-name">变体 {{ variant.name }}</span>
+                  <div class="ab-variant-weight">
+                    <input
+                      v-model.number="variant.weight"
+                      type="number"
+                      min="1"
+                      max="100"
+                      class="ab-weight-input"
+                    />
+                    <span class="ab-weight-unit">%</span>
+                  </div>
+                  <button
+                    v-if="abTestVariants.length > 2"
+                    type="button"
+                    class="ab-remove-btn"
+                    @click="removeAbVariant(idx)"
+                  >
+                    ×
+                  </button>
+                </div>
+                <textarea
+                  v-model="variant.content"
+                  :placeholder="`变体 ${variant.name} 的消息内容`"
+                  rows="2"
+                  class="ab-variant-textarea"
+                ></textarea>
+              </div>
+              <button type="button" class="ab-add-btn" @click="addAbVariant">+ 添加变体</button>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" @click="closeModal">
               {{ t('common.cancel') }}
@@ -766,6 +807,8 @@ interface ScheduledPush {
   timezone?: string;
   overdueReminderSent?: boolean;
   overdueAt?: string;
+  abTestEnabled?: boolean;
+  abTestVariants?: Array<{ name: string; content: string; weight: number }>;
 }
 
 interface Template {
@@ -801,6 +844,12 @@ const reschedulePush = ref<ScheduledPush | null>(null);
 const today = new Date().toISOString().split('T')[0];
 const rescheduleDate = ref(today);
 const rescheduleTime = ref('09:00');
+
+const abTestEnabled = ref(false);
+const abTestVariants = ref<Array<{ name: string; content: string; weight: number }>>([
+  { name: 'A', content: '', weight: 50 },
+  { name: 'B', content: '', weight: 50 },
+]);
 
 const scheduleType = ref<'once' | 'recurring'>('once');
 const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron'>('daily');
@@ -1023,6 +1072,12 @@ function resetForm(): void {
   cronExpression.value = '0 9 * * *';
   // 重置每年任务的日期组合
   yearlyDates.value = [{ month: 1, day: 1 }];
+  // 重置 A/B 测试
+  abTestEnabled.value = false;
+  abTestVariants.value = [
+    { name: 'A', content: '', weight: 50 },
+    { name: 'B', content: '', weight: 50 },
+  ];
 }
 
 function openCreateModal(): void {
@@ -1068,6 +1123,12 @@ function openRenewModal(push: ScheduledPush): void {
   }
   if (push.timezone) {
     newPush.value.timezone = push.timezone;
+  }
+  if (push.abTestEnabled !== undefined) {
+    abTestEnabled.value = push.abTestEnabled;
+  }
+  if (push.abTestVariants && push.abTestVariants.length > 0) {
+    abTestVariants.value = [...push.abTestVariants];
   }
   showModal.value = true;
 }
@@ -1115,6 +1176,12 @@ function openEditModal(push: ScheduledPush): void {
   if (push.timezone) {
     newPush.value.timezone = push.timezone;
   }
+  if (push.abTestEnabled !== undefined) {
+    abTestEnabled.value = push.abTestEnabled;
+  }
+  if (push.abTestVariants && push.abTestVariants.length > 0) {
+    abTestVariants.value = [...push.abTestVariants];
+  }
   showModal.value = true;
 }
 
@@ -1157,6 +1224,31 @@ function onTemplateChange(): void {
   } else {
     newPush.value.channels = [];
   }
+}
+
+function addAbVariant(): void {
+  const letters = 'CDEFGHIJKLMNOP';
+  const nextName =
+    letters[abTestVariants.value.length - 2] || String(abTestVariants.value.length + 1);
+  const evenSplit = Math.floor(100 / (abTestVariants.value.length + 1));
+  abTestVariants.value.forEach((v) => (v.weight = evenSplit));
+  abTestVariants.value.push({
+    name: nextName,
+    content: '',
+    weight: 100 - evenSplit * abTestVariants.value.length,
+  });
+}
+
+function removeAbVariant(index: number): void {
+  if (abTestVariants.value.length <= 2) return;
+  abTestVariants.value.splice(index, 1);
+  const evenSplit = Math.floor(100 / abTestVariants.value.length);
+  abTestVariants.value.forEach((v, i) => {
+    v.weight =
+      i === abTestVariants.value.length - 1
+        ? 100 - evenSplit * (abTestVariants.value.length - 1)
+        : evenSplit;
+  });
 }
 
 async function handleModalSubmit(): Promise<void> {
@@ -1206,6 +1298,8 @@ async function updateScheduledPushHandler(): Promise<void> {
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
       timezone: newPush.value.timezone,
+      abTestEnabled: abTestEnabled.value,
+      abTestVariants: abTestEnabled.value ? abTestVariants.value : undefined,
     });
 
     showModal.value = false;
@@ -1268,6 +1362,8 @@ async function createScheduledPushHandler(): Promise<void> {
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
       timezone: newPush.value.timezone,
+      abTestEnabled: abTestEnabled.value,
+      abTestVariants: abTestEnabled.value ? abTestVariants.value : undefined,
     });
 
     showModal.value = false;
@@ -2337,6 +2433,11 @@ async function loadTemplates(): Promise<void> {
   color: #722ed1;
 }
 
+.type-badge.ab-test {
+  background: #fa8c1620;
+  color: #fa8c16;
+}
+
 .toggle-upcoming-btn {
   background: var(--bg-panel, white);
   border: 1px solid var(--border-color, #d9d9d9);
@@ -2762,6 +2863,126 @@ async function loadTemplates(): Promise<void> {
 .required {
   color: #ff4d4f;
   margin-left: 4px;
+}
+
+/* A/B Test Editor */
+.ab-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.ab-toggle-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #667eea;
+}
+
+.ab-hint {
+  font-weight: 400;
+  font-size: 12px;
+  color: #999;
+}
+
+.ab-variants-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ab-variant-row {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.ab-variant-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ab-variant-name {
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 50px;
+}
+
+.ab-variant-weight {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.ab-weight-input {
+  width: 50px;
+  padding: 4px 6px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.ab-weight-unit {
+  font-size: 12px;
+  color: #666;
+}
+
+.ab-remove-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ab-remove-btn:hover {
+  color: #ff4d4f;
+  background: #fff5f5;
+}
+
+.ab-variant-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
+}
+
+.ab-variant-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.ab-add-btn {
+  background: none;
+  border: 1px dashed #d0d0d0;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ab-add-btn:hover {
+  border-color: #667eea;
+  background: #f0f0ff;
 }
 
 .monthday-options {
