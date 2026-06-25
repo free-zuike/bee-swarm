@@ -139,6 +139,13 @@ onMounted(() => {
       updateChart();
     }
   );
+
+  watch(
+    () => t('label.channel_ratio'),
+    () => {
+      updateChart();
+    }
+  );
 });
 
 onBeforeUnmount(() => {

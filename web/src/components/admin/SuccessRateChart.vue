@@ -165,6 +165,14 @@ onMounted(() => {
       updateChart();
     }
   );
+
+  // 监听语言变化，重新渲染图表
+  watch(
+    () => t('label.success_rate'),
+    () => {
+      updateChart();
+    }
+  );
 });
 
 onBeforeUnmount(() => {

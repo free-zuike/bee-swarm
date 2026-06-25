@@ -163,6 +163,13 @@ onMounted(() => {
       updateChart();
     }
   );
+
+  watch(
+    () => t('label.avg_latency'),
+    () => {
+      updateChart();
+    }
+  );
 });
 
 onBeforeUnmount(() => {
