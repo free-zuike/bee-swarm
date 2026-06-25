@@ -725,7 +725,8 @@ onMounted(loadWorkflows);
   border: 1px solid var(--border-color, #e0e0e0);
   border-radius: 6px;
   font-size: 13px;
-  background: white;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
 }
 
 .step-config {
@@ -776,7 +777,8 @@ onMounted(loadWorkflows);
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
-  background: white;
+  background: var(--bg-panel, white);
+  color: var(--text-primary, #333);
 }
 
 .checkbox-label {
@@ -980,6 +982,12 @@ onMounted(loadWorkflows);
 }
 
 .workflow-manager.dark .step-input {
+  background: #1e1e2e;
+  border-color: #45475a;
+  color: #cdd6f4;
+}
+
+.workflow-manager.dark .step-type-select {
   background: #1e1e2e;
   border-color: #45475a;
   color: #cdd6f4;
