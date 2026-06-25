@@ -89,27 +89,27 @@ export class AIService {
    */
   private processAIResponse(response: unknown, provider: string): string {
     const factory = new AIResponseParserFactory();
-    
+
     // 优先使用智能自动检测机制
     const parser = factory.autoDetectParser(response);
     const parserName = (parser as { provider: string }).provider;
-    
+
     console.log('[AI Service] === AI 响应处理 ===');
     console.log('[AI Service] 提供商:', provider);
     console.log('[AI Service] 使用的解析器:', parserName);
     console.log('[AI Service] 原始响应类型:', typeof response);
     console.log('[AI Service] 原始响应:', JSON.stringify(response, null, 2));
-    
+
     const parsed = parser.parse(response);
-    
+
     console.log('[AI Service] 解析结果 - 内容:', parsed.content);
     console.log('[AI Service] 解析结果 - 工具调用:', parsed.toolCalls);
-    
+
     // 如果有工具调用，返回工具调用的 JSON 格式
     if (parsed.toolCalls && parsed.toolCalls.length > 0) {
       return JSON.stringify({ tool: parsed.toolCalls[0].tool, params: parsed.toolCalls[0].params });
     }
-    
+
     // 返回内容
     return parsed.content || '';
   }
@@ -397,10 +397,10 @@ export class AIService {
       // 如果没有可用工具，返回提示
       if (tools.length === 0) {
         console.warn('[AI Service] 没有可用的 AI 工具');
-        return { 
-          success: false, 
-          result: '没有可用的工具，请联系管理员配置 AI 工具', 
-          error: '工具列表为空' 
+        return {
+          success: false,
+          result: '没有可用的工具，请联系管理员配置 AI 工具',
+          error: '工具列表为空',
         };
       }
 
@@ -410,7 +410,10 @@ export class AIService {
       console.log('[AI Service] 查询:', query);
       console.log('[AI Service] 提供商:', settings.ai_provider);
       console.log('[AI Service] 模型:', settings.ai_model_name);
-      console.log('[AI Service] 可用工具:', tools.map((t) => t.name));
+      console.log(
+        '[AI Service] 可用工具:',
+        tools.map((t) => t.name)
+      );
 
       const aiContent = await this.callAI(
         [
@@ -436,10 +439,10 @@ export class AIService {
         if (aiContent.length > 0 && aiContent.length < 200) {
           return { success: true, result: aiContent };
         }
-        return { 
-          success: false, 
-          result: '无法理解您的请求，请尝试更明确的表达', 
-          error: '未识别到有效的工具调用' 
+        return {
+          success: false,
+          result: '无法理解您的请求，请尝试更明确的表达',
+          error: '未识别到有效的工具调用',
         };
       }
     } catch (error) {
@@ -448,10 +451,10 @@ export class AIService {
     }
   }
 
-  private buildToolSystemPrompt(tools: Array<{ name: string; description: string; parameters: AITool['parameters'] }>): string {
-    const toolsList = tools
-      .map((t) => `- ${t.name}: ${t.description}`)
-      .join('\n');
+  private buildToolSystemPrompt(
+    tools: Array<{ name: string; description: string; parameters: AITool['parameters'] }>
+  ): string {
+    const toolsList = tools.map((t) => `- ${t.name}: ${t.description}`).join('\n');
     return `你是一个推送服务助手，帮助用户管理模板、分组、定时任务等。
 
 可用工具：
@@ -506,7 +509,9 @@ ${toolsList}
       }
 
       // --- 方式 2: 带中文前缀的工具名（如 "调用工具：listTemplates"、"工具调用：listTemplates"、"执行listTemplates"）---
-      const prefixMatch = trimmedContent.match(/^(?:调用工具|工具调用|工具|tool|调用|执行)\s*[:：]?\s*(\w+)\s*[：:]?.*$/i);
+      const prefixMatch = trimmedContent.match(
+        /^(?:调用工具|工具调用|工具|tool|调用|执行)\s*[:：]?\s*(\w+)\s*[：:]?.*$/i
+      );
       if (prefixMatch) {
         const lowerTool = prefixMatch[1].toLowerCase();
         const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
@@ -522,8 +527,7 @@ ${toolsList}
         let params = {};
         try {
           params = JSON.parse(colonJsonMatch[2]);
-        } catch {
-        }
+        } catch {}
         const lowerTool = toolName.toLowerCase();
         const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
         if (matched) {
@@ -554,7 +558,7 @@ ${toolsList}
 
       // --- 方式 6: JSON 格式解析 ---
       let jsonStr = null;
-      
+
       // 6a: 尝试从整个文本中提取 JSON 对象
       const jsonObjectMatch = trimmedContent.match(/\{[\s\S]*\}/);
       if (jsonObjectMatch) {
@@ -568,9 +572,14 @@ ${toolsList}
           jsonStr = codeBlockMatch[1];
         }
       }
-      
+
       // 6c: 如果文本中包含 "tool" 或 "name" 等关键词，尝试更激进地提取 JSON
-      if (!jsonStr && (trimmedContent.includes('"tool"') || trimmedContent.includes('"name"') || trimmedContent.includes('"params"'))) {
+      if (
+        !jsonStr &&
+        (trimmedContent.includes('"tool"') ||
+          trimmedContent.includes('"name"') ||
+          trimmedContent.includes('"params"'))
+      ) {
         // 尝试找到最完整的 JSON 对象
         const allJsonMatches = trimmedContent.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
         if (allJsonMatches) {
@@ -621,8 +630,7 @@ ${toolsList}
           let params = {};
           try {
             params = JSON.parse(parenJsonMatch[2]);
-          } catch {
-          }
+          } catch {}
           const lowerTool = toolName.toLowerCase();
           const matched = knownTools.find((t) => t.toLowerCase() === lowerTool);
           if (matched) {
@@ -642,18 +650,28 @@ ${toolsList}
           lowerContent.includes('template') ||
           lowerContent.includes('templates')
         ) {
-          if (lowerContent.includes('创建') || lowerContent.includes('新建') || lowerContent.includes('create')) {
+          if (
+            lowerContent.includes('创建') ||
+            lowerContent.includes('新建') ||
+            lowerContent.includes('create')
+          ) {
             // 从内容中尝试提取参数
             const params: Record<string, unknown> = {};
-            const nameMatch = trimmedContent.match(/(?:模板|template)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            const nameMatch = trimmedContent.match(
+              /(?:模板|template)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i
+            );
             if (nameMatch) {
               params.name = nameMatch[1].trim();
             }
-            const titleMatch = trimmedContent.match(/(?:标题|title)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            const titleMatch = trimmedContent.match(
+              /(?:标题|title)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i
+            );
             if (titleMatch) {
               params.title = titleMatch[1].trim();
             }
-            const contentMatch = trimmedContent.match(/(?:内容|content)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            const contentMatch = trimmedContent.match(
+              /(?:内容|content)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i
+            );
             if (contentMatch) {
               params.content = contentMatch[1].trim();
             }
@@ -663,10 +681,20 @@ ${toolsList}
         }
 
         // 分组相关
-        if (lowerContent.includes('分组') || lowerContent.includes('group') || lowerContent.includes('groups')) {
-          if (lowerContent.includes('创建') || lowerContent.includes('新建') || lowerContent.includes('create')) {
+        if (
+          lowerContent.includes('分组') ||
+          lowerContent.includes('group') ||
+          lowerContent.includes('groups')
+        ) {
+          if (
+            lowerContent.includes('创建') ||
+            lowerContent.includes('新建') ||
+            lowerContent.includes('create')
+          ) {
             const params: Record<string, unknown> = {};
-            const nameMatch = trimmedContent.match(/(?:分组|group)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i);
+            const nameMatch = trimmedContent.match(
+              /(?:分组|group)[^，。,\n]*?[：:"']([^，。,\n"']+)[："']?/i
+            );
             if (nameMatch) {
               params.name = nameMatch[1].trim();
             } else {
@@ -690,7 +718,11 @@ ${toolsList}
         }
 
         // 渠道相关
-        if (lowerContent.includes('渠道') || lowerContent.includes('channel') || lowerContent.includes('channels')) {
+        if (
+          lowerContent.includes('渠道') ||
+          lowerContent.includes('channel') ||
+          lowerContent.includes('channels')
+        ) {
           return { tool: 'listChannels', params: {} };
         }
 
@@ -785,7 +817,11 @@ ${toolsList}
       }
 
       // 11f: tools 数组简写格式: {"tools": ["listTemplates"]}
-      if (parsed.tools && Array.isArray(parsed.tools) && typeof (parsed.tools as unknown[])[0] === 'string') {
+      if (
+        parsed.tools &&
+        Array.isArray(parsed.tools) &&
+        typeof (parsed.tools as unknown[])[0] === 'string'
+      ) {
         const toolName = String((parsed.tools as string[])[0]);
         const matchedTool =
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
@@ -796,7 +832,11 @@ ${toolsList}
       }
 
       // 11g: 数组格式: [{"tool": "...", "params": {...}}]
-      if (Array.isArray(parsed) && (parsed as unknown[]).length > 0 && (parsed as Array<Record<string, unknown>>)[0].tool) {
+      if (
+        Array.isArray(parsed) &&
+        (parsed as unknown[]).length > 0 &&
+        (parsed as Array<Record<string, unknown>>)[0].tool
+      ) {
         const firstCall = (parsed as Array<Record<string, unknown>>)[0];
         const toolName = String(firstCall.tool);
         const matchedTool =

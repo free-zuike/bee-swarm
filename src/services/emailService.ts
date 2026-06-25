@@ -63,7 +63,7 @@ export async function sendEmail(env: Env, options: EmailOptions, maxRetries = 3)
       console.error(`[Email] Attempt ${attempt}/${maxRetries} failed:`, (error as Error).message);
       if (attempt < maxRetries) {
         // 等待后重试（1s, 2s, 4s...）
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
       }
     }
   }

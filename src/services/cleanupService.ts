@@ -63,7 +63,8 @@ export async function cleanupExpiredData(
       if (deletedThisBatch > 0) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-    } while (deletedThisBatch >= cfg.batchSize);  } catch (err) {
+    } while (deletedThisBatch >= cfg.batchSize);
+  } catch (err) {
     console.error('[Cleanup] Error cleaning push_history:', err);
   }
 
@@ -86,7 +87,8 @@ export async function cleanupExpiredData(
       if (deletedThisBatch > 0) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-    } while (deletedThisBatch >= cfg.batchSize);  } catch (err) {
+    } while (deletedThisBatch >= cfg.batchSize);
+  } catch (err) {
     console.error('[Cleanup] Error cleaning audit_logs:', err);
   }
 
@@ -105,11 +107,22 @@ export async function cleanupExpiredData(
  * ============================================
  */
 const SAFE_TABLES: string[] = [
-  'users', 'channel_configs', 'push_templates', 'scheduled_pushes',
-  'channel_groups', 'push_history', 'audit_logs', 'metrics',
-  'scheduled_locks', 'backup_runs', 'backup_endpoints',
-  'backup_records', 'system_settings', 'd1_migrations',
-  'sqlite_sequence', 'sqlite_stat1'
+  'users',
+  'channel_configs',
+  'push_templates',
+  'scheduled_pushes',
+  'channel_groups',
+  'push_history',
+  'audit_logs',
+  'metrics',
+  'scheduled_locks',
+  'backup_runs',
+  'backup_endpoints',
+  'backup_records',
+  'system_settings',
+  'd1_migrations',
+  'sqlite_sequence',
+  'sqlite_stat1',
 ];
 
 /**
@@ -121,7 +134,7 @@ const DELETE_PATTERNS: RegExp[] = [
   /^.*backup_\d+.*$/i,
   /^.*_backup_\d+.*$/i,
   /^.*_new$/i,
-  /^password_reset_requests$/i
+  /^password_reset_requests$/i,
 ];
 
 /**
@@ -129,11 +142,11 @@ const DELETE_PATTERNS: RegExp[] = [
  */
 export async function detectNewTables(env: Env): Promise<string[]> {
   const newTables: string[] = [];
-  
+
   try {
-    const result = await env.DB!.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table'"
-    ).all<{ name: string }>();
+    const result = await env
+      .DB!.prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all<{ name: string }>();
 
     for (const row of result.results || []) {
       const tableName = row.name;
@@ -178,17 +191,17 @@ export function shouldDeleteTable(tableName: string): boolean {
  */
 async function cleanupOrphanTables(env: Env): Promise<string[]> {
   const deletedTables: string[] = [];
-  
+
   try {
     await detectNewTables(env);
 
-    const result = await env.DB!.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table'"
-    ).all<{ name: string }>();
+    const result = await env
+      .DB!.prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all<{ name: string }>();
 
     for (const row of result.results || []) {
       const tableName = row.name;
-      
+
       if (isSafeTable(tableName)) {
         continue;
       }
@@ -263,22 +276,22 @@ export async function getAllTables(env: Env): Promise<{
   }> = [];
 
   try {
-    const result = await env.DB!.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-    ).all<{ name: string }>();
+    const result = await env
+      .DB!.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all<{ name: string }>();
 
     for (const row of result.results || []) {
       const tableName = row.name;
       const isSafe = isSafeTable(tableName);
       const shouldDel = shouldDeleteTable(tableName);
-      
+
       // 尝试获取表的行数（仅对非系统表）
       let rowCount: number | undefined;
       if (!tableName.startsWith('sqlite_')) {
         try {
-          const countResult = await env.DB!.prepare(
-            `SELECT COUNT(*) as count FROM \`${tableName}\``
-          ).first<{ count: number }>();
+          const countResult = await env
+            .DB!.prepare(`SELECT COUNT(*) as count FROM \`${tableName}\``)
+            .first<{ count: number }>();
           rowCount = countResult?.count;
         } catch {
           // 忽略错误
@@ -300,7 +313,10 @@ export async function getAllTables(env: Env): Promise<{
 }
 
 /** 删除指定的表 */
-export async function deleteTable(env: Env, tableName: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteTable(
+  env: Env,
+  tableName: string
+): Promise<{ success: boolean; error?: string }> {
   // 检查是否是安全表，防止误删
   if (isSafeTable(tableName)) {
     return { success: false, error: '不能删除安全表' };
@@ -318,10 +334,10 @@ export async function deleteTable(env: Env, tableName: string): Promise<{ succes
 /** 清理所有应该删除的表 */
 export async function cleanupOrphanTablesForce(env: Env): Promise<{ deletedTables: string[] }> {
   const deletedTables: string[] = [];
-  
+
   try {
     const { tables } = await getAllTables(env);
-    
+
     for (const table of tables) {
       if (table.shouldDelete) {
         const result = await deleteTable(env, table.name);

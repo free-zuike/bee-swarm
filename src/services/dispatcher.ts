@@ -21,7 +21,9 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
 
   try {
     // 检查表是否有正确的列
-    const checkResult = await env.DB.prepare('PRAGMA table_info(push_history)').all<{ name: string }>();
+    const checkResult = await env.DB.prepare('PRAGMA table_info(push_history)').all<{
+      name: string;
+    }>();
     const columns = (checkResult.results || []).map((c) => c.name);
 
     // 检查是否有需要的列
@@ -88,7 +90,6 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
 
       // 删除备份
       await env.DB.prepare('DROP TABLE IF EXISTS push_history_backup_20240603').run();
-
     }
 
     pushHistorySchemaFixed = true;

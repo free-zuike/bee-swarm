@@ -213,13 +213,17 @@ export default {
               message.payload.scheduledPushId,
               'pending',
               nextScheduledAt
-            );          } else {
+            );
+          } else {
             // 非循环任务：更新状态
-            const finalStatus = results.every((r: ChannelResult) => r.success) ? 'completed' : 'failed';
+            const finalStatus = results.every((r: ChannelResult) => r.success)
+              ? 'completed'
+              : 'failed';
             await pushService.updateScheduledPushStatus(
               message.payload.scheduledPushId,
               finalStatus
-            );          }
+            );
+          }
         }
 
         // dispatchPushWithOptions 已经会保存推送历史，不需要额外更新
@@ -257,7 +261,6 @@ export default {
         throw error;
       }
     });
-
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -285,7 +288,9 @@ export default {
 
       // 从 D1 获取所有用户
       if (env.DB) {
-        const result = await env.DB.prepare('SELECT email FROM users LIMIT 1000').all<{ email: string }>();
+        const result = await env.DB.prepare('SELECT email FROM users LIMIT 1000').all<{
+          email: string;
+        }>();
         const users = result.results || [];
 
         for (const row of users) {
@@ -304,7 +309,6 @@ export default {
           processedUsers++;
         }
       }
-
     } catch (err) {
       console.error(`[Cron] Fatal error: ${(err as Error).message}`, (err as Error).stack);
     }
@@ -370,7 +374,6 @@ async function sendOverdueReminder(env: Env, username: string, task: ScheduledPu
       username,
       env
     );
-
   } catch (err) {
     console.error(`[Overdue Reminder] Failed to send for ${task.id}:`, (err as Error).message);
   }
@@ -976,7 +979,9 @@ async function processBackups(
   try {
     const endpoints = await getBackupEndpoints(env, username);
 
-    // 调试日志：检查备份端点    for (const ep of endpoints) {    }
+    // 调试日志：检查备份端点
+    for (const ep of endpoints) {
+    }
 
     for (const endpoint of endpoints) {
       if (!endpoint.enabled || !endpoint.schedule?.enabled) {
@@ -990,7 +995,8 @@ async function processBackups(
       const tz = convertTimezone(schedule.timezone || 'Asia/Shanghai');
       const { hour: localHour, minute: localMinute } = getLocalTime(now, tz);
 
-      // 调试日志：检查时间条件      // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
+      // 调试日志：检查时间条件
+      // 允许 ±2 分钟的时间窗口，因为 cron 每 5 分钟触发一次
       const timeDiffMinutes = Math.abs((localHour - startHour) * 60 + (localMinute - startMinute));
       const inTimeWindow = timeDiffMinutes <= 2;
 
@@ -1014,7 +1020,8 @@ async function processBackups(
         }
       }
 
-      if (!shouldRun) {        continue;
+      if (!shouldRun) {
+        continue;
       }
 
       // 检查最后一次运行时间，防止重复执行 - 使用 D1
@@ -1024,7 +1031,8 @@ async function processBackups(
 
       // 确保至少间隔 interval * 0.8 小时才再次运行，避免重复执行
       const minIntervalHours = Math.max(1, interval * 0.8);
-      if (backupRun && hoursSinceLastRun < minIntervalHours) {        continue;
+      if (backupRun && hoursSinceLastRun < minIntervalHours) {
+        continue;
       }
 
       const result = await uploadBackupToEndpoint(env, username, endpoint);
@@ -1044,7 +1052,8 @@ async function processBackups(
         lastRun: currentEpochMinute,
         createdAt: backupRun ? backupRun.createdAt : nowStr,
         updatedAt: nowStr,
-      });    }
+      });
+    }
   } catch (err) {
     console.error(
       `[Cron Backup] Error for ${username}:`,

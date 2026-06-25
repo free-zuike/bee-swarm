@@ -36,8 +36,16 @@ export class MigrationService {
 
       // 检查 scheduled_pushes 表是否有需要的列
       await this.addColumnIfNotExists('scheduled_pushes', 'yearly_dates', 'TEXT');
-      await this.addColumnIfNotExists('scheduled_pushes', 'timezone', 'TEXT DEFAULT \'Asia/Shanghai\'');
-      await this.addColumnIfNotExists('scheduled_pushes', 'overdue_reminder_sent', 'INTEGER DEFAULT 0');
+      await this.addColumnIfNotExists(
+        'scheduled_pushes',
+        'timezone',
+        "TEXT DEFAULT 'Asia/Shanghai'"
+      );
+      await this.addColumnIfNotExists(
+        'scheduled_pushes',
+        'overdue_reminder_sent',
+        'INTEGER DEFAULT 0'
+      );
 
       // 检查 push_history 表是否有需要的列
       await this.addColumnIfNotExists('push_history', 'channels', 'TEXT');
@@ -66,7 +74,6 @@ export class MigrationService {
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )`
       ).run();
-
     } catch (err) {
       console.error('[Migration] Error:', (err as Error).message);
     }

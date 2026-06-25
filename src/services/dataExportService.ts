@@ -396,25 +396,23 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
   }
 
   // 导出用户设置
-  const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?')
-    .bind(userId)
-    .first<{
-      avatar_url?: string;
-      use_avatar_as_popup?: number;
-      cache_settings?: string;
-      ai_settings?: string;
-      cache_ttl_backup?: number;
-      cache_ttl_channels?: number;
-      cache_ttl_templates?: number;
-      cache_ttl_groups?: number;
-      cache_ttl_scheduled?: number;
-      ai_enabled?: number;
-      ai_provider?: string;
-      ai_model?: string;
-      ai_api_key?: string;
-      ai_api_url?: string;
-      ai_model_name?: string;
-    }>();
+  const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(userId).first<{
+    avatar_url?: string;
+    use_avatar_as_popup?: number;
+    cache_settings?: string;
+    ai_settings?: string;
+    cache_ttl_backup?: number;
+    cache_ttl_channels?: number;
+    cache_ttl_templates?: number;
+    cache_ttl_groups?: number;
+    cache_ttl_scheduled?: number;
+    ai_enabled?: number;
+    ai_provider?: string;
+    ai_model?: string;
+    ai_api_key?: string;
+    ai_api_url?: string;
+    ai_model_name?: string;
+  }>();
 
   if (user) {
     result.userSettings = {
@@ -441,7 +439,7 @@ export async function exportUserData(env: Env, userId: string): Promise<UserData
     const systemSettingsService = new SystemSettingsService(env);
     await systemSettingsService.ensureTable();
     const systemSettings = await systemSettingsService.getAllSettings();
-    
+
     result.systemSettings = {
       turnstileEnabled: systemSettings.turnstile_enabled,
       turnstileSiteKey: systemSettings.turnstile_site_key,
@@ -524,7 +522,7 @@ export async function importUserData(
       const existingUser = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
         .bind(userId)
         .first<{ id: string }>();
-      
+
       if (existingUser) {
         await env.DB.prepare(
           `
@@ -547,30 +545,30 @@ export async function importUserData(
               updated_at = ?
           WHERE email = ?
         `
-      )
-        .bind(
-          settings.avatarUrl || null,
-          settings.useAvatarAsPopup ? 1 : 0,
-          settings.cacheSettings ? JSON.stringify(settings.cacheSettings) : null,
-          settings.aiSettings ? JSON.stringify(settings.aiSettings) : null,
-          settings.cacheTtlBackup || null,
-          settings.cacheTtlChannels || null,
-          settings.cacheTtlTemplates || null,
-          settings.cacheTtlGroups || null,
-          settings.cacheTtlScheduled || null,
-          settings.aiEnabled ? 1 : 0,
-          settings.aiProvider || null,
-          settings.aiModel || null,
-          settings.aiApiKey || null,
-          settings.aiApiUrl || null,
-          settings.aiModelName || null,
-          new Date().toISOString(),
-          userId
         )
-        .run();
-      
-      imported.userSettings = 1;
-    }
+          .bind(
+            settings.avatarUrl || null,
+            settings.useAvatarAsPopup ? 1 : 0,
+            settings.cacheSettings ? JSON.stringify(settings.cacheSettings) : null,
+            settings.aiSettings ? JSON.stringify(settings.aiSettings) : null,
+            settings.cacheTtlBackup || null,
+            settings.cacheTtlChannels || null,
+            settings.cacheTtlTemplates || null,
+            settings.cacheTtlGroups || null,
+            settings.cacheTtlScheduled || null,
+            settings.aiEnabled ? 1 : 0,
+            settings.aiProvider || null,
+            settings.aiModel || null,
+            settings.aiApiKey || null,
+            settings.aiApiUrl || null,
+            settings.aiModelName || null,
+            new Date().toISOString(),
+            userId
+          )
+          .run();
+
+        imported.userSettings = 1;
+      }
     }
 
     // 导入系统设置（总是导入）
@@ -579,7 +577,7 @@ export async function importUserData(
       try {
         const systemSettingsService = new SystemSettingsService(env);
         await systemSettingsService.ensureTable();
-        
+
         await systemSettingsService.saveSettings({
           turnstile_enabled: settings.turnstileEnabled,
           turnstile_site_key: settings.turnstileSiteKey,
@@ -591,7 +589,7 @@ export async function importUserData(
           cleanup_auto_delete_orphan_tables: settings.cleanupAutoDeleteOrphanTables,
           cors_allowed_origins: settings.corsAllowedOrigins,
         });
-        
+
         imported.systemSettings = 1;
       } catch {
         // 忽略系统设置导入错误，不影响其他数据恢复

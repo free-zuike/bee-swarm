@@ -112,7 +112,9 @@ export const useThemeStore = defineStore('theme', () => {
   // 清理函数
   const dispose = () => {
     if (mediaQueryListener && window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', mediaQueryListener);
+      window
+        .matchMedia('(prefers-color-scheme: dark)')
+        .removeEventListener('change', mediaQueryListener);
       mediaQueryListener = null;
     }
   };

@@ -7,7 +7,12 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody, schemas } from '../middleware/validation';
 import { createAuditLogger, type AuditAction } from '../utils/audit';
-import { rateLimit, isLoginLocked, recordLoginFailure, clearLoginFailure } from '../middleware/rateLimit';
+import {
+  rateLimit,
+  isLoginLocked,
+  recordLoginFailure,
+  clearLoginFailure,
+} from '../middleware/rateLimit';
 import { UserService } from '../services/userService';
 import type { AITool } from '../services/userService';
 import {
@@ -28,7 +33,12 @@ import { MetricsCollector } from '../services/metrics';
 import { backupRoutes } from './admin/backup';
 import { userCacheMiddleware } from '../services/cacheService';
 import { getBackupEndpoints } from '../services/backup';
-import { sendEmail, generatePasswordResetEmail, generateWelcomeEmail, generateVerificationEmail } from '../services/emailService';
+import {
+  sendEmail,
+  generatePasswordResetEmail,
+  generateWelcomeEmail,
+  generateVerificationEmail,
+} from '../services/emailService';
 import {
   cleanupExpiredData,
   getDatabaseStats,
@@ -156,7 +166,7 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   }
 
   // 角色逻辑：管理员邮箱 → admin，SMTP已配置且发送了邮件 → viewer（未验证），否则 → user
-  const role = isAdminEmail ? 'admin' : (smtpConfigured && emailSent ? 'viewer' : 'user');
+  const role = isAdminEmail ? 'admin' : smtpConfigured && emailSent ? 'viewer' : 'user';
 
   const hashed = await hashPassword(password);
   await userService.createUser(email, hashed, role);
@@ -231,10 +241,13 @@ api.post('/resend-verification', async (c) => {
       const lastTime = parseInt(lastVerifyTime, 10);
       if (now - lastTime < ONE_HOUR) {
         const remaining = Math.ceil((ONE_HOUR - (now - lastTime)) / 60000);
-        return c.json({
-          success: false,
-          message: `发送过于频繁，请 ${remaining} 分钟后再试`,
-        }, 429);
+        return c.json(
+          {
+            success: false,
+            message: `发送过于频繁，请 ${remaining} 分钟后再试`,
+          },
+          429
+        );
       }
     }
 
@@ -296,10 +309,13 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   const loginIP = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown';
   const lockStatus = isLoginLocked(email, loginIP);
   if (lockStatus.locked) {
-    return c.json({
-      error: `登录尝试次数过多，请 ${Math.ceil(lockStatus.retryAfter! / 60)} 分钟后重试`,
-      code: 'ACCOUNT_LOCKED',
-    }, 429);
+    return c.json(
+      {
+        error: `登录尝试次数过多，请 ${Math.ceil(lockStatus.retryAfter! / 60)} 分钟后重试`,
+        code: 'ACCOUNT_LOCKED',
+      },
+      429
+    );
   }
 
   const userService = new UserService(c.env);
@@ -501,10 +517,13 @@ api.post('/password-reset', async (c) => {
       const lastTime = parseInt(lastResetTime, 10);
       if (now - lastTime < ONE_HOUR) {
         const remaining = Math.ceil((ONE_HOUR - (now - lastTime)) / 60000);
-        return c.json({
-          success: false,
-          message: `发送过于频繁，请 ${remaining} 分钟后再试`,
-        }, 429);
+        return c.json(
+          {
+            success: false,
+            message: `发送过于频繁，请 ${remaining} 分钟后再试`,
+          },
+          429
+        );
       }
     }
 
@@ -515,14 +534,17 @@ api.post('/password-reset', async (c) => {
     const globalResetKey = 'password_reset_global_count';
     const globalResetTimeKey = 'password_reset_global_time';
     const globalTime = await systemSettings.getSetting(globalResetTimeKey);
-    const globalCount = parseInt(await systemSettings.getSetting(globalResetKey) || '0', 10);
+    const globalCount = parseInt((await systemSettings.getSetting(globalResetKey)) || '0', 10);
 
     if (globalTime && now - parseInt(globalTime, 10) < 60000) {
       if (globalCount >= 10) {
-        return c.json({
-          success: false,
-          message: '系统繁忙，请稍后再试',
-        }, 429);
+        return c.json(
+          {
+            success: false,
+            message: '系统繁忙，请稍后再试',
+          },
+          429
+        );
       }
       await systemSettings.setSetting(globalResetKey, String(globalCount + 1));
     } else {
@@ -1044,7 +1066,10 @@ adminApi.delete('/audit', async (c) => {
 // ============================================
 // 用户管理接口（仅管理员）
 // ============================================
-function requireAdmin(c: { get: (key: string) => unknown; json: (data: unknown, status?: number) => Response }) {
+function requireAdmin(c: {
+  get: (key: string) => unknown;
+  json: (data: unknown, status?: number) => Response;
+}) {
   const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
   if (userRole !== 'admin') {
     return c.json({ error: '无权限操作用户管理', code: 'FORBIDDEN' }, 403);
@@ -2360,35 +2385,41 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
   }
 
   const pushService = new PushService(c.env, username);
-  
+
   // 获取任务详情，检查是否是循环任务
   const pushResult = await c.env.DB.prepare(
     'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
-  ).bind(id, username).first<{
-    enabled?: number;
-    recurring_type?: string;
-    timezone?: string;
-    selected_week_days?: string;
-    selected_month_days?: string;
-    yearly_dates?: string;
-  }>();
-  
+  )
+    .bind(id, username)
+    .first<{
+      enabled?: number;
+      recurring_type?: string;
+      timezone?: string;
+      selected_week_days?: string;
+      selected_month_days?: string;
+      yearly_dates?: string;
+    }>();
+
   let finalScheduledAt = body.scheduledAt;
-  
+
   // 如果是循环任务，验证并调整到下一个匹配的时间
   if (pushResult && pushResult.enabled && pushResult.recurring_type) {
     const tz = pushResult.timezone || 'Asia/Shanghai';
     const recurringType = pushResult.recurring_type;
-    const selectedWeekDays = pushResult.selected_week_days ? JSON.parse(pushResult.selected_week_days) : undefined;
-    const selectedMonthDays = pushResult.selected_month_days ? JSON.parse(pushResult.selected_month_days) : undefined;
+    const selectedWeekDays = pushResult.selected_week_days
+      ? JSON.parse(pushResult.selected_week_days)
+      : undefined;
+    const selectedMonthDays = pushResult.selected_month_days
+      ? JSON.parse(pushResult.selected_month_days)
+      : undefined;
     const yearlyDates = pushResult.yearly_dates ? JSON.parse(pushResult.yearly_dates) : undefined;
-    
+
     const adjusted = findNextMatchingTime(newScheduledTime, recurringType, tz, {
       selectedWeekDays,
       selectedMonthDays,
       yearlyDates,
     });
-    
+
     if (adjusted) {
       finalScheduledAt = adjusted.toISOString();
     }
@@ -2710,7 +2741,13 @@ function findNextMatchingTime(
       minute: '2-digit',
     }).formatToParts(date);
     const weekdayMap: Record<string, number> = {
-      Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+      Sunday: 0,
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
     };
     return {
       year: parseInt(parts.find((p) => p.type === 'year')?.value || '0', 10),
@@ -2737,9 +2774,10 @@ function findNextMatchingTime(
     }
 
     case 'weekly': {
-      const days = options.selectedWeekDays && options.selectedWeekDays.length > 0
-        ? options.selectedWeekDays
-        : [1, 2, 3, 4, 5];
+      const days =
+        options.selectedWeekDays && options.selectedWeekDays.length > 0
+          ? options.selectedWeekDays
+          : [1, 2, 3, 4, 5];
       for (let offset = 0; offset <= 7; offset++) {
         const candidate = new Date(
           Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
@@ -2753,9 +2791,10 @@ function findNextMatchingTime(
     }
 
     case 'monthly': {
-      const days = options.selectedMonthDays && options.selectedMonthDays.length > 0
-        ? options.selectedMonthDays
-        : [1, 15];
+      const days =
+        options.selectedMonthDays && options.selectedMonthDays.length > 0
+          ? options.selectedMonthDays
+          : [1, 15];
       for (let offset = 0; offset <= 31; offset++) {
         const candidate = new Date(
           Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
@@ -2769,9 +2808,10 @@ function findNextMatchingTime(
     }
 
     case 'yearly': {
-      const dates = options.yearlyDates && options.yearlyDates.length > 0
-        ? options.yearlyDates
-        : [{ month: 1, day: 1 }];
+      const dates =
+        options.yearlyDates && options.yearlyDates.length > 0
+          ? options.yearlyDates
+          : [{ month: 1, day: 1 }];
       for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
         for (const d of dates) {
           const candidate = new Date(

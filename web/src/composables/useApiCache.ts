@@ -81,14 +81,14 @@ class ApiCache {
 
   set<T>(url: string, data: T, token?: string, ttl?: number): void {
     const urlTtl = ttl ?? this.getUrlTtl(url) ?? DEFAULT_TTL;
-    
+
     // 如果TTL为0，不保存缓存
     if (urlTtl === 0) {
       const key = this.getKey(url, token);
       sessionStorage.removeItem(key);
       return;
     }
-    
+
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
@@ -149,7 +149,7 @@ export function withCache<T>(
   options?: { ttl?: number; forceRefresh?: boolean }
 ): Promise<T> {
   const { ttl, forceRefresh } = options ?? {};
-  
+
   // 先获取可能的自定义TTL来判断是否禁用缓存
   const urlTtl = ttl ?? apiCache.getUrlTtl(url);
   const isCacheDisabled = urlTtl === 0;

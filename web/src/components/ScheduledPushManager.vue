@@ -74,15 +74,20 @@
                 </div>
                 <div class="field-row" v-if="push.scheduleType === 'recurring'">
                   <span class="field-label">{{ t('scheduled.label.upcomingExecutions') }}</span>
-                  <button
-                    class="toggle-upcoming-btn"
-                    @click.stop="toggleExpanded(push.id)"
-                  >
+                  <button class="toggle-upcoming-btn" @click.stop="toggleExpanded(push.id)">
                     {{ expandedPushes.has(push.id) ? '▲' : '▼' }}
                   </button>
                 </div>
-                <div v-if="push.scheduleType === 'recurring' && expandedPushes.has(push.id)" class="upcoming-executions">
-                  <template v-if="executionsCache.get(push.id) && (executionsCache.get(push.id)?.length ?? 0) > 0">
+                <div
+                  v-if="push.scheduleType === 'recurring' && expandedPushes.has(push.id)"
+                  class="upcoming-executions"
+                >
+                  <template
+                    v-if="
+                      executionsCache.get(push.id) &&
+                      (executionsCache.get(push.id)?.length ?? 0) > 0
+                    "
+                  >
                     <div
                       v-for="(exec, idx) in executionsCache.get(push.id)"
                       :key="idx"
@@ -92,7 +97,11 @@
                     </div>
                   </template>
                   <div v-else class="execution-empty">
-                    {{ push.recurringType === 'cron' ? t('scheduled.cron_parse_error') : t('scheduled.no_upcoming') }}
+                    {{
+                      push.recurringType === 'cron'
+                        ? t('scheduled.cron_parse_error')
+                        : t('scheduled.no_upcoming')
+                    }}
                   </div>
                 </div>
               </div>
@@ -306,7 +315,8 @@
               <div v-if="recurringType === 'yearly'" class="yearly-selector">
                 <div class="yearly-dates-list">
                   <label class="weekday-label"
-                    >{{ t('scheduled.label.selectYearlyDates') }} <span class="required">*</span></label
+                    >{{ t('scheduled.label.selectYearlyDates') }}
+                    <span class="required">*</span></label
                   >
                   <div v-for="(date, index) in yearlyDates" :key="index" class="yearly-date-row">
                     <select
@@ -857,7 +867,7 @@ const removeYearlyDate = (index: number) => {
 const getDaysInMonth = (month: number, year?: number): number[] => {
   // 使用实际日期计算每月天数
   const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  
+
   // 如果指定了年份，检查是否为闰年
   if (year !== undefined) {
     const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
@@ -868,7 +878,7 @@ const getDaysInMonth = (month: number, year?: number): number[] => {
     // 默认假设闰年（二月设为29天），这样即使选择2月29日在非闰年也能正常工作
     daysInMonth[1] = 29;
   }
-  
+
   return Array.from({ length: daysInMonth[month - 1] }, (_, i) => i + 1);
 };
 
@@ -1456,9 +1466,10 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     case 'weekly': {
-      const weekdays = push.selectedWeekDays && push.selectedWeekDays.length > 0
-        ? push.selectedWeekDays
-        : [0, 1, 2, 3, 4, 5, 6];
+      const weekdays =
+        push.selectedWeekDays && push.selectedWeekDays.length > 0
+          ? push.selectedWeekDays
+          : [0, 1, 2, 3, 4, 5, 6];
       current.setHours(hours, minutes, 0, 0);
       if (current <= now) {
         current.setDate(current.getDate() + 1);
@@ -1476,9 +1487,8 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     case 'monthly': {
-      const monthDays = push.selectedMonthDays && push.selectedMonthDays.length > 0
-        ? push.selectedMonthDays
-        : [1];
+      const monthDays =
+        push.selectedMonthDays && push.selectedMonthDays.length > 0 ? push.selectedMonthDays : [1];
       current.setHours(hours, minutes, 0, 0);
       if (current <= now) {
         current.setDate(current.getDate() + 1);
@@ -1493,7 +1503,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
         for (const day of monthDays) {
           if (day > lastDay) continue; // 跳过当月不存在的日期（如2月没有31号）
           const candidate = new Date(year, month, day, hours, minutes, 0, 0);
-          if (candidate > now && !executions.some(e => e.getTime() === candidate.getTime())) {
+          if (candidate > now && !executions.some((e) => e.getTime() === candidate.getTime())) {
             executions.push(candidate);
             if (executions.length >= count) break;
           }
@@ -1505,9 +1515,8 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
 
     case 'yearly': {
-      const yearlyDates = push.yearlyDates && push.yearlyDates.length > 0
-        ? push.yearlyDates
-        : [{ month: 1, day: 1 }];
+      const yearlyDates =
+        push.yearlyDates && push.yearlyDates.length > 0 ? push.yearlyDates : [{ month: 1, day: 1 }];
       current.setHours(hours, minutes, 0, 0);
       const startYear = current.getFullYear();
       const maxYears = count + 2;
@@ -1518,7 +1527,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
           const lastDay = new Date(year, date.month, 0).getDate();
           if (date.day > lastDay) continue;
           const candidate = new Date(year, date.month - 1, date.day, hours, minutes, 0, 0);
-          if (candidate > now && !executions.some(e => e.getTime() === candidate.getTime())) {
+          if (candidate > now && !executions.some((e) => e.getTime() === candidate.getTime())) {
             executions.push(candidate);
             if (executions.length >= count) break;
           }
@@ -1588,7 +1597,7 @@ function getNextCronExecutions(cronExpression: string, count: number, _baseDate:
           values.add(i);
         }
       } else if (rangePart.includes('-')) {
-        const [start, end] = rangePart.split('-').map(v => parseInt(v, 10));
+        const [start, end] = rangePart.split('-').map((v) => parseInt(v, 10));
         if (!isNaN(start) && !isNaN(end)) {
           for (let i = start; i <= end; i += step) {
             if (i >= minVal && i <= maxVal) values.add(i);
@@ -1654,7 +1663,7 @@ function getNextCronExecutions(cronExpression: string, count: number, _baseDate:
     // 如果分钟不匹配，跳到下一个有效分钟
     if (!minuteMatches) {
       const currentMin = current.getMinutes();
-      const nextMinute = validMinutes.find(m => m > currentMin);
+      const nextMinute = validMinutes.find((m) => m > currentMin);
       if (nextMinute !== undefined) {
         current.setMinutes(nextMinute);
       } else {
@@ -1669,7 +1678,7 @@ function getNextCronExecutions(cronExpression: string, count: number, _baseDate:
     // 如果小时不匹配，跳到下一个有效小时
     if (!hourMatches) {
       const currentHour = current.getHours();
-      const nextHour = validHours.find(h => h > currentHour);
+      const nextHour = validHours.find((h) => h > currentHour);
       if (nextHour !== undefined) {
         current.setHours(nextHour);
       } else {
@@ -1827,12 +1836,15 @@ function getTimeInTimezone(date: Date, tz: string): { hour: number; minute: numb
     hour: '2-digit',
     minute: '2-digit',
   }).formatToParts(date);
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  const hour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
   return { hour, minute };
 }
 
-function getLocalDateInTimezone(date: Date, tz: string): { year: number; month: number; day: number; weekday: number } {
+function getLocalDateInTimezone(
+  date: Date,
+  tz: string
+): { year: number; month: number; day: number; weekday: number } {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     year: 'numeric',
@@ -1840,12 +1852,20 @@ function getLocalDateInTimezone(date: Date, tz: string): { year: number; month: 
     day: 'numeric',
     weekday: 'long',
   }).formatToParts(date);
-  const weekdayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+  const weekdayMap: Record<string, number> = {
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+  };
   return {
-    year: parseInt(parts.find(p => p.type === 'year')?.value || '0', 10),
-    month: parseInt(parts.find(p => p.type === 'month')?.value || '0', 10),
-    day: parseInt(parts.find(p => p.type === 'day')?.value || '0', 10),
-    weekday: weekdayMap[parts.find(p => p.type === 'weekday')?.value || 'Sunday'] ?? 0,
+    year: parseInt(parts.find((p) => p.type === 'year')?.value || '0', 10),
+    month: parseInt(parts.find((p) => p.type === 'month')?.value || '0', 10),
+    day: parseInt(parts.find((p) => p.type === 'day')?.value || '0', 10),
+    weekday: weekdayMap[parts.find((p) => p.type === 'weekday')?.value || 'Sunday'] ?? 0,
   };
 }
 
@@ -1862,57 +1882,90 @@ function formatTimeInTimezone(date: Date, tz: string): string {
 function getNextDaily(hour: number, minute: number, tz: string): Date {
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
-  const candidate = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day, hour, minute, 0, 0));
+  const candidate = new Date(
+    Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day, hour, minute, 0, 0)
+  );
   const nowUtc = now.getTime();
   if (candidate.getTime() > nowUtc) return candidate;
   candidate.setUTCDate(candidate.getUTCDate() + 1);
   return candidate;
 }
 
-function getNextWeekly(selectedWeekDays: number[] | undefined, hour: number, minute: number, tz: string): Date {
+function getNextWeekly(
+  selectedWeekDays: number[] | undefined,
+  hour: number,
+  minute: number,
+  tz: string
+): Date {
   const days = selectedWeekDays && selectedWeekDays.length > 0 ? selectedWeekDays : [1, 2, 3, 4, 5];
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
   for (let offset = 0; offset <= 7; offset++) {
-    const candidate = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0));
+    const candidate = new Date(
+      Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0)
+    );
     const candidateLocal = getLocalDateInTimezone(candidate, tz);
     if (days.includes(candidateLocal.weekday) && candidate.getTime() > now.getTime()) {
       return candidate;
     }
   }
-  const fallback = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + 7, hour, minute, 0, 0));
+  const fallback = new Date(
+    Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + 7, hour, minute, 0, 0)
+  );
   return fallback;
 }
 
-function getNextMonthly(selectedMonthDays: number[] | undefined, hour: number, minute: number, tz: string): Date {
+function getNextMonthly(
+  selectedMonthDays: number[] | undefined,
+  hour: number,
+  minute: number,
+  tz: string
+): Date {
   const days = selectedMonthDays && selectedMonthDays.length > 0 ? selectedMonthDays : [1, 15];
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
   for (let offset = 0; offset <= 31; offset++) {
-    const candidate = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0));
+    const candidate = new Date(
+      Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0)
+    );
     const candidateLocal = getLocalDateInTimezone(candidate, tz);
     if (days.includes(candidateLocal.day) && candidate.getTime() > now.getTime()) {
       return candidate;
     }
   }
-  const fallback = new Date(Date.UTC(todayLocal.year, todayLocal.month, days[0], hour, minute, 0, 0));
+  const fallback = new Date(
+    Date.UTC(todayLocal.year, todayLocal.month, days[0], hour, minute, 0, 0)
+  );
   return fallback;
 }
 
-function getNextYearly(yearlyDates: Array<{ month: number; day: number }> | undefined, hour: number, minute: number, tz: string): Date {
+function getNextYearly(
+  yearlyDates: Array<{ month: number; day: number }> | undefined,
+  hour: number,
+  minute: number,
+  tz: string
+): Date {
   const dates = yearlyDates && yearlyDates.length > 0 ? yearlyDates : [{ month: 1, day: 1 }];
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
   for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
     for (const d of dates) {
-      const candidate = new Date(Date.UTC(todayLocal.year + yearOffset, d.month - 1, d.day, hour, minute, 0, 0));
+      const candidate = new Date(
+        Date.UTC(todayLocal.year + yearOffset, d.month - 1, d.day, hour, minute, 0, 0)
+      );
       if (candidate.getTime() > now.getTime()) return candidate;
     }
   }
-  return new Date(Date.UTC(todayLocal.year + 1, dates[0].month - 1, dates[0].day, hour, minute, 0, 0));
+  return new Date(
+    Date.UTC(todayLocal.year + 1, dates[0].month - 1, dates[0].day, hour, minute, 0, 0)
+  );
 }
 
-function getNextCron(cronExpression: string | undefined, fallbackHour: number, fallbackMinute: number): Date {
+function getNextCron(
+  cronExpression: string | undefined,
+  fallbackHour: number,
+  fallbackMinute: number
+): Date {
   if (!cronExpression) {
     const next = new Date();
     next.setDate(next.getDate() + 1);

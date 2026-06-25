@@ -56,11 +56,7 @@ export async function archivePushHistory(
 
     let uploaded = false;
     try {
-      await r2.uploadBackup(
-        archiveKey,
-        JSON.stringify(archiveData, null, 2),
-        'application/json'
-      );
+      await r2.uploadBackup(archiveKey, JSON.stringify(archiveData, null, 2), 'application/json');
       uploaded = true;
     } catch (error) {
       console.error('[Archive] Failed to upload to R2:', error);

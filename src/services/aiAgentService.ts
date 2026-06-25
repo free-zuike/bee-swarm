@@ -6,7 +6,11 @@ import type { Env, PushChannel } from '../types';
 import { PushService } from './push';
 import { AIService } from './aiService';
 import { UserService } from './userService';
-import { loadUserChannelSettings, CHANNEL_DEFINITIONS, dispatchPushWithOptions } from './dispatcher';
+import {
+  loadUserChannelSettings,
+  CHANNEL_DEFINITIONS,
+  dispatchPushWithOptions,
+} from './dispatcher';
 import { getPushHistory } from './dispatcher';
 
 interface AgentStep {
@@ -36,7 +40,11 @@ export class AIAgentService {
   /**
    * 执行用户请求
    */
-  async execute(request: { query: string; userId: string; username: string }): Promise<AgentResponse> {
+  async execute(request: {
+    query: string;
+    userId: string;
+    username: string;
+  }): Promise<AgentResponse> {
     const { query, userId, username } = request;
     const steps: AgentStep[] = [];
 
@@ -67,7 +75,10 @@ export class AIAgentService {
   /**
    * 分析用户意图
    */
-  private async analyzeIntent(query: string, userId: string): Promise<{
+  private async analyzeIntent(
+    query: string,
+    userId: string
+  ): Promise<{
     type: string;
     description: string;
     action: string;
@@ -137,12 +148,19 @@ export class AIAgentService {
   /**
    * 本地模式匹配 - 不依赖AI的快速匹配
    */
-  private matchLocalPatterns(query: string): { type: string; description: string; action: string; params: Record<string, unknown> } | null {
+  private matchLocalPatterns(
+    query: string
+  ): { type: string; description: string; action: string; params: Record<string, unknown> } | null {
     const q = query.toLowerCase();
 
     // 能力查询
     if (/(你可以|你能|能做什么|有什么功能|功能列表|帮助)/.test(q)) {
-      return { type: 'capability', description: '介绍功能', action: 'listCapabilities', params: {} };
+      return {
+        type: 'capability',
+        description: '介绍功能',
+        action: 'listCapabilities',
+        params: {},
+      };
     }
 
     // 渠道查询
@@ -157,7 +175,12 @@ export class AIAgentService {
 
     // 历史查询
     if (/(历史|记录|最近|之前)/.test(q)) {
-      return { type: 'query', description: '查询历史', action: 'getHistory', params: { limit: 10 } };
+      return {
+        type: 'query',
+        description: '查询历史',
+        action: 'getHistory',
+        params: { limit: 10 },
+      };
     }
 
     // 定时任务
@@ -176,14 +199,15 @@ export class AIAgentService {
 
       // 如果提取后为空，使用原始查询（去掉发送相关词汇）
       if (!message) {
-        message = query.replace(/(发送|推送|通知|send|push|消息|给|到|至|测试)/gi, '').trim() || '测试消息';
+        message =
+          query.replace(/(发送|推送|通知|send|push|消息|给|到|至|测试)/gi, '').trim() || '测试消息';
       }
 
       return {
         type: 'push',
         description: '发送消息',
         action: 'sendTest',
-        params: { title: message, body: message }
+        params: { title: message, body: message },
       };
     }
 
@@ -264,22 +288,35 @@ export class AIAgentService {
   ): Promise<string> {
     // 渠道名称映射
     const channelMap: Record<string, PushChannel> = {
-      '企业微信': 'wework', 'wework': 'wework', '企微': 'wework',
-      '飞书': 'feishu', 'feishu': 'feishu', 'lark': 'feishu',
-      '钉钉': 'dingtalk', 'dingtalk': 'dingtalk', '钉': 'dingtalk',
-      'telegram': 'telegram', 'tg': 'telegram', '电报': 'telegram',
-      'bark': 'bark',
-      'ntfy': 'ntfy',
-      '邮件': 'email', 'email': 'email', '邮箱': 'email',
-      'slack': 'slack',
-      'discord': 'discord',
-      'serverchan': 'serverchan', 'server酱': 'serverchan',
-      'pushplus': 'pushplus',
-      'webhook': 'webhook',
-      'gotify': 'gotify',
-      'line': 'line', 'line notify': 'line',
-      'teams': 'teams', '微软': 'teams',
-      'pushover': 'pushover',
+      企业微信: 'wework',
+      wework: 'wework',
+      企微: 'wework',
+      飞书: 'feishu',
+      feishu: 'feishu',
+      lark: 'feishu',
+      钉钉: 'dingtalk',
+      dingtalk: 'dingtalk',
+      钉: 'dingtalk',
+      telegram: 'telegram',
+      tg: 'telegram',
+      电报: 'telegram',
+      bark: 'bark',
+      ntfy: 'ntfy',
+      邮件: 'email',
+      email: 'email',
+      邮箱: 'email',
+      slack: 'slack',
+      discord: 'discord',
+      serverchan: 'serverchan',
+      server酱: 'serverchan',
+      pushplus: 'pushplus',
+      webhook: 'webhook',
+      gotify: 'gotify',
+      line: 'line',
+      'line notify': 'line',
+      teams: 'teams',
+      微软: 'teams',
+      pushover: 'pushover',
     };
 
     // 从 AI 参数或原始查询中提取渠道
@@ -309,7 +346,10 @@ export class AIAgentService {
       // 提取消息内容：去掉渠道名称和发送相关词汇
       let message = originalQuery
         .replace(/^(发送|推送|通知|send|push)\s*(消息|通知|message)?\s*(给|到|至|to)?\s*/i, '')
-        .replace(/(企业微信|飞书|钉钉|telegram|邮件|email|bark|slack|discord|webhook|ntfy|server酱|pushplus|gotify|line|teams|pushover)/gi, '')
+        .replace(
+          /(企业微信|飞书|钉钉|telegram|邮件|email|bark|slack|discord|webhook|ntfy|server酱|pushplus|gotify|line|teams|pushover)/gi,
+          ''
+        )
         .replace(/^(给|到|至|to)\s*/i, '')
         .trim();
 
@@ -357,12 +397,7 @@ export class AIAgentService {
 
         // 使用自定义配置发送
         const { dispatchPush } = await import('./dispatcher');
-        const results = await dispatchPush(
-          { title, body },
-          channels,
-          username,
-          this.env
-        );
+        const results = await dispatchPush({ title, body }, channels, username, this.env);
 
         step.result = results;
         steps.push(step);
@@ -372,12 +407,7 @@ export class AIAgentService {
       }
 
       // 默认发送
-      const results = await dispatchPushWithOptions(
-        { title, body },
-        channels,
-        username,
-        this.env
-      );
+      const results = await dispatchPushWithOptions({ title, body }, channels, username, this.env);
 
       step.result = results;
       steps.push(step);
@@ -413,9 +443,13 @@ export class AIAgentService {
 
         if (records.length === 0) return '暂无推送记录';
 
-        const summary = records.slice(0, 5).map((r, i) =>
-          `${i + 1}. ${r.title || '(无标题)'} (${r.createdAt ? new Date(r.createdAt).toLocaleString('zh-CN') : '未知时间'}) - ${r.status || '未知'}`
-        ).join('\n');
+        const summary = records
+          .slice(0, 5)
+          .map(
+            (r, i) =>
+              `${i + 1}. ${r.title || '(无标题)'} (${r.createdAt ? new Date(r.createdAt).toLocaleString('zh-CN') : '未知时间'}) - ${r.status || '未知'}`
+          )
+          .join('\n');
         return `最近 ${records.length} 条推送记录：\n${summary}`;
       } catch (error) {
         step.error = (error as Error).message;
@@ -454,9 +488,13 @@ export class AIAgentService {
 
         if (pushes.length === 0) return '暂无待执行的定时任务';
 
-        const summary = pushes.slice(0, 5).map((p, i) =>
-          `${i + 1}. ${p.title} - 下次执行：${new Date(p.scheduledAt).toLocaleString('zh-CN')}`
-        ).join('\n');
+        const summary = pushes
+          .slice(0, 5)
+          .map(
+            (p, i) =>
+              `${i + 1}. ${p.title} - 下次执行：${new Date(p.scheduledAt).toLocaleString('zh-CN')}`
+          )
+          .join('\n');
         return `待执行的定时任务（${pushes.length}个）：\n${summary}`;
       } catch (error) {
         step.error = (error as Error).message;

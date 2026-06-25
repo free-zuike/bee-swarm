@@ -15,7 +15,9 @@ const emit = defineEmits<{
   register: [email: string, password: string, turnstileToken?: string];
 }>();
 
-const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset' | 'verifyEmail'>('login');
+const authMode = ref<'login' | 'register' | 'forgot' | 'enterToken' | 'reset' | 'verifyEmail'>(
+  'login'
+);
 const authEmail = ref('');
 const authPassword = ref('');
 const authConfirmPassword = ref('');
@@ -168,8 +170,12 @@ async function doRegister() {
   isProcessing.value = true;
   try {
     const { register: apiRegister } = await import('@/api');
-    const result = await apiRegister(authEmail.value.trim(), authPassword.value, turnstileToken.value);
-    
+    const result = await apiRegister(
+      authEmail.value.trim(),
+      authPassword.value,
+      turnstileToken.value
+    );
+
     if (result.needVerification) {
       // 需要邮箱验证
       verifyEmail.value = authEmail.value.trim();
@@ -433,7 +439,12 @@ const displayError = computed(() => props.authError || localError.value);
         <button class="btn btn-primary" type="submit" :disabled="isProcessing">
           {{ isProcessing ? t('label.processing') : t('auth.verify_button_email') }}
         </button>
-        <button type="button" class="forgot-password-btn" @click="doResendVerification" :disabled="isProcessing">
+        <button
+          type="button"
+          class="forgot-password-btn"
+          @click="doResendVerification"
+          :disabled="isProcessing"
+        >
           {{ t('auth.resend_code') }}
         </button>
         <button type="button" class="forgot-password-btn" @click="switchMode('login')">

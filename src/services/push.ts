@@ -247,8 +247,12 @@ export class PushService {
       status: (result.status as ScheduledPush['status']) || 'pending',
       overdueReminderSent: result.overdue_reminder_sent === 1,
       yearlyDates: result.yearly_dates ? JSON.parse(result.yearly_dates) : undefined,
-      selectedWeekDays: result.selected_week_days ? JSON.parse(result.selected_week_days) : undefined,
-      selectedMonthDays: result.selected_month_days ? JSON.parse(result.selected_month_days) : undefined,
+      selectedWeekDays: result.selected_week_days
+        ? JSON.parse(result.selected_week_days)
+        : undefined,
+      selectedMonthDays: result.selected_month_days
+        ? JSON.parse(result.selected_month_days)
+        : undefined,
       cronExpression: result.cron || undefined,
       timezone: result.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
     };
@@ -741,7 +745,7 @@ export class PushService {
         .run();
     } catch (e) {
       // 如果失败，尝试从 fields 中移除 timezone 字段并重试
-      const timezoneIndex = fields.findIndex(f => f.startsWith('timezone'));
+      const timezoneIndex = fields.findIndex((f) => f.startsWith('timezone'));
       if (timezoneIndex > -1) {
         fields.splice(timezoneIndex, 1);
         values.splice(timezoneIndex, 1);
@@ -899,15 +903,21 @@ export class PushService {
     // 总体统计
     const totalResult = await this.env.DB.prepare(
       `SELECT COUNT(*) as total FROM push_history WHERE user_id = ? AND created_at >= ?`
-    ).bind(this.userId, sinceStr).first<{ total: number }>();
+    )
+      .bind(this.userId, sinceStr)
+      .first<{ total: number }>();
 
     const successResult = await this.env.DB.prepare(
       `SELECT COUNT(*) as count FROM push_history WHERE user_id = ? AND created_at >= ? AND status = 'success'`
-    ).bind(this.userId, sinceStr).first<{ count: number }>();
+    )
+      .bind(this.userId, sinceStr)
+      .first<{ count: number }>();
 
     const failedResult = await this.env.DB.prepare(
       `SELECT COUNT(*) as count FROM push_history WHERE user_id = ? AND created_at >= ? AND status != 'success'`
-    ).bind(this.userId, sinceStr).first<{ count: number }>();
+    )
+      .bind(this.userId, sinceStr)
+      .first<{ count: number }>();
 
     const total = totalResult?.total || 0;
     const success = successResult?.count || 0;
@@ -925,25 +935,29 @@ export class PushService {
       GROUP BY DATE(created_at)
       ORDER BY date DESC
       LIMIT ?`
-    ).bind(this.userId, sinceStr, days).all<{
-      date: string;
-      pushes: number;
-      success: number;
-      failed: number;
-    }>();
+    )
+      .bind(this.userId, sinceStr, days)
+      .all<{
+        date: string;
+        pushes: number;
+        success: number;
+        failed: number;
+      }>();
 
     // 计算趋势（最近 vs 之前）
     const halfDays = Math.max(1, Math.floor(days / 2));
     const recentHalf = await this.env.DB.prepare(
       `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
        FROM push_history WHERE user_id = ? AND created_at >= ?`
-    ).bind(this.userId, new Date(Date.now() - halfDays * 86400000).toISOString())
+    )
+      .bind(this.userId, new Date(Date.now() - halfDays * 86400000).toISOString())
       .first<{ total: number; success: number }>();
 
     const olderHalf = await this.env.DB.prepare(
       `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
        FROM push_history WHERE user_id = ? AND created_at >= ? AND created_at < ?`
-    ).bind(this.userId, sinceStr, new Date(Date.now() - halfDays * 86400000).toISOString())
+    )
+      .bind(this.userId, sinceStr, new Date(Date.now() - halfDays * 86400000).toISOString())
       .first<{ total: number; success: number }>();
 
     const recentRate = recentHalf?.total ? ((recentHalf.success || 0) / recentHalf.total) * 100 : 0;

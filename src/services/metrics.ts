@@ -49,7 +49,10 @@ export class MetricsCollector {
           total: d1Metrics.total,
           success: d1Metrics.success,
           failed: d1Metrics.failed,
-          byChannel: (d1Metrics.channelStats || {}) as Record<string, { success: number; failed: number }>,
+          byChannel: (d1Metrics.channelStats || {}) as Record<
+            string,
+            { success: number; failed: number }
+          >,
           avgLatency: d1Metrics.avgLatency || 0,
         };
       }
@@ -107,7 +110,10 @@ export class MetricsCollector {
       try {
         const existing = await getMetrics(this.env, this.userId);
         if (existing && existing.dailyStats) {
-          dailyStats = existing.dailyStats as Record<string, { pushes: number; success: number; failed: number; byChannel: Record<string, number> }>;
+          dailyStats = existing.dailyStats as Record<
+            string,
+            { pushes: number; success: number; failed: number; byChannel: Record<string, number> }
+          >;
         }
       } catch {
         // Ignore error loading existing stats
@@ -156,7 +162,10 @@ export class MetricsCollector {
     try {
       const d1Metrics = await getMetrics(this.env, this.userId);
       if (d1Metrics && d1Metrics.dailyStats) {
-        const metrics = d1Metrics.dailyStats as Record<string, { pushes: number; success: number; failed: number; byChannel?: Record<string, number> }>;
+        const metrics = d1Metrics.dailyStats as Record<
+          string,
+          { pushes: number; success: number; failed: number; byChannel?: Record<string, number> }
+        >;
         const today = new Date();
 
         for (let i = 0; i < days; i++) {

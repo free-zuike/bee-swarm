@@ -946,7 +946,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'smtp.config_guide': '常见配置：',
     'smtp.qq': 'QQ邮箱：smtp.qq.com / 587（需开启SMTP并获取授权码）',
     'smtp.163': '163邮箱：smtp.163.com / 465（需开启SMTP并获取授权码）',
-    'smtp网易': '163邮箱：smtp.163.com / 465',
+    smtp网易: '163邮箱：smtp.163.com / 465',
     'smtp.gmail': 'Gmail：smtp.gmail.com / 587（需开启2FA并创建应用专用密码）',
     'smtp.outlook': 'Outlook：smtp.office365.com / 587',
     // Toast messages
@@ -1931,7 +1931,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'error.email_not_verified': 'Email not verified, please verify first',
     // SMTP settings
     'smtp.title': 'Email Settings (SMTP)',
-    'smtp.hint': 'Configure SMTP server for password reset emails. Supports QQ, 163, Gmail, Outlook, etc.',
+    'smtp.hint':
+      'Configure SMTP server for password reset emails. Supports QQ, 163, Gmail, Outlook, etc.',
     'smtp.host': 'SMTP Server',
     'smtp.port': 'SMTP Port',
     'smtp.username': 'SMTP Username',
@@ -1941,7 +1942,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'smtp.config_guide': 'Common configurations:',
     'smtp.qq': 'QQ Mail: smtp.qq.com / 587',
     'smtp.163': '163 Mail: smtp.163.com / 465',
-    'smtp网易': '163 Mail: smtp.163.com / 465',
+    smtp网易: '163 Mail: smtp.163.com / 465',
     'smtp.gmail': 'Gmail: smtp.gmail.com / 587',
     'smtp.outlook': 'Outlook: smtp.office365.com / 587',
     // Toast messages

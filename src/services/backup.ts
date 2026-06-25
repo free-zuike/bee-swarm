@@ -221,8 +221,6 @@ async function ensureUserExists(env: Env, username: string): Promise<void> {
     )
       .bind(id, username, 'placeholder', now, now, 'user', 0)
       .run();
-
-
   } catch (e) {
     const error = e as Error;
     // 唯一约束冲突（用户已存在）是预期情况，忽略
@@ -230,7 +228,6 @@ async function ensureUserExists(env: Env, username: string): Promise<void> {
       error.message.includes('UNIQUE constraint failed') ||
       error.message.includes('SQLITE_CONSTRAINT_UNIQUE')
     ) {
-
       return;
     }
 
@@ -323,7 +320,6 @@ export async function uploadBackupToEndpoint(
     const userService = new UserService(env);
     const user = await userService.findByEmail(username);
 
-
     if (!user) {
       console.error(`[Backup] User not found: ${username}`);
       return {
@@ -337,7 +333,6 @@ export async function uploadBackupToEndpoint(
 
     const backupData = data || (await exportUserData(env, username));
 
-
     const filename = generateSecureFilename(); // 使用安全的随机文件名
     let jsonContent = JSON.stringify(backupData, null, 2);
 
@@ -347,11 +342,9 @@ export async function uploadBackupToEndpoint(
     const encryptionSalt = user.id; // 使用用户ID作为盐
 
     if (encryptionSecret && encryptionSalt) {
-
       try {
         jsonContent = await encryptData(jsonContent, encryptionSecret, encryptionSalt);
         encrypted = true;
-
       } catch (e) {
         console.error(
           `[Backup] Encryption failed, proceeding without encryption: ${(e as Error).message}`
@@ -359,7 +352,6 @@ export async function uploadBackupToEndpoint(
         // 加密失败，继续不加密
       }
     } else {
-
     }
 
     const dataHash = computeDataHash(backupData);
@@ -386,28 +378,26 @@ export async function uploadBackupToEndpoint(
         region: config.region || 'auto',
       });
 
-
-      
       // === 策略改变：先清理，再上传 ===
-      
+
       // 1. 先查询现有备份数量
       const prefix = `${root}/backups/${username}/`;
       const listUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}?list-type=2&prefix=${encodeURIComponent(prefix)}`;
-      
+
       const listResponse = await awsClient.fetch(listUrl, { method: 'GET' });
       const xml = await listResponse.text();
-      
+
       const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
       const existingFiles: { key: string; lastModified: string; size?: number }[] = [];
-      
+
       for (const match of contentsMatches) {
         const content = match[1];
         const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
         const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
         const sizeMatch = content.match(/<Size>(\d+)<\/Size>/);
-        
+
         // 过滤条件：
         // 1. 必须有 Key 和 LastModified
         // 2. Key 不能以 / 结尾（不是文件夹）
@@ -416,7 +406,7 @@ export async function uploadBackupToEndpoint(
         if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
           const key = keyMatch[1];
           const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
-          
+
           if (!key.endsWith('/') && size > 0 && key.endsWith('.json')) {
             existingFiles.push({
               key,
@@ -427,7 +417,7 @@ export async function uploadBackupToEndpoint(
           }
         }
       }
-      
+
       // 2. 如果已经达到或超过保留数量，先删除最旧的一个
       if (existingFiles.length >= retention) {
         // 按时间排序，找到最旧的
@@ -436,24 +426,24 @@ export async function uploadBackupToEndpoint(
           const dateB = new Date(b.lastModified).getTime();
           return dateA - dateB; // 旧的在前
         });
-        
+
         const oldestFile = existingFiles[0];
         const deleteUrl = config.pathStyle
           ? `${config.endpoint}/${config.bucket}/${oldestFile.key}`
           : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${oldestFile.key}`;
-        
+
         const deleteResponse = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
-        
+
         if (!deleteResponse.ok) {
           console.error(`[Backup] S3: Failed to delete oldest backup: ${deleteResponse.status}`);
         } else {
         }
-        
+
         // 等待删除生效
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } else {
       }
-      
+
       // 3. 现在上传新备份
       const url = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${key}`
@@ -492,7 +482,6 @@ export async function uploadBackupToEndpoint(
           statusCode: verifyResponse.status,
         };
       }
-
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const root = config.path || 'beeswarm';
@@ -630,13 +619,13 @@ async function cleanupOldBackupsS3(
     // 解析每个 <Contents> 块，确保 Key 和 LastModified 正确配对
     const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
     const files: { key: string; lastModified: string; size?: number }[] = [];
-    
+
     for (const match of contentsMatches) {
       const content = match[1];
       const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
       const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
       const sizeMatch = content.match(/<Size>(\d+)<\/Size>/);
-      
+
       // 过滤条件：
       // 1. 必须有 Key 和 LastModified
       // 2. Key 不能以 / 结尾（不是文件夹）
@@ -645,7 +634,7 @@ async function cleanupOldBackupsS3(
       if (keyMatch?.[1] && lastModifiedMatch?.[1]) {
         const key = keyMatch[1];
         const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
-        
+
         if (!key.endsWith('/') && size > 0 && key.endsWith('.json')) {
           const file = {
             key,
@@ -670,23 +659,21 @@ async function cleanupOldBackupsS3(
       return dateB - dateA;
     });
 
-    files.forEach((file, index) => {
-    });
+    files.forEach((file, index) => {});
 
     const toDeleteCount = Math.max(0, files.length - retention);
 
-    
     if (toDeleteCount === 0) {
       return;
     }
-    
+
     for (let i = retention; i < files.length; i++) {
       const deleteUrl = config.pathStyle
         ? `${config.endpoint}/${config.bucket}/${files[i].key}`
         : `https://${config.bucket}.${config.endpoint.replace(/^https?:\/\//, '')}/${files[i].key}`;
-      
+
       const deleteResponse = await awsClient.fetch(deleteUrl, { method: 'DELETE' });
-      
+
       if (!deleteResponse.ok) {
         const errorText = await deleteResponse.text().catch(() => '');
         console.error(
@@ -695,7 +682,6 @@ async function cleanupOldBackupsS3(
       } else {
       }
     }
-
   } catch (e) {
     console.error('清理 S3 旧备份失败', e);
   }
@@ -784,7 +770,6 @@ async function cleanupOldBackupsWebDAV(
       return dateB - dateA;
     });
 
-
     for (let i = retention; i < backups.length; i++) {
       const backupKey = backups[i].key;
       const deleteUrl = `${baseUrl}/${backupKey}`;
@@ -871,13 +856,13 @@ export async function listBackupsFromEndpoint(
     // 解析每个 <Contents> 块，确保字段正确配对
     const contentsMatches = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
     const files: BackupInfo[] = [];
-    
+
     for (const match of contentsMatches) {
       const content = match[1];
       const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
       const lastModifiedMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
       const sizeMatch = content.match(/<Size>([^<]+)<\/Size>/);
-      
+
       const key = keyMatch?.[1];
       if (key && key.endsWith('.json')) {
         files.push({

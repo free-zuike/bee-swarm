@@ -19,7 +19,9 @@ const t = useTranslation();
 const aiAvailable = ref(false);
 const aiLoading = ref(false);
 const userQuery = ref('');
-const chatHistory = ref<Array<{ type: 'user' | 'ai' | 'system'; content: string; thinking?: string; steps?: unknown[] }>>([]);
+const chatHistory = ref<
+  Array<{ type: 'user' | 'ai' | 'system'; content: string; thinking?: string; steps?: unknown[] }>
+>([]);
 const showPanel = ref(false);
 
 // 如果 AI 未启用，不显示组件
@@ -138,7 +140,10 @@ onMounted(() => {
       <div class="ai-chat-container">
         <div v-if="chatHistory.length === 0" class="ai-empty-state">
           <p>👋 你好！我是 AI Agent</p>
-          <p class="example">我可以帮你：<br>• 发送推送消息<br>• 查看统计数据<br>• 管理模板和分组<br>• 执行定时任务</p>
+          <p class="example">
+            我可以帮你：<br />• 发送推送消息<br />• 查看统计数据<br />• 管理模板和分组<br />•
+            执行定时任务
+          </p>
           <p class="example">试试输入："发送测试消息" 或 "查看推送历史"</p>
         </div>
 
