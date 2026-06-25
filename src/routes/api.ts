@@ -1757,11 +1757,34 @@ adminApi.get('/system/health', async (c) => {
     activeUsers: number;
     recentPushCount: number;
     queueStatus: { available: boolean; message: string };
+    dbSize: string;
+    dbRowCount: number;
+    r2Storage: {
+      available: boolean;
+      objectCount: number;
+      totalSize: number;
+      totalSizeFormatted: string;
+    };
+    recentErrors: Array<{
+      userId: string;
+      action: string;
+      data: string;
+      createdAt: string;
+    }>;
   } = {
     database: { status: 'unknown', message: '' },
     lastCronRun: null,
     activeUsers: 0,
     recentPushCount: 0,
+    dbSize: '未知',
+    dbRowCount: 0,
+    r2Storage: {
+      available: false,
+      objectCount: 0,
+      totalSize: 0,
+      totalSizeFormatted: '未配置',
+    },
+    recentErrors: [],
     queueStatus: { available: false, message: '' },
   };
 
