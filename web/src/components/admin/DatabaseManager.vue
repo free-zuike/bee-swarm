@@ -50,15 +50,12 @@ const isDeletingTable = ref(false);
 const isCleaningTables = ref(false);
 
 async function loadDatabaseStats() {
+  isLoadingStats.value = true;
   try {
     const result = await getDatabaseStats(props.accessToken);
     if (result.success) {
       databaseStats.value = result.stats;
     }
-  } catch {
-    // ignore
-  }
-}
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.load_stats_failed')), 'error');
   } finally {
@@ -74,10 +71,6 @@ async function loadArchives() {
     }
   } catch {
     // ignore
-  }
-}
-  } catch (err) {
-    showToast(getErrorMessage(err, t('msg.load_archives_failed')), 'error');
   }
 }
 
