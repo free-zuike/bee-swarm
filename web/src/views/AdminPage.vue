@@ -29,15 +29,11 @@ import {
   downloadBackupFromEndpoint,
   backupAll,
   backupSingleEndpoint,
-  updateAvatar,
-  uploadAvatar,
   getUserSettings,
   saveCacheSettings,
-  getSystemSettings,
-  saveSystemSettings,
   apiCache,
 } from '@/api';
-import type { BackupEndpoint, UserSettings, SystemSettings } from '@/api';
+import type { BackupEndpoint, UserSettings } from '@/api';
 import type {
   ChannelConfig,
   ChannelDefinition,
@@ -64,6 +60,8 @@ import UserManagement from '@/components/admin/UserManagement.vue';
 import AuditLogs from '@/components/admin/AuditLogs.vue';
 import AIHelper from '@/components/admin/AIHelper.vue';
 import AISettingsPanel from '@/components/admin/AISettingsPanel.vue';
+import AvatarSettings from '@/components/admin/AvatarSettings.vue';
+import SystemSettingsPanel from '@/components/admin/SystemSettingsPanel.vue';
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -141,113 +139,15 @@ const userSettings = ref<UserSettings>({
   custom_ai_providers: [],
   ai_provider_configs: {},
 });
-const systemSettings = ref<SystemSettings>({
-  turnstile_enabled: false,
-  turnstile_site_key: '',
-  turnstile_secret_key: '',
-  cleanup_enabled: true,
-  cleanup_push_history_days: 30,
-  cleanup_audit_log_days: 90,
-  cleanup_batch_size: 100,
-  cors_allowed_origins: [],
-});
-const newCORSOrigin = ref('');
 const isSavingSettings = ref(false);
-const isSavingSystemSettings = ref(false);
 const activeSettingsTab = ref<string>('theme');
+const systemCleanupSettings = ref<{
+  cleanup_push_history_days?: number;
+  cleanup_audit_log_days?: number;
+}>({});
+const systemSettingsPanelRef = ref<InstanceType<typeof SystemSettingsPanel> | null>(null);
 
 const userAvatar = ref('');
-const avatarInput = ref('');
-const useAvatarAsPopup = ref(0);
-const isSaving = ref(false);
-const fileInput = ref<HTMLInputElement | null>(null);
-const selectedFile = ref<File | null>(null);
-const showAvatarModal = ref(false);
-
-function closeAvatarModal() {
-  showAvatarModal.value = false;
-}
-
-function triggerFileUpload() {
-  // 重置文件输入框，确保每次都触发文件选择都能生效
-  if (fileInput.value) {
-    fileInput.value.value = '';
-  }
-  fileInput.value?.click();
-}
-
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (file) {
-    selectedFile.value = file;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      avatarInput.value = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  }
-}
-
-async function handleSaveAvatar() {
-  isSaving.value = true;
-  try {
-    let newAvatarUrl = userAvatar.value;
-
-    // 如果有选择文件，先上传文件
-    if (selectedFile.value) {
-      const uploadResult = await uploadAvatar(accessToken.value, selectedFile.value);
-      newAvatarUrl = uploadResult.avatar_url;
-    } else if (avatarInput.value && avatarInput.value.startsWith('http')) {
-      // 如果是 URL，直接使用
-      newAvatarUrl = avatarInput.value;
-    } else if (avatarInput.value) {
-      // 如果是 data URL，直接使用
-      newAvatarUrl = avatarInput.value;
-    }
-
-    // 更新头像设置
-    const updateResult = await updateAvatar(accessToken.value, {
-      avatar_url: newAvatarUrl,
-      use_avatar_as_popup: useAvatarAsPopup.value,
-    });
-
-    userAvatar.value = updateResult.avatar_url;
-    useAvatarAsPopup.value = updateResult.use_avatar_as_popup;
-    selectedFile.value = null;
-
-    showToast(t('message.avatar_saved'), 'success');
-    closeAvatarModal();
-  } catch (_error) {
-    showToast(t('message.save_failed'), 'error');
-  } finally {
-    isSaving.value = false;
-  }
-}
-
-async function deleteAvatar() {
-  isSaving.value = true;
-  try {
-    await updateAvatar(accessToken.value, {
-      avatar_url: '',
-      use_avatar_as_popup: useAvatarAsPopup.value,
-    });
-
-    userAvatar.value = '';
-    avatarInput.value = '';
-    selectedFile.value = null;
-
-    showToast(t('message.avatar_deleted'), 'success');
-  } catch (_error) {
-    showToast(t('message.save_failed'), 'error');
-  } finally {
-    isSaving.value = false;
-  }
-}
-
-function handleAvatarError() {
-  userAvatar.value = '';
-}
 
 const settingsMenu = [
   { id: 'theme', icon: '🎨', label: 'theme.settings' },
@@ -294,63 +194,6 @@ async function loadUserSettings() {
   } catch {
     // ignore
   }
-}
-
-async function loadSystemSettings() {
-  if (!isAdmin.value) return;
-  try {
-    const result = await getSystemSettings(accessToken.value);
-    if (result.success) {
-      systemSettings.value = {
-        turnstile_enabled: result.settings.turnstile_enabled ?? false,
-        turnstile_site_key: result.settings.turnstile_site_key ?? '',
-        turnstile_secret_key: result.settings.turnstile_secret_key ?? '',
-        cleanup_enabled: result.settings.cleanup_enabled ?? true,
-        cleanup_push_history_days: result.settings.cleanup_push_history_days ?? 30,
-        cleanup_audit_log_days: result.settings.cleanup_audit_log_days ?? 90,
-        cleanup_batch_size: result.settings.cleanup_batch_size ?? 100,
-        cors_allowed_origins: result.settings.cors_allowed_origins ?? [],
-        smtp_host: result.settings.smtp_host ?? '',
-        smtp_port: result.settings.smtp_port ?? '',
-        smtp_username: result.settings.smtp_username ?? '',
-        smtp_password: result.settings.smtp_password ?? '',
-        mail_from: result.settings.mail_from ?? '',
-      };
-    }
-  } catch {
-    // ignore
-  }
-}
-
-async function handleSaveSystemSettings() {
-  if (isSavingSystemSettings.value) return;
-  isSavingSystemSettings.value = true;
-  try {
-    await saveSystemSettings(accessToken.value, systemSettings.value);
-    showToast(t('msg.system_settings_saved'), 'success');
-  } catch (err) {
-    showToast(getErrorMessage(err, t('msg.save_system_settings_failed')), 'error');
-  } finally {
-    isSavingSystemSettings.value = false;
-  }
-}
-
-function addCORSOrigin() {
-  const origin = newCORSOrigin.value.trim();
-  if (!origin) {
-    showToast(t('msg.invalid_origin'), 'error');
-    return;
-  }
-  if (systemSettings.value.cors_allowed_origins.includes(origin)) {
-    showToast(t('msg.origin_exists'), 'error');
-    return;
-  }
-  systemSettings.value.cors_allowed_origins.push(origin);
-  newCORSOrigin.value = '';
-}
-
-function removeCORSOrigin(index: number) {
-  systemSettings.value.cors_allowed_origins.splice(index, 1);
 }
 
 function updateCacheSettings() {
@@ -447,18 +290,7 @@ async function copyApiKey() {
   }
 }
 
-async function loadUserAvatar() {
-  try {
-    const { getCurrentUser } = await import('@/api');
-    const user = await getCurrentUser(accessToken.value);
-    userAvatar.value = user.avatar_url || '';
-    if (user.use_avatar_as_popup !== undefined) {
-      useAvatarAsPopup.value = user.use_avatar_as_popup;
-    }
-  } catch {
-    // ignore
-  }
-}
+
 
 // ==================== 历史记录加载 ====================
 const historyFilters = reactive({
@@ -526,7 +358,6 @@ onMounted(async () => {
             loadCurrentUser(accessToken.value),
             loadHistory(),
             loadUserSettings(),
-            loadUserAvatar(),
           ]);
           // 需要 token 的请求（可能依赖用户信息）
           await loadChannels();
@@ -545,7 +376,6 @@ onMounted(async () => {
           loadCurrentUser(accessToken.value),
           loadHistory(),
           loadUserSettings(),
-          loadUserAvatar(),
         ]);
         await loadChannels();
         pageState.value = 'dashboard';
@@ -597,18 +427,7 @@ watch(activeTab, (newTab, oldTab) => {
   }
 });
 
-// ==================== 设置标签页切换 ====================
-watch(activeSettingsTab, (newTab) => {
-  // 当切换到头像设置时，初始化 avatarInput 为当前的 userAvatar
-  if (newTab === 'avatar') {
-    avatarInput.value = userAvatar.value;
-    selectedFile.value = null;
-    // 重置文件输入框
-    if (fileInput.value) {
-      fileInput.value.value = '';
-    }
-  }
-});
+
 
 // ==================== 认证函数 ====================
 async function doLogin(authEmail: string, authPassword: string, turnstileToken?: string) {
@@ -616,7 +435,7 @@ async function doLogin(authEmail: string, authPassword: string, turnstileToken?:
   if (success) {
     try {
       // 并行加载独立数据
-      await Promise.all([loadCurrentUser(accessToken.value), loadHistory(), loadUserAvatar()]);
+      await Promise.all([loadCurrentUser(accessToken.value), loadHistory()]);
       await loadChannels();
     } catch {
       // 数据加载失败不影响登录
@@ -636,7 +455,7 @@ async function doRegister(authEmail: string, authPassword: string, turnstileToke
   if (result.success) {
     try {
       // 并行加载独立数据
-      await Promise.all([loadCurrentUser(accessToken.value), loadHistory(), loadUserAvatar()]);
+      await Promise.all([loadCurrentUser(accessToken.value), loadHistory()]);
       await loadChannels();
     } catch {
       // 数据加载失败不影响注册
@@ -1069,87 +888,6 @@ function handleResend(record: PushHistoryRecord) {
 
   <!-- 主界面 -->
   <div v-else class="page" :class="{ dark: isDark }">
-    <!-- 头像设置弹窗 -->
-    <Teleport to="body">
-      <div v-if="showAvatarModal" class="modal-overlay" @click.self="closeAvatarModal">
-        <div class="modal-content" :class="{ dark: isDark }">
-          <div class="modal-header">
-            <h3>{{ t('label.avatar_settings') }}</h3>
-            <button class="modal-close" @click="closeAvatarModal">✕</button>
-          </div>
-          <div class="modal-body">
-            <!-- 当前头像预览 -->
-            <div class="avatar-preview-section">
-              <div class="avatar-preview">
-                <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
-                <span v-else class="preview-placeholder">{{ roleIcon }}</span>
-              </div>
-            </div>
-
-            <!-- 文件上传 -->
-            <div class="form-group">
-              <label>{{ t('label.upload_avatar') }}</label>
-              <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
-                <input
-                  ref="fileInput"
-                  type="file"
-                  accept="image/*"
-                  class="file-input"
-                  @change="handleFileUpload"
-                />
-                <span class="upload-icon">📤</span>
-                <span class="upload-text">{{ t('label.click_to_upload') }}</span>
-                <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
-              </div>
-            </div>
-
-            <!-- 头像URL输入 -->
-            <div class="form-group">
-              <label>{{ t('label.avatar_url') }}</label>
-              <input
-                v-model="avatarInput"
-                type="url"
-                class="form-input"
-                :class="{ dark: isDark }"
-                :placeholder="t('placeholder.avatar_url')"
-              />
-            </div>
-
-            <!-- 悬浮窗设置 -->
-            <div class="form-group">
-              <label class="checkbox-label">
-                <input
-                  v-model="useAvatarAsPopup"
-                  type="checkbox"
-                  :true-value="1"
-                  :false-value="0"
-                />
-                <span>{{ t('label.use_avatar_as_popup') }}</span>
-              </label>
-            </div>
-
-            <!-- 操作按钮 -->
-            <div class="modal-actions">
-              <button
-                v-if="userAvatar"
-                class="btn btn-danger"
-                :class="{ dark: isDark }"
-                @click="deleteAvatar"
-              >
-                {{ t('button.delete_avatar') }}
-              </button>
-              <button class="btn btn-secondary" :class="{ dark: isDark }" @click="closeAvatarModal">
-                {{ t('button.cancel') }}
-              </button>
-              <button class="btn btn-primary" :disabled="isSaving" @click="handleSaveAvatar">
-                {{ isSaving ? t('label.saving') : t('button.save') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
     <!-- 轻提示 Toast -->
     <transition name="toast">
       <div v-if="toast" class="toast" :class="toast.type">
@@ -1176,7 +914,7 @@ function handleResend(record: PushHistoryRecord) {
         :class="{ dark: isDark, active: showFabMenu }"
         @click="showFabMenu = !showFabMenu"
       >
-        <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" @error="handleAvatarError" />
+        <img v-if="userAvatar" :src="userAvatar" class="fab-avatar" @error="userAvatar = ''" />
         <span v-else>👤</span>
       </button>
 
@@ -1257,9 +995,6 @@ function handleResend(record: PushHistoryRecord) {
               :class="{ active: activeSettingsTab === item.id, dark: isDark }"
               @click="
                 activeSettingsTab = item.id;
-                if (item.id === 'system') {
-                  loadSystemSettings();
-                }
               "
             >
               <span class="menu-icon">{{ item.icon }}</span>
@@ -1424,141 +1159,11 @@ function handleResend(record: PushHistoryRecord) {
           />
 
           <!-- 头像设置 -->
-          <div
+          <AvatarSettings
             v-else-if="activeSettingsTab === 'avatar'"
-            class="settings-panel"
-            :class="{ dark: isDark }"
-          >
-            <h3>🖼️ {{ t('label.avatar_settings') }}</h3>
-            <div class="settings-card">
-              <!-- 当前头像预览 -->
-              <div class="avatar-preview-section">
-                <div class="avatar-preview">
-                  <img v-if="avatarInput" :src="avatarInput" class="preview-image" />
-                  <img
-                    v-else-if="userAvatar"
-                    :src="userAvatar"
-                    class="preview-image"
-                    @error="handleAvatarError"
-                  />
-                  <span v-else class="preview-placeholder">{{ roleIcon }}</span>
-                </div>
-              </div>
-
-              <!-- 文件上传 -->
-              <div class="form-group">
-                <label>{{ t('label.upload_avatar') }}</label>
-                <div class="upload-area" :class="{ dark: isDark }" @click="triggerFileUpload">
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept="image/*"
-                    class="file-input"
-                    @change="handleFileUpload"
-                  />
-                  <span class="upload-icon">📤</span>
-                  <span class="upload-text">{{ t('label.click_to_upload') }}</span>
-                  <span class="upload-hint">{{ t('hint.avatar_format') }}</span>
-                </div>
-              </div>
-
-              <!-- 头像URL输入 -->
-              <div class="form-group">
-                <label>{{ t('label.avatar_url') }}</label>
-                <input
-                  v-model="avatarInput"
-                  type="url"
-                  class="form-input"
-                  :class="{ dark: isDark }"
-                  :placeholder="t('placeholder.avatar_url')"
-                />
-              </div>
-
-              <!-- 悬浮窗设置 -->
-              <div class="form-group">
-                <label class="checkbox-label">
-                  <input
-                    v-model="useAvatarAsPopup"
-                    type="checkbox"
-                    :true-value="1"
-                    :false-value="0"
-                  />
-                  <span>{{ t('label.use_avatar_as_popup') }}</span>
-                </label>
-              </div>
-
-              <!-- 操作按钮 - 重新创建 -->
-              <div
-                style="
-                  display: flex;
-                  flex-direction: row;
-                  align-items: stretch;
-                  justify-content: space-between;
-                  gap: 12px;
-                  margin-top: 24px;
-                  width: 100%;
-                "
-              >
-                <!-- 删除按钮 -->
-                <button
-                  v-if="userAvatar"
-                  type="button"
-                  :style="{
-                    flex: '1',
-                    height: '48px !important',
-                    minHeight: '48px !important',
-                    maxHeight: '48px !important',
-                    padding: '0 24px !important',
-                    fontSize: '15px !important',
-                    fontWeight: '600 !important',
-                    display: 'flex !important',
-                    alignItems: 'center !important',
-                    justifyContent: 'center !important',
-                    borderRadius: '8px !important',
-                    border: 'none !important',
-                    cursor: 'pointer !important',
-                    boxSizing: 'border-box !important',
-                    lineHeight: '48px !important',
-                    background: '#ef4444 !important',
-                    color: 'white !important',
-                  }"
-                  :class="{ dark: isDark }"
-                  @click="deleteAvatar"
-                >
-                  {{ t('button.delete_avatar') }}
-                </button>
-                <!-- 保存按钮 -->
-                <button
-                  type="button"
-                  :disabled="isSaving"
-                  :style="{
-                    flex: '1',
-                    height: '48px !important',
-                    minHeight: '48px !important',
-                    maxHeight: '48px !important',
-                    padding: '0 24px !important',
-                    fontSize: '15px !important',
-                    fontWeight: '600 !important',
-                    display: 'flex !important',
-                    alignItems: 'center !important',
-                    justifyContent: 'center !important',
-                    borderRadius: '8px !important',
-                    border: 'none !important',
-                    cursor: isSaving ? 'not-allowed !important' : 'pointer !important',
-                    boxSizing: 'border-box !important',
-                    lineHeight: '48px !important',
-                    background: isSaving ? '#94a3b8 !important' : '#3b82f6 !important',
-                    color: 'white !important',
-                    opacity: isSaving ? '0.6 !important' : '1 !important',
-                  }"
-                  :class="{ dark: isDark }"
-                  @click="handleSaveAvatar"
-                >
-                  {{ isSaving ? t('label.saving') : t('button.save') }}
-                </button>
-              </div>
-            </div>
-          </div>
+            :access-token="accessToken"
+            @avatar-updated="userAvatar = $event"
+          />
 
           <!-- 数据备份 -->
           <BackupManager
@@ -1593,183 +1198,12 @@ function handleResend(record: PushHistoryRecord) {
           />
 
           <!-- 系统设置 -->
-          <div
+          <SystemSettingsPanel
             v-else-if="activeSettingsTab === 'system' && hasPermission('users:manage')"
-            class="settings-panel"
-            :class="{ dark: isDark }"
-          >
-            <h3>⚙️ {{ t('label.system_settings') }}</h3>
-
-            <!-- Turnstile 人机验证设置 -->
-            <div class="settings-card">
-              <h4>{{ t('label.turnstile') }}</h4>
-              <div class="setting-item">
-                <label>{{ t('label.turnstile_enabled') }}</label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="systemSettings.turnstile_enabled" />
-                  <span class="slider"></span>
-                </label>
-              </div>
-              <div class="setting-item" v-if="systemSettings.turnstile_enabled">
-                <label>{{ t('label.turnstile_site_key') }}</label>
-                <input
-                  type="text"
-                  v-model="systemSettings.turnstile_site_key"
-                  :placeholder="t('placeholder.turnstile_site_key')"
-                  class="input-sm"
-                />
-              </div>
-              <div class="setting-item" v-if="systemSettings.turnstile_enabled">
-                <label>{{ t('label.turnstile_secret_key') }}</label>
-                <input
-                  type="password"
-                  v-model="systemSettings.turnstile_secret_key"
-                  :placeholder="t('placeholder.turnstile_secret_key')"
-                  class="input-sm"
-                />
-              </div>
-              <div class="setting-hint" v-if="systemSettings.turnstile_enabled">
-                {{ t('hint.turnstile') }}
-              </div>
-            </div>
-
-            <!-- 自动清理设置 -->
-            <div class="settings-card">
-              <h4>🧹 {{ t('label.auto_cleanup') }}</h4>
-              <div class="setting-item">
-                <label>{{ t('label.cleanup_enabled') }}</label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="systemSettings.cleanup_enabled" />
-                  <span class="slider"></span>
-                </label>
-              </div>
-              <div class="setting-item" v-if="systemSettings.cleanup_enabled">
-                <label>{{ t('label.cleanup_push_history_days') }}</label>
-                <input
-                  type="number"
-                  v-model.number="systemSettings.cleanup_push_history_days"
-                  min="1"
-                  max="365"
-                  class="input-sm"
-                />
-              </div>
-              <div class="setting-item" v-if="systemSettings.cleanup_enabled">
-                <label>{{ t('label.cleanup_audit_log_days') }}</label>
-                <input
-                  type="number"
-                  v-model.number="systemSettings.cleanup_audit_log_days"
-                  min="1"
-                  max="365"
-                  class="input-sm"
-                />
-              </div>
-              <div class="setting-hint" v-if="systemSettings.cleanup_enabled">
-                {{ t('hint.auto_cleanup') }}
-              </div>
-            </div>
-
-            <!-- CORS 配置 -->
-            <div class="settings-card">
-              <h4>🔒 {{ t('label.cors_settings') }}</h4>
-              <div class="setting-item">
-                <label>{{ t('label.cors_allowed_origins') }}</label>
-                <div class="cors-list">
-                  <div
-                    v-for="(origin, index) in systemSettings.cors_allowed_origins"
-                    :key="index"
-                    class="cors-item"
-                  >
-                    <span>{{ origin }}</span>
-                    <button class="btn btn-sm btn-danger" @click="removeCORSOrigin(index)">
-                      ×
-                    </button>
-                  </div>
-                  <div v-if="systemSettings.cors_allowed_origins.length === 0" class="empty-state">
-                    {{ t('msg.no_cors_origins') }}
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label>{{ t('label.add_origin') }}</label>
-                <div class="input-group">
-                  <input
-                    type="text"
-                    v-model="newCORSOrigin"
-                    placeholder="https://example.com"
-                    @keyup.enter="addCORSOrigin"
-                  />
-                  <button class="btn btn-sm btn-primary" @click="addCORSOrigin">
-                    {{ t('label.add') }}
-                  </button>
-                </div>
-              </div>
-              <div class="setting-hint">
-                {{ t('hint.cors') }}
-              </div>
-            </div>
-
-            <!-- 邮件 SMTP 设置 -->
-            <div class="settings-card">
-              <h4>📧 {{ t('smtp.title') }}</h4>
-              <div class="setting-hint" style="margin-bottom: 16px">
-                {{ t('smtp.hint') }}
-              </div>
-
-              <div class="setting-item">
-                <label>{{ t('smtp.host') }}</label>
-                <input v-model="systemSettings.smtp_host" type="text" placeholder="smtp.qq.com" />
-              </div>
-
-              <div class="setting-item">
-                <label>{{ t('smtp.port') }}</label>
-                <input v-model="systemSettings.smtp_port" type="text" placeholder="587" />
-              </div>
-
-              <div class="setting-item">
-                <label>{{ t('smtp.username') }}</label>
-                <input
-                  v-model="systemSettings.smtp_username"
-                  type="text"
-                  placeholder="your-email@qq.com"
-                />
-              </div>
-
-              <div class="setting-item">
-                <label>{{ t('smtp.password') }}</label>
-                <input
-                  v-model="systemSettings.smtp_password"
-                  type="password"
-                  :placeholder="t('smtp.password_placeholder')"
-                />
-              </div>
-
-              <div class="setting-item">
-                <label>{{ t('smtp.from') }}</label>
-                <input
-                  v-model="systemSettings.mail_from"
-                  type="email"
-                  placeholder="noreply@your-domain.com"
-                />
-              </div>
-
-              <div class="setting-hint">
-                <strong>{{ t('smtp.config_guide') }}</strong
-                ><br />
-                {{ t('smtp.qq') }}<br />
-                {{ t('smtp.163') }}<br />
-                {{ t('smtp.gmail') }}<br />
-                {{ t('smtp.outlook') }}
-              </div>
-            </div>
-
-            <button
-              class="btn btn-primary"
-              @click="handleSaveSystemSettings"
-              :disabled="isSavingSystemSettings"
-            >
-              {{ isSavingSystemSettings ? t('msg.saving_dots') : t('button.save_settings') }}
-            </button>
-          </div>
+            ref="systemSettingsPanelRef"
+            :access-token="accessToken"
+            @update="systemCleanupSettings = $event"
+          />
 
           <!-- 用户管理 -->
           <UserManagement
@@ -1780,8 +1214,8 @@ function handleResend(record: PushHistoryRecord) {
           <DatabaseManager
             v-else-if="activeSettingsTab === 'database' && hasPermission('users:manage')"
             :access-token="accessToken"
-            :cleanup-push-history-days="systemSettings.cleanup_push_history_days"
-            :cleanup-audit-log-days="systemSettings.cleanup_audit_log_days"
+            :cleanup-push-history-days="systemCleanupSettings.cleanup_push_history_days"
+            :cleanup-audit-log-days="systemCleanupSettings.cleanup_audit_log_days"
           />
 
           <!-- 审计日志 -->
@@ -2839,97 +2273,6 @@ function handleResend(record: PushHistoryRecord) {
   flex: 1;
 }
 
-/* ==================== 头像预览样式 ==================== */
-.avatar-preview-section {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.avatar-preview {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: var(--bg-secondary, #f5f5f5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.modal-content.dark .avatar-preview {
-  background: var(--bg-secondary, #3c3c3c);
-}
-
-.preview-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.preview-placeholder {
-  font-size: 40px;
-}
-
-/* ==================== 文件上传区域样式 ==================== */
-.upload-area {
-  position: relative;
-  border: 2px dashed var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  padding: 24px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: var(--bg-secondary, #fafafa);
-}
-
-.upload-area:hover {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
-}
-
-.upload-area.dark {
-  background: var(--bg-secondary, #3c3c3c);
-  border-color: var(--border-color, #4c4c4c);
-}
-
-.upload-area.dark:hover {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
-}
-
-.file-input {
-  display: none;
-}
-
-.upload-icon {
-  font-size: 32px;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.upload-text {
-  display: block;
-  font-size: 14px;
-  color: var(--text-primary, #333);
-  margin-bottom: 4px;
-}
-
-.upload-area.dark .upload-text {
-  color: var(--text-primary, #e0e0e0);
-}
-
-.upload-hint {
-  display: block;
-  font-size: 12px;
-  color: var(--text-secondary, #999);
-}
-
-.upload-area.dark .upload-hint {
-  color: var(--text-secondary, #888);
-}
-
 /* ==================== 危险按钮样式 ==================== */
 .btn-danger {
   background: #ef4444;
@@ -3135,138 +2478,6 @@ function handleResend(record: PushHistoryRecord) {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* 头像设置样式 */
-.avatar-preview-section {
-  margin-bottom: 20px;
-}
-
-.avatar-preview {
-  width: 128px;
-  height: 128px;
-  border-radius: 50%;
-  background: var(--bg-primary, #ffffff);
-  border: 2px solid var(--border-color, #e0e0e0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.avatar-preview.dark {
-  background: var(--bg-dark-primary, #16162a);
-  border-color: var(--border-dark-color, #333);
-}
-
-.preview-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.preview-placeholder {
-  font-size: 48px;
-}
-
-.upload-area {
-  border: 2px dashed var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  padding: 32px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: var(--bg-primary, #ffffff);
-}
-
-.upload-area:hover {
-  border-color: var(--primary-color, #6366f1);
-  background: var(--bg-hover, #f0f0ff);
-}
-
-.upload-area.dark {
-  background: var(--bg-dark-primary, #16162a);
-  border-color: var(--border-dark-color, #333);
-}
-
-.upload-area.dark:hover {
-  border-color: var(--primary-color, #6366f1);
-  background: var(--bg-dark-hover, #2a2a3e);
-}
-
-.file-input {
-  display: none;
-}
-
-.upload-icon {
-  font-size: 32px;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.upload-text {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, #1a1a2e);
-  margin-bottom: 4px;
-}
-
-.upload-hint {
-  display: block;
-  font-size: 12px;
-  color: var(--text-secondary, #666);
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, #1a1a2e);
-}
-
-.form-group.dark label {
-  color: var(--text-dark-primary, #ffffff);
-}
-
-.form-input {
-  width: 100%;
-  max-width: 400px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  font-size: 14px;
-  background: var(--bg-primary, #ffffff);
-  color: var(--text-primary, #1a1a2e);
-}
-
-.form-input.dark {
-  background: var(--bg-dark-primary, #16162a);
-  border-color: var(--border-dark-color, #333);
-  color: var(--text-dark-primary, #ffffff);
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.checkbox-label input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
 }
 
 /* ==================== 设置项样式 ==================== */
@@ -4481,109 +3692,5 @@ function handleResend(record: PushHistoryRecord) {
 
 .ai-provider-content.dark .form-group input:focus {
   border-color: var(--primary-color, #6366f1);
-}
-
-/* ==================== CORS 配置样式 ==================== */
-.cors-list {
-  max-height: 160px;
-  overflow-y: auto;
-  padding: 8px;
-  background: var(--bg-secondary, #f5f5f5);
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e0e0e0);
-}
-
-.dark .cors-list {
-  background: var(--bg-secondary, #3c3c3c);
-  border-color: var(--border-color, #4c4c4c);
-}
-
-.cors-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.cors-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.cors-list::-webkit-scrollbar-thumb {
-  background: var(--border-color, #ccc);
-  border-radius: 3px;
-}
-
-.cors-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--bg-panel, white);
-  border-radius: 6px;
-  margin-bottom: 6px;
-  border: 1px solid var(--border-color, #e0e0e0);
-}
-
-.dark .cors-item {
-  background: var(--bg-panel, #2d2d2d);
-  border-color: var(--border-color, #3c3c3c);
-}
-
-.cors-item:last-child {
-  margin-bottom: 0;
-}
-
-.cors-item span {
-  font-size: 13px;
-  color: var(--text-primary, #1a1a2e);
-  word-break: break-all;
-  flex: 1;
-}
-
-.dark .cors-item span {
-  color: var(--text-primary, #e0e0e0);
-}
-
-.cors-item .btn-danger {
-  margin-left: 8px;
-  padding: 4px 8px;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 16px;
-  color: var(--text-secondary, #999);
-  font-size: 13px;
-}
-
-.input-group {
-  display: flex;
-  gap: 8px;
-}
-
-.input-group input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  background: var(--bg-panel, white);
-  color: var(--text-primary, #1a1a2e);
-}
-
-.dark .input-group input {
-  background: var(--bg-panel, #2d2d2d);
-  border-color: var(--border-color, #4c4c4c);
-  color: var(--text-primary, #e0e0e0);
-}
-
-.input-group input:focus {
-  border-color: #667eea;
-}
-
-.input-group .btn-sm {
-  padding: 10px 16px;
-  font-size: 14px;
 }
 </style>
