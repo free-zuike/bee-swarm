@@ -152,14 +152,14 @@ function doPush() {
 
       <div class="form-group">
         <label class="checkbox-label">
-          <input v-model="useAsync" type="checkbox" />
+          <input v-model="useAsync" type="checkbox" disabled />
           <span>{{ t('label.async_push') }}</span>
           <span class="hint-text">{{ t('hint.async_push') }}</span>
         </label>
       </div>
 
       <button class="btn btn-primary btn-fixed" :disabled="isPushing" @click="doPush">
-        🚀 {{ useAsync ? t('button.push_async') : t('button.push') }}
+        🚀 {{ t('button.push_async') }}
       </button>
       <button class="btn btn-secondary btn-fixed" @click="$emit('refresh')">
         {{ t('button.refresh_channels') }}
