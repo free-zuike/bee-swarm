@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 export type Locale = 'zh' | 'en';
 
@@ -7,6 +7,7 @@ export interface LocaleMessages {
 }
 
 const currentLocale = ref<Locale>('zh');
+const localeVersion = ref(0); // 每次切换语言时递增，触发组件重新渲染
 
 const messages: Record<Locale, LocaleMessages> = {
   zh: {
@@ -2060,6 +2061,7 @@ export function getLocale(): Locale {
 
 export function setLocale(locale: Locale): void {
   currentLocale.value = locale;
+  localeVersion.value++;
   localStorage.setItem('bee_swarm_locale', locale);
 }
 
@@ -2071,10 +2073,14 @@ export function initLocale(): void {
     const browserLang = navigator.language.split('-')[0];
     currentLocale.value = browserLang === 'zh' ? 'zh' : 'en';
   }
+  localeVersion.value++;
 }
 
 export function useTranslation() {
+  // localeVersion 的读取会建立响应式依赖
+  // 当 setLocale 被调用时 localeVersion 递增，触发所有使用 t() 的组件重新渲染
   return (key: string, params: Record<string, string> = {}): string => {
+    void localeVersion.value; // 建立响应式依赖
     const locale = currentLocale.value;
     const message = messages[locale][key] || key;
     let result = message;
@@ -2090,6 +2096,7 @@ export function useT() {
 }
 
 export function t(key: string, params: Record<string, string> = {}): string {
+  void localeVersion.value; // 触发响应式依赖
   const locale = currentLocale.value;
   const message = messages[locale][key] || key;
   let result = message;
