@@ -55,6 +55,21 @@ type ValidatedContext = {
   validatedQuery?: unknown;
 };
 
+function errResponse(
+  c: { json: (data: unknown, status?: number) => Response },
+  message: string,
+  code: string,
+  status = 400
+) {
+  return c.json({ error: message, code }, status);
+}
+
+async function getSystemSettings(env: Env) {
+  const svc = new SystemSettingsService(env);
+  await svc.ensureTable();
+  return svc;
+}
+
 export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>();
 
 // CORS 已在 index.ts 中全局配置，这里不需要重复
@@ -65,14 +80,13 @@ export const api = new Hono<{ Bindings: Env; Variables: { username: string } }>(
 
 // Turnstile 配置端点（公开）
 api.get('/turnstile/config', async (c) => {
-  const systemSettings = new SystemSettingsService(c.env);
-  await systemSettings.ensureTable();
+  const systemSettings = await getSystemSettings(c.env);
   const turnstileConfig = await systemSettings.getTurnstileConfig();
 
   if (turnstileConfig.enabled && turnstileConfig.siteKey) {
     return c.json({ success: true, siteKey: turnstileConfig.siteKey });
   }
-  return c.json({ success: false, message: 'Turnstile 未配置' });
+  return errResponse(c, 'Turnstile 未配置', 'NOT_CONFIGURED');
 });
 
 const registerLimiter = rateLimit({
@@ -110,18 +124,17 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
   const { email, password, turnstileToken } = body;
 
   // 如果配置了 Turnstile，验证 token
-  const systemSettings = new SystemSettingsService(c.env);
-  await systemSettings.ensureTable();
+  const systemSettings = await getSystemSettings(c.env);
   const turnstileConfig = await systemSettings.getTurnstileConfig();
 
   if (turnstileConfig.enabled && turnstileConfig.secretKey) {
     if (!turnstileToken) {
-      return c.json({ success: false, message: '请完成人机验证' }, 400);
+      return errResponse(c, '请完成人机验证', 'VALIDATION_ERROR');
     }
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
     const valid = await verifyTurnstile(turnstileToken, turnstileConfig.secretKey, ip);
     if (!valid) {
-      return c.json({ success: false, message: '人机验证失败，请重试' }, 400);
+      return errResponse(c, '人机验证失败，请重试', 'VALIDATION_ERROR');
     }
   }
 
@@ -129,7 +142,7 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
 
   const existing = await userService.findByEmail(email);
   if (existing) {
-    return c.json({ success: false, message: '操作失败，请稍后重试' }, 400);
+    return errResponse(c, '操作失败，请稍后重试', 'VALIDATION_ERROR');
   }
 
   // 混合模式：第一个用户或指定邮箱自动成为管理员
@@ -192,7 +205,7 @@ api.post('/verify-email', async (c) => {
     const { email, code } = body;
 
     if (!email || !code) {
-      return c.json({ success: false, message: '邮箱和验证码不能为空' }, 400);
+      return errResponse(c, '邮箱和验证码不能为空', 'VALIDATION_ERROR');
     }
 
     const userService = new UserService(c.env);
@@ -201,11 +214,11 @@ api.post('/verify-email', async (c) => {
     if (success) {
       return c.json({ success: true, message: '邮箱验证成功' });
     } else {
-      return c.json({ success: false, message: '验证码无效或已过期' }, 400);
+      return errResponse(c, '验证码无效或已过期', 'VALIDATION_ERROR');
     }
   } catch (error) {
     console.error('[Verify Email] Error:', error);
-    return c.json({ success: false, message: '验证失败，请稍后重试' }, 500);
+    return errResponse(c, '验证失败，请稍后重试', 'INTERNAL_ERROR', 500);
   }
 });
 
@@ -216,22 +229,21 @@ api.post('/resend-verification', async (c) => {
     const { email } = body;
 
     if (!email) {
-      return c.json({ success: false, message: '邮箱不能为空' }, 400);
+      return errResponse(c, '邮箱不能为空', 'VALIDATION_ERROR');
     }
 
     const userService = new UserService(c.env);
     const user = await userService.findByEmail(email);
     if (!user) {
-      return c.json({ success: false, message: '用户不存在' }, 400);
+      return errResponse(c, '用户不存在', 'NOT_FOUND', 404);
     }
 
     if (user.email_verified) {
-      return c.json({ success: false, message: '邮箱已验证' }, 400);
+      return errResponse(c, '邮箱已验证', 'VALIDATION_ERROR');
     }
 
     // 速率限制：每小时最多 3 次
-    const systemSettings = new SystemSettingsService(c.env);
-    await systemSettings.ensureTable();
+    const systemSettings = await getSystemSettings(c.env);
     const lastVerifyKey = `verify_last_${email}`;
     const lastVerifyTime = await systemSettings.getSetting(lastVerifyKey);
     const now = Date.now();
@@ -241,13 +253,7 @@ api.post('/resend-verification', async (c) => {
       const lastTime = parseInt(lastVerifyTime, 10);
       if (now - lastTime < ONE_HOUR) {
         const remaining = Math.ceil((ONE_HOUR - (now - lastTime)) / 60000);
-        return c.json(
-          {
-            success: false,
-            message: `发送过于频繁，请 ${remaining} 分钟后再试`,
-          },
-          429
-        );
+        return errResponse(c, `发送过于频繁，请 ${remaining} 分钟后再试`, 'RATE_LIMITED', 429);
       }
     }
 
@@ -256,7 +262,7 @@ api.post('/resend-verification', async (c) => {
     // 生成验证码
     const verificationCode = await userService.generateVerificationCode(email);
     if (!verificationCode) {
-      return c.json({ success: false, message: '生成验证码失败' }, 500);
+      return errResponse(c, '生成验证码失败', 'INTERNAL_ERROR', 500);
     }
 
     // 发送邮件
@@ -277,7 +283,7 @@ api.post('/resend-verification', async (c) => {
     return c.json({ success: true, message: '验证码已发送' });
   } catch (error) {
     console.error('[Resend Verification] Error:', error);
-    return c.json({ success: false, message: '发送失败，请稍后重试' }, 500);
+    return errResponse(c, '发送失败，请稍后重试', 'INTERNAL_ERROR', 500);
   }
 });
 
@@ -290,18 +296,17 @@ api.post('/login', validateBody(schemas.login), async (c) => {
   const { email, password, turnstileToken } = body;
 
   // 如果配置了 Turnstile，验证 token
-  const systemSettings = new SystemSettingsService(c.env);
-  await systemSettings.ensureTable();
+  const systemSettings = await getSystemSettings(c.env);
   const turnstileConfig = await systemSettings.getTurnstileConfig();
 
   if (turnstileConfig.enabled && turnstileConfig.secretKey) {
     if (!turnstileToken) {
-      return c.json({ success: false, message: '请完成人机验证' }, 400);
+      return errResponse(c, '请完成人机验证', 'VALIDATION_ERROR');
     }
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
     const valid = await verifyTurnstile(turnstileToken, turnstileConfig.secretKey, ip);
     if (!valid) {
-      return c.json({ success: false, message: '人机验证失败，请重试' }, 400);
+      return errResponse(c, '人机验证失败，请重试', 'VALIDATION_ERROR');
     }
   }
 
@@ -502,12 +507,11 @@ api.post('/password-reset', async (c) => {
     const { email } = body;
 
     if (!email) {
-      return c.json({ success: false, message: '邮箱不能为空' }, 400);
+      return errResponse(c, '邮箱不能为空', 'VALIDATION_ERROR');
     }
 
     // 速率限制：同一邮箱每小时最多 3 次
-    const systemSettings = new SystemSettingsService(c.env);
-    await systemSettings.ensureTable();
+    const systemSettings = await getSystemSettings(c.env);
     const lastResetKey = `password_reset_last_${email}`;
     const lastResetTime = await systemSettings.getSetting(lastResetKey);
     const now = Date.now();
@@ -517,13 +521,7 @@ api.post('/password-reset', async (c) => {
       const lastTime = parseInt(lastResetTime, 10);
       if (now - lastTime < ONE_HOUR) {
         const remaining = Math.ceil((ONE_HOUR - (now - lastTime)) / 60000);
-        return c.json(
-          {
-            success: false,
-            message: `发送过于频繁，请 ${remaining} 分钟后再试`,
-          },
-          429
-        );
+        return errResponse(c, `发送过于频繁，请 ${remaining} 分钟后再试`, 'RATE_LIMITED', 429);
       }
     }
 
@@ -538,13 +536,7 @@ api.post('/password-reset', async (c) => {
 
     if (globalTime && now - parseInt(globalTime, 10) < 60000) {
       if (globalCount >= 10) {
-        return c.json(
-          {
-            success: false,
-            message: '系统繁忙，请稍后再试',
-          },
-          429
-        );
+        return errResponse(c, '系统繁忙，请稍后再试', 'RATE_LIMITED', 429);
       }
       await systemSettings.setSetting(globalResetKey, String(globalCount + 1));
     } else {
@@ -592,7 +584,7 @@ api.post('/password-reset', async (c) => {
     }
   } catch (error) {
     console.error('[Password Reset] Error:', error);
-    return c.json({ success: false, message: '请求失败，请稍后重试' }, 500);
+    return errResponse(c, '请求失败，请稍后重试', 'INTERNAL_ERROR', 500);
   }
 });
 
@@ -618,7 +610,7 @@ api.post('/password-reset/:token', async (c) => {
     const { password } = body;
 
     if (!password || password.length < 8) {
-      return c.json({ success: false, message: '密码长度至少为8位' }, 400);
+      return errResponse(c, '密码长度至少为8位', 'VALIDATION_ERROR');
     }
 
     const userService = new UserService(c.env);
@@ -626,7 +618,7 @@ api.post('/password-reset/:token', async (c) => {
     // 先验证令牌
     const user = await userService.verifyPasswordResetToken(token);
     if (!user) {
-      return c.json({ success: false, message: '无效或已过期的重置链接' }, 400);
+      return errResponse(c, '无效或已过期的重置链接', 'VALIDATION_ERROR');
     }
 
     // 加密新密码
@@ -638,11 +630,11 @@ api.post('/password-reset/:token', async (c) => {
     if (success) {
       return c.json({ success: true, message: '密码重置成功' });
     } else {
-      return c.json({ success: false, message: '密码重置失败，请重试' }, 500);
+      return errResponse(c, '密码重置失败，请重试', 'INTERNAL_ERROR', 500);
     }
   } catch (error) {
     console.error('[Password Reset] Error:', error);
-    return c.json({ success: false, message: '请求失败，请稍后重试' }, 500);
+    return errResponse(c, '请求失败，请稍后重试', 'INTERNAL_ERROR', 500);
   }
 });
 
@@ -673,11 +665,10 @@ adminApi.get('/system/settings', async (c) => {
   const user = await userService.findByEmail(username);
 
   if (!user || user.role !== 'admin') {
-    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+    return errResponse(c, '权限不足', 'AUTH_ERROR', 403);
   }
 
-  const systemSettings = new SystemSettingsService(c.env);
-  await systemSettings.ensureTable();
+  const systemSettings = await getSystemSettings(c.env);
   const settings = await systemSettings.getAllSettings();
 
   return c.json({ success: true, settings });
@@ -689,12 +680,11 @@ adminApi.put('/system/settings', async (c) => {
   const user = await userService.findByEmail(username);
 
   if (!user || user.role !== 'admin') {
-    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+    return errResponse(c, '权限不足', 'AUTH_ERROR', 403);
   }
 
   const body = await c.req.json();
-  const systemSettings = new SystemSettingsService(c.env);
-  await systemSettings.ensureTable();
+  const systemSettings = await getSystemSettings(c.env);
   await systemSettings.saveSettings(body);
 
   // 记录审计日志

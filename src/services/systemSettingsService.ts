@@ -19,6 +19,9 @@ export interface SystemSettings {
 
 export class SystemSettingsService {
   private env: Env;
+  private static tableEnsured = new WeakSet<object>();
+  private settingsCache: { data: SystemSettings; timestamp: number } | null = null;
+  private static readonly CACHE_TTL_MS = 30_000;
 
   constructor(env: Env) {
     this.env = env;
@@ -30,8 +33,11 @@ export class SystemSettingsService {
     }
   }
 
-  /** 确保系统设置表存在 */
+  /** 确保系统设置表存在（每个 env 实例只执行一次） */
   async ensureTable(): Promise<void> {
+    if (SystemSettingsService.tableEnsured.has(this.env)) {
+      return;
+    }
     this.checkDB();
     try {
       await this.env.DB.prepare(
@@ -42,8 +48,10 @@ export class SystemSettingsService {
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )`
       ).run();
+      SystemSettingsService.tableEnsured.add(this.env);
     } catch {
       // 表可能已存在，忽略错误
+      SystemSettingsService.tableEnsured.add(this.env);
     }
   }
 
@@ -71,10 +79,17 @@ export class SystemSettingsService {
     )
       .bind(key, value, now)
       .run();
+    this.settingsCache = null;
   }
 
-  /** 获取所有系统设置 */
+  /** 获取所有系统设置（带缓存，30 秒 TTL） */
   async getAllSettings(): Promise<SystemSettings> {
+    if (
+      this.settingsCache &&
+      Date.now() - this.settingsCache.timestamp < SystemSettingsService.CACHE_TTL_MS
+    ) {
+      return this.settingsCache.data;
+    }
     this.checkDB();
     try {
       // 先确保表存在
@@ -94,6 +109,7 @@ export class SystemSettingsService {
         }
       }
 
+      this.settingsCache = { data: settings, timestamp: Date.now() };
       return settings;
     } catch {
       return {};
@@ -168,7 +184,6 @@ export class SystemSettingsService {
     mailFrom?: string;
   }> {
     try {
-      await this.ensureTable();
       const settings = await this.getAllSettings();
 
       return {
