@@ -11,6 +11,8 @@ import type {
   PushStats,
   PushMetrics,
   ChannelHealth,
+  PushHistoryRecord,
+  PushResult as ChannelResult,
 } from '@/types';
 import { withCache, apiCache } from '@/composables/useApiCache';
 
@@ -1350,12 +1352,178 @@ export interface SystemHealth {
   activeUsers: number;
   recentPushCount: number;
   queueStatus: { available: boolean; message: string };
+  dbSize?: string;
+  dbRowCount?: number;
+  r2Storage?: {
+    available: boolean;
+    objectCount: number;
+    totalSize: number;
+    totalSizeFormatted: string;
+  };
+  recentErrors?: Array<{ userId: string; action: string; data: string; createdAt: string }>;
+}
+
+export interface ActivityData {
+  date: string;
+  logins: number;
+  pushes: number;
+  templates: number;
+}
+
+export interface ExecutionLog {
+  id: string;
+  pushHistoryId?: string;
+  startedAt: string;
+  finishedAt?: string;
+  status: string;
+  channels: string[];
+  channelResults: Array<{ channel: string; success: boolean; message: string; latencyMs?: number }>;
+  errorMessage?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 }
 
 export async function getSystemHealth(
   token: string
 ): Promise<{ success: boolean; health: SystemHealth }> {
   return tokenRequest(`${BASE}/admin/system/health`, token);
+}
+
+// -------------------------------------------
+// 用户活动分析接口
+// -------------------------------------------
+
+export async function getActivityAnalytics(
+  token: string
+): Promise<{ success: boolean; activity: ActivityData[] }> {
+  return tokenRequest(`${BASE}/admin/analytics/activity`, token);
+}
+
+// -------------------------------------------
+// 推送执行日志接口
+// -------------------------------------------
+
+export async function getExecutionLogs(
+  token: string,
+  options?: { page?: number; pageSize?: number }
+): Promise<{ success: boolean; logs: ExecutionLog[]; total: number; hasMore: boolean }> {
+  const params = new URLSearchParams();
+  if (options?.page) params.set('page', String(options.page));
+  if (options?.pageSize) params.set('pageSize', String(options.pageSize));
+  const query = params.toString();
+  const url = query ? `${BASE}/admin/execution-logs?${query}` : `${BASE}/admin/execution-logs`;
+  return tokenRequest(url, token);
+}
+
+export async function getExecutionLogDetail(
+  token: string,
+  id: string
+): Promise<{ success: boolean; log: ExecutionLog }> {
+  return tokenRequest(`${BASE}/admin/execution-logs/${id}`, token);
+}
+
+// -------------------------------------------
+// 推送收藏夹接口
+// -------------------------------------------
+
+export interface PushFavorite {
+  id: string;
+  title: string;
+  body: string;
+  url: string;
+  channels: PushChannel[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getFavorites(token: string): Promise<{ favorites: PushFavorite[] }> {
+  return tokenRequest(`${BASE}/admin/favorites`, token);
+}
+
+export async function saveFavorite(
+  token: string,
+  data: { title: string; body?: string; url?: string; channels: PushChannel[] }
+): Promise<{ success: boolean; favorite: PushFavorite }> {
+  return tokenRequest<{ success: boolean; favorite: PushFavorite }>(
+    `${BASE}/admin/favorites`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function deleteFavorite(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/favorites/${id}`, token, { method: 'DELETE' });
+}
+
+// -------------------------------------------
+// 推送撤销接口
+// -------------------------------------------
+
+export async function revokePush(
+  token: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return tokenRequest(`${BASE}/admin/push-history/${id}/revoke`, token, { method: 'POST' });
+}
+
+// -------------------------------------------
+// 版本对比接口
+// -------------------------------------------
+
+export async function getPushVersions(
+  token: string,
+  id: string
+): Promise<{ success: boolean; history: Record<string, unknown> }> {
+  return tokenRequest(`${BASE}/admin/push-history/${id}/versions`, token);
+}
+
+export async function comparePushVersions(
+  token: string,
+  id1: string,
+  id2: string
+): Promise<{
+  success: boolean;
+  records: Record<string, unknown>[];
+  diff: { title: boolean; body: boolean; url: boolean; channels: boolean };
+}> {
+  return tokenRequest(`${BASE}/admin/push-history/compare`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id1, id2 }),
+  });
+}
+
+// -------------------------------------------
+// 分组批量发送接口
+// -------------------------------------------
+
+export async function batchSendToGroups(
+  token: string,
+  data: {
+    groupIds: string[];
+    title: string;
+    body?: string;
+    url?: string;
+  }
+): Promise<{
+  success: boolean;
+  message: string;
+  results: ChannelResult[];
+  sentToGroups: number;
+  totalChannels: number;
+}> {
+  return tokenRequest(`${BASE}/admin/groups/batch-send`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
 }
 
 // 检查头像存储服务状态

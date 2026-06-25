@@ -482,6 +482,27 @@ async function processScheduledPushes(
 }
 
 /**
+ * 根据权重选择 A/B 测试变体
+ */
+function selectABTestVariant(
+  variants: Array<{ name: string; content: string; weight: number }>
+): { name: string; content: string; weight: number } | null {
+  if (!variants || variants.length === 0) return null;
+
+  const totalWeight = variants.reduce((sum, v) => sum + (v.weight || 1), 0);
+  let random = Math.random() * totalWeight;
+
+  for (const variant of variants) {
+    random -= variant.weight || 1;
+    if (random <= 0) {
+      return variant;
+    }
+  }
+
+  return variants[0];
+}
+
+/**
  * 直接推送（队列不可用时的回退方案）
  */
 async function processScheduledPushesDirect(
@@ -510,12 +531,27 @@ async function processScheduledPushesDirect(
     }
 
     await pushService.updateScheduledPushStatus(push.id, 'processing');
+
+    let pushPayload = {
+      title: push.title,
+      body: push.content,
+      url: push.url,
+    };
+
+    // A/B 测试：根据权重选择变体
+    if (push.abTestEnabled && push.abTestVariants && push.abTestVariants.length > 0) {
+      const selectedVariant = selectABTestVariant(push.abTestVariants);
+      if (selectedVariant) {
+        pushPayload = {
+          title: pushPayload.title,
+          body: selectedVariant.content || pushPayload.body,
+          url: pushPayload.url,
+        };
+      }
+    }
+
     const results = await dispatchPushWithOptions(
-      {
-        title: push.title,
-        body: push.content,
-        url: push.url,
-      },
+      pushPayload,
       push.channels as PushChannel[],
       username,
       env

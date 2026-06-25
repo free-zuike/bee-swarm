@@ -1687,4 +1687,124 @@ export class PushService {
       .run();
     return result.success && (result.meta?.changes || 0) > 0;
   }
+
+  // ============================================
+  // 推送收藏夹
+  // ============================================
+
+  async getFavorites(): Promise<
+    Array<{
+      id: string;
+      title: string;
+      body: string;
+      url: string;
+      channels: PushChannel[];
+      createdAt: string;
+      updatedAt: string;
+    }>
+  > {
+    if (!this.env.DB) return [];
+
+    try {
+      const result = await this.env.DB.prepare(
+        'SELECT * FROM push_favorites WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50'
+      )
+        .bind(this.userId)
+        .all<{
+          id: string;
+          title: string;
+          body: string;
+          url: string;
+          channels: string;
+          created_at: string;
+          updated_at: string;
+        }>();
+
+      return (result.results || []).map((row) => ({
+        id: row.id,
+        title: row.title,
+        body: row.body || '',
+        url: row.url || '',
+        channels: row.channels ? JSON.parse(row.channels) : [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async saveFavorite(favorite: {
+    title: string;
+    body?: string;
+    url?: string;
+    channels: PushChannel[];
+  }): Promise<{
+    id: string;
+    title: string;
+    body: string;
+    url: string;
+    channels: PushChannel[];
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    if (!this.env.DB) throw new Error('D1 数据库未配置');
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await this.env.DB.prepare(
+      `INSERT INTO push_favorites (id, user_id, title, body, url, channels, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        id,
+        this.userId,
+        favorite.title,
+        favorite.body || '',
+        favorite.url || null,
+        JSON.stringify(favorite.channels),
+        now,
+        now
+      )
+      .run();
+
+    return {
+      id,
+      title: favorite.title,
+      body: favorite.body || '',
+      url: favorite.url || '',
+      channels: favorite.channels,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async deleteFavorite(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+
+    const result = await this.env.DB.prepare(
+      'DELETE FROM push_favorites WHERE id = ? AND user_id = ?'
+    )
+      .bind(id, this.userId)
+      .run();
+
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
+
+  // ============================================
+  // 推送撤销
+  // ============================================
+
+  async revokePush(id: string): Promise<boolean> {
+    if (!this.env.DB) return false;
+
+    const result = await this.env.DB.prepare(
+      "UPDATE push_history SET status = 'revoked', revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL"
+    )
+      .bind(new Date().toISOString(), id, this.userId)
+      .run();
+
+    return result.success && (result.meta?.changes || 0) > 0;
+  }
 }

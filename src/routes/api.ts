@@ -1823,8 +1823,252 @@ adminApi.get('/system/health', async (c) => {
     health.queueStatus = { available: false, message: '队列状态未知' };
   }
 
+  // 6. D1 数据库大小
+  try {
+    const tables = [
+      'users',
+      'push_history',
+      'audit_logs',
+      'metrics',
+      'scheduled_pushes',
+      'push_templates',
+      'channel_groups',
+      'scheduled_locks',
+      'backup_runs',
+      'backup_endpoints',
+      'push_drafts',
+      'push_workflows',
+      'push_favorites',
+      'push_execution_logs',
+      'system_settings',
+    ];
+    let totalRows = 0;
+    for (const table of tables) {
+      try {
+        const result = await env.DB.prepare(`SELECT COUNT(*) as count FROM ${table}`).first<{
+          count: number;
+        }>();
+        totalRows += result?.count || 0;
+      } catch {
+        // table may not exist
+      }
+    }
+    health.dbSize = `${totalRows} 行`;
+    health.dbRowCount = totalRows;
+  } catch {
+    health.dbSize = '未知';
+  }
+
+  // 7. R2 存储使用量
+  try {
+    if (env.BUCKET) {
+      const listed = await env.BUCKET.list({ limit: 1000 });
+      let totalSize = 0;
+      for (const obj of listed.objects) {
+        totalSize += obj.size || 0;
+      }
+      health.r2Storage = {
+        available: true,
+        objectCount: listed.objects.length,
+        totalSize,
+        totalSizeFormatted: formatBytes(totalSize),
+      };
+    } else {
+      health.r2Storage = {
+        available: false,
+        objectCount: 0,
+        totalSize: 0,
+        totalSizeFormatted: '未配置',
+      };
+    }
+  } catch {
+    health.r2Storage = {
+      available: false,
+      objectCount: 0,
+      totalSize: 0,
+      totalSizeFormatted: '获取失败',
+    };
+  }
+
+  // 8. 最近错误日志
+  try {
+    const errorResult = await env.DB.prepare(
+      `SELECT user_id, action, data, created_at FROM audit_logs
+       WHERE action LIKE '%failed%' OR action LIKE '%error%'
+       ORDER BY created_at DESC LIMIT 10`
+    ).all<{ user_id: string; action: string; data: string; created_at: string }>();
+    health.recentErrors = (errorResult.results || []).map((r) => ({
+      userId: r.user_id,
+      action: r.action,
+      data: r.data,
+      createdAt: r.created_at,
+    }));
+  } catch {
+    health.recentErrors = [];
+  }
+
   return c.json({ success: true, health });
 });
+
+// ============================================
+// 用户活动分析
+// ============================================
+
+/** 获取最近 7 天用户活动统计 */
+adminApi.get('/analytics/activity', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const currentUser = await userService.findByEmail(username);
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return c.json({ error: '权限不足', code: 'AUTH_ERROR' }, 403);
+  }
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const activity: Array<{ date: string; logins: number; pushes: number; templates: number }> = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = new Date(Date.now() - i * 86400000);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    const dateStr = dayStart.toISOString().split('T')[0];
+
+    let logins = 0;
+    let pushes = 0;
+    let templates = 0;
+
+    try {
+      const loginResult = await c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM audit_logs
+         WHERE action = 'login' AND created_at >= ? AND created_at <= ?`
+      )
+        .bind(dayStart.toISOString(), dayEnd.toISOString())
+        .first<{ count: number }>();
+      logins = loginResult?.count || 0;
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const pushResult = await c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM audit_logs
+         WHERE (action = 'push_sent' OR action = 'push_queued') AND created_at >= ? AND created_at <= ?`
+      )
+        .bind(dayStart.toISOString(), dayEnd.toISOString())
+        .first<{ count: number }>();
+      pushes = pushResult?.count || 0;
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const templateResult = await c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM audit_logs
+         WHERE (action LIKE 'template_%') AND created_at >= ? AND created_at <= ?`
+      )
+        .bind(dayStart.toISOString(), dayEnd.toISOString())
+        .first<{ count: number }>();
+      templates = templateResult?.count || 0;
+    } catch {
+      /* ignore */
+    }
+
+    activity.push({ date: dateStr, logins, pushes, templates });
+  }
+
+  return c.json({ success: true, activity });
+});
+
+// ============================================
+// 推送执行日志
+// ============================================
+
+/** 获取推送执行日志列表 */
+adminApi.get('/execution-logs', async (c) => {
+  const username = c.get('username');
+  const page = parseInt(c.req.query('page') || '1', 10);
+  const pageSize = parseInt(c.req.query('pageSize') || '20', 10);
+  const offset = (page - 1) * pageSize;
+
+  try {
+    const countResult = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM push_execution_logs WHERE user_id = ?`
+    )
+      .bind(username)
+      .first<{ count: number }>();
+    const total = countResult?.count || 0;
+
+    const result = await c.env.DB.prepare(
+      `SELECT * FROM push_execution_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    )
+      .bind(username, pageSize, offset)
+      .all();
+
+    const logs = (result.results || []).map((r: Record<string, unknown>) => ({
+      id: r.id,
+      pushHistoryId: r.push_history_id,
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+      status: r.status,
+      channels: JSON.parse((r.channels as string) || '[]'),
+      channelResults: JSON.parse((r.channel_results as string) || '[]'),
+      errorMessage: r.error_message,
+      metadata: JSON.parse((r.metadata as string) || '{}'),
+      createdAt: r.created_at,
+    }));
+
+    return c.json({ success: true, logs, total, hasMore: offset + pageSize < total });
+  } catch (error) {
+    console.error('[Execution Logs] Error:', error);
+    return c.json({ success: true, logs: [], total: 0, hasMore: false });
+  }
+});
+
+/** 获取单条推送执行日志详情 */
+adminApi.get('/execution-logs/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  try {
+    const result = await c.env.DB.prepare(
+      `SELECT * FROM push_execution_logs WHERE id = ? AND user_id = ?`
+    )
+      .bind(id, username)
+      .first<Record<string, unknown>>();
+
+    if (!result) {
+      return c.json({ error: '日志不存在', code: 'NOT_FOUND' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      log: {
+        id: result.id,
+        pushHistoryId: result.push_history_id,
+        startedAt: result.started_at,
+        finishedAt: result.finished_at,
+        status: result.status,
+        channels: JSON.parse((result.channels as string) || '[]'),
+        channelResults: JSON.parse((result.channel_results as string) || '[]'),
+        errorMessage: result.error_message,
+        metadata: JSON.parse((result.metadata as string) || '{}'),
+        createdAt: result.created_at,
+      },
+    });
+  } catch (error) {
+    console.error('[Execution Log Detail] Error:', error);
+    return c.json({ error: '获取失败', code: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 // ============================================
 // 测试接口（需要认证）
@@ -3194,6 +3438,200 @@ adminApi.delete('/drafts/:id', async (c) => {
     return c.json({ error: '草稿不存在', code: 'NOT_FOUND' }, 404);
   }
   return c.json({ success: true, message: '草稿已删除' });
+});
+
+// ============================================
+// 推送收藏夹
+// ============================================
+
+/** 获取收藏列表 */
+adminApi.get('/favorites', async (c) => {
+  const username = c.get('username');
+  const pushService = new PushService(c.env, username);
+  const favorites = await pushService.getFavorites();
+  return c.json({ favorites });
+});
+
+/** 保存收藏 */
+adminApi.post('/favorites', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    title: string;
+    body?: string;
+    url?: string;
+    channels: PushChannel[];
+  };
+
+  if (!body.title) {
+    return c.json({ error: '标题不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const favorite = await pushService.saveFavorite(body);
+  return c.json({ success: true, favorite });
+});
+
+/** 删除收藏 */
+adminApi.delete('/favorites/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const pushService = new PushService(c.env, username);
+  const deleted = await pushService.deleteFavorite(id);
+  if (!deleted) {
+    return c.json({ error: '收藏不存在', code: 'NOT_FOUND' }, 404);
+  }
+  return c.json({ success: true, message: '收藏已删除' });
+});
+
+// ============================================
+// 推送撤销
+// ============================================
+
+/** 撤销推送 */
+adminApi.post('/push-history/:id/revoke', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const pushService = new PushService(c.env, username);
+  const revoked = await pushService.revokePush(id);
+  if (!revoked) {
+    return c.json({ error: '推送记录不存在或已撤销', code: 'NOT_FOUND' }, 404);
+  }
+  return c.json({ success: true, message: '推送已撤销' });
+});
+
+// ============================================
+// 版本对比
+// ============================================
+
+/** 获取推送版本对比 */
+adminApi.get('/push-history/:id/versions', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+
+  try {
+    const result = await c.env.DB.prepare(
+      `SELECT id, title, body, url, channels, status, created_at FROM push_history WHERE id = ? AND user_id = ?`
+    )
+      .bind(id, username)
+      .first<Record<string, unknown>>();
+
+    if (!result) {
+      return c.json({ error: '推送记录不存在', code: 'NOT_FOUND' }, 404);
+    }
+
+    const history = {
+      id: result.id,
+      title: result.title,
+      body: result.body,
+      url: result.url,
+      channels: JSON.parse((result.channels as string) || '[]'),
+      status: result.status,
+      createdAt: result.created_at,
+    };
+
+    return c.json({ success: true, history });
+  } catch (error) {
+    console.error('[Version Compare] Error:', error);
+    return c.json({ error: '获取失败', code: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+/** 对比两个推送版本 */
+adminApi.post('/push-history/compare', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as { id1: string; id2: string };
+
+  if (!body.id1 || !body.id2) {
+    return c.json({ error: '需要提供两个推送ID', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  try {
+    const placeholders = '?, ?';
+    const result = await c.env.DB.prepare(
+      `SELECT id, title, body, url, channels, status, created_at FROM push_history WHERE id IN (${placeholders}) AND user_id = ?`
+    )
+      .bind(body.id1, body.id2, username)
+      .all<Record<string, unknown>>();
+
+    const records = (result.results || []).map((r) => ({
+      id: r.id,
+      title: r.title,
+      body: r.body,
+      url: r.url,
+      channels: JSON.parse((r.channels as string) || '[]'),
+      status: r.status,
+      createdAt: r.created_at,
+    }));
+
+    if (records.length !== 2) {
+      return c.json({ error: '找不到指定的推送记录', code: 'NOT_FOUND' }, 404);
+    }
+
+    const diff = {
+      title: records[0].title !== records[1].title,
+      body: records[0].body !== records[1].body,
+      url: records[0].url !== records[1].url,
+      channels: JSON.stringify(records[0].channels) !== JSON.stringify(records[1].channels),
+    };
+
+    return c.json({ success: true, records, diff });
+  } catch (error) {
+    console.error('[Version Compare] Error:', error);
+    return c.json({ error: '对比失败', code: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+// ============================================
+// 分组批量发送
+// ============================================
+
+/** 批量发送到分组 */
+adminApi.post('/groups/batch-send', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json()) as {
+    groupIds: string[];
+    title: string;
+    body?: string;
+    url?: string;
+  };
+
+  if (!body.groupIds?.length || !body.title) {
+    return c.json({ error: '分组ID和标题不能为空', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const pushService = new PushService(c.env, username);
+  const groups = await pushService.getChannelGroups();
+  const selectedGroups = groups.filter((g) => body.groupIds.includes(g.id));
+
+  if (selectedGroups.length === 0) {
+    return c.json({ error: '未找到指定的分组', code: 'NOT_FOUND' }, 404);
+  }
+
+  const allChannels = [...new Set(selectedGroups.flatMap((g) => g.channels))];
+
+  const payload = {
+    title: body.title,
+    body: body.body || '',
+    url: body.url,
+  };
+
+  try {
+    const results = await dispatchPush(payload, allChannels, username, c.env);
+
+    const success = results.filter((r: ChannelResult) => r.success).length;
+    const failed = results.filter((r: ChannelResult) => !r.success).length;
+
+    return c.json({
+      success: true,
+      message: `发送完成：${success} 成功，${failed} 失败`,
+      results,
+      sentToGroups: selectedGroups.length,
+      totalChannels: allChannels.length,
+    });
+  } catch (error) {
+    console.error('[Batch Send] Error:', error);
+    return c.json({ error: '批量发送失败', code: 'INTERNAL_ERROR' }, 500);
+  }
 });
 
 // ============================================

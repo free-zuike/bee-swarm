@@ -5,6 +5,7 @@ import { useGlobalToast } from '@/composables/useToast';
 import { useExport } from '@/composables/useExport';
 import { TableSkeleton } from '../skeletons';
 import type { ChannelConfig } from '@/types';
+import { getExecutionLogs, revokePush, saveFavorite, type ExecutionLog } from '@/api';
 
 const { showToast } = useGlobalToast();
 const t = useTranslation();
@@ -64,6 +65,12 @@ const searchKeyword = ref<string>('');
 const selectedIds = ref<Set<string>>(new Set());
 const showBatchDeleteConfirm = ref(false);
 const batchDeleting = ref(false);
+
+const showExecutionLog = ref(false);
+const executionLogs = ref<ExecutionLog[]>([]);
+const executionLogsLoading = ref(false);
+const selectedLogDetail = ref<ExecutionLog | null>(null);
+const showLogDetail = ref(false);
 
 const { exportData, progress, isExporting } = useExport();
 
@@ -160,6 +167,47 @@ const successRate = computed(() => {
   return Math.round((successCount / props.history.length) * 100);
 });
 
+async function loadExecutionLogs() {
+  if (!props.accessToken) return;
+  executionLogsLoading.value = true;
+  try {
+    const result = await getExecutionLogs(props.accessToken, { page: 1, pageSize: 50 });
+    if (result.success) {
+      executionLogs.value = result.logs;
+    }
+  } catch (err) {
+    console.error('Failed to load execution logs:', err);
+  } finally {
+    executionLogsLoading.value = false;
+  }
+}
+
+function openExecutionLogs() {
+  showExecutionLog.value = true;
+  loadExecutionLogs();
+}
+
+function viewLogDetail(log: ExecutionLog) {
+  selectedLogDetail.value = log;
+  showLogDetail.value = true;
+}
+
+function formatExecTime(time: string): string {
+  if (!time) return '-';
+  try {
+    return new Date(time).toLocaleString(locale.value);
+  } catch {
+    return time;
+  }
+}
+
+function formatDuration(start: string, end?: string): string {
+  if (!start || !end) return '-';
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 function resetFilters() {
   filterChannel.value = '';
   filterStatus.value = '';
@@ -204,6 +252,32 @@ function clearSelection() {
 
 function handleResend(record: HistoryRecord) {
   emit('resend', record);
+}
+
+async function handleRevoke(record: HistoryRecord) {
+  if (!props.accessToken) return;
+  try {
+    await revokePush(props.accessToken, record.id);
+    showToast(t('label.push_revoked') || '推送已撤销', 'success');
+    emit('load-page', currentPage.value);
+  } catch (err: unknown) {
+    showToast((err as Error).message || t('message.revoke_failed') || '撤销失败', 'error');
+  }
+}
+
+async function handleFavorite(record: HistoryRecord) {
+  if (!props.accessToken) return;
+  try {
+    await saveFavorite(props.accessToken, {
+      title: record.title,
+      body: record.body,
+      url: record.url,
+      channels: record.channels,
+    });
+    showToast(t('label.saved_to_favorites') || '已保存到收藏夹', 'success');
+  } catch (err: unknown) {
+    showToast((err as Error).message || t('message.save_failed') || '保存失败', 'error');
+  }
 }
 
 async function batchDeleteSelected() {
@@ -301,6 +375,9 @@ const activeFilters = computed(() => {
               </button>
             </div>
           </div>
+          <button class="btn btn-sm btn-secondary" @click="openExecutionLogs">
+            📋 {{ t('label.execution_logs') || '执行日志' }}
+          </button>
           <button class="btn btn-sm btn-danger" @click="emit('clear')">
             🗑️ {{ t('label.clear_all') }}
           </button>
@@ -454,6 +531,23 @@ const activeFilters = computed(() => {
                 <button class="btn btn-sm btn-secondary" @click="handleResend(record)">
                   🔄 {{ t('label.resend') }}
                 </button>
+                <button
+                  v-if="record.status !== 'revoked'"
+                  class="btn btn-sm btn-secondary"
+                  @click="handleFavorite(record)"
+                >
+                  ⭐ {{ t('label.favorite') || '收藏' }}
+                </button>
+                <button
+                  v-if="record.status !== 'revoked'"
+                  class="btn btn-sm btn-danger"
+                  @click="handleRevoke(record)"
+                >
+                  🚫 {{ t('label.revoke') || '撤销' }}
+                </button>
+                <span v-if="record.status === 'revoked'" class="tag tag-revoked">
+                  {{ t('label.revoked') || '已撤销' }}
+                </span>
               </div>
               <details class="results-details">
                 <summary class="results-summary">
