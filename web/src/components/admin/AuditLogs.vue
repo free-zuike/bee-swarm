@@ -128,12 +128,30 @@ const formatTime = (timeStr: string) => {
 const getActionName = (action: string) => {
   const actionNames: Record<string, string> = {
     login: t('audit.login'),
+    login_failed: t('audit.loginFailed'),
     register: t('audit.register'),
     user_created: t('audit.userCreated'),
     user_deleted: t('audit.userDeleted'),
     user_role_updated: t('audit.userRoleUpdated'),
     user_disabled: t('audit.userDisabled'),
     user_enabled: t('audit.userEnabled'),
+    system_settings_updated: t('audit.systemSettingsUpdated'),
+    scheduled_push_created: t('audit.scheduledPushCreated'),
+    scheduled_push_cancelled: t('audit.scheduledPushCancelled'),
+    scheduled_push_rescheduled: t('audit.scheduledPushRescheduled'),
+    backup_created: t('audit.backupCreated'),
+    backup_restored: t('audit.backupRestored'),
+    database_cleanup: t('audit.databaseCleanup'),
+    database_archive: t('audit.databaseArchive'),
+    database_archive_restore: t('audit.databaseArchiveRestore'),
+    table_deleted: t('audit.tableDeleted'),
+    tables_cleanup: t('audit.tablesCleanup'),
+    channel_updated: t('audit.channelUpdated'),
+    push_sent: t('audit.pushSent'),
+    push_queued: t('audit.pushQueued'),
+    template_created: t('audit.templateCreated'),
+    template_updated: t('audit.templateUpdated'),
+    template_deleted: t('audit.templateDeleted'),
   };
   return actionNames[action] || action;
 };
