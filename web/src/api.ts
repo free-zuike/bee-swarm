@@ -1384,7 +1384,7 @@ export interface AuditLog {
   id: string;
   userId: string;
   action: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   avatar_url?: string;
 }

@@ -88,9 +88,9 @@ export class SystemSettingsService {
 
       for (const row of results.results || []) {
         try {
-          settings[row.key as keyof SystemSettings] = JSON.parse(row.value);
+          (settings as Record<string, unknown>)[row.key] = JSON.parse(row.value);
         } catch {
-          settings[row.key as keyof SystemSettings] = row.value as any;
+          (settings as Record<string, unknown>)[row.key] = row.value;
         }
       }
 

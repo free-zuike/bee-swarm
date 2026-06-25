@@ -46,7 +46,7 @@ export interface AuditLog {
   id: string;
   userId: string;
   action: AuditAction;
-  data: any;
+  data: Record<string, unknown>;
   createdAt: string;
   avatar_url?: string;
 }
@@ -63,6 +63,15 @@ export async function insertAuditLog(env: Env, log: AuditLog): Promise<void> {
   } catch (error) {
     console.error('[D1] insertAuditLog error:', error);
   }
+}
+
+interface AuditLogRow {
+  id: string;
+  user_id: string;
+  action: string;
+  data?: string;
+  created_at: string;
+  avatar_url?: string;
 }
 
 export async function getAuditLogs(
@@ -84,7 +93,7 @@ export async function getAuditLogs(
     let query = `SELECT al.id, al.user_id, al.action, al.data, al.created_at, u.avatar_url
       FROM audit_logs al
       LEFT JOIN users u ON al.user_id = u.email`;
-    const bindings: any[] = [];
+    const bindings: (string | number)[] = [];
 
     if (userId) {
       query += ' WHERE al.user_id = ?';
@@ -113,8 +122,8 @@ export async function getAuditLogs(
     const result = await env
       .DB!.prepare(query)
       .bind(...bindings)
-      .all();
-    return (result.results || []).map((row: any) => ({
+      .all<AuditLogRow>();
+    return (result.results || []).map((row: AuditLogRow) => ({
       id: row.id,
       userId: row.user_id,
       action: row.action as AuditAction,
@@ -151,11 +160,24 @@ export interface Metrics {
   total: number;
   success: number;
   failed: number;
-  channelStats: any;
-  dailyStats: any;
+  channelStats: Record<string, unknown>;
+  dailyStats: Record<string, unknown>;
   avgLatency?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+interface MetricsRow {
+  id: string;
+  user_id: string;
+  total: number;
+  success: number;
+  failed: number;
+  channel_stats?: string;
+  daily_stats?: string;
+  avg_latency?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export async function getMetrics(env: Env, userId: string): Promise<Metrics | null> {
@@ -164,21 +186,20 @@ export async function getMetrics(env: Env, userId: string): Promise<Metrics | nu
     const result = await env
       .DB!.prepare('SELECT * FROM metrics WHERE user_id = ?')
       .bind(userId)
-      .first();
+      .first<MetricsRow>();
 
     if (result) {
-      const row = result as any;
       return {
-        id: row.id,
-        userId: row.user_id,
-        total: row.total,
-        success: row.success,
-        failed: row.failed,
-        channelStats: JSON.parse(row.channel_stats || '{}'),
-        dailyStats: JSON.parse(row.daily_stats || '{}'),
-        avgLatency: row.avg_latency || 0,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        id: result.id,
+        userId: result.user_id,
+        total: result.total,
+        success: result.success,
+        failed: result.failed,
+        channelStats: JSON.parse(result.channel_stats || '{}'),
+        dailyStats: JSON.parse(result.daily_stats || '{}'),
+        avgLatency: result.avg_latency || 0,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at,
       };
     }
     return null;
@@ -234,6 +255,14 @@ export interface ScheduledLock {
   createdAt: string;
 }
 
+interface ScheduledLockRow {
+  id: string;
+  user_id: string;
+  push_id: string;
+  executed_at: string;
+  created_at: string;
+}
+
 export async function getScheduledLock(
   env: Env,
   userId: string,
@@ -244,16 +273,15 @@ export async function getScheduledLock(
     const result = await env
       .DB!.prepare('SELECT * FROM scheduled_locks WHERE user_id = ? AND push_id = ?')
       .bind(userId, pushId)
-      .first();
+      .first<ScheduledLockRow>();
 
     if (result) {
-      const row = result as any;
       return {
-        id: row.id,
-        userId: row.user_id,
-        pushId: row.push_id,
-        executedAt: row.executed_at,
-        createdAt: row.created_at,
+        id: result.id,
+        userId: result.user_id,
+        pushId: result.push_id,
+        executedAt: result.executed_at,
+        createdAt: result.created_at,
       };
     }
     return null;
@@ -290,6 +318,15 @@ export interface BackupRun {
   updatedAt: string;
 }
 
+interface BackupRunRow {
+  id: string;
+  user_id: string;
+  endpoint_id: string;
+  last_run: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function getBackupRun(
   env: Env,
   userId: string,
@@ -300,17 +337,16 @@ export async function getBackupRun(
     const result = await env
       .DB!.prepare('SELECT * FROM backup_runs WHERE user_id = ? AND endpoint_id = ?')
       .bind(userId, endpointId)
-      .first();
+      .first<BackupRunRow>();
 
     if (result) {
-      const row = result as any;
       return {
-        id: row.id,
-        userId: row.user_id,
-        endpointId: row.endpoint_id,
-        lastRun: row.last_run,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        id: result.id,
+        userId: result.user_id,
+        endpointId: result.endpoint_id,
+        lastRun: result.last_run,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at,
       };
     }
     return null;

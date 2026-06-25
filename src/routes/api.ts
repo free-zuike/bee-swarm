@@ -9,6 +9,7 @@ import { validateBody, schemas } from '../middleware/validation';
 import { createAuditLogger, type AuditAction } from '../utils/audit';
 import { rateLimit, isLoginLocked, recordLoginFailure, clearLoginFailure } from '../middleware/rateLimit';
 import { UserService } from '../services/userService';
+import type { AITool } from '../services/userService';
 import {
   dispatchPush,
   dispatchPushWithOptions,
@@ -214,7 +215,7 @@ api.post('/resend-verification', async (c) => {
       return c.json({ success: false, message: '用户不存在' }, 400);
     }
 
-    if ((user as any).email_verified) {
+    if (user.email_verified) {
       return c.json({ success: false, message: '邮箱已验证' }, 400);
     }
 
@@ -1043,7 +1044,7 @@ adminApi.delete('/audit', async (c) => {
 // ============================================
 // 用户管理接口（仅管理员）
 // ============================================
-function requireAdmin(c: any) {
+function requireAdmin(c: { get: (key: string) => unknown; json: (data: unknown, status?: number) => Response }) {
   const userRole = c.get('userRole') as 'admin' | 'user' | 'viewer' | undefined;
   if (userRole !== 'admin') {
     return c.json({ error: '无权限操作用户管理', code: 'FORBIDDEN' }, 403);
@@ -1353,7 +1354,7 @@ adminApi.get('/me/ai/tools', async (c) => {
   const defaultTools = svc.getDefaultAITools();
 
   // 合并默认工具和用户自定义工具
-  const toolMap = new Map<string, any>();
+  const toolMap = new Map<string, AITool & { isDefault: boolean }>();
 
   // 添加默认工具
   for (const tool of defaultTools) {
@@ -2363,7 +2364,14 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
   // 获取任务详情，检查是否是循环任务
   const pushResult = await c.env.DB.prepare(
     'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
-  ).bind(id, username).first<any>();
+  ).bind(id, username).first<{
+    enabled?: number;
+    recurring_type?: string;
+    timezone?: string;
+    selected_week_days?: string;
+    selected_month_days?: string;
+    yearly_dates?: string;
+  }>();
   
   let finalScheduledAt = body.scheduledAt;
   

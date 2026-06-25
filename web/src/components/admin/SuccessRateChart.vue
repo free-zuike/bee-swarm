@@ -59,7 +59,7 @@ const updateChart = () => {
       trigger: 'axis',
       backgroundColor,
       textStyle: { color: textColor },
-      formatter: (params: any) => {
+      formatter: (params: echarts.DefaultLabelFormatterCallbackParams[]) => {
         const data = params[0];
         return `${data.name}<br/>${t('label.success_rate')}: <strong>${data.value}%</strong>`;
       },

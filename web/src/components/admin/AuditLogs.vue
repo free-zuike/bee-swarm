@@ -105,13 +105,14 @@ import { ref, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useAuth } from '@/stores/auth';
 import { getAuditLogs, clearAuditLogs } from '@/api';
+import type { AuditLog } from '@/api';
 
 const t = useTranslation();
 const authStore = useAuth();
 
 const loading = ref(false);
 const saving = ref(false);
-const logs = ref<any[]>([]);
+const logs = ref<AuditLog[]>([]);
 const filterAction = ref('');
 const filterStartDate = ref('');
 const filterEndDate = ref('');

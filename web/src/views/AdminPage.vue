@@ -54,6 +54,7 @@ import type {
   DatabaseStats,
   ArchiveInfo,
   DatabaseTable,
+  AITool,
 } from '@/api';
 import type {
   ChannelConfig,
@@ -80,6 +81,9 @@ import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import AuditLogs from '@/components/admin/AuditLogs.vue';
 import AIHelper from '@/components/admin/AIHelper.vue';
+
+type AIToolParam = AITool['parameters'][number];
+type AdminAITool = AITool & { expanded?: boolean };
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -228,13 +232,13 @@ const predefinedProviders = [
 ];
 
 // ==================== AI 工具栏相关 ====================
-const aiTools = ref<any[]>([]);
+const aiTools = ref<AdminAITool[]>([]);
 const showAddToolModal = ref(false);
 const showEditToolModal = ref(false);
 const newToolName = ref('');
 const newToolDescription = ref('');
 const editingToolId = ref('');
-const editingTool = ref<any>(null);
+const editingTool = ref<AdminAITool | null>(null);
 
 async function loadAITools() {
   try {
@@ -248,11 +252,11 @@ async function loadAITools() {
 }
 
 // 生成工具提示词（与后端 buildToolSystemPrompt 保持一致）
-function getToolPrompt(tool: any): string {
+function getToolPrompt(tool: AITool): string {
   const paramsStr =
     tool.parameters && tool.parameters.length > 0
       ? JSON.stringify(
-          tool.parameters.map((p: any) => ({
+          tool.parameters.map((p: AIToolParam) => ({
             name: p.name,
             type: p.type,
             description: p.description,
@@ -265,7 +269,7 @@ function getToolPrompt(tool: any): string {
 }
 
 // 获取工具的显示名称：优先从 i18n 翻译，否则回退到 tool.name
-function getToolDisplayName(tool: any): string {
+function getToolDisplayName(tool: AITool): string {
   const key = `ai.tool.${tool.name}.name`;
   const translated = t(key);
   // 如果翻译后返回的是 key 本身（说明没有翻译），则显示原名称
@@ -273,7 +277,7 @@ function getToolDisplayName(tool: any): string {
 }
 
 // 获取工具显示描述：优先从 i18n 翻译，否则回退到 tool.description
-function getToolDisplayDescription(tool: any): string {
+function getToolDisplayDescription(tool: AITool): string {
   const key = `ai.tool.${tool.name}.desc`;
   const translated = t(key);
   return translated === key ? tool.description : translated;
@@ -287,14 +291,14 @@ function getParamTypeLabel(type: string): string {
 }
 
 // 获取参数显示名称：优先从 i18n 翻译，否则回退到 param.description，最后回退到 param.name
-function getParamDisplayName(param: any): string {
+function getParamDisplayName(param: AIToolParam): string {
   const key = `ai.param.${param.name}`;
   const translated = t(key);
   if (translated !== key) return translated;
   return param.description || param.name;
 }
 
-function editTool(tool: any) {
+function editTool(tool: AdminAITool) {
   editingToolId.value = tool.id;
   editingTool.value = { ...tool };
   showEditToolModal.value = true;
@@ -305,7 +309,7 @@ function deleteTool(toolId: string) {
   saveAITools();
 }
 
-async function handleToggleTool(_tool: any) {
+async function handleToggleTool(_tool: AITool) {
   await saveAITools();
 }
 
@@ -881,7 +885,7 @@ async function selectProvider(provider: string) {
     await saveAISettings(accessToken.value, requestData);
 
     // 请求成功后再更新本地状态
-    userSettings.value.ai_provider = provider as any;
+    userSettings.value.ai_provider = provider;
     loadProviderConfig(provider);
   } catch {
     // 失败时什么都不做，保持原样
@@ -2282,7 +2286,7 @@ function handleResend(record: PushHistoryRecord) {
                   :key="theme.value"
                   class="theme-option"
                   :class="{ active: themeStore.currentTheme === theme.value, dark: isDark }"
-                  @click="themeStore.setTheme(theme.value as any)"
+                  @click="themeStore.setTheme(theme.value as 'light' | 'dark' | 'auto')"
                 >
                   <span class="theme-icon">{{ theme.icon }}</span>
                   <span class="theme-label">{{ theme.label }}</span>

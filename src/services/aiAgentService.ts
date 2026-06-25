@@ -414,7 +414,7 @@ export class AIAgentService {
         if (records.length === 0) return '暂无推送记录';
 
         const summary = records.slice(0, 5).map((r, i) =>
-          `${i + 1}. ${r.title} (${new Date(r.createdAt).toLocaleString('zh-CN')}) - ${r.status}`
+          `${i + 1}. ${r.title || '(无标题)'} (${r.createdAt ? new Date(r.createdAt).toLocaleString('zh-CN') : '未知时间'}) - ${r.status || '未知'}`
         ).join('\n');
         return `最近 ${records.length} 条推送记录：\n${summary}`;
       } catch (error) {

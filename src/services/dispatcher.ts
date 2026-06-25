@@ -21,7 +21,7 @@ async function ensurePushHistorySchema(env: Env): Promise<void> {
 
   try {
     // 检查表是否有正确的列
-    const checkResult = await env.DB.prepare('PRAGMA table_info(push_history)').all<any>();
+    const checkResult = await env.DB.prepare('PRAGMA table_info(push_history)').all<{ name: string }>();
     const columns = (checkResult.results || []).map((c) => c.name);
 
     // 检查是否有需要的列
@@ -133,17 +133,31 @@ import {
   PushoverChannel,
 } from './channels';
 
+interface PushHistoryRow {
+  id: string;
+  user_id?: string;
+  title?: string;
+  body?: string;
+  url?: string;
+  image_url?: string;
+  markdown?: number;
+  channels?: string;
+  results?: string;
+  status?: string;
+  created_at?: string;
+}
+
 interface PushHistoryRecord {
   id: string;
-  title: string;
-  body?: string;
+  title: string | undefined;
+  body: string | undefined;
   channels: string[];
-  url?: string;
-  imageUrl?: string;
+  url: string | undefined;
+  imageUrl: string | undefined;
   markdown?: boolean;
-  status: string;
+  status: string | undefined;
   results: ChannelResult[];
-  createdAt: string;
+  createdAt: string | undefined;
 }
 
 interface PushOptions {
@@ -887,7 +901,7 @@ export async function getPushHistory(
 
   // 构建查询条件
   let whereClause = 'WHERE user_id = ?';
-  const params: any[] = [username];
+  const params: (string | number)[] = [username];
 
   if (options.channel) {
     whereClause += ' AND channels LIKE ?';
@@ -914,9 +928,9 @@ export async function getPushHistory(
     `SELECT * FROM push_history ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
   )
     .bind(...params, pageSize + 1, offset)
-    .all<any>();
+    .all<PushHistoryRow>();
 
-  const records: PushHistoryRecord[] = (dataResult.results || []).map((row: any) => ({
+  const records: PushHistoryRecord[] = (dataResult.results || []).map((row: PushHistoryRow) => ({
     id: row.id,
     title: row.title,
     body: row.body,
@@ -977,7 +991,7 @@ export async function batchDeletePushHistoryByFilter(
   }
 
   let whereClause = 'WHERE user_id = ?';
-  const params: any[] = [username];
+  const params: (string | number)[] = [username];
 
   if (filter.olderThan) {
     whereClause += ' AND created_at < ?';

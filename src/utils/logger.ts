@@ -51,7 +51,7 @@ export interface LogEntry {
   message: string;
   requestId?: string;
   userId?: string;
-  metadata?: Record<string, any>;
+      metadata?: Record<string, string | number | boolean | null | undefined>;
   error?: {
     type: ErrorType;
     severity: ErrorSeverity;
@@ -287,7 +287,7 @@ class StructuredLogger {
         severity,
         message: error.message,
         stack: error.stack,
-        code: (error as any).code,
+        code: 'code' in error ? String(error.code) : undefined,
       },
     });
   }
@@ -375,7 +375,7 @@ class StructuredLogger {
       requestId?: string;
       userId?: string;
       memory?: number;
-      metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
     }
   ): void {
     this.log({

@@ -3,7 +3,7 @@
 // ============================================
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env, PushChannel } from './types';
+import type { Env, PushChannel, ChannelResult } from './types';
 import api from './routes/api';
 import { getBackupEndpoints, uploadBackupToEndpoint, saveBackupEndpoint } from './services/backup';
 import { PushService, type ScheduledPush } from './services/push';
@@ -205,7 +205,7 @@ export default {
                 nextRun: message.payload.scheduledAt || new Date().toISOString(),
                 recurringType: message.payload.recurringType || 'daily',
                 timezone: userTimezone,
-              } as any,
+              } as ScheduledPush,
               nowDate,
               userTimezone
             );
@@ -215,7 +215,7 @@ export default {
               nextScheduledAt
             );          } else {
             // 非循环任务：更新状态
-            const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
+            const finalStatus = results.every((r: ChannelResult) => r.success) ? 'completed' : 'failed';
             await pushService.updateScheduledPushStatus(
               message.payload.scheduledPushId,
               finalStatus
@@ -480,8 +480,8 @@ async function processScheduledPushes(
 async function processScheduledPushesDirect(
   env: Env,
   username: string,
-  pushService: any,
-  pendingPushes: any[],
+  pushService: PushService,
+  pendingPushes: ScheduledPush[],
   nowDate: Date
 ): Promise<void> {
   for (const push of pendingPushes) {
@@ -514,7 +514,7 @@ async function processScheduledPushesDirect(
       env
     );
 
-    const finalStatus = results.every((r: any) => r.success) ? 'completed' : 'failed';
+    const finalStatus = results.every((r: ChannelResult) => r.success) ? 'completed' : 'failed';
     const scheduleType = push.scheduleType || 'once';
 
     if (scheduleType === 'recurring') {

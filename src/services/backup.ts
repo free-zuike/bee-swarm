@@ -15,6 +15,7 @@ import {
   updateBackupRecordStatus,
   getBackupRecords,
   deleteBackupRecord,
+  type UserDataExport,
 } from './dataExportService';
 
 // 备份端类型
@@ -85,6 +86,18 @@ export interface BackupResult {
   count?: number;
 }
 
+interface BackupEndpointRow {
+  id: string;
+  name?: string;
+  type?: string;
+  config?: string;
+  r2_domain?: string;
+  enabled?: number;
+  schedule?: string;
+  retention?: number;
+  last_backup?: string;
+}
+
 // 获取用户的所有备份端
 export async function getBackupEndpoints(env: Env, username: string): Promise<BackupEndpoint[]> {
   if (!env.DB) return [];
@@ -94,9 +107,9 @@ export async function getBackupEndpoints(env: Env, username: string): Promise<Ba
       'SELECT * FROM backup_endpoints WHERE user_id = ? ORDER BY created_at DESC'
     )
       .bind(username)
-      .all<any>();
+      .all<BackupEndpointRow>();
 
-    return (result.results || []).map((row: any) => ({
+    return (result.results || []).map((row: BackupEndpointRow) => ({
       id: row.id,
       name: row.name || '默认备份',
       type: row.type as EndpointType,
@@ -190,7 +203,7 @@ async function ensureUserExists(env: Env, username: string): Promise<void> {
     // 先检查用户是否存在
     const check = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
       .bind(username)
-      .first<any>();
+      .first<{ id: string }>();
 
     if (check) {
       // 用户已存在，直接返回
@@ -291,7 +304,7 @@ export async function uploadBackupToEndpoint(
   env: Env,
   username: string,
   endpoint: BackupEndpoint,
-  data?: any
+  data?: UserDataExport
 ): Promise<BackupResult> {
   let backupRecordId = '';
 
@@ -1196,7 +1209,7 @@ export async function exportData(env: Env, username: string) {
 export async function importData(
   env: Env,
   username: string,
-  data: any,
+  data: UserDataExport,
   options?: { skipTables?: string[]; mergeMode?: 'overwrite' | 'merge' }
 ) {
   // 先验证数据
@@ -1209,7 +1222,7 @@ export async function importData(
 }
 
 // 验证备份数据
-export function validateBackup(data: any) {
+export function validateBackup(data: UserDataExport) {
   return validateBackupData(data);
 }
 

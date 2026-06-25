@@ -65,7 +65,7 @@ const updateChart = () => {
       axisPointer: {
         type: 'shadow',
       },
-      formatter: (params: any) => {
+      formatter: (params: echarts.DefaultLabelFormatterCallbackParams[]) => {
         const data = props.data[params[0].dataIndex];
         return `
           <strong>${data.channel}</strong><br/>

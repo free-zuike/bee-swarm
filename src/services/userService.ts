@@ -28,6 +28,7 @@ export interface UserSettings {
   ai_api_key?: string;
   ai_api_url?: string;
   ai_model_name?: string;
+  ai_tools?: AITool[];
 }
 
 export interface User {
@@ -562,7 +563,7 @@ export class UserService {
       ai_model_name: settings.ai_model_name,
       custom_ai_providers: settings.custom_ai_providers,
       ai_provider_configs: settings.ai_provider_configs,
-      ai_tools: (settings as any).ai_tools,
+      ai_tools: settings.ai_tools,
     };
 
     await this.saveCacheSettings(userId, cacheSettings);
@@ -604,7 +605,7 @@ export class UserService {
     }
 
     const now = Date.now();
-    const expiresAt = (result as any).password_reset_expires_at;
+    const expiresAt = result.password_reset_expires_at;
     if (!expiresAt || expiresAt < now) {
       return null;
     }
@@ -656,8 +657,8 @@ export class UserService {
       return false;
     }
 
-    const storedCode = (user as any).verification_code;
-    const expiresAt = (user as any).verification_expires_at;
+    const storedCode = user.verification_code;
+    const expiresAt = user.verification_expires_at;
 
     if (!storedCode || !expiresAt) {
       return false;
@@ -690,12 +691,12 @@ export class UserService {
     }
 
     // 1 = 已验证
-    if ((user as any).email_verified === 1) {
+    if (user.email_verified === 1) {
       return true;
     }
 
     // 没有 verification_code = 老用户（功能上线前创建），视为已验证
-    if (!(user as any).verification_code) {
+    if (!user.verification_code) {
       return true;
     }
 

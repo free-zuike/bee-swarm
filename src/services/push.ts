@@ -1,6 +1,50 @@
 import type { Env, ChannelResult, PushChannel, ChannelConfig } from '../types';
 import { MetricsCollector } from './metrics';
 
+interface PushTemplateRow {
+  id: string;
+  name: string;
+  title?: string;
+  body?: string;
+  channels?: string;
+  url?: string;
+  image_url?: string;
+  markdown?: number;
+  category?: string;
+  variables?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ChannelGroupRow {
+  id: string;
+  name: string;
+  channels?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+interface ScheduledPushRow {
+  id: string;
+  template_id?: string;
+  title?: string;
+  body?: string;
+  url?: string;
+  channels?: string;
+  next_run?: number;
+  enabled?: number;
+  recurring_type?: string;
+  selected_week_days?: string;
+  selected_month_days?: string;
+  yearly_dates?: string;
+  cron?: string;
+  timezone?: string;
+  status?: string;
+  user_id?: string;
+  created_at?: string;
+  overdue_reminder_sent?: number;
+}
+
 export interface PushTemplate {
   id: string;
   name: string;
@@ -130,7 +174,7 @@ export class PushService {
       'SELECT * FROM push_templates WHERE id = ? AND user_id = ?'
     )
       .bind(id, this.userId)
-      .first<any>();
+      .first<PushTemplateRow>();
 
     if (!result) return null;
 
@@ -160,7 +204,7 @@ export class PushService {
       'SELECT * FROM channel_groups WHERE id = ? AND user_id = ?'
     )
       .bind(id, this.userId)
-      .first<any>();
+      .first<ChannelGroupRow>();
 
     if (!result) return null;
 
@@ -182,7 +226,7 @@ export class PushService {
       'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
     )
       .bind(id, this.userId)
-      .first<any>();
+      .first<ScheduledPushRow>();
 
     if (!result) return null;
 
@@ -193,14 +237,14 @@ export class PushService {
       content: result.body || '',
       channels: JSON.parse(result.channels || '[]'),
       url: result.url,
-      scheduledAt: new Date(result.next_run).toISOString(),
-      nextRun: new Date(result.next_run).toISOString(),
+      scheduledAt: new Date(result.next_run || 0).toISOString(),
+      nextRun: new Date(result.next_run || 0).toISOString(),
       scheduleType: result.enabled ? 'recurring' : 'once',
-      recurringType: result.recurring_type || undefined,
+      recurringType: (result.recurring_type as ScheduledPush['recurringType']) || undefined,
       enabled: result.enabled === 1,
-      createdBy: result.user_id,
+      createdBy: result.user_id || '',
       createdAt: result.created_at,
-      status: result.status,
+      status: (result.status as ScheduledPush['status']) || 'pending',
       overdueReminderSent: result.overdue_reminder_sent === 1,
       yearlyDates: result.yearly_dates ? JSON.parse(result.yearly_dates) : undefined,
       selectedWeekDays: result.selected_week_days ? JSON.parse(result.selected_week_days) : undefined,
@@ -273,9 +317,9 @@ export class PushService {
       'SELECT * FROM push_templates WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
     )
       .bind(this.userId, limit, offset)
-      .all<any>();
+      .all<PushTemplateRow>();
 
-    return (result.results || []).map((row: any) => ({
+    return (result.results || []).map((row: PushTemplateRow) => ({
       id: row.id,
       name: row.name,
       title: row.title || '',
@@ -339,7 +383,7 @@ export class PushService {
     const now = new Date().toISOString();
 
     const fields: string[] = ['updated_at = ?'];
-    const values: any[] = [now];
+    const values: (string | number | null)[] = [now];
 
     if (updates.name !== undefined) {
       fields.push('name = ?');
@@ -359,11 +403,11 @@ export class PushService {
     }
     if (updates.url !== undefined) {
       fields.push('url = ?');
-      values.push(updates.url);
+      values.push(updates.url || null);
     }
     if (updates.imageUrl !== undefined) {
       fields.push('image_url = ?');
-      values.push(updates.imageUrl);
+      values.push(updates.imageUrl || null);
     }
     if (updates.useMarkdown !== undefined) {
       fields.push('markdown = ?');
@@ -371,7 +415,7 @@ export class PushService {
     }
     if (updates.category !== undefined) {
       fields.push('category = ?');
-      values.push(updates.category);
+      values.push(updates.category || null);
     }
     if (updates.variables !== undefined) {
       fields.push('variables = ?');
@@ -415,9 +459,9 @@ export class PushService {
       'SELECT * FROM channel_groups WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
     )
       .bind(this.userId, limit, offset)
-      .all<any>();
+      .all<ChannelGroupRow>();
 
-    return (result.results || []).map((row: any) => ({
+    return (result.results || []).map((row: ChannelGroupRow) => ({
       id: row.id,
       name: row.name,
       channels: JSON.parse(row.channels || '[]'),
@@ -471,7 +515,7 @@ export class PushService {
     const now = new Date().toISOString();
 
     const fields: string[] = ['updated_at = ?'];
-    const values: any[] = [now];
+    const values: (string | number | null)[] = [now];
 
     if (updates.name !== undefined) {
       fields.push('name = ?');
@@ -507,7 +551,7 @@ export class PushService {
     const offset = options?.offset || 0;
 
     let sql = 'SELECT * FROM scheduled_pushes WHERE user_id = ?';
-    const params: any[] = [this.userId];
+    const params: (string | number)[] = [this.userId];
 
     if (status) {
       sql += ' AND status = ?';
@@ -519,23 +563,23 @@ export class PushService {
 
     const result = await this.env.DB.prepare(sql)
       .bind(...params)
-      .all<any>();
+      .all<ScheduledPushRow>();
 
-    return (result.results || []).map((row: any) => ({
+    return (result.results || []).map((row: ScheduledPushRow) => ({
       id: row.id,
       templateId: row.template_id,
       title: row.title || '',
       content: row.body || '',
       channels: JSON.parse(row.channels || '[]'),
       url: row.url,
-      scheduledAt: new Date(row.next_run).toISOString(),
-      nextRun: new Date(row.next_run).toISOString(),
+      scheduledAt: new Date(row.next_run || 0).toISOString(),
+      nextRun: new Date(row.next_run || 0).toISOString(),
       scheduleType: row.enabled ? 'recurring' : 'once',
-      recurringType: row.recurring_type || undefined,
+      recurringType: (row.recurring_type as ScheduledPush['recurringType']) || undefined,
       enabled: row.enabled === 1,
-      createdBy: row.user_id,
+      createdBy: row.user_id || '',
       createdAt: row.created_at,
-      status: row.status,
+      status: (row.status as ScheduledPush['status']) || 'pending',
       overdueReminderSent: row.overdue_reminder_sent === 1,
       yearlyDates: row.yearly_dates ? JSON.parse(row.yearly_dates) : undefined,
       selectedWeekDays: row.selected_week_days ? JSON.parse(row.selected_week_days) : undefined,
@@ -635,7 +679,7 @@ export class PushService {
 
     const now = new Date().toISOString();
     const fields: string[] = ['updated_at = ?'];
-    const values: any[] = [now];
+    const values: (string | number | null)[] = [now];
 
     if (updates.title !== undefined) {
       fields.push('title = ?');

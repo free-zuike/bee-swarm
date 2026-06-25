@@ -43,8 +43,8 @@ export interface SystemSettingsExport {
 export interface UserSettingsExport {
   avatarUrl?: string;
   useAvatarAsPopup?: boolean;
-  cacheSettings?: any;
-  aiSettings?: any;
+  cacheSettings?: Record<string, unknown>;
+  aiSettings?: Record<string, unknown>;
   cacheTtlBackup?: number;
   cacheTtlChannels?: number;
   cacheTtlTemplates?: number;
@@ -61,7 +61,7 @@ export interface UserSettingsExport {
 export interface ChannelConfigExport {
   id: string;
   channelId: string;
-  config: any;
+  config: Record<string, string>;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -128,7 +128,7 @@ export interface PushHistoryExport {
 export interface AuditLogExport {
   id: string;
   action: string;
-  data: any;
+  data: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -136,8 +136,8 @@ export interface MetricsExport {
   total: number;
   success: number;
   failed: number;
-  channelStats?: any;
-  dailyStats?: any;
+  channelStats?: Record<string, unknown>;
+  dailyStats?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -147,7 +147,7 @@ export interface BackupEndpointExport {
   name: string;
   type: string;
   enabled: boolean;
-  schedule?: any;
+  schedule?: Record<string, unknown>;
   retention?: number;
   createdAt: string;
   updatedAt: string;
@@ -836,7 +836,7 @@ export async function importUserData(
 /**
  * 验证备份数据完整性
  */
-export function validateBackupData(data: any): {
+export function validateBackupData(data: UserDataExport): {
   valid: boolean;
   errors: string[];
   warnings: string[];
@@ -891,7 +891,7 @@ export function validateBackupData(data: any): {
 /**
  * 计算数据的哈希值（用于完整性检查）
  */
-export function computeDataHash(data: any): string {
+export function computeDataHash(data: UserDataExport): string {
   try {
     const sortedData = JSON.stringify(data, Object.keys(data).sort());
     // 简单的哈希函数

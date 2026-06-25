@@ -448,9 +448,9 @@ export class AIService {
     }
   }
 
-  private buildToolSystemPrompt(tools: unknown[]): string {
+  private buildToolSystemPrompt(tools: Array<{ name: string; description: string; parameters: AITool['parameters'] }>): string {
     const toolsList = tools
-      .map((t) => `- ${(t as any).name}: ${(t as any).description}`)
+      .map((t) => `- ${t.name}: ${t.description}`)
       .join('\n');
     return `你是一个推送服务助手，帮助用户管理模板、分组、定时任务等。
 
@@ -708,9 +708,9 @@ ${toolsList}
       }
 
       // --- 方式 11: 解析 JSON 对象 ---
-      let parsed: any;
+      let parsed: Record<string, unknown>;
       try {
-        parsed = JSON.parse(jsonStr);
+        parsed = JSON.parse(jsonStr) as Record<string, unknown>;
       } catch {
         // JSON 解析失败，尝试清理一下
         try {
@@ -719,7 +719,7 @@ ${toolsList}
             .replace(/\/\*[\s\S]*?\*\//g, '')
             .replace(/\/\/[^\n]*/g, '')
             .replace(/,(\s*[}\]])/g, '$1');
-          parsed = JSON.parse(cleaned);
+          parsed = JSON.parse(cleaned) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -732,7 +732,7 @@ ${toolsList}
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
           tool: matchedTool,
-          params: parsed.params || {},
+          params: (parsed.params as Record<string, unknown>) || {},
         };
       }
 
@@ -743,7 +743,7 @@ ${toolsList}
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
           tool: matchedTool,
-          params: parsed.arguments || {},
+          params: (parsed.arguments as Record<string, unknown>) || {},
         };
       }
 
@@ -754,7 +754,7 @@ ${toolsList}
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
           tool: matchedTool,
-          params: parsed.parameters || {},
+          params: (parsed.parameters as Record<string, unknown>) || {},
         };
       }
 
@@ -765,13 +765,13 @@ ${toolsList}
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
           tool: matchedTool,
-          params: parsed.action_input || {},
+          params: (parsed.action_input as Record<string, unknown>) || {},
         };
       }
 
       // 11e: workers-ai 风格: {"tools": [{"Name": "listTemplates", "params": {}}]}
-      if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
-        const toolCall = parsed.tools[0];
+      if (parsed.tools && Array.isArray(parsed.tools) && (parsed.tools as unknown[]).length > 0) {
+        const toolCall = (parsed.tools as Array<Record<string, unknown>>)[0];
         const rawName = toolCall.Name || toolCall.name;
         if (rawName) {
           const toolName = String(rawName);
@@ -779,14 +779,14 @@ ${toolsList}
             knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
           return {
             tool: matchedTool,
-            params: toolCall.params || {},
+            params: (toolCall.params as Record<string, unknown>) || {},
           };
         }
       }
 
       // 11f: tools 数组简写格式: {"tools": ["listTemplates"]}
-      if (parsed.tools && Array.isArray(parsed.tools) && typeof parsed.tools[0] === 'string') {
-        const toolName = String(parsed.tools[0]);
+      if (parsed.tools && Array.isArray(parsed.tools) && typeof (parsed.tools as unknown[])[0] === 'string') {
+        const toolName = String((parsed.tools as string[])[0]);
         const matchedTool =
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
@@ -796,14 +796,14 @@ ${toolsList}
       }
 
       // 11g: 数组格式: [{"tool": "...", "params": {...}}]
-      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].tool) {
-        const firstCall = parsed[0];
+      if (Array.isArray(parsed) && (parsed as unknown[]).length > 0 && (parsed as Array<Record<string, unknown>>)[0].tool) {
+        const firstCall = (parsed as Array<Record<string, unknown>>)[0];
         const toolName = String(firstCall.tool);
         const matchedTool =
           knownTools.find((t) => t.toLowerCase() === toolName.toLowerCase()) || toolName;
         return {
           tool: matchedTool,
-          params: firstCall.params || {},
+          params: (firstCall.params as Record<string, unknown>) || {},
         };
       }
 
