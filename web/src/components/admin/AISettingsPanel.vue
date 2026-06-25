@@ -8,8 +8,8 @@ import type { Ref } from 'vue';
 
 const props = defineProps<{
   accessToken: string;
-  userSettings: Ref<UserSettings>;
-  isSavingSettings: Ref<boolean>;
+  userSettings: UserSettings;
+  isSavingSettings: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,8 +28,8 @@ function getErrorMessage(err: unknown, fallback: string): string {
 }
 
 const accessTokenRef = computed(() => props.accessToken);
-const userSettingsRef = props.userSettings;
-const isSavingSettingsRef = props.isSavingSettings;
+const userSettingsRef = computed(() => props.userSettings);
+const isSavingSettingsRef = computed(() => props.isSavingSettings);
 
 const {
   aiTools,
@@ -77,14 +77,14 @@ const {
 defineExpose({ loadAITools });
 
 onMounted(() => {
-  if (props.userSettings.value.ai_enabled) {
+  if (props.userSettings.ai_enabled) {
     loadAITools();
   }
 });
 </script>
 
 <template>
-  <div>
+  <div v-if="userSettingsRef">
     <!-- 添加自定义 AI 提供商模态框 -->
     <Teleport to="body">
       <div

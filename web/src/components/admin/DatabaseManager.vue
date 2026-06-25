@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useThemeStore } from '@/stores/theme';
-import { usePermission } from '@/composables/usePermission';
 import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 import {
@@ -18,7 +17,6 @@ import type { DatabaseStats, ArchiveInfo, DatabaseTable } from '@/api';
 
 const t = useTranslation();
 const { showToast } = useGlobalToast();
-const { isAdmin } = usePermission();
 const themeStore = useThemeStore();
 const isDark = computed(() => themeStore.isDark);
 
@@ -52,15 +50,15 @@ const isDeletingTable = ref(false);
 const isCleaningTables = ref(false);
 
 async function loadDatabaseStats() {
-  if (!isAdmin.value) return;
-  isLoadingStats.value = true;
   try {
     const result = await getDatabaseStats(props.accessToken);
     if (result.success) {
       databaseStats.value = result.stats;
-    } else {
-      showToast(getErrorMessage(result, t('msg.load_stats_failed')), 'error');
     }
+  } catch {
+    // ignore
+  }
+}
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.load_stats_failed')), 'error');
   } finally {
@@ -69,14 +67,15 @@ async function loadDatabaseStats() {
 }
 
 async function loadArchives() {
-  if (!isAdmin.value) return;
   try {
     const result = await getArchives(props.accessToken);
     if (result.success) {
       archives.value = result.archives;
-    } else {
-      showToast(getErrorMessage(result, t('msg.load_archives_failed')), 'error');
     }
+  } catch {
+    // ignore
+  }
+}
   } catch (err) {
     showToast(getErrorMessage(err, t('msg.load_archives_failed')), 'error');
   }
@@ -166,7 +165,6 @@ async function handleRestore(archiveKey: string) {
 }
 
 async function loadDatabaseTables() {
-  if (!isAdmin.value) return;
   isLoadingTables.value = true;
   try {
     const result = await getDatabaseTables(props.accessToken);
