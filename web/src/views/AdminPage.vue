@@ -1214,7 +1214,7 @@ function handleResend(record: PushHistoryRecord) {
         <WorkflowManager
           v-if="activeTab === 'workflows'"
           :access-token="accessToken"
-          :channels="channelConfigs"
+          :channels="channels"
         />
 
         <!-- ==================== 用户管理 Tab（从悬浮菜单进入） ==================== -->
