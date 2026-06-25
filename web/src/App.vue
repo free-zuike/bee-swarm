@@ -1,11 +1,45 @@
 <script setup lang="ts">
+import { onErrorCaptured, ref } from 'vue';
 import GlobalLoading from '@/components/GlobalLoading.vue';
+
+const hasError = ref(false);
+const error = ref<Error | null>(null);
+
+onErrorCaptured((err) => {
+  hasError.value = true;
+  error.value = err as Error;
+  console.error('[App Error]', err);
+  return false; // 阻止错误向上传播
+});
+
+function reload() {
+  hasError.value = false;
+  error.value = null;
+  window.location.reload();
+}
 </script>
 
 <template>
   <div>
     <GlobalLoading />
-    <router-view />
+    <div v-if="hasError" class="error-boundary">
+      <div class="error-content">
+        <h2>页面出错了</h2>
+        <p>{{ error?.message || '未知错误' }}</p>
+        <button @click="reload">刷新页面</button>
+      </div>
+    </div>
+    <router-view v-else v-slot="{ Component }">
+      <Suspense>
+        <component :is="Component" />
+        <template #fallback>
+          <div class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p>加载中...</p>
+          </div>
+        </template>
+      </Suspense>
+    </router-view>
   </div>
 </template>
 
@@ -82,5 +116,65 @@ body::-webkit-scrollbar-thumb:hover {
   --text-primary: #e0e0e0;
   --text-secondary: #999;
   --border-color: #3c3c3c;
+}
+
+.error-boundary {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  z-index: 9999;
+}
+
+.error-content {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.error-content h2 {
+  color: #e74c3c;
+  margin-bottom: 12px;
+}
+
+.error-content p {
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.error-content button {
+  padding: 10px 24px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
