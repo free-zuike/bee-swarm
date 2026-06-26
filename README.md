@@ -158,13 +158,26 @@ npm run dev         # 终端 2：前端
 
 访问 `http://localhost:5173`
 
-### 方式三：手动部署
+### 方式三：手动部署（适用于任何账号）
 
 ```bash
+# 1. 登录 Cloudflare
 npx wrangler login
+
+# 2. 创建 D1 数据库（获取数据库 ID）
 npx wrangler d1 create bee-swarm-db
+
+# 3. 将输出的数据库 ID 填入 wrangler.toml 的 database_id 字段
+
+# 4. 创建 Queue 队列
+npx wrangler queues create bee-swarm-push-queue
+
+# 5. 执行数据库迁移
 npx wrangler d1 migrations apply bee-swarm-db
-npm run deploy
+
+# 6. 构建并部署
+npm run build
+npx wrangler deploy
 ```
 
 ## 🔐 安全设计
