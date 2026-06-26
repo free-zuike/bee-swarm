@@ -514,7 +514,8 @@ watch(
   cursor: not-allowed;
 }
 
-.charts-row {
+@media (max-width: 768px) {
+  .charts-row {
     grid-template-columns: 1fr;
   }
 
