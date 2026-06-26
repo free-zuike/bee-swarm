@@ -266,30 +266,6 @@ backupRoutes.get('/backup-endpoints/:id/backups', async (c) => {
   }
 });
 
-/** 从指定备份端恢复 */
-backupRoutes.post('/backup-endpoints/:id/restore', async (c) => {
-  const username = c.get('username');
-  const id = c.req.param('id');
-  const { key } = await c.req.json<{ key: string }>();
-
-  if (!key) {
-    return c.json({ error: '请提供备份文件 key', code: 'VALIDATION_ERROR' }, 400);
-  }
-
-  const endpoints = await getBackupEndpoints(c.env, username);
-  const endpoint = endpoints.find((e) => e.id === id);
-  if (!endpoint) {
-    return c.json({ error: '备份端不存在', code: 'NOT_FOUND' }, 404);
-  }
-
-  if (!endpoint.enabled) {
-    return c.json({ error: '该备份端已禁用', code: 'ENDPOINT_DISABLED' }, 400);
-  }
-
-  const result = await restoreBackupFromEndpoint(c.env, username, endpoint, key);
-  return c.json(result);
-});
-
 /** 删除指定备份端的备份 */
 backupRoutes.delete('/backup-endpoints/:id/backups', async (c) => {
   const username = c.get('username');
