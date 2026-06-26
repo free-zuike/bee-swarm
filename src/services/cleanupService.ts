@@ -287,8 +287,11 @@ export async function getAllTables(env: Env): Promise<{
 
     for (const row of result.results || []) {
       const tableName = row.name;
-      const isSafe = isSafeTable(tableName);
+      const isListedSafe = isSafeTable(tableName);
       const shouldDel = shouldDeleteTable(tableName);
+      // 自动安全保护：已知安全表 OR 匹配删除模式的表之外的所有表都视为安全
+      // 这样新创建的表会自动受到保护，防止误删
+      const isSafe = isListedSafe || (!shouldDel && !tableName.startsWith('sqlite_'));
 
       // 尝试获取表的行数（仅对非系统表）
       let rowCount: number | undefined;

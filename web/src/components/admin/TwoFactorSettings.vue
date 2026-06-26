@@ -324,12 +324,18 @@ function cancelSetup() {
 .qr-code {
   margin: 12px 0;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .qr-code img {
-  max-width: 200px;
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
   border: 1px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
+  background: white;
 }
 
 .secret-display {
