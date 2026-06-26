@@ -68,17 +68,6 @@
 
         <div class="charts-row">
           <div
-            v-if="activityData.length > 0"
-            class="section chart-section"
-            style="grid-column: 1 / -1"
-          >
-            <h3>{{ t('label.user_activity') || '用户活动分析 (7天)' }}</h3>
-            <ActivityChart :data="activityData" height="350px" />
-          </div>
-        </div>
-
-        <div class="charts-row">
-          <div
             v-if="Object.keys(stats.channelUsage || {}).length > 0"
             class="section chart-section"
           >
@@ -148,13 +137,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useTranslation } from '@/i18n';
-import { getPushStats, getActivityAnalytics, type ActivityData } from '@/api';
+import { getPushStats } from '@/api';
 import PerformanceMetricsChart from './admin/PerformanceMetricsChart.vue';
 import PushTrendChart from './admin/PushTrendChart.vue';
 import ChannelDistributionChart from './admin/ChannelDistributionChart.vue';
 import SuccessRateChart from './admin/SuccessRateChart.vue';
 import LatencyDistributionChart from './admin/LatencyDistributionChart.vue';
-import ActivityChart from './admin/ActivityChart.vue';
 import { StatsSkeleton } from './skeletons';
 
 const t = useTranslation();
@@ -189,8 +177,6 @@ const stats = ref({
     { count: number; success: number; failed: number; avgLatency: number }
   >,
 });
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
-const activityData = ref<ActivityData[]>([]);
 
 const channelIconMap: Record<string, string> = {
   wework: '💼',
@@ -296,15 +282,6 @@ async function loadData() {
         channelUsage: response.data.channelUsage || {},
       };
     }
-
-    try {
-      const activityResponse = await getActivityAnalytics(props.accessToken);
-      if (activityResponse.success && activityResponse.activity) {
-        activityData.value = activityResponse.activity;
-      }
-    } catch {
-      // Activity analytics is optional, don't fail the whole dashboard
-    }
   } catch (err) {
     error.value = (err as Error).message || t('error.load_stats_failed');
     console.error('Failed to load stats:', err);
@@ -313,26 +290,11 @@ async function loadData() {
   }
 }
 
-function startAutoRefresh() {
-  refreshTimer = setInterval(() => {
-    loadData();
-  }, 30000);
-}
-
-function stopAutoRefresh() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
-}
-
 onMounted(() => {
   loadData();
-  startAutoRefresh();
 });
 
 onUnmounted(() => {
-  stopAutoRefresh();
 });
 
 watch(

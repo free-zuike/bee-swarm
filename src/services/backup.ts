@@ -981,10 +981,10 @@ export async function restoreBackupFromEndpoint(
 ): Promise<BackupResult> {
   const response = await downloadBackupFromEndpoint(env, username, endpoint, key);
   if (!response.ok) {
-    return { success: false, message: '恢复备份失败' };
+    return { success: false, message: 'msg.restore_failed' };
   }
 
-  return { success: true, message: '备份内容已获取' };
+  return { success: true, message: 'msg.backup_content_fetched' };
 }
 
 // 下载备份
@@ -1065,30 +1065,30 @@ export async function deleteBackupFromEndpoint(
 
       const response = await awsClient.fetch(url, { method: 'DELETE' });
       if (response.status !== 204 && !response.ok) {
-        return { success: false, message: '删除备份失败', statusCode: response.status };
+        return { success: false, message: 'msg.delete_backup_failed', statusCode: response.status };
       }
-      return { success: true, message: '删除备份成功' };
+      return { success: true, message: 'msg.delete_backup_success' };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const baseUrl = config.url.replace(/\/$/, '');
       const normalizedKey = key.startsWith('/') ? key : `/${key}`;
       const response = await webdavRequest('DELETE', `${baseUrl}${normalizedKey}`, config);
       if (response.status !== 204 && !response.ok) {
-        return { success: false, message: '删除备份失败', statusCode: response.status };
+        return { success: false, message: 'msg.delete_backup_failed', statusCode: response.status };
       }
-      return { success: true, message: '删除备份成功' };
+      return { success: true, message: 'msg.delete_backup_success' };
     } else if (endpoint.type === 'r2') {
       const r2Service = new R2StorageService(env);
       if (!r2Service.isAvailable()) {
-        return { success: false, message: 'R2 存储未配置' };
+        return { success: false, message: 'msg.r2_not_configured' };
       }
       await r2Service.deleteBackup(key);
-      return { success: true, message: '删除备份成功' };
+      return { success: true, message: 'msg.delete_backup_success' };
     } else {
-      return { success: false, message: '不支持的备份类型' };
+      return { success: false, message: 'msg.unsupported_backup_type' };
     }
   } catch (err) {
-    return { success: false, message: '删除失败', errorMessage: (err as Error).message };
+    return { success: false, message: 'msg.delete_failed', errorMessage: (err as Error).message };
   }
 }
 
@@ -1121,39 +1121,39 @@ export async function testBackupEndpoint(
         const errorText = await response.text();
         return {
           success: false,
-          message: '连接失败',
+          message: 'msg.connection_failed',
           statusCode: response.status,
           errorMessage: errorText.substring(0, 200),
         };
       }
-      return { success: true, message: 'S3 连接成功', statusCode: null };
+      return { success: true, message: 'msg.s3_connection_success', statusCode: null };
     } else if (endpoint.type === 'webdav') {
       const config = endpoint.config as WebDAVConfig;
       const baseUrl = config.url.replace(/\/$/, '');
       const response = await webdavRequest('PROPFIND', baseUrl, config);
       if (response.status === 429) {
-        return { success: false, message: '请求太频繁', statusCode: 429 };
+        return { success: false, message: 'msg.too_many_requests', statusCode: 429 };
       }
       if (!response.ok && response.status !== 207) {
-        return { success: false, message: '连接失败', statusCode: response.status };
+        return { success: false, message: 'msg.connection_failed', statusCode: response.status };
       }
-      return { success: true, message: 'WebDAV 连接成功', statusCode: null };
+      return { success: true, message: 'msg.webdav_connection_success', statusCode: null };
     } else if (endpoint.type === 'r2') {
       if (!env) {
-        return { success: false, message: '测试 R2 连接需要环境变量', statusCode: null };
+        return { success: false, message: 'msg.r2_needs_env', statusCode: null };
       }
       const r2Service = new R2StorageService(env);
       if (!r2Service.isAvailable()) {
-        return { success: false, message: 'R2 存储未配置', statusCode: null };
+        return { success: false, message: 'msg.r2_not_configured', statusCode: null };
       }
-      return { success: true, message: 'R2 连接成功', statusCode: null };
+      return { success: true, message: 'msg.r2_connection_success', statusCode: null };
     }
 
-    return { success: false, message: '不支持的备份类型', statusCode: null };
+    return { success: false, message: 'msg.unsupported_backup_type', statusCode: null };
   } catch (err) {
     return {
       success: false,
-      message: '连接错误',
+      message: 'msg.connection_error',
       statusCode: null,
       errorMessage: (err as Error).message,
     };
