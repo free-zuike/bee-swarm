@@ -38,7 +38,7 @@ crons = ["*/5 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "bee-swarm-db"
-database_id = "${D1_DATABASE_ID}"
+database_id = "4ff00b10-f338-4fea-be16-bb333f88975c"
 migrations_dir = "migrations"
 
 # ------------------------------------------
