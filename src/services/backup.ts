@@ -1247,13 +1247,24 @@ export async function restoreFromEndpoint(
 
     // 尝试解密备份内容
     if (content.startsWith('v1:')) {
-      // 加密格式，尝试用当前用户密码解密
-      try {
-        const encryptionSecret = user.password;
-        const encryptionSalt = user.email; // 使用邮箱作为盐（跨账号一致）
-        content = await decryptData(content, encryptionSecret, encryptionSalt);
-      } catch (decryptError) {
-        // 解密失败，可能是不同用户的备份
+      // 加密格式，依次尝试用邮箱和用户ID作为盐解密（兼容新旧备份）
+      let decrypted = false;
+      const salts = [user.email, user.id]; // 优先用邮箱（新格式），回退到用户ID（旧格式）
+      
+      for (const salt of salts) {
+        try {
+          const testContent = await decryptData(content, user.password, salt);
+          // 验证解密结果是否为有效 JSON
+          JSON.parse(testContent);
+          content = testContent;
+          decrypted = true;
+          break;
+        } catch {
+          // 当前盐值解密失败，尝试下一个
+        }
+      }
+      
+      if (!decrypted) {
         throw new Error('备份文件已加密，无法用当前账号解密。请使用原账号恢复，或联系管理员。');
       }
     }
