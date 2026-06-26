@@ -94,7 +94,12 @@ export interface ScheduledPushExport {
   enabled: boolean;
   status?: string;
   recurringType?: string;
-  scheduledAt?: string;
+  selectedWeekDays?: number[];
+  selectedMonthDays?: number[];
+  yearlyDates?: Array<{ month: number; day: number }>;
+  timezone?: string;
+  abTestEnabled?: boolean;
+  abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   overdueReminderSent?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -110,19 +115,19 @@ export interface ChannelGroupExport {
 
 export interface PushHistoryExport {
   id: string;
-  channelId: string;
-  channelType?: string;
-  channelName?: string;
   title?: string;
-  content?: string;
+  body?: string;
   url?: string;
   imageUrl?: string;
-  markdown?: string;
-  success: boolean;
-  error?: string;
-  latencyMs?: number;
-  timestamp: string;
+  markdown?: boolean;
+  channels?: string[];
+  results?: Array<{ channel: string; success: boolean; message: string }>;
+  status?: string;
   createdAt: string;
+  deliveredAt?: string;
+  readAt?: string;
+  clickedAt?: string;
+  revokedAt?: string;
 }
 
 export interface AuditLogExport {
@@ -146,6 +151,7 @@ export interface BackupEndpointExport {
   id: string;
   name: string;
   type: string;
+  config?: Record<string, unknown>;
   enabled: boolean;
   schedule?: Record<string, unknown>;
   retention?: number;
@@ -268,6 +274,12 @@ export async function exportUserData(
       enabled: number;
       status?: string;
       recurring_type?: string;
+      selected_week_days?: string;
+      selected_month_days?: string;
+      yearly_dates?: string;
+      timezone?: string;
+      ab_test_enabled?: number;
+      ab_test_variants?: string;
       overdue_reminder_sent?: number;
       created_at: string;
       updated_at: string;
@@ -337,19 +349,19 @@ export async function exportUserData(
     .bind(...pushHistoryParams)
     .all<{
       id: string;
-      channel_id: string;
-      channel_type?: string;
-      channel_name?: string;
       title?: string;
-      content?: string;
+      body?: string;
       url?: string;
       image_url?: string;
-      markdown?: string;
-      success: number;
-      error?: string;
-      latency_ms?: number;
-      timestamp: string;
+      markdown?: number;
+      channels?: string;
+      results?: string;
+      status?: string;
       created_at: string;
+      delivered_at?: string;
+      read_at?: string;
+      clicked_at?: string;
+      revoked_at?: string;
     }>();
 
   if (pushHistory.results?.length) {
@@ -487,13 +499,14 @@ export async function exportUserData(
 
   // 导出备份端点配置（不包含敏感信息）
   const backupEndpoints = await env.DB.prepare(
-    'SELECT id, name, type, enabled, schedule, retention, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
+    'SELECT id, name, type, config, enabled, schedule, retention, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
   )
     .bind(userId)
     .all<{
       id: string;
       name: string;
       type: string;
+      config?: string;
       enabled: number;
       schedule?: string;
       retention?: number;
@@ -1259,29 +1272,23 @@ export function convertExportToCsv(data: UserDataExport): Record<string, string>
     csvMap['pushHistory'] = recordsToCsv(
       [
         'id',
-        'channelId',
-        'channelType',
         'title',
-        'content',
+        'body',
         'url',
-        'success',
-        'error',
-        'latencyMs',
-        'timestamp',
+        'channels',
+        'status',
         'createdAt',
+        'deliveredAt',
       ],
       data.tables.pushHistory.map((r) => ({
         id: r.id,
-        channelId: r.channelId,
-        channelType: r.channelType,
         title: r.title,
-        content: r.content,
+        body: r.body,
         url: r.url,
-        success: r.success,
-        error: r.error,
-        latencyMs: r.latencyMs,
-        timestamp: r.timestamp,
+        channels: r.channels ? JSON.stringify(r.channels) : '',
+        status: r.status,
         createdAt: r.createdAt,
+        deliveredAt: r.deliveredAt || '',
       }))
     );
   }
@@ -1306,7 +1313,7 @@ export function convertExportToCsv(data: UserDataExport): Record<string, string>
         'title',
         'body',
         'channels',
-        'scheduledAt',
+        'cron',
         'recurringType',
         'enabled',
         'status',
@@ -1319,7 +1326,7 @@ export function convertExportToCsv(data: UserDataExport): Record<string, string>
         title: r.title,
         body: r.body,
         channels: r.channels?.join(';'),
-        scheduledAt: r.scheduledAt,
+        cron: r.cron,
         recurringType: r.recurringType,
         enabled: r.enabled,
         status: r.status,
