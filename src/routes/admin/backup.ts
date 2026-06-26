@@ -330,13 +330,20 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
 
   // 尝试解密备份内容
   if (content.startsWith('v1:')) {
-    try {
-      const encryptionSecret = user.password;
-      const encryptionSalt = user.email; // 使用邮箱作为盐（跨账号一致）
-      content = await decryptData(content, encryptionSecret, encryptionSalt);
-    } catch (decryptError) {
-      // 解密失败，可能是不同用户的备份
-      console.warn('[Backup] Decryption failed:', decryptError);
+    const attempts = [
+      { secret: user.email, salt: user.email },
+      { secret: user.password, salt: user.email },
+      { secret: user.password, salt: user.id },
+    ];
+    for (const { secret, salt } of attempts) {
+      try {
+        const testContent = await decryptData(content, secret, salt);
+        JSON.parse(testContent);
+        content = testContent;
+        break;
+      } catch {
+        // 继续尝试
+      }
     }
   }
 

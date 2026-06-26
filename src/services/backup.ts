@@ -338,8 +338,8 @@ export async function uploadBackupToEndpoint(
 
     // 加密备份内容
     let encrypted = false;
-    const encryptionSecret = user.password; // 使用用户密码哈希作为密钥材料
-    const encryptionSalt = user.email; // 使用邮箱作为盐（跨账号一致）
+    const encryptionSecret = user.email; // 使用邮箱作为密钥（跨账号一致，密码哈希含随机盐不稳定）
+    const encryptionSalt = user.email; // 使用邮箱作为盐
 
     if (encryptionSecret && encryptionSalt) {
       try {
@@ -1247,20 +1247,23 @@ export async function restoreFromEndpoint(
 
     // 尝试解密备份内容
     if (content.startsWith('v1:')) {
-      // 加密格式，依次尝试用邮箱和用户ID作为盐解密（兼容新旧备份）
+      // 加密格式，依次尝试用邮箱和用户ID解密（兼容新旧备份）
       let decrypted = false;
-      const salts = [user.email, user.id]; // 优先用邮箱（新格式），回退到用户ID（旧格式）
+      const attempts = [
+        { secret: user.email, salt: user.email },   // 新格式：邮箱+邮箱
+        { secret: user.password, salt: user.email }, // 旧格式：密码哈希+邮箱
+        { secret: user.password, salt: user.id },    // 最旧格式：密码哈希+用户ID
+      ];
       
-      for (const salt of salts) {
+      for (const { secret, salt } of attempts) {
         try {
-          const testContent = await decryptData(content, user.password, salt);
-          // 验证解密结果是否为有效 JSON
-          JSON.parse(testContent);
+          const testContent = await decryptData(content, secret, salt);
+          JSON.parse(testContent); // 验证是否为有效 JSON
           content = testContent;
           decrypted = true;
           break;
         } catch {
-          // 当前盐值解密失败，尝试下一个
+          // 当前组合解密失败，尝试下一个
         }
       }
       
