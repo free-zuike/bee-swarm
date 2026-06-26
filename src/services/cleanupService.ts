@@ -123,6 +123,11 @@ const SAFE_TABLES: string[] = [
   'd1_migrations',
   'sqlite_sequence',
   'sqlite_stat1',
+  'push_drafts',
+  'push_favorites',
+  'push_execution_logs',
+  'push_workflows',
+  'allowed_ips',
 ];
 
 /**

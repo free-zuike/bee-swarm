@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useTranslation } from '@/i18n';
 import { useGlobalToast } from '@/composables/useToast';
 
+const t = useTranslation();
 const { showToast } = useGlobalToast();
 
 const props = defineProps<{
@@ -30,7 +32,7 @@ async function loadStatus() {
     isEnabled.value = status.enabled;
     isLoading.value = false;
   } catch {
-    showToast('加载 2FA 状态失败', 'error');
+    showToast(t('twofa.loading_failed'), 'error');
     isLoading.value = false;
   }
 }
@@ -45,7 +47,7 @@ async function startSetup() {
     setupOtpauthUrl.value = result.otpauthUrl;
     showSetup.value = true;
   } catch {
-    showToast('生成 2FA 密钥失败', 'error');
+    showToast(t('twofa.setup_failed'), 'error');
   } finally {
     isSettingUp.value = false;
   }
@@ -53,14 +55,14 @@ async function startSetup() {
 
 async function confirmSetup() {
   if (!verifyCode.value || verifyCode.value.length !== 6) {
-    showToast('请输入6位验证码', 'error');
+    showToast(t('twofa.enter_code'), 'error');
     return;
   }
 
   try {
     const { verify2FASetup } = await import('@/api');
     await verify2FASetup(props.token, verifyCode.value);
-    showToast('2FA 已启用', 'success');
+    showToast(t('twofa.enabled_success'), 'success');
     isEnabled.value = true;
     showSetup.value = false;
     verifyCode.value = '';
@@ -68,25 +70,25 @@ async function confirmSetup() {
     setupQRCode.value = '';
     setupOtpauthUrl.value = '';
   } catch {
-    showToast('验证码无效，请重试', 'error');
+    showToast(t('twofa.invalid_code'), 'error');
   }
 }
 
 async function confirmDisable() {
   if (!disableCode.value || disableCode.value.length !== 6) {
-    showToast('请输入6位验证码', 'error');
+    showToast(t('twofa.enter_code'), 'error');
     return;
   }
 
   try {
     const { disable2FA } = await import('@/api');
     await disable2FA(props.token, disableCode.value);
-    showToast('2FA 已禁用', 'success');
+    showToast(t('twofa.disabled_success'), 'success');
     isEnabled.value = false;
     showDisable.value = false;
     disableCode.value = '';
   } catch {
-    showToast('验证码无效，请重试', 'error');
+    showToast(t('twofa.invalid_code'), 'error');
   }
 }
 
@@ -94,10 +96,10 @@ function copySecret() {
   navigator.clipboard
     .writeText(setupSecret.value)
     .then(() => {
-      showToast('已复制到剪贴板', 'success');
+      showToast(t('label.copied') || '已复制到剪贴板', 'success');
     })
     .catch(() => {
-      showToast('复制失败', 'error');
+      showToast(t('message.copy_failed') || '复制失败', 'error');
     });
 }
 
@@ -113,18 +115,18 @@ function cancelSetup() {
 <template>
   <div class="twofa-settings">
     <div class="twofa-header">
-      <h3>🔐 双因素认证 (2FA)</h3>
+      <h3>🔐 {{ t('twofa.title') }}</h3>
       <span class="twofa-status" :class="{ enabled: isEnabled }">
-        {{ isEnabled ? '已启用' : '未启用' }}
+        {{ isEnabled ? t('twofa.status_enabled') : t('twofa.status_disabled') }}
       </span>
     </div>
 
-    <div v-if="isLoading" class="twofa-loading">加载中...</div>
+    <div v-if="isLoading" class="twofa-loading">{{ t('label.loading') }}</div>
 
     <div v-else-if="!isEnabled && !showSetup" class="twofa-content">
-      <p class="twofa-desc">启用双因素认证后，登录时除了密码外还需要输入验证码，提升账户安全性。</p>
+      <p class="twofa-desc">{{ t('twofa.step1_desc') }}</p>
       <button class="btn btn-primary" @click="startSetup" :disabled="isSettingUp">
-        {{ isSettingUp ? '生成密钥中...' : '启用 2FA' }}
+        {{ isSettingUp ? t('label.loading') : t('twofa.enable') }}
       </button>
     </div>
 
@@ -134,35 +136,35 @@ function cancelSetup() {
         <div class="step">
           <div class="step-num">1</div>
           <div class="step-content">
-            <strong>安装认证应用</strong>
-            <p>在手机上安装 Google Authenticator、Microsoft Authenticator 或其他 TOTP 认证应用。</p>
+            <strong>{{ t('twofa.step1_title') }}</strong>
+            <p>{{ t('twofa.step1_desc') }}</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-content">
-            <strong>添加账户</strong>
-            <p>在认证应用中选择"添加账户"，扫描下方二维码或手动输入密钥。</p>
+            <strong>{{ t('twofa.step2_title') }}</strong>
+            <p>{{ t('twofa.step2_desc') }}</p>
             <div v-if="setupQRCode" class="qr-code">
               <img :src="setupQRCode" alt="TOTP QR Code" />
             </div>
             <div class="secret-display">
-              <span class="secret-label">密钥：</span>
+              <span class="secret-label">{{ t('twofa.secret_label') }}</span>
               <code class="secret-value">{{ setupSecret }}</code>
-              <button class="btn-copy" @click="copySecret">复制</button>
+              <button class="btn-copy" @click="copySecret">{{ t('twofa.copy') }}</button>
             </div>
           </div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
           <div class="step-content">
-            <strong>验证并启用</strong>
-            <p>输入认证应用中显示的6位验证码：</p>
+            <strong>{{ t('twofa.step3_title') }}</strong>
+            <p>{{ t('twofa.step3_desc') }}</p>
             <div class="verify-input">
               <input
                 v-model="verifyCode"
                 type="text"
-                placeholder="6位验证码"
+                :placeholder="t('twofa.enter_code')"
                 maxlength="6"
                 autocomplete="one-time-code"
                 class="code-input"
@@ -172,35 +174,35 @@ function cancelSetup() {
                 @click="confirmSetup"
                 :disabled="verifyCode.length !== 6"
               >
-                验证并启用
+                {{ t('twofa.verify_and_enable') }}
               </button>
             </div>
           </div>
         </div>
       </div>
-      <button class="btn btn-secondary" @click="cancelSetup">取消</button>
+      <button class="btn btn-secondary" @click="cancelSetup">{{ t('twofa.cancel') }}</button>
     </div>
 
     <!-- 已启用状态 -->
     <div v-if="isEnabled && !showDisable" class="twofa-content">
-      <p class="twofa-desc enabled-text">✅ 双因素认证已启用，您的账户已受到额外保护。</p>
-      <button class="btn btn-danger" @click="showDisable = true">禁用 2FA</button>
+      <p class="twofa-desc enabled-text">{{ t('twofa.enabled_desc') }}</p>
+      <button class="btn btn-danger" @click="showDisable = true">{{ t('twofa.disable') }}</button>
     </div>
 
     <!-- 禁用流程 -->
     <div v-if="showDisable" class="twofa-disable">
-      <p class="twofa-desc">输入当前的6位验证码以确认禁用 2FA：</p>
+      <p class="twofa-desc">{{ t('twofa.disable_desc') }}</p>
       <div class="verify-input">
         <input
           v-model="disableCode"
           type="text"
-          placeholder="6位验证码"
+          :placeholder="t('twofa.enter_code')"
           maxlength="6"
           autocomplete="one-time-code"
           class="code-input"
         />
         <button class="btn btn-danger" @click="confirmDisable" :disabled="disableCode.length !== 6">
-          确认禁用
+          {{ t('twofa.confirm_disable') }}
         </button>
       </div>
       <button
@@ -210,7 +212,7 @@ function cancelSetup() {
           disableCode = '';
         "
       >
-        取消
+        {{ t('twofa.cancel') }}
       </button>
     </div>
   </div>
