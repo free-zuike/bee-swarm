@@ -1273,9 +1273,13 @@ export async function restoreFromEndpoint(
     }
 
     const data = JSON.parse(content);
+    console.log(`[Backup] Restoring for user: ${username}`);
+    console.log(`[Backup] Data tables: ${Object.keys(data.tables || {}).join(', ')}`);
+    console.log(`[Backup] Table counts: ${JSON.stringify(data.metadata?.tableCounts || {})}`);
 
     // 导入数据
     const result = await importData(env, username, data, options);
+    console.log(`[Backup] Import result: ${JSON.stringify(result.imported)}`);
 
     // 记录恢复操作
     try {

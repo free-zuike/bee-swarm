@@ -558,6 +558,8 @@ export async function importUserData(
   try {
     // 在事务中执行导入
     const tables = data.tables;
+    console.log('[Import] Starting import for user:', userId);
+    console.log('[Import] Tables to import:', Object.keys(tables).filter(k => tables[k as keyof typeof tables]?.length));
 
     // 导入用户设置（总是导入）
     if (data.userSettings) {
@@ -642,6 +644,7 @@ export async function importUserData(
 
     // 如果是覆盖模式，先清空现有数据
     if (mergeMode === 'overwrite') {
+      console.log('[Import] Overwrite mode: deleting existing data');
       const deleteStatements = [
         'DELETE FROM audit_logs WHERE user_id = ?',
         'DELETE FROM push_history WHERE user_id = ?',
@@ -661,6 +664,7 @@ export async function importUserData(
 
     // 导入渠道配置
     if (!skipTables.includes('channelConfigs') && tables.channelConfigs?.length) {
+      console.log(`[Import] Importing ${tables.channelConfigs.length} channel configs`);
       for (const item of tables.channelConfigs) {
         try {
           await env.DB.prepare(
@@ -688,6 +692,7 @@ export async function importUserData(
 
     // 导入推送模板
     if (!skipTables.includes('pushTemplates') && tables.pushTemplates?.length) {
+      console.log(`[Import] Importing ${tables.pushTemplates.length} push templates`);
       for (const item of tables.pushTemplates) {
         try {
           await env.DB.prepare(
@@ -719,6 +724,7 @@ export async function importUserData(
 
     // 导入定时推送任务
     if (!skipTables.includes('scheduledPushes') && tables.scheduledPushes?.length) {
+      console.log(`[Import] Importing ${tables.scheduledPushes.length} scheduled pushes`);
       for (const item of tables.scheduledPushes) {
         const nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
         try {
@@ -763,6 +769,7 @@ export async function importUserData(
 
     // 导入渠道分组
     if (!skipTables.includes('channelGroups') && tables.channelGroups?.length) {
+      console.log(`[Import] Importing ${tables.channelGroups.length} channel groups`);
       for (const item of tables.channelGroups) {
         try {
           await env.DB.prepare(
@@ -789,6 +796,7 @@ export async function importUserData(
 
     // 导入推送历史（可选，因为可能数据量很大）
     if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
+      console.log(`[Import] Importing ${tables.pushHistory.length} push history records`);
       for (const item of tables.pushHistory) {
         try {
           // 兼容旧格式：success(boolean) -> status(string)
@@ -878,8 +886,9 @@ export async function importUserData(
       }
     }
 
-    // 导入备份端点（仅在合并模式下）
+    // 导入备份端点
     if (!skipTables.includes('backupEndpoints') && tables.backupEndpoints?.length) {
+      console.log(`[Import] Importing ${tables.backupEndpoints.length} backup endpoints`);
       for (const item of tables.backupEndpoints) {
         try {
           await env.DB.prepare(
