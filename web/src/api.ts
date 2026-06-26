@@ -501,11 +501,17 @@ export async function deleteBackupFromEndpoint(
   id: string,
   key: string
 ): Promise<{ success: boolean; message: string }> {
-  return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/backups`, token, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key }),
-  });
+  const result = await tokenRequest<{ success: boolean; message: string }>(
+    `${BASE}/admin/backup-endpoints/${id}/backups`,
+    token,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    }
+  );
+  apiCache.invalidate(`${BASE}/admin/backup-endpoints/${id}/backups`, token);
+  return result;
 }
 
 // 下载指定备份文件
@@ -559,6 +565,10 @@ export async function backupAll(token: string): Promise<{
     }>;
   }>(`${BASE}/admin/backup-all`, token, { method: 'POST' });
   apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
+  // 清除所有备份端的备份列表缓存
+  for (const ep of backupEndpoints.value || []) {
+    apiCache.invalidate(`${BASE}/admin/backup-endpoints/${ep.id}/backups`, token);
+  }
   return result;
 }
 
@@ -574,6 +584,7 @@ export async function backupSingleEndpoint(
     endpointName?: string;
   }>(`${BASE}/admin/backup-endpoints/${id}/backup`, token, { method: 'POST' });
   apiCache.invalidate(`${BASE}/admin/backup-endpoints`, token);
+  apiCache.invalidate(`${BASE}/admin/backup-endpoints/${id}/backups`, token);
   return result;
 }
 
