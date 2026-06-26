@@ -126,7 +126,6 @@ const SAFE_TABLES: string[] = [
   'push_drafts',
   'push_favorites',
   'push_execution_logs',
-  'push_workflows',
   'allowed_ips',
 ];
 

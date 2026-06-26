@@ -45,7 +45,6 @@ import TemplateManager from '@/components/TemplateManager.vue';
 import GroupManager from '@/components/GroupManager.vue';
 import ScheduledPushManager from '@/components/ScheduledPushManager.vue';
 import WebhookManager from '@/components/WebhookManager.vue';
-import WorkflowManager from '@/components/WorkflowManager.vue';
 import ChannelHealthCheck from '@/components/ChannelHealthCheck.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import AuditLogs from '@/components/admin/AuditLogs.vue';
@@ -121,7 +120,6 @@ const activeTab = ref<
   | 'scheduled'
   | 'webhook'
   | 'health'
-  | 'workflows'
 >('stats');
 
 // ==================== 设置面板 ====================
@@ -1144,13 +1142,6 @@ function handleResend(record: PushHistoryRecord) {
           >
             🏥 {{ t('tab.health') }}
           </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'workflows', dark: isDark }"
-            @click="activeTab = 'workflows'"
-          >
-            ⚡ {{ t('tab.workflows') || '工作流' }}
-          </button>
         </div>
 
         <!-- ==================== 统计仪表盘 Tab ==================== -->
@@ -1208,13 +1199,6 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 渠道健康检查 Tab ==================== -->
         <ChannelHealthCheck v-if="activeTab === 'health'" :access-token="accessToken" />
-
-        <!-- ==================== 工作流 Tab ==================== -->
-        <WorkflowManager
-          v-if="activeTab === 'workflows'"
-          :access-token="accessToken"
-          :channels="channels"
-        />
 
         <!-- ==================== 用户管理 Tab（从悬浮菜单进入） ==================== -->
         <UserManagement v-if="activeTab === 'users' && hasPermission('users:manage')" />
