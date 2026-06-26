@@ -39,7 +39,7 @@
       </div>
 
       <!-- 搜索和筛选 -->
-      <div class="filter-bar">
+      <div v-if="activeTab === 'templates'" class="filter-bar">
         <input
           v-model="searchQuery"
           type="text"
