@@ -791,6 +791,11 @@ export async function importUserData(
     if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
       for (const item of tables.pushHistory) {
         try {
+          // 兼容旧格式：success(boolean) -> status(string)
+          const status = item.status || (item as Record<string, unknown>).success !== undefined
+            ? ((item as Record<string, unknown>).success ? 'success' : 'failed')
+            : null;
+
           await env.DB.prepare(
             `
             INSERT OR REPLACE INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at, delivered_at, read_at, clicked_at, revoked_at)
@@ -807,7 +812,7 @@ export async function importUserData(
               item.markdown ? 1 : 0,
               item.channels ? JSON.stringify(item.channels) : null,
               item.results ? JSON.stringify(item.results) : null,
-              item.status || null,
+              status,
               item.createdAt,
               item.deliveredAt || null,
               item.readAt || null,
@@ -904,6 +909,7 @@ export async function importUserData(
       imported.backupEndpoints = tables.backupEndpoints.length;
     }
 
+    console.log('[Import] Import results:', imported);
     return {
       success: true,
       message: `Successfully imported ${Object.values(imported).reduce((a, b) => a + b, 0)} records`,
