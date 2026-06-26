@@ -803,6 +803,34 @@ export async function dispatchPushWithOptions(
     console.error('[PushHistory] Full error:', err);
   }
 
+  // 保存执行日志
+  try {
+    if (env.DB) {
+      const logId = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const allSuccess = results.every((r) => r.success);
+
+      await env.DB.prepare(
+        `INSERT INTO push_execution_logs (id, user_id, push_history_id, started_at, finished_at, status, channels, channel_results, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          logId,
+          username,
+          null,
+          now,
+          now,
+          allSuccess ? 'success' : 'partial',
+          JSON.stringify(enabledChannels.map((c) => c.id)),
+          JSON.stringify(results),
+          now
+        )
+        .run();
+    }
+  } catch (err) {
+    console.error('[ExecutionLog] Failed to save:', (err as Error).message);
+  }
+
   // 记录推送统计数据
   try {
     const { MetricsCollector } = await import('./metrics');

@@ -10,6 +10,9 @@
           <button class="btn btn-sm btn-secondary" @click="toggleSort">
             {{ sortOrder === 'asc' ? t('label.sortAsc') : t('label.sortDesc') }}
           </button>
+          <button class="btn btn-sm btn-primary" @click="openBatchSendModal" :disabled="groups.length === 0">
+            📤 {{ t('groups.batchSend') || '批量发送' }}
+          </button>
           <button class="btn btn-primary" @click="openCreateModal" :disabled="saving">
             + {{ t('groups.create') }}
           </button>
@@ -205,6 +208,47 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showBatchSend" class="modal-overlay" @click.self="showBatchSend = false">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ t('groups.batchSend') || '批量发送' }}</h3>
+          <button class="btn-close" @click="showBatchSend = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>{{ t('label.channel') }} *</label>
+            <div class="group-checkboxes">
+              <label v-for="group in groups" :key="group.id" class="group-checkbox">
+                <input type="checkbox" :value="group.id" v-model="batchSelectedGroups" />
+                <span>{{ group.name }}</span>
+                <span class="group-channels">({{ group.channels.length }} {{ t('label.channel') }})</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>{{ t('label.title') }} *</label>
+            <input v-model="batchTitle" type="text" :placeholder="t('label.title')" />
+          </div>
+          <div class="form-group">
+            <label>{{ t('label.content') }}</label>
+            <textarea v-model="batchBody" rows="3" :placeholder="t('label.content')"></textarea>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showBatchSend = false">
+              {{ t('button.cancel') }}
+            </button>
+            <button
+              class="btn btn-primary"
+              @click="executeBatchSend"
+              :disabled="batchSending || batchSelectedGroups.length === 0 || !batchTitle"
+            >
+              {{ batchSending ? t('label.sending') : t('button.send') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -261,6 +305,12 @@ interface TestResult {
 }
 
 const testResult = ref<TestResult | null>(null);
+
+const showBatchSend = ref(false);
+const batchSelectedGroups = ref<string[]>([]);
+const batchTitle = ref('');
+const batchBody = ref('');
+const batchSending = ref(false);
 
 const form = reactive({
   name: '',
@@ -434,6 +484,32 @@ async function testGroup(group: ChannelGroup): Promise<void> {
     };
   } finally {
     testingGroup.value = null;
+  }
+}
+
+function openBatchSendModal(): void {
+  batchSelectedGroups.value = [];
+  batchTitle.value = '';
+  batchBody.value = '';
+  showBatchSend.value = true;
+}
+
+async function executeBatchSend(): Promise<void> {
+  if (!props.accessToken || batchSelectedGroups.value.length === 0 || !batchTitle.value) return;
+  batchSending.value = true;
+  try {
+    const { batchSendToGroups } = await import('@/api');
+    const result = await batchSendToGroups(props.accessToken, {
+      groupIds: batchSelectedGroups.value,
+      title: batchTitle.value,
+      body: batchBody.value,
+    });
+    showToast(result.message, 'success');
+    showBatchSend.value = false;
+  } catch (error) {
+    showToast((error as Error).message || t('message.pushFailed'), 'error');
+  } finally {
+    batchSending.value = false;
   }
 }
 

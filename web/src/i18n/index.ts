@@ -88,6 +88,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'groups.createFirst': '创建第一个分组',
     'groups.confirmDelete': '确认删除',
     'groups.deleteConfirm': '确定要删除分组 {name} 吗？',
+    'groups.batchSend': '批量发送',
     'scheduled.title': '定时推送',
     'scheduled.create': '创建定时推送',
     'scheduled.edit': '编辑定时推送',
@@ -1053,6 +1054,8 @@ const messages: Record<Locale, LocaleMessages> = {
     // Push Favorites & Revoke
     'label.favorite': '收藏',
     'label.revoke': '撤销',
+    'label.compare': '对比',
+    'label.versionCompare': '版本对比',
     'label.revoked': '已撤销',
     'label.push_revoked': '推送已撤销',
     'label.saved_to_favorites': '已保存到收藏夹',
@@ -1169,6 +1172,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'groups.createFirst': 'Create First Group',
     'groups.confirmDelete': 'Confirm Delete',
     'groups.deleteConfirm': 'Are you sure you want to delete group {name}?',
+    'groups.batchSend': 'Batch Send',
     'scheduled.title': 'Scheduled Pushes',
     'scheduled.create': 'Create Scheduled Push',
     'scheduled.edit': 'Edit Scheduled Push',
@@ -2153,6 +2157,8 @@ const messages: Record<Locale, LocaleMessages> = {
     // Push Favorites & Revoke
     'label.favorite': 'Favorite',
     'label.revoke': 'Revoke',
+    'label.compare': 'Compare',
+    'label.versionCompare': 'Version Compare',
     'label.revoked': 'Revoked',
     'label.push_revoked': 'Push revoked',
     'label.saved_to_favorites': 'Saved to favorites',

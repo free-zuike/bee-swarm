@@ -5,7 +5,7 @@ import { useGlobalToast } from '@/composables/useToast';
 import { useExport } from '@/composables/useExport';
 import { TableSkeleton } from '../skeletons';
 import type { ChannelConfig } from '@/types';
-import { getExecutionLogs, revokePush, saveFavorite, type ExecutionLog } from '@/api';
+import { getExecutionLogs, revokePush, saveFavorite, comparePushVersions, type ExecutionLog } from '@/api';
 
 const { showToast } = useGlobalToast();
 const t = useTranslation();
@@ -71,6 +71,11 @@ const executionLogs = ref<ExecutionLog[]>([]);
 const executionLogsLoading = ref(false);
 const selectedLogDetail = ref<ExecutionLog | null>(null);
 const showLogDetail = ref(false);
+
+const compareIds = ref<string[]>([]);
+const showCompare = ref(false);
+const compareLoading = ref(false);
+const compareResult = ref<{ records: Record<string, unknown>[]; diff: Record<string, boolean> } | null>(null);
 
 const { exportData, progress, isExporting } = useExport();
 
@@ -185,6 +190,34 @@ async function loadExecutionLogs() {
 function openExecutionLogs() {
   showExecutionLog.value = true;
   loadExecutionLogs();
+}
+
+function toggleCompare(record: HistoryRecord) {
+  const idx = compareIds.value.indexOf(record.id);
+  if (idx >= 0) {
+    compareIds.value.splice(idx, 1);
+  } else if (compareIds.value.length < 2) {
+    compareIds.value.push(record.id);
+  }
+  if (compareIds.value.length === 2) {
+    executeCompare();
+  }
+}
+
+async function executeCompare() {
+  if (!props.accessToken || compareIds.value.length !== 2) return;
+  compareLoading.value = true;
+  showCompare.value = true;
+  compareResult.value = null;
+  try {
+    const result = await comparePushVersions(props.accessToken, compareIds.value[0], compareIds.value[1]);
+    compareResult.value = result;
+  } catch (err) {
+    showToast((err as Error).message || '对比失败', 'error');
+    showCompare.value = false;
+  } finally {
+    compareLoading.value = false;
+  }
 }
 
 function viewLogDetail(log: ExecutionLog) {
@@ -532,6 +565,13 @@ const activeFilters = computed(() => {
                   🔄 {{ t('label.resend') }}
                 </button>
                 <button
+                  class="btn btn-sm btn-secondary"
+                  @click="toggleCompare(record)"
+                  :class="{ 'btn-active': compareIds.includes(record.id) }"
+                >
+                  {{ compareIds.includes(record.id) ? '✓' : '🔀' }} {{ t('label.compare') || '对比' }}
+                </button>
+                <button
                   v-if="record.status !== 'revoked'"
                   class="btn btn-sm btn-secondary"
                   @click="handleFavorite(record)"
@@ -634,6 +674,43 @@ const activeFilters = computed(() => {
           <button class="btn btn-danger" @click="batchDeleteSelected" :disabled="batchDeleting">
             {{ batchDeleting ? t('button.deleting') : t('button.confirm_delete') }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showCompare" class="modal-overlay" @click.self="showCompare = false">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ t('label.versionCompare') || '版本对比' }}</h3>
+          <button class="btn-close" @click="showCompare = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="compareLoading" class="loading-state">{{ t('label.loading') }}</div>
+          <div v-else-if="compareResult" class="compare-result">
+            <div class="compare-row" v-for="field in ['title', 'body', 'url', 'channels']" :key="field">
+              <span class="compare-field">{{ field }}</span>
+              <span class="compare-diff" :class="{ changed: compareResult.diff[field] }">
+                {{ compareResult.diff[field] ? '≠' : '=' }}
+              </span>
+            </div>
+            <div class="compare-records">
+              <div class="compare-record">
+                <h4>#1</h4>
+                <p><strong>{{ compareResult.records[0]?.title }}</strong></p>
+                <p>{{ compareResult.records[0]?.body }}</p>
+              </div>
+              <div class="compare-record">
+                <h4>#2</h4>
+                <p><strong>{{ compareResult.records[1]?.title }}</strong></p>
+                <p>{{ compareResult.records[1]?.body }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="showCompare = false">
+              {{ t('button.close') }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -65,6 +65,17 @@ function errResponse(
   return c.json({ error: message, code }, status);
 }
 
+function ipToLong(ip: string): number {
+  const parts = ip.split('.').map(Number);
+  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+}
+
+function isIPInCIDR(ip: string, cidr: string): boolean {
+  const [range, bits] = cidr.split('/');
+  const mask = ~(2 ** (32 - parseInt(bits)) - 1) >>> 0;
+  return (ipToLong(ip) & mask) === (ipToLong(range) & mask);
+}
+
 async function getSystemSettings(env: Env) {
   const svc = new SystemSettingsService(env);
   await svc.ensureTable();
@@ -355,6 +366,21 @@ api.post('/login', validateBody(schemas.login), async (c) => {
 
   // 登录成功，清除失败计数
   clearLoginFailure(email, loginIP);
+
+  // 检查 IP 白名单
+  const allowedIPs = await userService.getAllowedIPs(user.id);
+  if (allowedIPs.length > 0) {
+    const isAllowed = allowedIPs.some((allowed) => {
+      if (allowed.includes('/')) {
+        // CIDR 格式检查
+        return isIPInCIDR(loginIP, allowed);
+      }
+      return loginIP === allowed;
+    });
+    if (!isAllowed) {
+      return c.json({ error: 'IP 不在白名单中', code: 'IP_NOT_ALLOWED' }, 403);
+    }
+  }
 
   // 检查是否启用了 2FA
   if (user.totp_enabled) {
