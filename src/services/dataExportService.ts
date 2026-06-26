@@ -656,8 +656,7 @@ export async function importUserData(
         'DELETE FROM push_templates WHERE user_id = ?',
         'DELETE FROM channel_configs WHERE user_id = ?',
         'DELETE FROM metrics WHERE user_id = ?',
-        // 保留备份端点配置，因为它们可能是需要的
-        // 'DELETE FROM backup_endpoints WHERE user_id = ?',
+        'DELETE FROM backup_endpoints WHERE user_id = ?',
       ];
 
       for (const stmt of deleteStatements) {
@@ -668,197 +667,93 @@ export async function importUserData(
     // 导入渠道配置
     if (!skipTables.includes('channelConfigs') && tables.channelConfigs?.length) {
       console.log(`[Import] Importing ${tables.channelConfigs.length} channel configs`);
-      for (const item of tables.channelConfigs) {
-        try {
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.channelId,
-              JSON.stringify(item.config),
-              item.enabled ? 1 : 0,
-              item.createdAt,
-              item.updatedAt
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import channel config:', (e as Error).message);
-        }
-      }
+      const statements = tables.channelConfigs.map(item =>
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(item.id, userId, item.channelId, JSON.stringify(item.config), item.enabled ? 1 : 0, item.createdAt, item.updatedAt)
+      );
+      await env.DB.batch(statements);
       imported.channelConfigs = tables.channelConfigs.length;
     }
 
     // 导入推送模板
     if (!skipTables.includes('pushTemplates') && tables.pushTemplates?.length) {
       console.log(`[Import] Importing ${tables.pushTemplates.length} push templates`);
-      for (const item of tables.pushTemplates) {
-        try {
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.name,
-              item.title || null,
-              item.body || null,
-              item.url || null,
-              item.imageUrl || null,
-              item.markdown || null,
-              item.channels ? JSON.stringify(item.channels) : null,
-              item.createdAt,
-              item.updatedAt
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import push template:', (e as Error).message);
-        }
-      }
+      const statements = tables.pushTemplates.map(item =>
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(item.id, userId, item.name, item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null, item.channels ? JSON.stringify(item.channels) : null, item.createdAt, item.updatedAt)
+      );
+      await env.DB.batch(statements);
       imported.pushTemplates = tables.pushTemplates.length;
     }
 
     // 导入定时推送任务
     if (!skipTables.includes('scheduledPushes') && tables.scheduledPushes?.length) {
       console.log(`[Import] Importing ${tables.scheduledPushes.length} scheduled pushes`);
-      for (const item of tables.scheduledPushes) {
+      const statements = tables.scheduledPushes.map(item => {
         const nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
-        try {
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, overdue_reminder_sent, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.templateId || null,
-              item.cron || null,
-              nextRun,
-              item.title || null,
-              item.body || null,
-              item.url || null,
-              item.imageUrl || null,
-              item.markdown || null,
-              item.channels ? JSON.stringify(item.channels) : null,
-              item.enabled ? 1 : 0,
-              item.status || 'pending',
-              item.recurringType || null,
-              item.selectedWeekDays ? JSON.stringify(item.selectedWeekDays) : null,
-              item.selectedMonthDays ? JSON.stringify(item.selectedMonthDays) : null,
-              item.yearlyDates ? JSON.stringify(item.yearlyDates) : null,
-              item.timezone || 'Asia/Shanghai',
-              item.abTestEnabled ? 1 : 0,
-              item.abTestVariants ? JSON.stringify(item.abTestVariants) : null,
-              item.overdueReminderSent ? 1 : 0,
-              item.createdAt,
-              item.updatedAt
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import scheduled push:', (e as Error).message);
-        }
-      }
+        return env.DB.prepare(
+          `INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, overdue_reminder_sent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          item.id, userId, item.templateId || null, item.cron || null, nextRun,
+          item.title || null, item.body || null, item.url || null, item.imageUrl || null,
+          item.markdown || null, item.channels ? JSON.stringify(item.channels) : null,
+          item.enabled ? 1 : 0, item.status || 'pending', item.recurringType || null,
+          item.selectedWeekDays ? JSON.stringify(item.selectedWeekDays) : null,
+          item.selectedMonthDays ? JSON.stringify(item.selectedMonthDays) : null,
+          item.yearlyDates ? JSON.stringify(item.yearlyDates) : null,
+          item.timezone || 'Asia/Shanghai', item.abTestEnabled ? 1 : 0,
+          item.abTestVariants ? JSON.stringify(item.abTestVariants) : null,
+          item.overdueReminderSent ? 1 : 0, item.createdAt, item.updatedAt
+        );
+      });
+      await env.DB.batch(statements);
       imported.scheduledPushes = tables.scheduledPushes.length;
     }
 
     // 导入渠道分组
     if (!skipTables.includes('channelGroups') && tables.channelGroups?.length) {
       console.log(`[Import] Importing ${tables.channelGroups.length} channel groups`);
-      for (const item of tables.channelGroups) {
-        try {
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO channel_groups (id, user_id, name, channels, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.name,
-              JSON.stringify(item.channels),
-              item.createdAt,
-              item.updatedAt
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import channel group:', (e as Error).message);
-        }
-      }
+      const statements = tables.channelGroups.map(item =>
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO channel_groups (id, user_id, name, channels, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+        ).bind(item.id, userId, item.name, JSON.stringify(item.channels), item.createdAt, item.updatedAt)
+      );
+      await env.DB.batch(statements);
       imported.channelGroups = tables.channelGroups.length;
     }
 
     // 导入推送历史（可选，因为可能数据量很大）
     if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
       console.log(`[Import] Importing ${tables.pushHistory.length} push history records`);
-      for (const item of tables.pushHistory) {
-        try {
-          // 兼容旧格式：success(boolean) -> status(string)
-          const raw = item as unknown as Record<string, unknown>;
-          const status = item.status || (raw.success !== undefined ? (raw.success ? 'success' : 'failed') : null);
-
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at, delivered_at, read_at, clicked_at, revoked_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.title || null,
-              item.body || null,
-              item.url || null,
-              item.imageUrl || null,
-              item.markdown ? 1 : 0,
-              item.channels ? JSON.stringify(item.channels) : null,
-              item.results ? JSON.stringify(item.results) : null,
-              status,
-              item.createdAt,
-              item.deliveredAt || null,
-              item.readAt || null,
-              item.clickedAt || null,
-              item.revokedAt || null
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import push history:', (e as Error).message);
-        }
-      }
+      const statements = tables.pushHistory.map(item => {
+        const raw = item as unknown as Record<string, unknown>;
+        const status = item.status || (raw.success !== undefined ? (raw.success ? 'success' : 'failed') : null);
+        return env.DB.prepare(
+          `INSERT OR REPLACE INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at, delivered_at, read_at, clicked_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          item.id, userId, item.title || null, item.body || null, item.url || null,
+          item.imageUrl || null, item.markdown ? 1 : 0,
+          item.channels ? JSON.stringify(item.channels) : null,
+          item.results ? JSON.stringify(item.results) : null,
+          status, item.createdAt, item.deliveredAt || null, item.readAt || null,
+          item.clickedAt || null, item.revokedAt || null
+        );
+      });
+      await env.DB.batch(statements);
       imported.pushHistory = tables.pushHistory.length;
     }
 
     // 导入审计日志
     if (!skipTables.includes('auditLogs') && tables.auditLogs?.length) {
-      for (const item of tables.auditLogs) {
-        try {
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO audit_logs (id, user_id, action, data, created_at)
-            VALUES (?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.action,
-              item.data ? JSON.stringify(item.data) : null,
-              item.createdAt
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import audit log:', (e as Error).message);
-        }
-      }
+      console.log(`[Import] Importing ${tables.auditLogs.length} audit logs`);
+      const statements = tables.auditLogs.map(item =>
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO audit_logs (id, user_id, action, data, created_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(item.id, userId, item.action, item.data ? JSON.stringify(item.data) : null, item.createdAt)
+      );
+      await env.DB.batch(statements);
       imported.auditLogs = tables.auditLogs.length;
     }
 
@@ -892,31 +787,18 @@ export async function importUserData(
     // 导入备份端点
     if (!skipTables.includes('backupEndpoints') && tables.backupEndpoints?.length) {
       console.log(`[Import] Importing ${tables.backupEndpoints.length} backup endpoints`);
-      for (const item of tables.backupEndpoints) {
-        try {
-          await env.DB.prepare(
-            `
-            INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
-          )
-            .bind(
-              item.id,
-              userId,
-              item.name,
-              item.type,
-              item.config ? JSON.stringify(item.config) : '{}',
-              item.enabled ? 1 : 0,
-              item.schedule ? JSON.stringify(item.schedule) : null,
-              item.retention || null,
-              item.createdAt,
-              item.updatedAt
-            )
-            .run();
-        } catch (e) {
-          console.warn('[Import] Failed to import backup endpoint:', (e as Error).message);
-        }
-      }
+      const statements = tables.backupEndpoints.map(item =>
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          item.id, userId, item.name, item.type,
+          item.config ? JSON.stringify(item.config) : '{}',
+          item.enabled ? 1 : 0,
+          item.schedule ? JSON.stringify(item.schedule) : null,
+          item.retention || null, item.createdAt, item.updatedAt
+        )
+      );
+      await env.DB.batch(statements);
       imported.backupEndpoints = tables.backupEndpoints.length;
     }
 
