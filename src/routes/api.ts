@@ -190,8 +190,8 @@ api.post('/register', registerLimiter, validateBody(schemas.register), async (c)
     // 邮件发送失败不影响注册
   }
 
-  // 角色逻辑：管理员邮箱 → admin，SMTP已配置且发送了邮件 → viewer（未验证），否则 → user
-  const role = isAdminEmail ? 'admin' : smtpConfigured && emailSent ? 'viewer' : 'user';
+  // 角色逻辑：第一个用户或管理员邮箱 → admin，SMTP已配置且发送了邮件 → viewer（未验证），否则 → user
+  const role = isFirstUser || isAdminEmail ? 'admin' : smtpConfigured && emailSent ? 'viewer' : 'user';
 
   const hashed = await hashPassword(password);
   await userService.createUser(email, hashed, role);
