@@ -1246,13 +1246,16 @@ export async function restoreFromEndpoint(
     let content = await response.text();
 
     // 尝试解密备份内容
-    try {
-      const encryptionSecret = user.password;
-      const encryptionSalt = user.id;
-      content = await decryptData(content, encryptionSecret, encryptionSalt);
-    } catch (decryptError) {
-      // 解密失败，可能是旧的未加密备份，直接使用原始内容
-      console.warn('[Backup] Decryption failed, trying raw content:', decryptError);
+    if (content.startsWith('v1:')) {
+      // 加密格式，尝试用当前用户密码解密
+      try {
+        const encryptionSecret = user.password;
+        const encryptionSalt = user.id;
+        content = await decryptData(content, encryptionSecret, encryptionSalt);
+      } catch (decryptError) {
+        // 解密失败，可能是不同用户的备份
+        throw new Error('备份文件已加密，无法用当前账号解密。请使用原账号恢复，或联系管理员。');
+      }
     }
 
     const data = JSON.parse(content);
