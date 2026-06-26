@@ -792,9 +792,8 @@ export async function importUserData(
       for (const item of tables.pushHistory) {
         try {
           // 兼容旧格式：success(boolean) -> status(string)
-          const status = item.status || (item as Record<string, unknown>).success !== undefined
-            ? ((item as Record<string, unknown>).success ? 'success' : 'failed')
-            : null;
+          const raw = item as unknown as Record<string, unknown>;
+          const status = item.status || (raw.success !== undefined ? (raw.success ? 'success' : 'failed') : null);
 
           await env.DB.prepare(
             `
