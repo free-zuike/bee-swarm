@@ -491,7 +491,7 @@ export async function restoreBackupFromEndpoint(
   return tokenRequest(`${BASE}/admin/backup-endpoints/${id}/restore`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key }),
+    body: JSON.stringify({ backupKey: key }),
   });
 }
 
