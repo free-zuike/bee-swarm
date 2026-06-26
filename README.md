@@ -171,10 +171,12 @@ npm run deploy
 
 | 场景 | 方式 | 说明 |
 |------|------|------|
-| 本地开发 | `.dev.vars` | 已加入 `.gitignore` |
-| 生产部署 | `wrangler secret` | Cloudflare 云端加密存储 |
+| 用户认证 | 邮箱 + 密码 + JWT | 注册即用，密码哈希存储 |
+| 双因素认证 | TOTP 2FA | Google/Microsoft Authenticator |
+| IP 白名单 | 登录时检查 IP | 支持 CIDR 格式 |
+| 暴力破解防护 | 限流 + 锁定 | 5 次失败锁定 15 分钟 |
 | 推送渠道 | `wrangler.toml` [vars] | 非敏感配置 |
-| 登录保护 | 密码 + 2FA + IP 白名单 | 三重安全策略 |
+| SMTP 邮件 | `wrangler secret` | Cloudflare 云端加密存储 |
 | 数据安全 | 备份 + 审计日志 | 可追溯可恢复 |
 
 ## 🔌 API 接口
@@ -213,11 +215,18 @@ curl -X POST "https://你的域名/api/admin/push?password=密码" \
 
 ## 📝 环境变量
 
-### 敏感配置（使用 Secrets）
+### 可选配置（使用 Secrets）
 
 ```bash
-npx wrangler secret put ADMIN_PASSWORD
-npx wrangler secret put JWT_SECRET
+# 管理员邮箱（指定该邮箱注册时自动获得管理员角色）
+npx wrangler secret put ADMIN_EMAIL
+
+# SMTP 邮件配置（密码重置功能）
+npx wrangler secret put SMTP_HOST
+npx wrangler secret put SMTP_PORT
+npx wrangler secret put SMTP_USERNAME
+npx wrangler secret put SMTP_PASSWORD
+npx wrangler secret put MAIL_FROM
 ```
 
 ### 非敏感配置（wrangler.toml）
