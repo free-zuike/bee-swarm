@@ -407,9 +407,12 @@ export async function getApiKeyWithToken(
 // -------------------------------------------
 
 // 获取所有备份端
-export async function getBackupEndpoints(token: string): Promise<{ endpoints: BackupEndpoint[] }> {
+export async function getBackupEndpoints(
+  token: string,
+  forceRefresh?: boolean
+): Promise<{ endpoints: BackupEndpoint[] }> {
   const url = `${BASE}/admin/backup-endpoints`;
-  return withCache(url, () => tokenRequest(url, token), token);
+  return withCache(url, () => tokenRequest(url, token), token, { forceRefresh });
 }
 
 // 添加备份端

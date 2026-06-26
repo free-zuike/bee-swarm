@@ -39,7 +39,7 @@ export function useBackupHandlers({
 
   async function handleLoadEndpoints() {
     try {
-      const data = await getBackupEndpoints(accessToken.value);
+      const data = await getBackupEndpoints(accessToken.value, true);
       backupManagerRef.value?.setEndpoints(data.endpoints || []);
     } catch (err: unknown) {
       console.error(t('msg.list_backups_failed') + ':', err);
@@ -105,7 +105,7 @@ export function useBackupHandlers({
 
   async function handleListBackups(id: string) {
     try {
-      const data = await listBackupsFromEndpoint(accessToken.value, id);
+      const data = await listBackupsFromEndpoint(accessToken.value, id, true);
       backupManagerRef.value?.setBackups(data.backups || []);
     } catch (err: unknown) {
       console.error('加载备份列表失败:', err);
