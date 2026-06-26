@@ -85,15 +85,14 @@ jobs:
       - name: Setup Queues
         id: queues
         run: |
-          echo "检查 Queues 队列是否存在..."
+          echo "检查并创建 Queues 队列..."
           
-          # 尝试列出队列
-          set +e  # 临时禁用错误退出
-          npx wrangler queues list 2>&1
-          set -e  # 重新启用错误退出
+          # 尝试创建队列（如果已存在会忽略错误）
+          set +e
+          npx wrangler queues create bee-swarm-push-queue 2>&1
+          set -e
           
-          # 队列应该已经存在 (bee-swarm-push-queue)
-          echo "✅ 期望的队列: bee-swarm-push-queue"
+          echo "✅ 队列 bee-swarm-push-queue 就绪"
           echo "queues_ready=true" >> $GITHUB_OUTPUT
 
       - name: Update wrangler.toml with D1 ID
