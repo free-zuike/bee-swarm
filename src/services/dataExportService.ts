@@ -291,6 +291,12 @@ export async function exportUserData(
       enabled: r.enabled === 1,
       status: r.status,
       recurringType: r.recurring_type,
+      selectedWeekDays: r.selected_week_days ? JSON.parse(r.selected_week_days) : undefined,
+      selectedMonthDays: r.selected_month_days ? JSON.parse(r.selected_month_days) : undefined,
+      yearlyDates: r.yearly_dates ? JSON.parse(r.yearly_dates) : undefined,
+      timezone: r.timezone,
+      abTestEnabled: r.ab_test_enabled === 1,
+      abTestVariants: r.ab_test_variants ? JSON.parse(r.ab_test_variants) : undefined,
       overdueReminderSent: r.overdue_reminder_sent === 1,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
@@ -349,19 +355,19 @@ export async function exportUserData(
   if (pushHistory.results?.length) {
     result.tables.pushHistory = pushHistory.results.map((r) => ({
       id: r.id,
-      channelId: r.channel_id,
-      channelType: r.channel_type,
-      channelName: r.channel_name,
       title: r.title,
-      content: r.content,
+      body: r.body,
       url: r.url,
       imageUrl: r.image_url,
-      markdown: r.markdown,
-      success: r.success === 1,
-      error: r.error,
-      latencyMs: r.latency_ms,
-      timestamp: r.timestamp,
+      markdown: r.markdown === 1,
+      channels: r.channels ? JSON.parse(r.channels) : undefined,
+      results: r.results ? JSON.parse(r.results) : undefined,
+      status: r.status,
       createdAt: r.created_at,
+      deliveredAt: r.delivered_at,
+      readAt: r.read_at,
+      clickedAt: r.clicked_at,
+      revokedAt: r.revoked_at,
     }));
     result.metadata.tableCounts!.pushHistory = result.tables.pushHistory.length;
   }
@@ -500,6 +506,7 @@ export async function exportUserData(
       id: r.id,
       name: r.name,
       type: r.type,
+      config: r.config ? JSON.parse(r.config) : undefined,
       enabled: r.enabled === 1,
       schedule: r.schedule ? JSON.parse(r.schedule) : undefined,
       retention: r.retention,
@@ -704,8 +711,8 @@ export async function importUserData(
         try {
           await env.DB.prepare(
             `
-            INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, overdue_reminder_sent, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, overdue_reminder_sent, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
           )
             .bind(
@@ -723,6 +730,12 @@ export async function importUserData(
               item.enabled ? 1 : 0,
               item.status || 'pending',
               item.recurringType || null,
+              item.selectedWeekDays ? JSON.stringify(item.selectedWeekDays) : null,
+              item.selectedMonthDays ? JSON.stringify(item.selectedMonthDays) : null,
+              item.yearlyDates ? JSON.stringify(item.yearlyDates) : null,
+              item.timezone || 'Asia/Shanghai',
+              item.abTestEnabled ? 1 : 0,
+              item.abTestVariants ? JSON.stringify(item.abTestVariants) : null,
               item.overdueReminderSent ? 1 : 0,
               item.createdAt,
               item.updatedAt
@@ -767,26 +780,26 @@ export async function importUserData(
         try {
           await env.DB.prepare(
             `
-            INSERT OR REPLACE INTO push_history (id, user_id, channel_id, channel_type, channel_name, title, content, url, image_url, markdown, success, error, latency_ms, timestamp, created_at)
+            INSERT OR REPLACE INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at, delivered_at, read_at, clicked_at, revoked_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
           )
             .bind(
               item.id,
               userId,
-              item.channelId,
-              item.channelType || null,
-              item.channelName || null,
               item.title || null,
-              item.content || null,
+              item.body || null,
               item.url || null,
               item.imageUrl || null,
-              item.markdown || null,
-              item.success ? 1 : 0,
-              item.error || null,
-              item.latencyMs || null,
-              item.timestamp,
-              item.createdAt
+              item.markdown ? 1 : 0,
+              item.channels ? JSON.stringify(item.channels) : null,
+              item.results ? JSON.stringify(item.results) : null,
+              item.status || null,
+              item.createdAt,
+              item.deliveredAt || null,
+              item.readAt || null,
+              item.clickedAt || null,
+              item.revokedAt || null
             )
             .run();
         } catch (e) {
@@ -854,8 +867,8 @@ export async function importUserData(
         try {
           await env.DB.prepare(
             `
-            INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, enabled, schedule, retention, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
           )
             .bind(
@@ -863,6 +876,7 @@ export async function importUserData(
               userId,
               item.name,
               item.type,
+              item.config ? JSON.stringify(item.config) : null,
               item.enabled ? 1 : 0,
               item.schedule ? JSON.stringify(item.schedule) : null,
               item.retention || null,
