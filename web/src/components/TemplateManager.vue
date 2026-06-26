@@ -3,23 +3,6 @@
     <div class="panel">
       <div class="panel-header">
         <h2>📝 {{ t('templates.title') }}</h2>
-        <div class="header-tabs">
-          <button
-            :class="['tab-btn', { active: activeTab === 'templates' }]"
-            @click="activeTab = 'templates'"
-          >
-            {{ t('label.myTemplates') }}
-          </button>
-          <button
-            :class="['tab-btn', { active: activeTab === 'market' }]"
-            @click="
-              activeTab = 'market';
-              loadMarket();
-            "
-          >
-            🏪 {{ t('label.templateMarket') }}
-          </button>
-        </div>
         <div class="header-actions">
           <div v-if="selectedTemplateIds.size > 0" class="selected-actions">
             <span class="selected-count">{{
@@ -51,96 +34,6 @@
           <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
         </select>
       </div>
-
-      <!-- 模板市场 -->
-      <template v-if="activeTab === 'market'">
-        <div class="filter-bar">
-          <input
-            v-model="marketSearch"
-            type="text"
-            :placeholder="t('label.searchTemplatePlaceholder')"
-            class="search-input"
-          />
-          <select v-model="marketCategory" class="category-select">
-            <option value="">{{ t('label.allCategories') }}</option>
-            <option v-for="cat in marketCategories" :key="cat" :value="cat">{{ cat }}</option>
-          </select>
-        </div>
-
-        <div v-if="marketLoading" class="loading-state">
-          <div class="spinner"></div>
-          <span>{{ t('label.loading') }}</span>
-        </div>
-
-        <div v-else-if="marketTemplates.length === 0" class="empty-state">
-          <div class="empty-icon">🏪</div>
-          <p>{{ t('label.marketEmpty') }}</p>
-        </div>
-
-        <div v-else class="template-list">
-          <div v-for="tpl in marketTemplates" :key="tpl.id" class="template-card">
-            <div class="template-main">
-              <div class="template-top">
-                <div class="template-name-row">
-                  <h3 class="template-name">{{ tpl.name }}</h3>
-                  <div class="template-tags">
-                    <span v-if="tpl.category" class="tag tag-category">{{ tpl.category }}</span>
-                    <span v-if="tpl.author" class="tag tag-author">{{ tpl.author }}</span>
-                    <span class="tag tag-downloads">📥 {{ tpl.downloads || 0 }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="template-body">
-                <div class="field-row">
-                  <span class="field-label">{{ t('label.title') }}</span>
-                  <span class="field-value">{{ tpl.title }}</span>
-                </div>
-                <div class="field-row">
-                  <span class="field-label">{{ t('label.content') }}</span>
-                  <span class="field-value field-content">{{
-                    tpl.content || t('templates.noContent')
-                  }}</span>
-                </div>
-              </div>
-            </div>
-            <div class="template-actions">
-              <button class="action-btn action-use" @click="useTemplate(tpl)">
-                {{ t('button.use') }}
-              </button>
-              <button class="action-btn action-copy" @click="copyMarketTemplate(tpl)">
-                {{ t('button.copy') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="marketTotal > 20" class="market-pagination">
-          <button
-            class="btn btn-sm btn-secondary"
-            :disabled="marketOffset === 0"
-            @click="
-              marketOffset -= 20;
-              loadMarket();
-            "
-          >
-            {{ t('button.prev') }}
-          </button>
-          <span class="page-info">
-            {{ marketOffset + 1 }}-{{ Math.min(marketOffset + 20, marketTotal) }} /
-            {{ marketTotal }}
-          </span>
-          <button
-            class="btn btn-sm btn-secondary"
-            :disabled="marketOffset + 20 >= marketTotal"
-            @click="
-              marketOffset += 20;
-              loadMarket();
-            "
-          >
-            {{ t('button.next') }}
-          </button>
-        </div>
-      </template>
 
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
@@ -471,13 +364,7 @@ const variableValues = reactive<Record<string, string>>({});
 const searchQuery = ref('');
 const selectedCategory = ref('');
 const selectedTemplateIds = ref<Set<string>>(new Set());
-const activeTab = ref<'templates' | 'market'>('templates');
-const marketLoading = ref(false);
-const marketTemplates = ref<PushTemplate[]>([]);
-const marketTotal = ref(0);
-const marketOffset = ref(0);
-const marketSearch = ref('');
-const marketCategory = ref('');
+const activeTab = ref<'templates'>('templates');
 
 function getChannelName(ch: string): string {
   return t(`channel.${ch}`) || ch;
@@ -741,48 +628,6 @@ async function loadTemplates() {
 }
 
 onMounted(loadTemplates);
-
-const marketCategories = computed(() => {
-  const cats = new Set<string>();
-  marketTemplates.value.forEach((t) => {
-    if (t.category) cats.add(t.category);
-  });
-  return Array.from(cats).sort();
-});
-
-async function loadMarket() {
-  if (!props.accessToken) return;
-  marketLoading.value = true;
-  try {
-    const { getMarketTemplates } = await import('@/api');
-    const data = await getMarketTemplates(props.accessToken, {
-      limit: 20,
-      offset: marketOffset.value,
-      category: marketCategory.value || undefined,
-      search: marketSearch.value || undefined,
-    });
-    marketTemplates.value = data.templates || [];
-    marketTotal.value = data.total || 0;
-  } catch (err) {
-    console.error('加载市场模板失败:', err);
-  } finally {
-    marketLoading.value = false;
-  }
-}
-
-async function copyMarketTemplate(tpl: PushTemplate) {
-  if (!props.accessToken) return;
-  try {
-    const { copyFromMarket } = await import('@/api');
-    const result = await copyFromMarket(props.accessToken, tpl.id);
-    if (result.template) {
-      templates.value.push(result.template);
-      showToast(t('message.templateCopied'), 'success');
-    }
-  } catch (err) {
-    showToast((err as Error).message || t('message.copyFailed'), 'error');
-  }
-}
 </script>
 
 <style scoped>
@@ -1916,87 +1761,5 @@ async function copyMarketTemplate(tpl: PushTemplate) {
 
 .template-manager.dark .form-actions {
   border-top-color: #313244;
-}
-
-.header-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.tab-btn {
-  padding: 8px 16px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  background: var(--bg-panel, white);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-color: transparent;
-}
-
-.tab-btn:hover:not(.active) {
-  border-color: #667eea;
-}
-
-.tag-author {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.tag-downloads {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.action-copy {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border-radius: 0 0 8px 8px;
-}
-
-.action-copy:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-}
-
-.market-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color, #f0f0f0);
-}
-
-.page-info {
-  font-size: 14px;
-  color: var(--text-secondary, #666);
-}
-
-.template-manager.dark .tab-btn {
-  background: #1e1e2e;
-  border-color: #45475a;
-  color: #cdd6f4;
-}
-
-.template-manager.dark .tab-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.template-manager.dark .tag-author {
-  background: #313244;
-  color: #fab387;
-}
-
-.template-manager.dark .tag-downloads {
-  background: #313244;
-  color: #a6e3a1;
 }
 </style>
