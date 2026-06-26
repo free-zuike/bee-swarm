@@ -1097,6 +1097,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.exporting': '导出中...',
     'label.myTemplates': '我的模板',
     'label.templateMarket': '模板市场',
+    'label.marketEmpty': '暂无模板',
     'message.export_success': '导出成功',
     'message.export_failed': '导出失败',
     // 2FA
@@ -2229,6 +2230,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'label.exporting': 'Exporting...',
     'label.myTemplates': 'My Templates',
     'label.templateMarket': 'Template Market',
+    'label.marketEmpty': 'No templates available',
     'message.export_success': 'Export successful',
     'message.export_failed': 'Export failed',
     // 2FA
