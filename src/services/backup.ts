@@ -339,7 +339,7 @@ export async function uploadBackupToEndpoint(
     // 加密备份内容
     let encrypted = false;
     const encryptionSecret = user.password; // 使用用户密码哈希作为密钥材料
-    const encryptionSalt = user.id; // 使用用户ID作为盐
+    const encryptionSalt = user.email; // 使用邮箱作为盐（跨账号一致）
 
     if (encryptionSecret && encryptionSalt) {
       try {
@@ -1250,7 +1250,7 @@ export async function restoreFromEndpoint(
       // 加密格式，尝试用当前用户密码解密
       try {
         const encryptionSecret = user.password;
-        const encryptionSalt = user.id;
+        const encryptionSalt = user.email; // 使用邮箱作为盐（跨账号一致）
         content = await decryptData(content, encryptionSecret, encryptionSalt);
       } catch (decryptError) {
         // 解密失败，可能是不同用户的备份

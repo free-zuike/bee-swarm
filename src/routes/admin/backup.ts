@@ -329,13 +329,15 @@ backupRoutes.get('/backup-endpoints/:id/backups/:key/download', async (c) => {
   let content = await response.text();
 
   // 尝试解密备份内容
-  try {
-    const encryptionSecret = user.password;
-    const encryptionSalt = user.id;
-    content = await decryptData(content, encryptionSecret, encryptionSalt);
-  } catch (decryptError) {
-    // 解密失败，可能是旧的未加密备份，直接使用原始内容
-    console.warn('[Backup] Decryption failed, using raw content:', decryptError);
+  if (content.startsWith('v1:')) {
+    try {
+      const encryptionSecret = user.password;
+      const encryptionSalt = user.email; // 使用邮箱作为盐（跨账号一致）
+      content = await decryptData(content, encryptionSecret, encryptionSalt);
+    } catch (decryptError) {
+      // 解密失败，可能是不同用户的备份
+      console.warn('[Backup] Decryption failed:', decryptError);
+    }
   }
 
   const filename = key.split('/').pop() || 'backup.json';
