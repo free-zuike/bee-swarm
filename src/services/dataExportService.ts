@@ -902,7 +902,7 @@ export async function importUserData(
               userId,
               item.name,
               item.type,
-              item.config ? JSON.stringify(item.config) : null,
+              item.config ? JSON.stringify(item.config) : '{}',
               item.enabled ? 1 : 0,
               item.schedule ? JSON.stringify(item.schedule) : null,
               item.retention || null,
