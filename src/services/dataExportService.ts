@@ -642,22 +642,26 @@ export async function importUserData(
     // 导入渠道配置
     if (!skipTables.includes('channelConfigs') && tables.channelConfigs?.length) {
       for (const item of tables.channelConfigs) {
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO channel_configs (id, user_id, channel_id, config, enabled, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.channelId,
-            JSON.stringify(item.config),
-            item.enabled ? 1 : 0,
-            item.createdAt,
-            item.updatedAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.channelId,
+              JSON.stringify(item.config),
+              item.enabled ? 1 : 0,
+              item.createdAt,
+              item.updatedAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import channel config:', (e as Error).message);
+        }
       }
       imported.channelConfigs = tables.channelConfigs.length;
     }
@@ -665,26 +669,30 @@ export async function importUserData(
     // 导入推送模板
     if (!skipTables.includes('pushTemplates') && tables.pushTemplates?.length) {
       for (const item of tables.pushTemplates) {
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.name,
-            item.title || null,
-            item.body || null,
-            item.url || null,
-            item.imageUrl || null,
-            item.markdown || null,
-            item.channels ? JSON.stringify(item.channels) : null,
-            item.createdAt,
-            item.updatedAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.name,
+              item.title || null,
+              item.body || null,
+              item.url || null,
+              item.imageUrl || null,
+              item.markdown || null,
+              item.channels ? JSON.stringify(item.channels) : null,
+              item.createdAt,
+              item.updatedAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import push template:', (e as Error).message);
+        }
       }
       imported.pushTemplates = tables.pushTemplates.length;
     }
@@ -693,32 +701,36 @@ export async function importUserData(
     if (!skipTables.includes('scheduledPushes') && tables.scheduledPushes?.length) {
       for (const item of tables.scheduledPushes) {
         const nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, overdue_reminder_sent, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, overdue_reminder_sent, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.templateId || null,
-            item.cron || null,
-            nextRun,
-            item.title || null,
-            item.body || null,
-            item.url || null,
-            item.imageUrl || null,
-            item.markdown || null,
-            item.channels ? JSON.stringify(item.channels) : null,
-            item.enabled ? 1 : 0,
-            item.status || 'pending',
-            item.recurringType || null,
-            item.overdueReminderSent ? 1 : 0,
-            item.createdAt,
-            item.updatedAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.templateId || null,
+              item.cron || null,
+              nextRun,
+              item.title || null,
+              item.body || null,
+              item.url || null,
+              item.imageUrl || null,
+              item.markdown || null,
+              item.channels ? JSON.stringify(item.channels) : null,
+              item.enabled ? 1 : 0,
+              item.status || 'pending',
+              item.recurringType || null,
+              item.overdueReminderSent ? 1 : 0,
+              item.createdAt,
+              item.updatedAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import scheduled push:', (e as Error).message);
+        }
       }
       imported.scheduledPushes = tables.scheduledPushes.length;
     }
@@ -726,21 +738,25 @@ export async function importUserData(
     // 导入渠道分组
     if (!skipTables.includes('channelGroups') && tables.channelGroups?.length) {
       for (const item of tables.channelGroups) {
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO channel_groups (id, user_id, name, channels, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO channel_groups (id, user_id, name, channels, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.name,
-            JSON.stringify(item.channels),
-            item.createdAt,
-            item.updatedAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.name,
+              JSON.stringify(item.channels),
+              item.createdAt,
+              item.updatedAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import channel group:', (e as Error).message);
+        }
       }
       imported.channelGroups = tables.channelGroups.length;
     }
@@ -748,30 +764,34 @@ export async function importUserData(
     // 导入推送历史（可选，因为可能数据量很大）
     if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
       for (const item of tables.pushHistory) {
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO push_history (id, user_id, channel_id, channel_type, channel_name, title, content, url, image_url, markdown, success, error, latency_ms, timestamp, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO push_history (id, user_id, channel_id, channel_type, channel_name, title, content, url, image_url, markdown, success, error, latency_ms, timestamp, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.channelId,
-            item.channelType || null,
-            item.channelName || null,
-            item.title || null,
-            item.content || null,
-            item.url || null,
-            item.imageUrl || null,
-            item.markdown || null,
-            item.success ? 1 : 0,
-            item.error || null,
-            item.latencyMs || null,
-            item.timestamp,
-            item.createdAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.channelId,
+              item.channelType || null,
+              item.channelName || null,
+              item.title || null,
+              item.content || null,
+              item.url || null,
+              item.imageUrl || null,
+              item.markdown || null,
+              item.success ? 1 : 0,
+              item.error || null,
+              item.latencyMs || null,
+              item.timestamp,
+              item.createdAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import push history:', (e as Error).message);
+        }
       }
       imported.pushHistory = tables.pushHistory.length;
     }
@@ -779,68 +799,80 @@ export async function importUserData(
     // 导入审计日志
     if (!skipTables.includes('auditLogs') && tables.auditLogs?.length) {
       for (const item of tables.auditLogs) {
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO audit_logs (id, user_id, action, data, created_at)
+            VALUES (?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO audit_logs (id, user_id, action, data, created_at)
-          VALUES (?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.action,
-            item.data ? JSON.stringify(item.data) : null,
-            item.createdAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.action,
+              item.data ? JSON.stringify(item.data) : null,
+              item.createdAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import audit log:', (e as Error).message);
+        }
       }
       imported.auditLogs = tables.auditLogs.length;
     }
 
     // 导入指标统计
     if (!skipTables.includes('metrics') && tables.metrics) {
-      await env.DB.prepare(
+      try {
+        await env.DB.prepare(
+          `
+          INSERT OR REPLACE INTO metrics (id, user_id, total, success, failed, channel_stats, daily_stats, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
-        INSERT OR REPLACE INTO metrics (id, user_id, total, success, failed, channel_stats, daily_stats, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-      )
-        .bind(
-          crypto.randomUUID(),
-          userId,
-          tables.metrics.total,
-          tables.metrics.success,
-          tables.metrics.failed,
-          tables.metrics.channelStats ? JSON.stringify(tables.metrics.channelStats) : null,
-          tables.metrics.dailyStats ? JSON.stringify(tables.metrics.dailyStats) : null,
-          tables.metrics.createdAt,
-          tables.metrics.updatedAt
         )
-        .run();
-      imported.metrics = 1;
+          .bind(
+            crypto.randomUUID(),
+            userId,
+            tables.metrics.total,
+            tables.metrics.success,
+            tables.metrics.failed,
+            tables.metrics.channelStats ? JSON.stringify(tables.metrics.channelStats) : null,
+            tables.metrics.dailyStats ? JSON.stringify(tables.metrics.dailyStats) : null,
+            tables.metrics.createdAt,
+            tables.metrics.updatedAt
+          )
+          .run();
+        imported.metrics = 1;
+      } catch (e) {
+        console.warn('[Import] Failed to import metrics:', (e as Error).message);
+      }
     }
 
     // 导入备份端点（仅在合并模式下）
     if (!skipTables.includes('backupEndpoints') && tables.backupEndpoints?.length) {
       for (const item of tables.backupEndpoints) {
-        await env.DB.prepare(
+        try {
+          await env.DB.prepare(
+            `
+            INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, enabled, schedule, retention, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
-          INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, enabled, schedule, retention, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-          .bind(
-            item.id,
-            userId,
-            item.name,
-            item.type,
-            item.enabled ? 1 : 0,
-            item.schedule ? JSON.stringify(item.schedule) : null,
-            item.retention || null,
-            item.createdAt,
-            item.updatedAt
           )
-          .run();
+            .bind(
+              item.id,
+              userId,
+              item.name,
+              item.type,
+              item.enabled ? 1 : 0,
+              item.schedule ? JSON.stringify(item.schedule) : null,
+              item.retention || null,
+              item.createdAt,
+              item.updatedAt
+            )
+            .run();
+        } catch (e) {
+          console.warn('[Import] Failed to import backup endpoint:', (e as Error).message);
+        }
       }
       imported.backupEndpoints = tables.backupEndpoints.length;
     }
