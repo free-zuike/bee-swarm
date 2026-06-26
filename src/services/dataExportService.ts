@@ -559,7 +559,10 @@ export async function importUserData(
     // 在事务中执行导入
     const tables = data.tables;
     console.log('[Import] Starting import for user:', userId);
-    console.log('[Import] Tables to import:', Object.keys(tables).filter(k => tables[k as keyof typeof tables]?.length));
+    console.log('[Import] Tables to import:', Object.keys(tables).filter(k => {
+      const val = tables[k as keyof typeof tables];
+      return val && (Array.isArray(val) ? val.length > 0 : typeof val === 'object');
+    }));
 
     // 导入用户设置（总是导入）
     if (data.userSettings) {
