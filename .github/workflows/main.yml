@@ -97,7 +97,14 @@ jobs:
 
       - name: Update wrangler.toml with D1 ID
         run: |
-          sed -i "s/\${D1_DATABASE_ID}/${{ steps.d1.outputs.d1_id }}/g" wrangler.toml
+          # 从 D1 列表中获取数据库 ID
+          D1_ID="${{ steps.d1.outputs.d1_id }}"
+          if [ -n "$D1_ID" ] && [ "$D1_ID" != "null" ]; then
+            sed -i "s/database_id = \".*\"/database_id = \"$D1_ID\"/g" wrangler.toml
+            echo "✅ 已更新 wrangler.toml: database_id = $D1_ID"
+          else
+            echo "⚠️ 未找到 D1 数据库 ID，使用 wrangler.toml 中的默认值"
+          fi
 
       - name: Run D1 Migrations
         env:
