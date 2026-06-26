@@ -103,7 +103,7 @@ api.get('/turnstile/config', async (c) => {
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 10,
   message: '注册操作过于频繁，请稍后再试',
 });
 
