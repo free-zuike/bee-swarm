@@ -148,7 +148,7 @@ api.post('/register', validateBody(schemas.register), async (c) => {
 
   const existing = await userService.findByEmail(email);
   if (existing) {
-    return errResponse(c, '操作失败，请稍后重试', 'VALIDATION_ERROR');
+    return errResponse(c, '该邮箱已注册，请直接登录', 'EMAIL_EXISTS');
   }
 
   // 混合模式：第一个用户或指定邮箱自动成为管理员
