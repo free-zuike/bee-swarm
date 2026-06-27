@@ -820,8 +820,17 @@ export async function listBackupsFromEndpoint(
   username: string,
   endpoint: BackupEndpoint
 ): Promise<BackupInfo[]> {
+  if (!endpoint.config) {
+    console.warn('[Backup] Endpoint config is empty, cannot list backups');
+    return [];
+  }
+
   if (endpoint.type === 's3') {
     const config = endpoint.config as S3Config;
+    if (!config.accessKeyId || !config.secretAccessKey || !config.endpoint) {
+      console.warn('[Backup] S3 config incomplete');
+      return [];
+    }
     const root = config.path || 'beeswarm';
     const prefix = `${root}/backups/${username}/`;
 
@@ -880,6 +889,10 @@ export async function listBackupsFromEndpoint(
     });
   } else if (endpoint.type === 'webdav') {
     const config = endpoint.config as WebDAVConfig;
+    if (!config.url) {
+      console.warn('[Backup] WebDAV config incomplete');
+      return [];
+    }
     const root = config.path || 'beeswarm';
     const dirPath = `/${root}/backups/${username}/`;
     const baseUrl = config.url.replace(/\/$/, '');
@@ -949,7 +962,8 @@ export async function listBackupsFromEndpoint(
   } else if (endpoint.type === 'r2') {
     const r2Service = new R2StorageService(env);
     if (!r2Service.isAvailable()) {
-      throw new Error('R2 存储未配置');
+      console.warn('[Backup] R2 storage not configured');
+      return [];
     }
 
     const config = endpoint.config as R2Config;
