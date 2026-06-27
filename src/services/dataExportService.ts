@@ -698,8 +698,8 @@ export async function importUserData(
       try {
         const statements = tables.pushTemplates.map(item =>
           env.DB.prepare(
-            `INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(item.id, userId, item.name, item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null, item.channels ? JSON.stringify(item.channels) : null, item.createdAt, item.updatedAt)
+            `INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, category, variables, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(item.id, userId, item.name, item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null, item.channels ? JSON.stringify(item.channels) : null, item.category || null, item.variables ? JSON.stringify(item.variables) : null, item.createdAt, item.updatedAt)
         );
         await env.DB.batch(statements);
         imported.pushTemplates = tables.pushTemplates.length;
