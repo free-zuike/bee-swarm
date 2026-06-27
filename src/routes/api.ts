@@ -101,12 +101,6 @@ api.get('/turnstile/config', async (c) => {
   return errResponse(c, 'Turnstile 未配置', 'NOT_CONFIGURED');
 });
 
-const registerLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: '注册操作过于频繁，请稍后再试',
-});
-
 // Turnstile 验证函数
 async function verifyTurnstile(token: string, secretKey: string, ip?: string): Promise<boolean> {
   try {
@@ -127,7 +121,7 @@ async function verifyTurnstile(token: string, secretKey: string, ip?: string): P
   }
 }
 
-api.post('/register', registerLimiter, validateBody(schemas.register), async (c) => {
+api.post('/register', validateBody(schemas.register), async (c) => {
   const body = (c as ValidatedContext).validatedBody as {
     email: string;
     password: string;
