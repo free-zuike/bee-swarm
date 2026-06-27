@@ -38,6 +38,10 @@ export interface SystemSettingsExport {
   cleanupBatchSize?: number;
   cleanupAutoDeleteOrphanTables?: boolean;
   corsAllowedOrigins?: string[];
+  smtpHost?: string;
+  smtpPort?: string;
+  smtpUsername?: string;
+  smtpPassword?: string;
 }
 
 export interface UserSettingsExport {
@@ -492,6 +496,10 @@ export async function exportUserData(
       cleanupBatchSize: systemSettings.cleanup_batch_size,
       cleanupAutoDeleteOrphanTables: systemSettings.cleanup_auto_delete_orphan_tables,
       corsAllowedOrigins: systemSettings.cors_allowed_origins,
+      smtpHost: systemSettings.smtp_host,
+      smtpPort: systemSettings.smtp_port,
+      smtpUsername: systemSettings.smtp_username,
+      smtpPassword: systemSettings.smtp_password,
     };
   } catch {
     // 忽略系统设置导出错误，不影响其他数据备份
@@ -637,6 +645,10 @@ export async function importUserData(
           cleanup_batch_size: settings.cleanupBatchSize,
           cleanup_auto_delete_orphan_tables: settings.cleanupAutoDeleteOrphanTables,
           cors_allowed_origins: settings.corsAllowedOrigins,
+          smtp_host: settings.smtpHost,
+          smtp_port: settings.smtpPort,
+          smtp_username: settings.smtpUsername,
+          smtp_password: settings.smtpPassword,
         });
 
         imported.systemSettings = 1;
