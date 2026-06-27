@@ -127,6 +127,7 @@ const SAFE_TABLES: string[] = [
   'push_favorites',
   'push_execution_logs',
   'allowed_ips',
+  '_cf_KV',
 ];
 
 /**
