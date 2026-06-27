@@ -80,6 +80,8 @@ export interface PushTemplateExport {
   imageUrl?: string;
   markdown?: string;
   channels?: string[];
+  category?: string;
+  variables?: Array<{ key: string; defaultValue: string; description?: string }>;
   createdAt: string;
   updatedAt: string;
 }
