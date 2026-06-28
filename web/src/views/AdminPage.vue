@@ -470,13 +470,11 @@ watch(activeSettingsTab, (newTab) => {
     loadCurrentUser(accessToken.value);
   }
   if (newTab === 'cache') {
+    apiCache.invalidate('/api/admin/me/settings', accessToken.value);
     loadUserSettings();
   }
   if (newTab === 'channels') {
     loadChannels();
-  }
-  if (newTab === 'system') {
-    loadSystemSettings();
   }
 });
 
