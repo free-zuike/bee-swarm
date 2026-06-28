@@ -457,7 +457,7 @@ watch(activeTab, (newTab, oldTab) => {
   if (newTab === 'push' && channels.value.length === 0) {
     loadChannels();
   }
-  if (newTab === 'history') {
+  if (newTab === 'history' && pushHistory.value.length === 0) {
     loadHistory();
   }
 });
@@ -1150,11 +1150,11 @@ function handleResend(record: PushHistoryRecord) {
         </div>
 
         <!-- ==================== 统计仪表盘 Tab ==================== -->
-        <StatsDashboard v-if="activeTab === 'stats'" :access-token="accessToken" />
+        <StatsDashboard v-show="activeTab === 'stats'" :access-token="accessToken" />
 
         <!-- ==================== 推送 Tab ==================== -->
         <PushForm
-          v-if="activeTab === 'push'"
+          v-show="activeTab === 'push'"
           ref="pushFormRef"
           :channels="channels"
           v-model:selected-channels="selectedChannels"
@@ -1168,7 +1168,7 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 历史记录 Tab ==================== -->
         <PushHistory
-          v-if="activeTab === 'history'"
+          v-show="activeTab === 'history'"
           :history="pushHistory"
           :loading="isLoadingHistory"
           :channels="channels"
@@ -1182,7 +1182,7 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 模板管理 Tab ==================== -->
         <TemplateManager
-          v-if="activeTab === 'templates'"
+          v-show="activeTab === 'templates'"
           :access-token="accessToken"
           :channels="channels"
           @use-template="handleUseTemplate"
@@ -1190,14 +1190,14 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 渠道分组 Tab ==================== -->
         <GroupManager
-          v-if="activeTab === 'groups'"
+          v-show="activeTab === 'groups'"
           :access-token="accessToken"
           :channels="channels"
           @use-group="handleUseGroup"
         />
 
         <!-- ==================== 定时推送 Tab ==================== -->
-        <ScheduledPushManager v-if="activeTab === 'scheduled'" :access-token="accessToken" />
+        <ScheduledPushManager v-show="activeTab === 'scheduled'" :access-token="accessToken" />
 
         <!-- ==================== Webhook 触发推送 Tab ==================== -->
         <WebhookManager v-if="activeTab === 'webhook'" :access-token="accessToken" />
