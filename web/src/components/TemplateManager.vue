@@ -128,9 +128,14 @@
               required
             />
             <p class="variable-hint">
-              {{ t('label.supportsVariables') }}: <code v-text="'{{date}}'"></code>
-              <code v-text="'{{time}}'"></code> <code v-text="'{{name}}'"></code>
-              {{ t('label.etc') }}
+              {{ t('label.supportsVariables') }}:<br/>
+              <code v-text="'{{date}}'"></code> 日期　
+              <code v-text="'{{time}}'"></code> 时间　
+              <code v-text="'{{datetime}}'"></code> 日期时间　
+              <code v-text="'{{year}}'"></code> 年　
+              <code v-text="'{{month}}'"></code> 月　
+              <code v-text="'{{day}}'"></code> 日<br/>
+              自定义变量：<code v-text="'{{变量名}}'"></code>，发送时填入值，如 <code v-text="'{{name}}'"></code>
             </p>
           </div>
           <div class="form-group">
