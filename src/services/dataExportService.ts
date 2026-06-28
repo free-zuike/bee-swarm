@@ -654,8 +654,8 @@ export async function importUserData(
         });
 
         imported.systemSettings = 1;
-      } catch {
-        // 忽略系统设置导入错误，不影响其他数据恢复
+      } catch (e) {
+        console.error('[Import] Failed to import system settings:', (e as Error).message);
       }
     }
 
