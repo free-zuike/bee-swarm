@@ -229,6 +229,45 @@ export interface BackupRecord {
 // D1 数据导出/导入服务
 // ============================================
 
+function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | null {
+  const parts = cronExpression.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [minuteStr, hourStr, dayOfMonthStr, monthStr, dayOfWeekStr] = parts;
+  const parseField = (field: string, minVal: number, maxVal: number): number[] => {
+    const values: Set<number> = new Set();
+    for (const seg of field.split(',')) {
+      const [range, stepStr] = seg.split('/');
+      const step = stepStr ? parseInt(stepStr, 10) : 1;
+      if (isNaN(step) || step < 1) continue;
+      if (range === '*') { for (let i = minVal; i <= maxVal; i += step) values.add(i); }
+      else if (range.includes('-')) {
+        const [s, e] = range.split('-').map(Number);
+        if (!isNaN(s) && !isNaN(e)) for (let i = s; i <= e; i += step) if (i >= minVal && i <= maxVal) values.add(i);
+      } else {
+        const v = parseInt(range, 10);
+        if (!isNaN(v) && v >= minVal && v <= maxVal) { if (stepStr) for (let i = v; i <= maxVal; i += step) values.add(i); else values.add(v); }
+      }
+    }
+    return Array.from(values).sort((a, b) => a - b);
+  };
+  const mins = parseField(minuteStr, 0, 59);
+  const hours = parseField(hourStr, 0, 23);
+  const dom = dayOfMonthStr === '*' ? null : parseField(dayOfMonthStr, 1, 31);
+  const months = monthStr === '*' ? null : parseField(monthStr, 1, 12);
+  const dow = dayOfWeekStr === '*' ? null : parseField(dayOfWeekStr, 0, 6);
+  if (!mins.length || !hours.length) return null;
+  const cur = new Date(nowDate);
+  cur.setSeconds(0, 0);
+  cur.setMinutes(cur.getMinutes() + 1);
+  for (let i = 0; i < 525600; i++) {
+    if (mins.includes(cur.getMinutes()) && hours.includes(cur.getHours()) &&
+        (!dom || dom.includes(cur.getDate())) && (!months || months.includes(cur.getMonth() + 1)) &&
+        (!dow || dow.includes(cur.getDay()))) return new Date(cur);
+    cur.setMinutes(cur.getMinutes() + 1);
+  }
+  return null;
+}
+
 /**
  * 导出用户所有数据
  */
@@ -850,10 +889,15 @@ export async function importUserData(
             }
           }
 
-          // 只在 next_run 缺失或已过期时设为当前时间，保留原始计划时间
+          // 只在 next_run 缺失或已过期时，根据 cron 表达式计算下一次执行时间
           const nowMinutes = Math.floor(Date.now() / 60000);
           if (!nextRun || nextRun <= 0 || nextRun < nowMinutes) {
-            nextRun = nowMinutes;
+            if (item.cron) {
+              const next = calculateNextCronTime(item.cron, new Date());
+              nextRun = next ? Math.floor(next.getTime() / 60000) : nowMinutes;
+            } else {
+              nextRun = nowMinutes;
+            }
           }
 
           await env.DB.prepare(
