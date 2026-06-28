@@ -472,6 +472,12 @@ watch(activeSettingsTab, (newTab) => {
   if (newTab === 'cache') {
     loadUserSettings();
   }
+  if (newTab === 'channels') {
+    loadChannels();
+  }
+  if (newTab === 'system') {
+    loadSystemSettings();
+  }
 });
 
 // ==================== 认证函数 ====================
