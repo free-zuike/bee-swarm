@@ -227,6 +227,9 @@ async function handleSaveCacheSettings() {
 
   isSavingSettings.value = true;
   try {
+    // 先清除所有缓存
+    apiCache.clear();
+    
     // 只保存缓存相关设置，不发送AI设置
     const result = await saveCacheSettings(accessToken.value, {
       cache_ttl_backup: userSettings.value.cache_ttl_backup,
@@ -239,6 +242,8 @@ async function handleSaveCacheSettings() {
       showToast(t('toast.cache_saved'), 'success');
       await loadUserSettings(); // 重新从后端加载最新设置
       updateCacheSettings();
+      // 再次清除缓存确保生效
+      apiCache.clear();
     }
   } catch (err: unknown) {
     showToast(getErrorMessage(err, t('msg.operation_failed')), 'error');
