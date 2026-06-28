@@ -134,6 +134,7 @@ export interface ScheduledPushExport {
   templateId?: string;
   cron?: string;
   nextRun?: string;
+  nextRunRaw?: number;
   title?: string;
   body?: string;
   url?: string;
@@ -530,18 +531,24 @@ export async function exportUserData(
   if (scheduledPushes.results?.length) {
     result.tables.scheduledPushes = scheduledPushes.results.map((r) => {
       let nextRunStr: string | undefined;
+      let nextRunRaw: number | undefined;
       try {
-        if (r.next_run && r.next_run > 0 && r.next_run < 1e9) {
-          nextRunStr = new Date(r.next_run * 60000).toISOString();
+        nextRunRaw = r.next_run || undefined;
+        if (r.next_run && r.next_run > 0) {
+          // 兼容旧数据（毫秒）和新数据（分钟）
+          const ms = r.next_run > 1e11 ? r.next_run : r.next_run * 60000;
+          nextRunStr = new Date(ms).toISOString();
         }
       } catch {
         nextRunStr = undefined;
+        nextRunRaw = undefined;
       }
       return {
         id: r.id,
         templateId: r.template_id,
         cron: r.cron,
         nextRun: nextRunStr,
+        nextRunRaw: nextRunRaw,
         title: r.title,
         body: r.body,
         url: r.url,
@@ -1018,14 +1025,14 @@ export async function importUserData(
       for (const item of tables.scheduledPushes) {
         try {
           // next_run 必须有值（NOT NULL 约束）
+          // 优先使用 nextRunRaw（数据库原始分钟数），最精确
           let nextRun = 0;
-          if (item.nextRun) {
-            if (typeof item.nextRun === 'number') {
-              nextRun = item.nextRun > 1e12 ? Math.floor(item.nextRun / 60000) : item.nextRun;
-            } else {
-              const ts = new Date(item.nextRun as string).getTime();
-              nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
-            }
+          if (item.nextRunRaw && item.nextRunRaw > 0) {
+            // 兼容旧数据（毫秒）和新数据（分钟）
+            nextRun = item.nextRunRaw > 1e11 ? Math.floor(item.nextRunRaw / 60000) : item.nextRunRaw;
+          } else if (item.nextRun) {
+            const ts = new Date(item.nextRun as string).getTime();
+            nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
           }
           // 仅在 next_run 完全缺失时，根据任务类型和时区计算下一次执行时间
           if (!nextRun || nextRun <= 0) {
