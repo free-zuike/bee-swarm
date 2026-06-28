@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS metrics (
   total INTEGER DEFAULT 0,
   success INTEGER DEFAULT 0,
   failed INTEGER DEFAULT 0,
+  avg_latency INTEGER DEFAULT 0,
   channel_stats TEXT,
   daily_stats TEXT,
   created_at TEXT NOT NULL,
