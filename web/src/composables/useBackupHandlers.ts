@@ -56,8 +56,6 @@ export function useBackupHandlers({
       if (result.success) {
         await handleLoadEndpoints();
         backupManagerRef.value?.selectEndpoint(result.endpoint.id);
-        const data = await listBackupsFromEndpoint(accessToken.value, result.endpoint.id);
-        backupManagerRef.value?.setBackups(data.backups || []);
         backupManagerRef.value?.handleAddResult(result.endpoint, t('msg.create_endpoint_success'));
       }
     } catch (err: unknown) {
@@ -208,14 +206,6 @@ export function useBackupHandlers({
       }
 
       await handleLoadEndpoints();
-
-      if (backupManagerRef.value?.selectedEndpointId) {
-        const data = await listBackupsFromEndpoint(
-          accessToken.value,
-          backupManagerRef.value.selectedEndpointId
-        );
-        backupManagerRef.value?.setBackups(data.backups || []);
-      }
     } catch (err: unknown) {
       backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.operation_failed')));
     }
@@ -239,8 +229,6 @@ export function useBackupHandlers({
         );
       }
       await handleLoadEndpoints();
-      const data = await listBackupsFromEndpoint(accessToken.value, id);
-      backupManagerRef.value?.setBackups(data.backups || []);
     } catch (err: unknown) {
       backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.operation_failed')));
     }
