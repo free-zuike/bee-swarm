@@ -83,6 +83,9 @@ export interface PushTemplateExport {
   channels?: string[];
   category?: string;
   variables?: Array<{ key: string; defaultValue: string; description?: string }>;
+  isPublic?: boolean;
+  downloads?: number;
+  author?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -246,6 +249,11 @@ export async function exportUserData(
       image_url?: string;
       markdown?: string;
       channels?: string;
+      category?: string;
+      variables?: string;
+      is_public?: number;
+      downloads?: number;
+      author?: string;
       created_at: string;
       updated_at: string;
     }>();
@@ -260,6 +268,11 @@ export async function exportUserData(
       imageUrl: r.image_url,
       markdown: r.markdown,
       channels: r.channels ? JSON.parse(r.channels) : undefined,
+      category: r.category || undefined,
+      variables: r.variables ? JSON.parse(r.variables) : undefined,
+      isPublic: r.is_public === 1,
+      downloads: r.downloads || 0,
+      author: r.author || undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -716,8 +729,8 @@ export async function importUserData(
       for (const item of tables.pushTemplates) {
         try {
           await env.DB.prepare(
-            `INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, category, variables, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(item.id, userId, item.name, item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null, item.channels ? JSON.stringify(item.channels) : null, item.category || null, item.variables ? JSON.stringify(item.variables) : null, item.createdAt, item.updatedAt).run();
+            `INSERT OR REPLACE INTO push_templates (id, user_id, name, title, body, url, image_url, markdown, channels, category, variables, is_public, downloads, author, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(item.id, userId, item.name, item.title || null, item.body || null, item.url || null, item.imageUrl || null, item.markdown || null, item.channels ? JSON.stringify(item.channels) : null, item.category || null, item.variables ? JSON.stringify(item.variables) : null, item.isPublic ? 1 : 0, item.downloads || 0, item.author || null, item.createdAt, item.updatedAt).run();
           imported.pushTemplates = (imported.pushTemplates || 0) + 1;
         } catch (e) {
           console.error(`[Import] Failed to import push template ${item.name}:`, (e as Error).message);
