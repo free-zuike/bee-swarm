@@ -835,8 +835,9 @@ export async function importUserData(
       console.log(`[Import] Importing ${tables.backupEndpoints.length} backup endpoints`);
       for (const item of tables.backupEndpoints) {
         try {
-          console.log(`[Import] Backup endpoint: ${item.name} (config: ${item.config ? 'present' : 'EMPTY'})`);
-          const configStr = item.config ? (typeof item.config === 'string' ? item.config : JSON.stringify(item.config)) : '{}';
+          const configKeys = item.config ? Object.keys(item.config) : [];
+          console.log(`[Import] Backup endpoint: ${item.name}, type: ${item.type}, config keys: [${configKeys.join(', ')}], r2Domain: ${item.r2Domain || 'null'}, lastBackup: ${item.lastBackup ? 'present' : 'null'}`);
+          const configStr = item.config && configKeys.length > 0 ? (typeof item.config === 'string' ? item.config : JSON.stringify(item.config)) : '{}';
           const scheduleStr = item.schedule ? (typeof item.schedule === 'string' ? item.schedule : JSON.stringify(item.schedule)) : null;
           const lastBackupStr = item.lastBackup ? (typeof item.lastBackup === 'string' ? item.lastBackup : JSON.stringify(item.lastBackup)) : null;
           await env.DB.prepare(
