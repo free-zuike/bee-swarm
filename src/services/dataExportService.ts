@@ -236,7 +236,9 @@ function calculateNextRecurringTime(
   selectedWeekDays: number[] | null,
   selectedMonthDays: number[] | null,
   yearlyDates: Array<{ month: number; day: number }> | null,
-  enabled: boolean | undefined
+  enabled: boolean | undefined,
+  updatedAt?: string | null,
+  createdAt?: string | null
 ): number {
   if (!enabled) return Math.floor(Date.now() / 60000) + 525600;
 
@@ -269,6 +271,14 @@ function calculateNextRecurringTime(
 
   const nowLocal = getLocal(now);
   let { year, month, day, hour, minute } = nowLocal;
+
+  // 从 updatedAt 或 createdAt 提取原始执行时间的时分（而非当前时间）
+  const refTime = updatedAt || createdAt;
+  if (refTime) {
+    const refLocal = getLocal(new Date(refTime));
+    hour = refLocal.hour;
+    minute = refLocal.minute;
+  }
 
   const advanceDay = () => { day++; if (day > 31) { day = 1; month++; } if (month > 12) { month = 1; year++; } };
 
@@ -1026,7 +1036,9 @@ export async function importUserData(
               item.selectedWeekDays || null,
               item.selectedMonthDays || null,
               item.yearlyDates || null,
-              item.enabled
+              item.enabled,
+              item.updatedAt,
+              item.createdAt
             );
           }
 
