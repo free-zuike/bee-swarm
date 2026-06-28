@@ -1065,6 +1065,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ip_whitelist': '配置 IP 白名单后，仅白名单中的 IP 可以登录。留空则不限制。',
     'placeholder.enter_ip': '输入 IP 地址，如 192.168.1.1',
     'label.no_ip_whitelist': '未配置 IP 白名单（所有 IP 均可登录）',
+    'label.execution_logs': '执行日志',
     'msg.delete_success': '已删除',
     // Data Export
     'label.exporting': '导出中...',
@@ -2168,6 +2169,7 @@ const messages: Record<Locale, LocaleMessages> = {
     'hint.ip_whitelist': 'After configuring IP whitelist, only whitelisted IPs can login. Leave empty for no restriction.',
     'placeholder.enter_ip': 'Enter IP address, e.g. 192.168.1.1',
     'label.no_ip_whitelist': 'No IP whitelist configured (all IPs can login)',
+    'label.execution_logs': 'Execution Logs',
     'msg.delete_success': 'Deleted',
     // Data Export
     'label.exporting': 'Exporting...',
