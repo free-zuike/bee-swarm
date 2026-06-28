@@ -826,7 +826,11 @@ export async function importUserData(
             nextRun = item.nextRunRaw;
           }
           if (!nextRun || nextRun <= 0) {
-            nextRun = Math.floor(Date.now() / 60000) + 1;
+            const now = Date.now();
+            const nextMidnight = new Date(now);
+            nextMidnight.setUTCHours(0, 0, 0, 0);
+            if (nextMidnight.getTime() <= now) nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
+            nextRun = Math.floor(nextMidnight.getTime() / 60000);
           }
 
           await env.DB.prepare(
