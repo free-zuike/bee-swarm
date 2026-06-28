@@ -47,6 +47,23 @@ app.use('*.ico', staticCache());
 app.use('*.svg', staticCache());
 app.use('*.webmanifest', staticCache());
 
+// API 响应不缓存（防止浏览器磁盘缓存）
+app.use('/api/*', async (c, next) => {
+  await next();
+  const response = c.res;
+  if (response && response.ok) {
+    const newHeaders = new Headers(response.headers);
+    newHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    newHeaders.set('Pragma', 'no-cache');
+    newHeaders.set('Expires', '0');
+    c.res = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
+  }
+});
+
 // 请求体大小限制
 const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB
 app.use('*', async (c, next) => {
