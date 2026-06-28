@@ -161,6 +161,8 @@ export interface BackupEndpointExport {
   enabled: boolean;
   schedule?: Record<string, unknown>;
   retention?: number;
+  lastBackup?: unknown;
+  r2Domain?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -509,7 +511,7 @@ export async function exportUserData(
 
   // 导出备份端点配置（不包含敏感信息）
   const backupEndpoints = await env.DB.prepare(
-    'SELECT id, name, type, config, enabled, schedule, retention, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
+    'SELECT id, name, type, config, enabled, schedule, retention, last_backup, r2_domain, created_at, updated_at FROM backup_endpoints WHERE user_id = ?'
   )
     .bind(userId)
     .all<{
@@ -520,6 +522,8 @@ export async function exportUserData(
       enabled: number;
       schedule?: string;
       retention?: number;
+      last_backup?: string;
+      r2_domain?: string;
       created_at: string;
       updated_at: string;
     }>();
@@ -533,6 +537,8 @@ export async function exportUserData(
       enabled: r.enabled === 1,
       schedule: r.schedule ? JSON.parse(r.schedule) : undefined,
       retention: r.retention,
+      lastBackup: r.last_backup ? JSON.parse(r.last_backup) : undefined,
+      r2Domain: r.r2_domain || undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -830,14 +836,20 @@ export async function importUserData(
       for (const item of tables.backupEndpoints) {
         try {
           console.log(`[Import] Backup endpoint: ${item.name} (config: ${item.config ? 'present' : 'EMPTY'})`);
+          const configStr = item.config ? (typeof item.config === 'string' ? item.config : JSON.stringify(item.config)) : '{}';
+          const scheduleStr = item.schedule ? (typeof item.schedule === 'string' ? item.schedule : JSON.stringify(item.schedule)) : null;
+          const lastBackupStr = item.lastBackup ? (typeof item.lastBackup === 'string' ? item.lastBackup : JSON.stringify(item.lastBackup)) : null;
           await env.DB.prepare(
-            `INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, last_backup, r2_domain, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
             item.id, userId, item.name, item.type,
-            item.config ? JSON.stringify(item.config) : '{}',
+            configStr,
             item.enabled ? 1 : 0,
-            item.schedule ? JSON.stringify(item.schedule) : null,
-            item.retention || null, item.createdAt, item.updatedAt
+            scheduleStr,
+            item.retention || null,
+            lastBackupStr,
+            item.r2Domain || null,
+            item.createdAt, item.updatedAt
           ).run();
           imported.backupEndpoints = (imported.backupEndpoints || 0) + 1;
         } catch (e) {
