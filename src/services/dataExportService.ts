@@ -637,22 +637,23 @@ export async function importUserData(
         const systemSettingsService = new SystemSettingsService(env);
         await systemSettingsService.ensureTable();
 
-        await systemSettingsService.saveSettings({
-          turnstile_enabled: settings.turnstileEnabled,
-          turnstile_site_key: settings.turnstileSiteKey,
-          turnstile_secret_key: settings.turnstileSecretKey,
-          cleanup_enabled: settings.cleanupEnabled,
-          cleanup_push_history_days: settings.cleanupPushHistoryDays,
-          cleanup_audit_log_days: settings.cleanupAuditLogDays,
-          cleanup_batch_size: settings.cleanupBatchSize,
-          cleanup_auto_delete_orphan_tables: settings.cleanupAutoDeleteOrphanTables,
-          cors_allowed_origins: settings.corsAllowedOrigins,
-          smtp_host: settings.smtpHost,
-          smtp_port: settings.smtpPort,
-          smtp_username: settings.smtpUsername,
-          smtp_password: settings.smtpPassword,
-        });
+        // 过滤掉 undefined 值，避免 D1 类型错误
+        const settingsToSave: Record<string, unknown> = {};
+        if (settings.turnstileEnabled !== undefined) settingsToSave.turnstile_enabled = settings.turnstileEnabled;
+        if (settings.turnstileSiteKey !== undefined) settingsToSave.turnstile_site_key = settings.turnstileSiteKey;
+        if (settings.turnstileSecretKey !== undefined) settingsToSave.turnstile_secret_key = settings.turnstileSecretKey;
+        if (settings.cleanupEnabled !== undefined) settingsToSave.cleanup_enabled = settings.cleanupEnabled;
+        if (settings.cleanupPushHistoryDays !== undefined) settingsToSave.cleanup_push_history_days = settings.cleanupPushHistoryDays;
+        if (settings.cleanupAuditLogDays !== undefined) settingsToSave.cleanup_audit_log_days = settings.cleanupAuditLogDays;
+        if (settings.cleanupBatchSize !== undefined) settingsToSave.cleanup_batch_size = settings.cleanupBatchSize;
+        if (settings.cleanupAutoDeleteOrphanTables !== undefined) settingsToSave.cleanup_auto_delete_orphan_tables = settings.cleanupAutoDeleteOrphanTables;
+        if (settings.corsAllowedOrigins !== undefined) settingsToSave.cors_allowed_origins = settings.corsAllowedOrigins;
+        if (settings.smtpHost !== undefined) settingsToSave.smtp_host = settings.smtpHost;
+        if (settings.smtpPort !== undefined) settingsToSave.smtp_port = settings.smtpPort;
+        if (settings.smtpUsername !== undefined) settingsToSave.smtp_username = settings.smtpUsername;
+        if (settings.smtpPassword !== undefined) settingsToSave.smtp_password = settings.smtpPassword;
 
+        await systemSettingsService.saveSettings(settingsToSave);
         imported.systemSettings = 1;
       } catch (e) {
         console.error('[Import] Failed to import system settings:', (e as Error).message);
@@ -713,7 +714,11 @@ export async function importUserData(
       console.log(`[Import] Importing ${tables.scheduledPushes.length} scheduled pushes`);
       for (const item of tables.scheduledPushes) {
         try {
-          const nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
+          // next_run 必须有值（NOT NULL 约束），使用当前时间作为默认值
+          let nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
+          if (!nextRun || isNaN(nextRun)) {
+            nextRun = Math.floor(Date.now() / 60000); // 默认为当前时间
+          }
           await env.DB.prepare(
             `INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, overdue_reminder_sent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
