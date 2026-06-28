@@ -295,33 +295,40 @@ export async function exportUserData(
     }>();
 
   if (scheduledPushes.results?.length) {
-    result.tables.scheduledPushes = scheduledPushes.results.map((r) => ({
-      id: r.id,
-      templateId: r.template_id,
-      cron: r.cron,
-      nextRun:
-        r.next_run && r.next_run > 0
-          ? new Date(r.next_run * 60000).toISOString()
-          : undefined,
-      title: r.title,
-      body: r.body,
-      url: r.url,
-      imageUrl: r.image_url,
-      markdown: r.markdown,
-      channels: r.channels ? JSON.parse(r.channels) : undefined,
-      enabled: r.enabled === 1,
-      status: r.status,
-      recurringType: r.recurring_type,
-      selectedWeekDays: r.selected_week_days ? JSON.parse(r.selected_week_days) : undefined,
-      selectedMonthDays: r.selected_month_days ? JSON.parse(r.selected_month_days) : undefined,
-      yearlyDates: r.yearly_dates ? JSON.parse(r.yearly_dates) : undefined,
-      timezone: r.timezone,
-      abTestEnabled: r.ab_test_enabled === 1,
-      abTestVariants: r.ab_test_variants ? JSON.parse(r.ab_test_variants) : undefined,
-      overdueReminderSent: r.overdue_reminder_sent === 1,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    }));
+    result.tables.scheduledPushes = scheduledPushes.results.map((r) => {
+      let nextRunStr: string | undefined;
+      try {
+        if (r.next_run && r.next_run > 0 && r.next_run < 1e9) {
+          nextRunStr = new Date(r.next_run * 60000).toISOString();
+        }
+      } catch {
+        nextRunStr = undefined;
+      }
+      return {
+        id: r.id,
+        templateId: r.template_id,
+        cron: r.cron,
+        nextRun: nextRunStr,
+        title: r.title,
+        body: r.body,
+        url: r.url,
+        imageUrl: r.image_url,
+        markdown: r.markdown,
+        channels: r.channels ? JSON.parse(r.channels) : undefined,
+        enabled: r.enabled === 1,
+        status: r.status,
+        recurringType: r.recurring_type,
+        selectedWeekDays: r.selected_week_days ? JSON.parse(r.selected_week_days) : undefined,
+        selectedMonthDays: r.selected_month_days ? JSON.parse(r.selected_month_days) : undefined,
+        yearlyDates: r.yearly_dates ? JSON.parse(r.yearly_dates) : undefined,
+        timezone: r.timezone,
+        abTestEnabled: r.ab_test_enabled === 1,
+        abTestVariants: r.ab_test_variants ? JSON.parse(r.ab_test_variants) : undefined,
+        overdueReminderSent: r.overdue_reminder_sent === 1,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
     result.metadata.tableCounts!.scheduledPushes = result.tables.scheduledPushes.length;
   }
 
