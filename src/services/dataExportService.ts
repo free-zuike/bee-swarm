@@ -773,36 +773,8 @@ export async function importUserData(
         }
       }
     }
-    }
 
-    // 导入推送历史（可选，因为可能数据量很大）
-    if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
-      console.log(`[Import] Importing ${tables.pushHistory.length} push history records`);
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-        const statements = tables.pushHistory.map(item => {
-          const raw = item as unknown as Record<string, unknown>;
-          const status = item.status || (raw.success !== undefined ? (raw.success ? 'success' : 'failed') : null);
-          return env.DB.prepare(
-            `INSERT OR REPLACE INTO push_history (id, user_id, title, body, url, image_url, markdown, channels, results, status, created_at, delivered_at, read_at, clicked_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(
-            item.id, userId, item.title || null, item.body || null, item.url || null,
-            item.imageUrl || null, item.markdown ? 1 : 0,
-            item.channels ? JSON.stringify(item.channels) : null,
-            item.results ? JSON.stringify(item.results) : null,
-            status, item.createdAt, item.deliveredAt || null, item.readAt || null,
-            item.clickedAt || null, item.revokedAt || null
-          );
-      });
-      await env.DB.batch(statements);
-        imported.pushHistory = tables.pushHistory.length;
-        break;
-      } catch (e) {
-        console.warn(`[Import] Push history attempt ${attempt + 1} failed:`, (e as Error).message);
-        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
-      }
-    }
-    }
+    // 导入审计日志
 
     // 导入审计日志
     if (!skipTables.includes('auditLogs') && tables.auditLogs?.length) {
