@@ -229,6 +229,108 @@ export interface BackupRecord {
 // D1 数据导出/导入服务
 // ============================================
 
+function calculateNextRecurringTime(
+  recurringType: string | null,
+  cron: string | null,
+  timezone: string,
+  selectedWeekDays: number[] | null,
+  selectedMonthDays: number[] | null,
+  yearlyDates: Array<{ month: number; day: number }> | null,
+  enabled: boolean | undefined
+): number {
+  if (!enabled) return Math.floor(Date.now() / 60000) + 525600;
+
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const getLocal = (d: Date) => {
+    const p = formatter.formatToParts(d);
+    return {
+      year: parseInt(p.find(x => x.type === 'year')!.value, 10),
+      month: parseInt(p.find(x => x.type === 'month')!.value, 10),
+      day: parseInt(p.find(x => x.type === 'day')!.value, 10),
+      hour: parseInt(p.find(x => x.type === 'hour')!.value, 10),
+      minute: parseInt(p.find(x => x.type === 'minute')!.value, 10),
+      weekday: d.getDay(),
+    };
+  };
+  const localToUTC = (y: number, m: number, d: number, h: number, min: number): Date => {
+    const candidate = new Date(Date.UTC(y, m - 1, d, h, min, 0));
+    const tzP = formatter.formatToParts(candidate);
+    const tzH = parseInt(tzP.find(x => x.type === 'hour')!.value, 10);
+    const tzM = parseInt(tzP.find(x => x.type === 'minute')!.value, 10);
+    let offset = (tzH * 60 + tzM) - (h * 60 + min);
+    if (offset > 720) offset -= 1440;
+    if (offset < -720) offset += 1440;
+    return new Date(candidate.getTime() - offset * 60000);
+  };
+
+  const nowLocal = getLocal(now);
+  let { year, month, day, hour, minute } = nowLocal;
+
+  const advanceDay = () => { day++; if (day > 31) { day = 1; month++; } if (month > 12) { month = 1; year++; } };
+
+  switch (recurringType) {
+    case 'daily': {
+      advanceDay();
+      const result = localToUTC(year, month, day, hour, minute);
+      return Math.floor(result.getTime() / 60000);
+    }
+    case 'weekly': {
+      const days = selectedWeekDays || [1, 2, 3, 4, 5];
+      for (let i = 1; i <= 14; i++) {
+        advanceDay();
+        const checkDate = new Date(Date.UTC(year, month - 1, day));
+        if (days.includes(checkDate.getUTCDay())) {
+          const result = localToUTC(year, month, day, hour, minute);
+          if (result > now) return Math.floor(result.getTime() / 60000);
+        }
+      }
+      advanceDay();
+      return Math.floor(localToUTC(year, month, day, hour, minute).getTime() / 60000);
+    }
+    case 'monthly': {
+      const days = selectedMonthDays || [1];
+      for (let i = 1; i <= 62; i++) {
+        advanceDay();
+        if (days.includes(day)) {
+          const result = localToUTC(year, month, day, hour, minute);
+          if (result > now) return Math.floor(result.getTime() / 60000);
+        }
+      }
+      month++; day = 1;
+      if (month > 12) { month = 1; year++; }
+      return Math.floor(localToUTC(year, month, day, hour, minute).getTime() / 60000);
+    }
+    case 'yearly': {
+      const dates = yearlyDates || [{ month: 1, day: 1 }];
+      for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
+        for (const dc of dates) {
+          let dm = dc.month, dd = dc.day;
+          if (dm === 2 && dd === 29) {
+            const leap = (year + yearOffset) % 4 === 0 && ((year + yearOffset) % 100 !== 0 || (year + yearOffset) % 400 === 0);
+            if (!leap) dd = 1;
+          }
+          const result = localToUTC(year + yearOffset, dm, dd, hour, minute);
+          if (result > now) return Math.floor(result.getTime() / 60000);
+        }
+      }
+      return Math.floor(localToUTC(year + 1, 1, 1, hour, minute).getTime() / 60000);
+    }
+    case 'cron':
+    default: {
+      if (cron) {
+        const next = calculateNextCronTime(cron, now, timezone);
+        if (next) return Math.floor(next.getTime() / 60000);
+      }
+      advanceDay();
+      return Math.floor(localToUTC(year, month, day, hour, minute).getTime() / 60000);
+    }
+  }
+}
+
 function calculateNextCronTime(cronExpression: string, nowDate: Date, timezone?: string): Date | null {
   const parts = cronExpression.trim().split(/\s+/);
   if (parts.length !== 5) return null;
@@ -915,15 +1017,17 @@ export async function importUserData(
               nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
             }
           }
-          // 仅在 next_run 完全缺失时，根据 cron + 时区计算下一次执行时间
+          // 仅在 next_run 完全缺失时，根据任务类型和时区计算下一次执行时间
           if (!nextRun || nextRun <= 0) {
-            if (item.cron && item.enabled) {
-              const next = calculateNextCronTime(item.cron, new Date(), item.timezone || 'Asia/Shanghai');
-              nextRun = next ? Math.floor(next.getTime() / 60000) : Math.floor(Date.now() / 60000) + 1;
-            } else {
-              // 已完成或禁用的任务，设为远未来时间，不会被调度执行
-              nextRun = Math.floor(Date.now() / 60000) + 525600;
-            }
+            nextRun = calculateNextRecurringTime(
+              item.recurringType || null,
+              item.cron || null,
+              item.timezone || 'Asia/Shanghai',
+              item.selectedWeekDays || null,
+              item.selectedMonthDays || null,
+              item.yearlyDates || null,
+              item.enabled
+            );
           }
 
           await env.DB.prepare(
