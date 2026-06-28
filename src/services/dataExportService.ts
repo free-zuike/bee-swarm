@@ -876,27 +876,23 @@ export async function importUserData(
       for (const item of tables.scheduledPushes) {
         try {
           // next_run 必须有值（NOT NULL 约束）
-          // 支持多种格式：ISO字符串、原始分钟数（旧备份）、null
+          // 直接保留备份中的原始值，让 cron 调度器在执行后自动更新
           let nextRun = 0;
           if (item.nextRun) {
             if (typeof item.nextRun === 'number') {
-              // 旧备份格式：直接是分钟数
               nextRun = item.nextRun > 1e12 ? Math.floor(item.nextRun / 60000) : item.nextRun;
             } else {
-              // ISO字符串格式
               const ts = new Date(item.nextRun as string).getTime();
               nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
             }
           }
-
-          // 只在 next_run 缺失或已过期时，根据 cron 表达式计算下一次执行时间
-          const nowMinutes = Math.floor(Date.now() / 60000);
-          if (!nextRun || nextRun <= 0 || nextRun < nowMinutes) {
+          if (!nextRun || nextRun <= 0) {
+            // 真的没有值时，用 cron 算出下一个未来时间
             if (item.cron) {
               const next = calculateNextCronTime(item.cron, new Date());
-              nextRun = next ? Math.floor(next.getTime() / 60000) : nowMinutes;
+              nextRun = next ? Math.floor(next.getTime() / 60000) : Math.floor(Date.now() / 60000);
             } else {
-              nextRun = nowMinutes;
+              nextRun = Math.floor(Date.now() / 60000);
             }
           }
 
