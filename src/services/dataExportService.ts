@@ -279,8 +279,15 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date, timezone?:
     if (mins.includes(curMin) && hours.includes(curHour) &&
         (!dom || dom.includes(curDay)) && (!months || months.includes(curMonth)) &&
         (!dow || dow.includes(curDate.getDay()))) {
-      const result = new Date(curYear, curMonth - 1, curDay, curHour, curMin, 0, 0);
-      return result;
+      // 计算时区偏移：在目标时区中该时间对应的 UTC 时间
+      const utcCandidate = new Date(Date.UTC(curYear, curMonth - 1, curDay, curHour, curMin, 0));
+      const tzParts2 = formatter.formatToParts(utcCandidate);
+      const tzH = parseInt(tzParts2.find(p => p.type === 'hour')!.value, 10);
+      const tzM = parseInt(tzParts2.find(p => p.type === 'minute')!.value, 10);
+      let offsetMin = (tzH * 60 + tzM) - (curHour * 60 + curMin);
+      if (offsetMin > 720) offsetMin -= 1440;
+      if (offsetMin < -720) offsetMin += 1440;
+      return new Date(utcCandidate.getTime() - offsetMin * 60000);
     }
     curMin++;
     if (curMin >= 60) { curMin = 0; curHour++; }
