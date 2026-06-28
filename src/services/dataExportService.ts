@@ -229,7 +229,7 @@ export interface BackupRecord {
 // D1 数据导出/导入服务
 // ============================================
 
-function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | null {
+function calculateNextCronTime(cronExpression: string, nowDate: Date, timezone?: string): Date | null {
   const parts = cronExpression.trim().split(/\s+/);
   if (parts.length !== 5) return null;
   const [minuteStr, hourStr, dayOfMonthStr, monthStr, dayOfWeekStr] = parts;
@@ -256,14 +256,37 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
   const months = monthStr === '*' ? null : parseField(monthStr, 1, 12);
   const dow = dayOfWeekStr === '*' ? null : parseField(dayOfWeekStr, 0, 6);
   if (!mins.length || !hours.length) return null;
-  const cur = new Date(nowDate);
-  cur.setSeconds(0, 0);
-  cur.setMinutes(cur.getMinutes() + 1);
+
+  const tz = timezone || 'Asia/Shanghai';
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const parts2 = formatter.formatToParts(nowDate);
+  const get = (type: string) => parseInt(parts2.find(p => p.type === type)!.value, 10);
+
+  let curDate = new Date(nowDate);
+  let curMin = get('minute') + 1;
+  let curHour = get('hour');
+  let curDay = get('day');
+  let curMonth = get('month');
+  let curYear = get('year');
+
+  if (curMin >= 60) { curMin = 0; curHour++; }
+  if (curHour >= 24) { curHour = 0; curDay++; }
+
   for (let i = 0; i < 525600; i++) {
-    if (mins.includes(cur.getMinutes()) && hours.includes(cur.getHours()) &&
-        (!dom || dom.includes(cur.getDate())) && (!months || months.includes(cur.getMonth() + 1)) &&
-        (!dow || dow.includes(cur.getDay()))) return new Date(cur);
-    cur.setMinutes(cur.getMinutes() + 1);
+    if (mins.includes(curMin) && hours.includes(curHour) &&
+        (!dom || dom.includes(curDay)) && (!months || months.includes(curMonth)) &&
+        (!dow || dow.includes(curDate.getDay()))) {
+      const result = new Date(curYear, curMonth - 1, curDay, curHour, curMin, 0, 0);
+      return result;
+    }
+    curMin++;
+    if (curMin >= 60) { curMin = 0; curHour++; }
+    if (curHour >= 24) { curHour = 0; curDay++; curDate.setDate(curDate.getDate() + 1); }
+    if (curDay > 31) { curDay = 1; curMonth++; }
+    if (curMonth > 12) { curMonth = 1; curYear++; }
   }
   return null;
 }
@@ -876,7 +899,6 @@ export async function importUserData(
       for (const item of tables.scheduledPushes) {
         try {
           // next_run 必须有值（NOT NULL 约束）
-          // 直接保留备份中的原始值，让 cron 调度器在执行后自动更新
           let nextRun = 0;
           if (item.nextRun) {
             if (typeof item.nextRun === 'number') {
@@ -886,13 +908,14 @@ export async function importUserData(
               nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
             }
           }
+          // 仅在 next_run 完全缺失时，根据 cron + 时区计算下一次执行时间
           if (!nextRun || nextRun <= 0) {
-            // 真的没有值时，用 cron 算出下一个未来时间
-            if (item.cron) {
-              const next = calculateNextCronTime(item.cron, new Date());
-              nextRun = next ? Math.floor(next.getTime() / 60000) : Math.floor(Date.now() / 60000);
+            if (item.cron && item.enabled) {
+              const next = calculateNextCronTime(item.cron, new Date(), item.timezone || 'Asia/Shanghai');
+              nextRun = next ? Math.floor(next.getTime() / 60000) : Math.floor(Date.now() / 60000) + 1;
             } else {
-              nextRun = Math.floor(Date.now() / 60000);
+              // 已完成或禁用的任务，设为远未来时间，不会被调度执行
+              nextRun = Math.floor(Date.now() / 60000) + 525600;
             }
           }
 
