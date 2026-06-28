@@ -824,8 +824,8 @@ export async function importUserData(
           let nextRun = 0;
           if (item.nextRunRaw && item.nextRunRaw > 0) {
             nextRun = item.nextRunRaw;
-          }
-          if (!nextRun || nextRun <= 0) {
+          } else if (item.enabled) {
+            // 仅对启用的任务设默认值，已完成/禁用的保持 0
             const now = Date.now();
             const nextMidnight = new Date(now);
             nextMidnight.setUTCHours(0, 0, 0, 0);
