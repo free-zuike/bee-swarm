@@ -135,11 +135,55 @@
           </div>
           <div class="form-group">
             <label>{{ t('label.content') }}</label>
-            <textarea
-              v-model="form.content"
-              :placeholder="t('templates.contentPlaceholder')"
-              rows="4"
-            ></textarea>
+            <div class="markdown-editor">
+              <div class="md-toolbar">
+                <button type="button" class="md-btn" title="粗体" @click="insertMarkdown('bold')">
+                  <strong>B</strong>
+                </button>
+                <button type="button" class="md-btn md-italic" title="斜体" @click="insertMarkdown('italic')">
+                  <em>I</em>
+                </button>
+                <button type="button" class="md-btn" title="删除线" @click="insertMarkdown('strike')">
+                  <s>S</s>
+                </button>
+                <button type="button" class="md-btn" title="链接" @click="insertMarkdown('link')">
+                  🔗
+                </button>
+                <button type="button" class="md-btn" title="列表" @click="insertMarkdown('list')">
+                  ☰
+                </button>
+                <button type="button" class="md-btn" title="代码块" @click="insertMarkdown('code')">
+                  &lt;/&gt;
+                </button>
+                <button type="button" class="md-btn" title="引用" @click="insertMarkdown('quote')">
+                  ❝
+                </button>
+                <button type="button" class="md-btn" title="分割线" @click="insertMarkdown('hr')">
+                  ─
+                </button>
+                <button
+                  type="button"
+                  class="md-btn md-toggle"
+                  :class="{ active: showContentPreview }"
+                  @click="showContentPreview = !showContentPreview"
+                >
+                  👁
+                </button>
+              </div>
+              <div class="md-body">
+                <textarea
+                  ref="contentTextareaRef"
+                  v-model="form.content"
+                  :placeholder="t('templates.contentPlaceholder')"
+                  rows="6"
+                ></textarea>
+                <div
+                  v-if="showContentPreview"
+                  class="md-preview"
+                  v-html="renderMarkdown(form.content)"
+                ></div>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label>{{ t('templates.url') }}</label>
@@ -320,7 +364,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { t } from '@/i18n';
 import { useThemeStore } from '@/stores/theme';
 import { useGlobalToast } from '@/composables/useToast';
@@ -365,6 +409,56 @@ const searchQuery = ref('');
 const selectedCategory = ref('');
 const selectedTemplateIds = ref<Set<string>>(new Set());
 const activeTab = ref<'templates'>('templates');
+const contentTextareaRef = ref<HTMLTextAreaElement | null>(null);
+const showContentPreview = ref(false);
+
+function insertMarkdown(syntax: 'bold' | 'italic' | 'strike' | 'link' | 'list' | 'code' | 'quote' | 'hr') {
+  const ta = contentTextareaRef.value;
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const selected = form.content.substring(start, end);
+  let before = '';
+  let after = '';
+  let cursorOffset = 0;
+
+  switch (syntax) {
+    case 'bold': before = '**'; after = '**'; cursorOffset = selected ? 0 : 2; break;
+    case 'italic': before = '*'; after = '*'; cursorOffset = selected ? 0 : 1; break;
+    case 'strike': before = '~~'; after = '~~'; cursorOffset = selected ? 0 : 2; break;
+    case 'link': before = '['; after = '](url)'; cursorOffset = selected ? 0 : 1; break;
+    case 'list': before = '\n- '; after = ''; cursorOffset = selected ? 0 : 3; break;
+    case 'code': before = '`'; after = '`'; cursorOffset = selected ? 0 : 1; break;
+    case 'quote': before = '\n> '; after = ''; cursorOffset = selected ? 0 : 3; break;
+    case 'hr': before = '\n---\n'; after = ''; cursorOffset = 0; break;
+  }
+
+  form.content = form.content.substring(0, start) + before + selected + after + form.content.substring(end);
+
+  nextTick(() => {
+    ta.focus();
+    const newPos = start + before.length + (selected ? selected.length : 0) + cursorOffset;
+    ta.setSelectionRange(newPos, newPos);
+  });
+}
+
+function renderMarkdown(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    .replace(/^---$/gm, '<hr>')
+    .replace(/\n/g, '<br>');
+}
 
 function getChannelName(ch: string): string {
   return t(`channel.${ch}`) || ch;
@@ -1048,6 +1142,153 @@ onMounted(loadTemplates);
 
 .checkbox-label input {
   width: auto;
+}
+
+.markdown-editor {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.md-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border-bottom: 1px solid #d1d5db;
+  flex-wrap: wrap;
+}
+
+.md-btn {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.md-btn:hover {
+  background: #e5e7eb;
+}
+
+.md-btn.md-italic {
+  font-style: italic;
+}
+
+.md-btn.md-toggle.active {
+  background: #667eea;
+  color: white;
+}
+
+.md-body {
+  position: relative;
+}
+
+.md-body textarea {
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  resize: vertical;
+  min-height: 120px;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.md-body textarea:focus {
+  outline: none;
+}
+
+.md-preview {
+  padding: 12px;
+  min-height: 120px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.md-preview:empty::before {
+  content: '预览区域';
+  color: #9ca3af;
+}
+
+.md-preview blockquote {
+  border-left: 3px solid #667eea;
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #6b7280;
+}
+
+.md-preview code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.md-preview hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 12px 0;
+}
+
+.md-preview ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.md-preview li {
+  margin: 2px 0;
+}
+
+.markdown-editor.dark {
+  border-color: #4b5563;
+}
+
+.markdown-editor.dark .md-toolbar {
+  background: #1f2937;
+  border-bottom-color: #4b5563;
+}
+
+.markdown-editor.dark .md-btn {
+  color: #d1d5db;
+}
+
+.markdown-editor.dark .md-btn:hover {
+  background: #374151;
+}
+
+.markdown-editor.dark .md-btn.md-toggle.active {
+  background: #667eea;
+  color: white;
+}
+
+.markdown-editor.dark .md-body textarea {
+  background: #111827;
+  color: #e5e7eb;
+}
+
+.markdown-editor.dark .md-preview {
+  background: #1f2937;
+  color: #e5e7eb;
+  border-top-color: #4b5563;
+}
+
+.markdown-editor.dark .md-preview code {
+  background: #374151;
+}
+
+.markdown-editor.dark .md-preview blockquote {
+  border-left-color: #667eea;
+  color: #9ca3af;
 }
 
 .form-actions {
