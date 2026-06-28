@@ -61,6 +61,9 @@ export interface UserSettingsExport {
   aiApiKey?: string;
   aiApiUrl?: string;
   aiModelName?: string;
+  totpSecret?: string;
+  totpEnabled?: boolean;
+  allowedIps?: string;
 }
 
 export interface ChannelConfigExport {
@@ -483,6 +486,9 @@ export async function exportUserData(
     ai_api_key?: string;
     ai_api_url?: string;
     ai_model_name?: string;
+    totp_secret?: string;
+    totp_enabled?: number;
+    allowed_ips?: string;
   }>();
 
   if (user) {
@@ -502,6 +508,9 @@ export async function exportUserData(
       aiApiKey: user.ai_api_key,
       aiApiUrl: user.ai_api_url,
       aiModelName: user.ai_model_name,
+      totpSecret: user.totp_secret || undefined,
+      totpEnabled: user.totp_enabled === 1,
+      allowedIps: user.allowed_ips || undefined,
     };
   }
 
@@ -629,6 +638,9 @@ export async function importUserData(
               ai_api_key = ?,
               ai_api_url = ?,
               ai_model_name = ?,
+              totp_secret = ?,
+              totp_enabled = ?,
+              allowed_ips = ?,
               updated_at = ?
           WHERE email = ?
         `
@@ -649,6 +661,9 @@ export async function importUserData(
             settings.aiApiKey || null,
             settings.aiApiUrl || null,
             settings.aiModelName || null,
+            settings.totpSecret || null,
+            settings.totpEnabled ? 1 : 0,
+            settings.allowedIps || null,
             new Date().toISOString(),
             userId
           )
