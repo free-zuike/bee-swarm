@@ -25,7 +25,43 @@ export interface UserDataExport {
     auditLogs?: AuditLogExport[];
     metrics?: MetricsExport;
     backupEndpoints?: BackupEndpointExport[];
+    pushDrafts?: PushDraftExport[];
+    pushFavorites?: PushFavoriteExport[];
+    pushExecutionLogs?: PushExecutionLogExport[];
   };
+}
+
+export interface PushDraftExport {
+  id: string;
+  title: string;
+  body?: string;
+  url?: string;
+  channels?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PushFavoriteExport {
+  id: string;
+  title: string;
+  body?: string;
+  url?: string;
+  channels?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PushExecutionLogExport {
+  id: string;
+  pushHistoryId?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  status?: string;
+  channels?: string[];
+  channelResults?: unknown[];
+  errorMessage?: string;
+  metadata?: unknown;
+  createdAt: string;
 }
 
 export interface SystemSettingsExport {
@@ -576,6 +612,48 @@ export async function exportUserData(
     result.metadata.tableCounts!.backupEndpoints = result.tables.backupEndpoints.length;
   }
 
+  // 导出推送草稿箱
+  const drafts = await env.DB.prepare('SELECT * FROM push_drafts WHERE user_id = ?').bind(userId).all<{
+    id: string; title: string; body?: string; url?: string; channels?: string; created_at: string; updated_at: string;
+  }>();
+  if (drafts.results?.length) {
+    result.tables.pushDrafts = drafts.results.map((r) => ({
+      id: r.id, title: r.title, body: r.body, url: r.url,
+      channels: r.channels ? JSON.parse(r.channels) : undefined,
+      createdAt: r.created_at, updatedAt: r.updated_at,
+    }));
+    result.metadata.tableCounts!.pushDrafts = result.tables.pushDrafts.length;
+  }
+
+  // 导出推送收藏夹
+  const favorites = await env.DB.prepare('SELECT * FROM push_favorites WHERE user_id = ?').bind(userId).all<{
+    id: string; title: string; body?: string; url?: string; channels?: string; created_at: string; updated_at: string;
+  }>();
+  if (favorites.results?.length) {
+    result.tables.pushFavorites = favorites.results.map((r) => ({
+      id: r.id, title: r.title, body: r.body, url: r.url,
+      channels: r.channels ? JSON.parse(r.channels) : undefined,
+      createdAt: r.created_at, updatedAt: r.updated_at,
+    }));
+    result.metadata.tableCounts!.pushFavorites = result.tables.pushFavorites.length;
+  }
+
+  // 导出推送执行日志
+  const execLogs = await env.DB.prepare('SELECT * FROM push_execution_logs WHERE user_id = ?').bind(userId).all<{
+    id: string; push_history_id?: string; started_at?: string; finished_at?: string;
+    status?: string; channels?: string; channel_results?: string; error_message?: string; metadata?: string; created_at: string;
+  }>();
+  if (execLogs.results?.length) {
+    result.tables.pushExecutionLogs = execLogs.results.map((r) => ({
+      id: r.id, pushHistoryId: r.push_history_id, startedAt: r.started_at, finishedAt: r.finished_at,
+      status: r.status, channels: r.channels ? JSON.parse(r.channels) : undefined,
+      channelResults: r.channel_results ? JSON.parse(r.channel_results) : undefined,
+      errorMessage: r.error_message, metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
+      createdAt: r.created_at,
+    }));
+    result.metadata.tableCounts!.pushExecutionLogs = result.tables.pushExecutionLogs.length;
+  }
+
   // 计算数据大小
   const jsonString = JSON.stringify(result);
   result.metadata.dataSize = new Blob([jsonString]).size;
@@ -909,6 +987,51 @@ export async function importUserData(
           imported.backupEndpoints = (imported.backupEndpoints || 0) + 1;
         } catch (e) {
           console.error(`[Import] Failed to import backup endpoint ${item.name}:`, (e as Error).message);
+        }
+      }
+    }
+
+    // 导入推送草稿箱
+    if (!skipTables.includes('pushDrafts') && tables.pushDrafts?.length) {
+      console.log(`[Import] Importing ${tables.pushDrafts.length} push drafts`);
+      for (const item of tables.pushDrafts) {
+        try {
+          await env.DB.prepare(
+            `INSERT OR REPLACE INTO push_drafts (id, user_id, title, body, url, channels, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(item.id, userId, item.title, item.body || null, item.url || null, item.channels ? JSON.stringify(item.channels) : '[]', item.createdAt, item.updatedAt).run();
+          imported.pushDrafts = (imported.pushDrafts || 0) + 1;
+        } catch (e) {
+          console.error(`[Import] Failed to import draft ${item.title}:`, (e as Error).message);
+        }
+      }
+    }
+
+    // 导入推送收藏夹
+    if (!skipTables.includes('pushFavorites') && tables.pushFavorites?.length) {
+      console.log(`[Import] Importing ${tables.pushFavorites.length} push favorites`);
+      for (const item of tables.pushFavorites) {
+        try {
+          await env.DB.prepare(
+            `INSERT OR REPLACE INTO push_favorites (id, user_id, title, body, url, channels, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(item.id, userId, item.title, item.body || null, item.url || null, item.channels ? JSON.stringify(item.channels) : '[]', item.createdAt, item.updatedAt).run();
+          imported.pushFavorites = (imported.pushFavorites || 0) + 1;
+        } catch (e) {
+          console.error(`[Import] Failed to import favorite ${item.title}:`, (e as Error).message);
+        }
+      }
+    }
+
+    // 导入推送执行日志
+    if (!skipTables.includes('pushExecutionLogs') && tables.pushExecutionLogs?.length) {
+      console.log(`[Import] Importing ${tables.pushExecutionLogs.length} push execution logs`);
+      for (const item of tables.pushExecutionLogs) {
+        try {
+          await env.DB.prepare(
+            `INSERT OR REPLACE INTO push_execution_logs (id, user_id, push_history_id, started_at, finished_at, status, channels, channel_results, error_message, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(item.id, userId, item.pushHistoryId || null, item.startedAt || null, item.finishedAt || null, item.status || 'running', item.channels ? JSON.stringify(item.channels) : null, item.channelResults ? JSON.stringify(item.channelResults) : '[]', item.errorMessage || null, item.metadata ? JSON.stringify(item.metadata) : null, item.createdAt).run();
+          imported.pushExecutionLogs = (imported.pushExecutionLogs || 0) + 1;
+        } catch (e) {
+          console.error(`[Import] Failed to import execution log:`, (e as Error).message);
         }
       }
     }
