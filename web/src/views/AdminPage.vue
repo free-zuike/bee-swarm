@@ -1150,11 +1150,11 @@ function handleResend(record: PushHistoryRecord) {
         </div>
 
         <!-- ==================== 统计仪表盘 Tab ==================== -->
-        <StatsDashboard v-show="activeTab === 'stats'" :access-token="accessToken" />
+        <StatsDashboard v-if="activeTab === 'stats'" :access-token="accessToken" />
 
         <!-- ==================== 推送 Tab ==================== -->
         <PushForm
-          v-show="activeTab === 'push'"
+          v-if="activeTab === 'push'"
           ref="pushFormRef"
           :channels="channels"
           v-model:selected-channels="selectedChannels"
@@ -1168,7 +1168,7 @@ function handleResend(record: PushHistoryRecord) {
 
         <!-- ==================== 历史记录 Tab ==================== -->
         <PushHistory
-          v-show="activeTab === 'history'"
+          v-if="activeTab === 'history'"
           :history="pushHistory"
           :loading="isLoadingHistory"
           :channels="channels"
@@ -1181,23 +1181,29 @@ function handleResend(record: PushHistoryRecord) {
         />
 
         <!-- ==================== 模板管理 Tab ==================== -->
-        <TemplateManager
-          v-show="activeTab === 'templates'"
-          :access-token="accessToken"
-          :channels="channels"
-          @use-template="handleUseTemplate"
-        />
+        <KeepAlive>
+          <TemplateManager
+            v-if="activeTab === 'templates'"
+            :access-token="accessToken"
+            :channels="channels"
+            @use-template="handleUseTemplate"
+          />
+        </KeepAlive>
 
         <!-- ==================== 渠道分组 Tab ==================== -->
-        <GroupManager
-          v-show="activeTab === 'groups'"
-          :access-token="accessToken"
-          :channels="channels"
-          @use-group="handleUseGroup"
-        />
+        <KeepAlive>
+          <GroupManager
+            v-if="activeTab === 'groups'"
+            :access-token="accessToken"
+            :channels="channels"
+            @use-group="handleUseGroup"
+          />
+        </KeepAlive>
 
         <!-- ==================== 定时推送 Tab ==================== -->
-        <ScheduledPushManager v-show="activeTab === 'scheduled'" :access-token="accessToken" />
+        <KeepAlive>
+          <ScheduledPushManager v-if="activeTab === 'scheduled'" :access-token="accessToken" />
+        </KeepAlive>
 
         <!-- ==================== Webhook 触发推送 Tab ==================== -->
         <WebhookManager v-if="activeTab === 'webhook'" :access-token="accessToken" />
