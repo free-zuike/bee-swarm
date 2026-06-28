@@ -133,7 +133,6 @@ export interface ScheduledPushExport {
   id: string;
   templateId?: string;
   cron?: string;
-  nextRun?: string;
   nextRunRaw?: number;
   title?: string;
   body?: string;
@@ -229,187 +228,6 @@ export interface BackupRecord {
 // ============================================
 // D1 数据导出/导入服务
 // ============================================
-
-function calculateNextRecurringTime(
-  recurringType: string | null,
-  cron: string | null,
-  timezone: string,
-  selectedWeekDays: number[] | null,
-  selectedMonthDays: number[] | null,
-  yearlyDates: Array<{ month: number; day: number }> | null,
-  enabled: boolean | undefined,
-  createdAt?: string | null,
-  updatedAt?: string | null
-): number {
-  if (!enabled) return Math.floor(Date.now() / 60000) + 525600;
-
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-  const getLocal = (d: Date) => {
-    const p = formatter.formatToParts(d);
-    return {
-      year: parseInt(p.find(x => x.type === 'year')!.value, 10),
-      month: parseInt(p.find(x => x.type === 'month')!.value, 10),
-      day: parseInt(p.find(x => x.type === 'day')!.value, 10),
-      hour: parseInt(p.find(x => x.type === 'hour')!.value, 10),
-      minute: parseInt(p.find(x => x.type === 'minute')!.value, 10),
-      weekday: d.getDay(),
-    };
-  };
-  const localToUTC = (y: number, m: number, d: number, h: number, min: number): Date => {
-    const candidate = new Date(Date.UTC(y, m - 1, d, h, min, 0));
-    const tzP = formatter.formatToParts(candidate);
-    const tzH = parseInt(tzP.find(x => x.type === 'hour')!.value, 10);
-    const tzM = parseInt(tzP.find(x => x.type === 'minute')!.value, 10);
-    let offset = (tzH * 60 + tzM) - (h * 60 + min);
-    if (offset > 720) offset -= 1440;
-    if (offset < -720) offset += 1440;
-    return new Date(candidate.getTime() - offset * 60000);
-  };
-
-  const nowLocal = getLocal(now);
-  let { year, month, day, hour, minute } = nowLocal;
-
-  // 从 createdAt 提取任务创建时的时分（最接近原始设定的执行时间）
-  const refTime = createdAt || updatedAt;
-  if (refTime) {
-    const refLocal = getLocal(new Date(refTime));
-    hour = refLocal.hour;
-    minute = refLocal.minute;
-  }
-
-  const advanceDay = () => { day++; if (day > 31) { day = 1; month++; } if (month > 12) { month = 1; year++; } };
-
-  switch (recurringType) {
-    case 'daily': {
-      advanceDay();
-      const result = localToUTC(year, month, day, hour, minute);
-      return Math.floor(result.getTime() / 60000);
-    }
-    case 'weekly': {
-      const days = selectedWeekDays || [1, 2, 3, 4, 5];
-      for (let i = 1; i <= 14; i++) {
-        advanceDay();
-        const checkDate = new Date(Date.UTC(year, month - 1, day));
-        if (days.includes(checkDate.getUTCDay())) {
-          const result = localToUTC(year, month, day, hour, minute);
-          if (result > now) return Math.floor(result.getTime() / 60000);
-        }
-      }
-      advanceDay();
-      return Math.floor(localToUTC(year, month, day, hour, minute).getTime() / 60000);
-    }
-    case 'monthly': {
-      const days = selectedMonthDays || [1];
-      for (let i = 1; i <= 62; i++) {
-        advanceDay();
-        if (days.includes(day)) {
-          const result = localToUTC(year, month, day, hour, minute);
-          if (result > now) return Math.floor(result.getTime() / 60000);
-        }
-      }
-      month++; day = 1;
-      if (month > 12) { month = 1; year++; }
-      return Math.floor(localToUTC(year, month, day, hour, minute).getTime() / 60000);
-    }
-    case 'yearly': {
-      const dates = yearlyDates || [{ month: 1, day: 1 }];
-      for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
-        for (const dc of dates) {
-          let dm = dc.month, dd = dc.day;
-          if (dm === 2 && dd === 29) {
-            const leap = (year + yearOffset) % 4 === 0 && ((year + yearOffset) % 100 !== 0 || (year + yearOffset) % 400 === 0);
-            if (!leap) dd = 1;
-          }
-          const result = localToUTC(year + yearOffset, dm, dd, hour, minute);
-          if (result > now) return Math.floor(result.getTime() / 60000);
-        }
-      }
-      return Math.floor(localToUTC(year + 1, 1, 1, hour, minute).getTime() / 60000);
-    }
-    case 'cron':
-    default: {
-      if (cron) {
-        const next = calculateNextCronTime(cron, now, timezone);
-        if (next) return Math.floor(next.getTime() / 60000);
-      }
-      advanceDay();
-      return Math.floor(localToUTC(year, month, day, hour, minute).getTime() / 60000);
-    }
-  }
-}
-
-function calculateNextCronTime(cronExpression: string, nowDate: Date, timezone?: string): Date | null {
-  const parts = cronExpression.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [minuteStr, hourStr, dayOfMonthStr, monthStr, dayOfWeekStr] = parts;
-  const parseField = (field: string, minVal: number, maxVal: number): number[] => {
-    const values: Set<number> = new Set();
-    for (const seg of field.split(',')) {
-      const [range, stepStr] = seg.split('/');
-      const step = stepStr ? parseInt(stepStr, 10) : 1;
-      if (isNaN(step) || step < 1) continue;
-      if (range === '*') { for (let i = minVal; i <= maxVal; i += step) values.add(i); }
-      else if (range.includes('-')) {
-        const [s, e] = range.split('-').map(Number);
-        if (!isNaN(s) && !isNaN(e)) for (let i = s; i <= e; i += step) if (i >= minVal && i <= maxVal) values.add(i);
-      } else {
-        const v = parseInt(range, 10);
-        if (!isNaN(v) && v >= minVal && v <= maxVal) { if (stepStr) for (let i = v; i <= maxVal; i += step) values.add(i); else values.add(v); }
-      }
-    }
-    return Array.from(values).sort((a, b) => a - b);
-  };
-  const mins = parseField(minuteStr, 0, 59);
-  const hours = parseField(hourStr, 0, 23);
-  const dom = dayOfMonthStr === '*' ? null : parseField(dayOfMonthStr, 1, 31);
-  const months = monthStr === '*' ? null : parseField(monthStr, 1, 12);
-  const dow = dayOfWeekStr === '*' ? null : parseField(dayOfWeekStr, 0, 6);
-  if (!mins.length || !hours.length) return null;
-
-  const tz = timezone || 'Asia/Shanghai';
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-  const parts2 = formatter.formatToParts(nowDate);
-  const get = (type: string) => parseInt(parts2.find(p => p.type === type)!.value, 10);
-
-  let curDate = new Date(nowDate);
-  let curMin = get('minute') + 1;
-  let curHour = get('hour');
-  let curDay = get('day');
-  let curMonth = get('month');
-  let curYear = get('year');
-
-  if (curMin >= 60) { curMin = 0; curHour++; }
-  if (curHour >= 24) { curHour = 0; curDay++; }
-
-  for (let i = 0; i < 525600; i++) {
-    if (mins.includes(curMin) && hours.includes(curHour) &&
-        (!dom || dom.includes(curDay)) && (!months || months.includes(curMonth)) &&
-        (!dow || dow.includes(curDate.getDay()))) {
-      // 计算时区偏移：在目标时区中该时间对应的 UTC 时间
-      const utcCandidate = new Date(Date.UTC(curYear, curMonth - 1, curDay, curHour, curMin, 0));
-      const tzParts2 = formatter.formatToParts(utcCandidate);
-      const tzH = parseInt(tzParts2.find(p => p.type === 'hour')!.value, 10);
-      const tzM = parseInt(tzParts2.find(p => p.type === 'minute')!.value, 10);
-      let offsetMin = (tzH * 60 + tzM) - (curHour * 60 + curMin);
-      if (offsetMin > 720) offsetMin -= 1440;
-      if (offsetMin < -720) offsetMin += 1440;
-      return new Date(utcCandidate.getTime() - offsetMin * 60000);
-    }
-    curMin++;
-    if (curMin >= 60) { curMin = 0; curHour++; }
-    if (curHour >= 24) { curHour = 0; curDay++; curDate.setDate(curDate.getDate() + 1); }
-    if (curDay > 31) { curDay = 1; curMonth++; }
-    if (curMonth > 12) { curMonth = 1; curYear++; }
-  }
-  return null;
-}
 
 /**
  * 导出用户所有数据
@@ -530,25 +348,11 @@ export async function exportUserData(
 
   if (scheduledPushes.results?.length) {
     result.tables.scheduledPushes = scheduledPushes.results.map((r) => {
-      let nextRunStr: string | undefined;
-      let nextRunRaw: number | undefined;
-      try {
-        nextRunRaw = r.next_run || undefined;
-        if (r.next_run && r.next_run > 0) {
-          // 兼容旧数据（毫秒）和新数据（分钟）
-          const ms = r.next_run > 1e11 ? r.next_run : r.next_run * 60000;
-          nextRunStr = new Date(ms).toISOString();
-        }
-      } catch {
-        nextRunStr = undefined;
-        nextRunRaw = undefined;
-      }
       return {
         id: r.id,
         templateId: r.template_id,
         cron: r.cron,
-        nextRun: nextRunStr,
-        nextRunRaw: nextRunRaw,
+        nextRunRaw: r.next_run || undefined,
         title: r.title,
         body: r.body,
         url: r.url,
@@ -871,11 +675,6 @@ export async function importUserData(
   try {
     // 在事务中执行导入
     const tables = data.tables;
-    console.log('[Import] Starting import for user:', userId);
-    console.log('[Import] Tables to import:', Object.keys(tables).filter(k => {
-      const val = tables[k as keyof typeof tables];
-      return val && (Array.isArray(val) ? val.length > 0 : typeof val === 'object');
-    }));
 
     // 导入用户设置（总是导入）
     if (data.userSettings) {
@@ -972,7 +771,6 @@ export async function importUserData(
 
     // 如果是覆盖模式，先清空现有数据
     if (mergeMode === 'overwrite') {
-      console.log('[Import] Overwrite mode: deleting existing data');
       const deleteStatements = [
         'DELETE FROM audit_logs WHERE user_id = ?',
         'DELETE FROM push_history WHERE user_id = ?',
@@ -991,7 +789,6 @@ export async function importUserData(
 
     // 导入渠道配置
     if (!skipTables.includes('channelConfigs') && tables.channelConfigs?.length) {
-      console.log(`[Import] Importing ${tables.channelConfigs.length} channel configs`);
       for (const item of tables.channelConfigs) {
         try {
           await env.DB.prepare(
@@ -1006,7 +803,6 @@ export async function importUserData(
 
     // 导入推送模板
     if (!skipTables.includes('pushTemplates') && tables.pushTemplates?.length) {
-      console.log(`[Import] Importing ${tables.pushTemplates.length} push templates`);
       for (const item of tables.pushTemplates) {
         try {
           await env.DB.prepare(
@@ -1021,32 +817,16 @@ export async function importUserData(
 
     // 导入定时推送任务
     if (!skipTables.includes('scheduledPushes') && tables.scheduledPushes?.length) {
-      console.log(`[Import] Importing ${tables.scheduledPushes.length} scheduled pushes`);
       for (const item of tables.scheduledPushes) {
         try {
           // next_run 必须有值（NOT NULL 约束）
           // 优先使用 nextRunRaw（数据库原始分钟数），最精确
           let nextRun = 0;
           if (item.nextRunRaw && item.nextRunRaw > 0) {
-            // 兼容旧数据（毫秒）和新数据（分钟）
-            nextRun = item.nextRunRaw > 1e11 ? Math.floor(item.nextRunRaw / 60000) : item.nextRunRaw;
-          } else if (item.nextRun) {
-            const ts = new Date(item.nextRun as string).getTime();
-            nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
+            nextRun = item.nextRunRaw;
           }
-          // 仅在 next_run 完全缺失时，根据任务类型和时区计算下一次执行时间
           if (!nextRun || nextRun <= 0) {
-            nextRun = calculateNextRecurringTime(
-              item.recurringType || null,
-              item.cron || null,
-              item.timezone || 'Asia/Shanghai',
-              item.selectedWeekDays || null,
-              item.selectedMonthDays || null,
-              item.yearlyDates || null,
-              item.enabled,
-              item.createdAt,
-              item.updatedAt
-            );
+            nextRun = Math.floor(Date.now() / 60000) + 1;
           }
 
           await env.DB.prepare(
@@ -1072,7 +852,6 @@ export async function importUserData(
 
     // 导入渠道分组
     if (!skipTables.includes('channelGroups') && tables.channelGroups?.length) {
-      console.log(`[Import] Importing ${tables.channelGroups.length} channel groups`);
       for (const item of tables.channelGroups) {
         try {
           await env.DB.prepare(
@@ -1087,7 +866,6 @@ export async function importUserData(
 
     // 导入推送历史
     if (!skipTables.includes('pushHistory') && tables.pushHistory?.length) {
-      console.log(`[Import] Importing ${tables.pushHistory.length} push history records`);
       for (const item of tables.pushHistory) {
         try {
           const raw = item as unknown as Record<string, unknown>;
@@ -1113,7 +891,6 @@ export async function importUserData(
 
     // 导入审计日志
     if (!skipTables.includes('auditLogs') && tables.auditLogs?.length) {
-      console.log(`[Import] Importing ${tables.auditLogs.length} audit logs`);
       try {
         const statements = tables.auditLogs.map(item =>
           env.DB.prepare(
@@ -1156,11 +933,9 @@ export async function importUserData(
 
     // 导入备份端点
     if (!skipTables.includes('backupEndpoints') && tables.backupEndpoints?.length) {
-      console.log(`[Import] Importing ${tables.backupEndpoints.length} backup endpoints`);
       for (const item of tables.backupEndpoints) {
         try {
           const configKeys = item.config ? Object.keys(item.config) : [];
-          console.log(`[Import] Backup endpoint: ${item.name}, type: ${item.type}, config keys: [${configKeys.join(', ')}], r2Domain: ${item.r2Domain || 'null'}, lastBackup: ${item.lastBackup ? 'present' : 'null'}`);
           const configStr = item.config && configKeys.length > 0 ? (typeof item.config === 'string' ? item.config : JSON.stringify(item.config)) : '{}';
           const scheduleStr = item.schedule ? (typeof item.schedule === 'string' ? item.schedule : JSON.stringify(item.schedule)) : null;
           const lastBackupStr = item.lastBackup ? (typeof item.lastBackup === 'string' ? item.lastBackup : JSON.stringify(item.lastBackup)) : null;
@@ -1185,7 +960,6 @@ export async function importUserData(
 
     // 导入推送草稿箱
     if (!skipTables.includes('pushDrafts') && tables.pushDrafts?.length) {
-      console.log(`[Import] Importing ${tables.pushDrafts.length} push drafts`);
       for (const item of tables.pushDrafts) {
         try {
           await env.DB.prepare(
@@ -1200,7 +974,6 @@ export async function importUserData(
 
     // 导入推送收藏夹
     if (!skipTables.includes('pushFavorites') && tables.pushFavorites?.length) {
-      console.log(`[Import] Importing ${tables.pushFavorites.length} push favorites`);
       for (const item of tables.pushFavorites) {
         try {
           await env.DB.prepare(
@@ -1215,7 +988,6 @@ export async function importUserData(
 
     // 导入推送执行日志
     if (!skipTables.includes('pushExecutionLogs') && tables.pushExecutionLogs?.length) {
-      console.log(`[Import] Importing ${tables.pushExecutionLogs.length} push execution logs`);
       for (const item of tables.pushExecutionLogs) {
         try {
           await env.DB.prepare(
@@ -1228,9 +1000,7 @@ export async function importUserData(
       }
     }
 
-    console.log('[Import] Import results:', imported);
     const totalImported = Object.values(imported).reduce((a, b) => a + b, 0);
-    console.log(`[Import] Total records imported: ${totalImported}`);
     if (totalImported === 0) {
       console.error('[Import] WARNING: No records were imported! Check for batch errors above.');
     }
