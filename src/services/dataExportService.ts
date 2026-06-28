@@ -42,6 +42,7 @@ export interface SystemSettingsExport {
   smtpPort?: string;
   smtpUsername?: string;
   smtpPassword?: string;
+  mailFrom?: string;
 }
 
 export interface UserSettingsExport {
@@ -299,7 +300,7 @@ export async function exportUserData(
       templateId: r.template_id,
       cron: r.cron,
       nextRun:
-        r.next_run && r.next_run > 0 && r.next_run < 1e12
+        r.next_run && r.next_run > 0
           ? new Date(r.next_run * 60000).toISOString()
           : undefined,
       title: r.title,
@@ -504,6 +505,7 @@ export async function exportUserData(
       smtpPort: systemSettings.smtp_port,
       smtpUsername: systemSettings.smtp_username,
       smtpPassword: systemSettings.smtp_password,
+      mailFrom: systemSettings.mail_from,
     };
   } catch {
     // 忽略系统设置导出错误，不影响其他数据备份
@@ -658,6 +660,7 @@ export async function importUserData(
         if (settings.smtpPort !== undefined) settingsToSave.smtp_port = settings.smtpPort;
         if (settings.smtpUsername !== undefined) settingsToSave.smtp_username = settings.smtpUsername;
         if (settings.smtpPassword !== undefined) settingsToSave.smtp_password = settings.smtpPassword;
+        if (settings.mailFrom !== undefined) settingsToSave.mail_from = settings.mailFrom;
 
         await systemSettingsService.saveSettings(settingsToSave);
         imported.systemSettings = 1;
@@ -720,11 +723,27 @@ export async function importUserData(
       console.log(`[Import] Importing ${tables.scheduledPushes.length} scheduled pushes`);
       for (const item of tables.scheduledPushes) {
         try {
-          // next_run 必须有值（NOT NULL 约束），使用当前时间作为默认值
-          let nextRun = item.nextRun ? Math.floor(new Date(item.nextRun).getTime() / 60000) : null;
-          if (!nextRun || isNaN(nextRun)) {
-            nextRun = Math.floor(Date.now() / 60000); // 默认为当前时间
+          // next_run 必须有值（NOT NULL 约束）
+          // 支持多种格式：ISO字符串、原始分钟数（旧备份）、null
+          let nextRun = 0;
+          if (item.nextRun) {
+            if (typeof item.nextRun === 'number') {
+              // 旧备份格式：直接是分钟数
+              nextRun = item.nextRun > 1e12 ? Math.floor(item.nextRun / 60000) : item.nextRun;
+            } else {
+              // ISO字符串格式
+              const ts = new Date(item.nextRun as string).getTime();
+              nextRun = isNaN(ts) ? 0 : Math.floor(ts / 60000);
+            }
           }
+
+          // 对于 enabled 的 recurring 任务，忽略旧的 next_run，设为当前时间让 cron 调度器重新计算
+          if (item.enabled && item.recurringType && item.cron) {
+            nextRun = Math.floor(Date.now() / 60000);
+          } else if (!nextRun || nextRun <= 0) {
+            nextRun = Math.floor(Date.now() / 60000);
+          }
+
           await env.DB.prepare(
             `INSERT OR REPLACE INTO scheduled_pushes (id, user_id, template_id, cron, next_run, title, body, url, image_url, markdown, channels, enabled, status, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, overdue_reminder_sent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
