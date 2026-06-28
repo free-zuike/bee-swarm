@@ -833,9 +833,10 @@ export async function importUserData(
     // 导入备份端点
     if (!skipTables.includes('backupEndpoints') && tables.backupEndpoints?.length) {
       console.log(`[Import] Importing ${tables.backupEndpoints.length} backup endpoints`);
-      try {
-        const statements = tables.backupEndpoints.map(item =>
-          env.DB.prepare(
+      for (const item of tables.backupEndpoints) {
+        try {
+          console.log(`[Import] Backup endpoint: ${item.name} (config: ${item.config ? 'present' : 'EMPTY'})`);
+          await env.DB.prepare(
             `INSERT OR REPLACE INTO backup_endpoints (id, user_id, name, type, config, enabled, schedule, retention, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
             item.id, userId, item.name, item.type,
@@ -843,19 +844,23 @@ export async function importUserData(
             item.enabled ? 1 : 0,
             item.schedule ? JSON.stringify(item.schedule) : null,
             item.retention || null, item.createdAt, item.updatedAt
-          )
-        );
-        await env.DB.batch(statements);
-        imported.backupEndpoints = tables.backupEndpoints.length;
-      } catch (e) {
-        console.warn('[Import] Failed to import backup endpoints:', (e as Error).message);
+          ).run();
+          imported.backupEndpoints = (imported.backupEndpoints || 0) + 1;
+        } catch (e) {
+          console.error(`[Import] Failed to import backup endpoint ${item.name}:`, (e as Error).message);
+        }
       }
     }
 
     console.log('[Import] Import results:', imported);
+    const totalImported = Object.values(imported).reduce((a, b) => a + b, 0);
+    console.log(`[Import] Total records imported: ${totalImported}`);
+    if (totalImported === 0) {
+      console.error('[Import] WARNING: No records were imported! Check for batch errors above.');
+    }
     return {
       success: true,
-      message: `Successfully imported ${Object.values(imported).reduce((a, b) => a + b, 0)} records`,
+      message: `Successfully imported ${totalImported} records`,
       imported,
     };
   } catch (error) {
