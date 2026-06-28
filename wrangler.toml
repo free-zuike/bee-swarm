@@ -38,7 +38,7 @@ crons = ["*/5 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "bee-swarm-db"
-database_id = "${D1_DATABASE_ID}"
+database_id = "e3a82819-8413-4dd1-bb8c-44ee223e7a3f"
 migrations_dir = "migrations"
 
 # ------------------------------------------
@@ -76,22 +76,10 @@ max_retries = 3
 # TURNSTILE_SITE_KEY = "your-site-key"
 
 # ------------------------------------------
-# Workers 日志和监控
+# Workers 日志和监控（已关闭以减少开销）
 # ------------------------------------------
 [observability]
-enabled = true
-head_sampling_rate = 1
-
-[observability.logs]
-enabled = true
-head_sampling_rate = 1
-persist = true
-invocation_logs = true
-
-[observability.traces]
-enabled = true
-persist = true
-head_sampling_rate = 1
+enabled = false
 
 # ------------------------------------------
 # Workers AI

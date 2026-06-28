@@ -56,7 +56,6 @@ export function useBackupHandlers({
       if (result.success) {
         await handleLoadEndpoints();
         backupManagerRef.value?.selectEndpoint(result.endpoint.id);
-        backupManagerRef.value?.handleAddResult(result.endpoint, t('msg.create_endpoint_success'));
       }
     } catch (err: unknown) {
       backupManagerRef.value?.handleError(getErrorMessage(err, t('msg.operation_failed')), 'save');

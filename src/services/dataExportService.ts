@@ -850,11 +850,10 @@ export async function importUserData(
             }
           }
 
-          // 对于 enabled 的 recurring 任务，忽略旧的 next_run，设为当前时间让 cron 调度器重新计算
-          if (item.enabled && item.recurringType && item.cron) {
-            nextRun = Math.floor(Date.now() / 60000);
-          } else if (!nextRun || nextRun <= 0) {
-            nextRun = Math.floor(Date.now() / 60000);
+          // 只在 next_run 缺失或已过期时设为当前时间，保留原始计划时间
+          const nowMinutes = Math.floor(Date.now() / 60000);
+          if (!nextRun || nextRun <= 0 || nextRun < nowMinutes) {
+            nextRun = nowMinutes;
           }
 
           await env.DB.prepare(
