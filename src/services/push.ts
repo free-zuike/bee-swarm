@@ -251,8 +251,12 @@ export class PushService {
       content: result.body || '',
       channels: JSON.parse(result.channels || '[]'),
       url: result.url,
-      scheduledAt: result.next_run && result.next_run > 0 ? new Date(result.next_run * 60000).toISOString() : new Date().toISOString(),
-      nextRun: result.next_run && result.next_run > 0 ? new Date(result.next_run * 60000).toISOString() : new Date().toISOString(),
+      scheduledAt: result.next_run && result.next_run > 0
+        ? new Date((result.next_run > 1e12 ? result.next_run : result.next_run * 60000)).toISOString()
+        : new Date().toISOString(),
+      nextRun: result.next_run && result.next_run > 0
+        ? new Date((result.next_run > 1e12 ? result.next_run : result.next_run * 60000)).toISOString()
+        : new Date().toISOString(),
       scheduleType: result.enabled ? 'recurring' : 'once',
       recurringType: (result.recurring_type as ScheduledPush['recurringType']) || undefined,
       enabled: result.enabled === 1,
@@ -595,8 +599,12 @@ export class PushService {
       content: row.body || '',
       channels: JSON.parse(row.channels || '[]'),
       url: row.url,
-      scheduledAt: row.next_run && row.next_run > 0 ? new Date(row.next_run * 60000).toISOString() : new Date().toISOString(),
-      nextRun: row.next_run && row.next_run > 0 ? new Date(row.next_run * 60000).toISOString() : new Date().toISOString(),
+      scheduledAt: row.next_run && row.next_run > 0
+        ? new Date((row.next_run > 1e12 ? row.next_run : row.next_run * 60000)).toISOString()
+        : new Date().toISOString(),
+      nextRun: row.next_run && row.next_run > 0
+        ? new Date((row.next_run > 1e12 ? row.next_run : row.next_run * 60000)).toISOString()
+        : new Date().toISOString(),
       scheduleType: row.enabled ? 'recurring' : 'once',
       recurringType: (row.recurring_type as ScheduledPush['recurringType']) || undefined,
       enabled: row.enabled === 1,
@@ -621,7 +629,7 @@ export class PushService {
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const nextRun = new Date(push.scheduledAt).getTime();
+    const nextRun = Math.floor(new Date(push.scheduledAt).getTime() / 60000);
 
     // 尝试使用新的列结构，如果失败则回退到旧结构
     try {
