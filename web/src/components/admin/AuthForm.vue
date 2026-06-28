@@ -180,22 +180,8 @@ async function doRegister() {
 
   isProcessing.value = true;
   try {
-    const { register: apiRegister } = await import('@/api');
-    const result = await apiRegister(
-      authEmail.value.trim(),
-      authPassword.value,
-      turnstileToken.value
-    );
-
-    if (result.needVerification) {
-      // 需要邮箱验证
-      verifyEmail.value = authEmail.value.trim();
-      authMode.value = 'verifyEmail';
-      showToast(t('toast.verify_code_sent'), 'success');
-    } else {
-      // 不需要验证，直接登录
-      emit('register', authEmail.value.trim(), authPassword.value, turnstileToken.value);
-    }
+    // 通过 emit 事件让父组件处理注册（避免重复调用 API）
+    emit('register', authEmail.value.trim(), authPassword.value, turnstileToken.value);
   } catch (err) {
     localError.value = (err as Error).message || t('error.register_failed');
   } finally {
