@@ -98,7 +98,8 @@ api.get('/turnstile/config', async (c) => {
   if (turnstileConfig.enabled && turnstileConfig.siteKey) {
     return c.json({ success: true, siteKey: turnstileConfig.siteKey });
   }
-  return errResponse(c, 'Turnstile 未配置', 'NOT_CONFIGURED');
+  // 未配置时返回成功但不提供 siteKey，前端会跳过验证
+  return c.json({ success: true, configured: false });
 });
 
 // Turnstile 验证函数
