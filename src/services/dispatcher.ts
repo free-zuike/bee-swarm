@@ -980,6 +980,7 @@ export async function getPushHistory(
     channels: JSON.parse(row.channels || '[]'),
     results: JSON.parse(row.results || '[]'),
     status: row.status,
+    time: row.created_at,
     createdAt: row.created_at,
     deliveredAt: row.delivered_at,
     readAt: row.read_at,
