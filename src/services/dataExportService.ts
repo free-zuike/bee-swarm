@@ -229,6 +229,140 @@ export interface BackupRecord {
 // D1 数据导出/导入服务
 // ============================================
 
+
+/**
+ * 导入时根据任务类型计算下一次执行时间（分钟数）
+ * 使用 createdAt 中的时分作为执行时间
+ */
+function calcNextRunForImport(
+  recurringType: string | null,
+  cron: string,
+  timezone: string,
+  selectedWeekDays: number[] | null,
+  selectedMonthDays: number[] | null,
+  yearlyDates: Array<{ month: number; day: number }> | null,
+  createdAt: string | null
+): number {
+  const now = Date.now();
+  const nowMin = Math.floor(now / 60000);
+
+  // 从 createdAt 提取时分作为任务的执行时间
+  let hour = 0, minute = 0;
+  if (createdAt) {
+    try {
+      const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
+      });
+      const p = fmt.formatToParts(new Date(createdAt));
+      hour = parseInt(p.find(x => x.type === 'hour')!.value, 10);
+      minute = parseInt(p.find(x => x.type === 'minute')!.value, 10);
+    } catch { /* fallback 0:00 */ }
+  }
+
+  // 创建目标时区时间，转为 UTC 分钟数
+  const toUTCMin = (y: number, m: number, d: number, h: number, mi: number): number => {
+    const utc = new Date(Date.UTC(y, m - 1, d, h, mi, 0));
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    const p = fmt.formatToParts(utc);
+    const tzH = parseInt(p.find(x => x.type === 'hour')!.value, 10);
+    const tzM = parseInt(p.find(x => x.type === 'minute')!.value, 10);
+    let off = (tzH * 60 + tzM) - (h * 60 + mi);
+    if (off > 720) off -= 1440;
+    if (off < -720) off += 1440;
+    return Math.floor((utc.getTime() - off * 60000) / 60000);
+  };
+
+  // 获取当前时区的年月日
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const nowP = fmt.formatToParts(new Date());
+  const nY = parseInt(nowP.find(x => x.type === 'year')!.value, 10);
+  const nM = parseInt(nowP.find(x => x.type === 'month')!.value, 10);
+  const nD = parseInt(nowP.find(x => x.type === 'day')!.value, 10);
+  const nH = parseInt(nowP.find(x => x.type === 'hour')!.value, 10);
+  const nMi = parseInt(nowP.find(x => x.type === 'minute')!.value, 10);
+
+  const nextDay = (y: number, m: number, d: number) => {
+    d++; if (d > 31) { d = 1; m++; } if (m > 12) { m = 1; y++; }
+    return { y, m, d };
+  };
+
+  switch (recurringType) {
+    case 'daily': {
+      const t = nextDay(nY, nM, nD);
+      return toUTCMin(t.y, t.m, t.d, hour, minute);
+    }
+    case 'weekly': {
+      const days = selectedWeekDays || [1, 2, 3, 4, 5];
+      let { y, m, d } = { y: nY, m: nM, d: nD };
+      for (let i = 0; i < 14; i++) {
+        const t = nextDay(y, m, d);
+        y = t.y; m = t.m; d = t.d;
+        const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+        if (days.includes(wd)) {
+          const v = toUTCMin(y, m, d, hour, minute);
+          if (v > nowMin) return v;
+        }
+      }
+      return toUTCMin(y, m, d, hour, minute);
+    }
+    case 'monthly': {
+      const days = selectedMonthDays || [1];
+      let { y, m, d } = { y: nY, m: nM, d: nD };
+      for (let i = 0; i < 62; i++) {
+        const t = nextDay(y, m, d);
+        y = t.y; m = t.m; d = t.d;
+        const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        for (const day of days) {
+          const eff = day > lastDay ? lastDay : day;
+          if (d === eff) {
+            const v = toUTCMin(y, m, d, hour, minute);
+            if (v > nowMin) return v;
+          }
+        }
+      }
+      return toUTCMin(y, m, d, hour, minute);
+    }
+    case 'yearly': {
+      const dates = yearlyDates || [{ month: 1, day: 1 }];
+      for (let yo = 0; yo <= 10; yo++) {
+        const cy = nY + yo;
+        for (const dc of dates) {
+          let dm = dc.month, dd = dc.day;
+          if (dm === 2 && dd === 29) {
+            const leap = (cy % 4 === 0 && cy % 100 !== 0) || cy % 400 === 0;
+            if (!leap) dd = 1;
+          }
+          const v = toUTCMin(cy, dm, dd, hour, minute);
+          if (v > nowMin) return v;
+        }
+      }
+      return toUTCMin(nY + 1, 1, 1, hour, minute);
+    }
+    case 'cron':
+    default: {
+      // cron 类型用 cron 表达式计算，但 cron * * * * * 就是每天
+      if (cron && cron !== '* * * * *') {
+        // 简单解析 cron 中的时分
+        const parts = cron.trim().split(/\s+/);
+        if (parts.length === 5) {
+          const cMin = parts[0] === '*' ? minute : parseInt(parts[0], 10);
+          const cHour = parts[1] === '*' ? hour : parseInt(parts[1], 10);
+          if (!isNaN(cMin) && !isNaN(cHour)) {
+            const t = nextDay(nY, nM, nD);
+            return toUTCMin(t.y, t.m, t.d, cHour, cMin);
+          }
+        }
+      }
+      // * * * * * 或解析失败 → 下一个整分钟
+      return nowMin + 1;
+    }
+  }
+}
+
 /**
  * 导出用户所有数据
  */
@@ -825,12 +959,15 @@ export async function importUserData(
           if (item.nextRunRaw && item.nextRunRaw > 0) {
             nextRun = item.nextRunRaw;
           } else if (item.enabled) {
-            // 仅对启用的任务设默认值，已完成/禁用的保持 0
-            const now = Date.now();
-            const nextMidnight = new Date(now);
-            nextMidnight.setUTCHours(0, 0, 0, 0);
-            if (nextMidnight.getTime() <= now) nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
-            nextRun = Math.floor(nextMidnight.getTime() / 60000);
+            nextRun = calcNextRunForImport(
+              item.recurringType || null,
+              item.cron || '* * * * *',
+              item.timezone || 'Asia/Shanghai',
+              item.selectedWeekDays || null,
+              item.selectedMonthDays || null,
+              item.yearlyDates || null,
+              item.createdAt || null
+            );
           }
 
           await env.DB.prepare(
