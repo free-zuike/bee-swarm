@@ -719,16 +719,32 @@ function calculateNextScheduledAt(
         const checkYear = nowDate.getUTCFullYear() + yearOffset;
 
         for (const dateConfig of yearlyDates) {
-          let targetDate = new Date(
-            Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hour, minute, 0, 0)
-          );
+          // hour/minute 是目标时区的本地值，需要转换为 UTC
+          const localCandidate = new Date(Date.UTC(checkYear, dateConfig.month - 1, dateConfig.day, hour, minute, 0, 0));
+          const fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
+          });
+          const tzParts = fmt.formatToParts(localCandidate);
+          const tzH = parseInt(tzParts.find(p => p.type === 'hour')!.value, 10);
+          const tzM = parseInt(tzParts.find(p => p.type === 'minute')!.value, 10);
+          let offsetMin = (tzH * 60 + tzM) - (hour * 60 + minute);
+          if (offsetMin > 720) offsetMin -= 1440;
+          if (offsetMin < -720) offsetMin += 1440;
+          let targetDate = new Date(localCandidate.getTime() - offsetMin * 60000);
 
           // 处理闰年2月29日
           if (dateConfig.month === 2 && dateConfig.day === 29) {
             const isLeapYear =
               (checkYear % 4 === 0 && checkYear % 100 !== 0) || checkYear % 400 === 0;
             if (!isLeapYear) {
-              targetDate = new Date(Date.UTC(checkYear, 2, 1, hour, minute, 0, 0));
+              const fallbackCandidate = new Date(Date.UTC(checkYear, 2, 1, hour, minute, 0, 0));
+              const tzP2 = fmt.formatToParts(fallbackCandidate);
+              const tzH2 = parseInt(tzP2.find(p => p.type === 'hour')!.value, 10);
+              const tzM2 = parseInt(tzP2.find(p => p.type === 'minute')!.value, 10);
+              let off2 = (tzH2 * 60 + tzM2) - (hour * 60 + minute);
+              if (off2 > 720) off2 -= 1440;
+              if (off2 < -720) off2 += 1440;
+              targetDate = new Date(fallbackCandidate.getTime() - off2 * 60000);
             }
           }
 
@@ -739,9 +755,17 @@ function calculateNextScheduledAt(
       }
 
       // 默认返回明年1月1日
-      const defaultDate = new Date(
-        Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hour, minute, 0, 0)
-      );
+      const defaultCandidate = new Date(Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hour, minute, 0, 0));
+      const fmtDef = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
+      });
+      const dp = fmtDef.formatToParts(defaultCandidate);
+      const dH = parseInt(dp.find(p => p.type === 'hour')!.value, 10);
+      const dM = parseInt(dp.find(p => p.type === 'minute')!.value, 10);
+      let dOff = (dH * 60 + dM) - (hour * 60 + minute);
+      if (dOff > 720) dOff -= 1440;
+      if (dOff < -720) dOff += 1440;
+      const defaultDate = new Date(defaultCandidate.getTime() - dOff * 60000);
       return defaultDate.toISOString();
     }
 
