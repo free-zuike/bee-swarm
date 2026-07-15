@@ -120,6 +120,12 @@ export const schemas = {
     turnstileToken: z.string().optional(),
   }),
 
+  login2FA: z.object({
+    email: z.string().email('请输入有效的邮箱地址'),
+    password: z.string().min(1, '请输入密码'),
+    code: z.string().length(6, '请输入6位验证码'),
+  }),
+
   apikey: z.object({
     username: z.string().min(1, '请输入用户名'),
     password: z.string().min(1, '请输入密码'),

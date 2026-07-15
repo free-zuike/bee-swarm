@@ -394,17 +394,13 @@ api.post('/login', validateBody(schemas.login), async (c) => {
 });
 
 /** 2FA 验证码校验（登录时使用） */
-api.post('/login/2fa', validateBody(schemas.login), async (c) => {
+api.post('/login/2fa', validateBody(schemas.login2FA), async (c) => {
   const body = (c as ValidatedContext).validatedBody as {
     email: string;
     password: string;
     code: string;
   };
   const { email, password, code } = body;
-
-  if (!code || code.length !== 6) {
-    return errResponse(c, '请输入6位验证码', 'VALIDATION_ERROR');
-  }
 
   const userService = new UserService(c.env);
   const user = await userService.findByEmail(email);
