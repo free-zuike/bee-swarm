@@ -109,6 +109,8 @@ const isAuthing = computed(() => authStore.isAuthenticating);
 const authError = computed(() => authStore.authError);
 const email = computed(() => authStore.email);
 const accessToken = computed(() => authStore.accessToken);
+const pending2FA = computed(() => authStore.pending2FA);
+const pendingPassword = computed(() => authStore.pendingPassword);
 
 // ==================== Dashboard Tab ====================
 const activeTab = ref<
@@ -745,6 +747,9 @@ function handleResend(record: PushHistoryRecord) {
     v-else-if="pageState === 'auth'"
     :is-authing="isAuthing"
     :auth-error="authError"
+    :pending-2-f-a="pending2FA"
+    :pending-email="email"
+    :pending-password="pendingPassword"
     @login="doLogin"
     @login-2fa="doLogin2FA"
     @register="doRegister"

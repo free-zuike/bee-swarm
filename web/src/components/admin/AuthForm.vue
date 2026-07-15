@@ -8,6 +8,9 @@ const { showToast } = useGlobalToast();
 const props = defineProps<{
   isAuthing?: boolean;
   authError?: string;
+  pending2FA?: boolean;
+  pendingEmail?: string;
+  pendingPassword?: string;
 }>();
 
 const emit = defineEmits<{
@@ -121,6 +124,22 @@ watch(authMode, () => {
     });
   }
 });
+
+// 监听 pending2FA prop 变化，切换到 2FA 验证模式
+watch(
+  () => props.pending2FA,
+  (newVal) => {
+    if (newVal) {
+      authMode.value = 'verify2FA';
+      if (props.pendingEmail) {
+        authEmail.value = props.pendingEmail;
+      }
+      if (props.pendingPassword) {
+        authPassword.value = props.pendingPassword;
+      }
+    }
+  }
+);
 
 // 清理 Turnstile widget
 onUnmounted(() => {
