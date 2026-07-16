@@ -216,9 +216,11 @@ export default {
             // 循环任务：计算下次执行时间
             const nowDate = new Date();
             const userTimezone = message.payload.timezone || 'Asia/Shanghai';
+            // 使用原始执行时间来计算小时和分钟
+            const timeSource = message.payload.originalNextRun || message.payload.scheduledAt || new Date().toISOString();
             const nextScheduledAt = calculateNextScheduledAt(
               {
-                scheduledAt: message.payload.scheduledAt || new Date().toISOString(),
+                scheduledAt: timeSource,
                 nextRun: message.payload.scheduledAt || new Date().toISOString(),
                 recurringType: message.payload.recurringType || 'daily',
                 timezone: userTimezone,
@@ -480,6 +482,7 @@ async function processScheduledPushes(
           recurringType: push.recurringType,
           timezone: userTimezone,
           scheduledAt: push.scheduledAt,
+          originalNextRun: push.originalNextRun, // 传递原始执行时间
         },
         createdAt: new Date().toISOString(),
       });

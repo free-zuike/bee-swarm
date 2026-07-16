@@ -17,6 +17,7 @@ export interface PushQueueMessage {
     recurringType?: string;
     scheduledAt?: string;
     timezone?: string; // 用户时区
+    originalNextRun?: string; // 原始执行时间，用于循环任务计算下次执行时间
   };
   createdAt: string;
 }
