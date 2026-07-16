@@ -3754,13 +3754,33 @@ function findNextMatchingTime(
         options.selectedMonthDays && options.selectedMonthDays.length > 0
           ? options.selectedMonthDays
           : [1, 15];
-      for (let offset = 0; offset <= 31; offset++) {
-        const candidate = new Date(
-          Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
-        );
-        const candidateLocal = getLocalParts(candidate);
-        if (days.includes(candidateLocal.day) && candidate > now) {
-          return candidate;
+
+      // 使用当前日期作为基准，而不是用户输入的日期
+      const nowLocal = getLocalParts(now);
+
+      for (let monthOffset = 0; monthOffset <= 12; monthOffset++) {
+        const checkMonth = nowLocal.month + monthOffset;
+        const checkYear = nowLocal.year + Math.floor((checkMonth - 1) / 12);
+        const actualMonth = ((checkMonth - 1) % 12) + 1;
+
+        const lastDayOfMonth = new Date(
+          Date.UTC(checkYear, actualMonth, 0)
+        ).getUTCDate();
+
+        // 对于当前月份，从当前日期的下一天开始查找
+        const startDay = monthOffset === 0 ? nowLocal.day + 1 : 1;
+
+        for (const day of days) {
+          const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
+
+          if (effectiveDay >= startDay) {
+            const candidate = new Date(
+              Date.UTC(checkYear, actualMonth - 1, effectiveDay, local.hour, local.minute, 0, 0)
+            );
+            if (candidate > now) {
+              return candidate;
+            }
+          }
         }
       }
       return null;

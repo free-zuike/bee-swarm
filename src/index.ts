@@ -675,32 +675,48 @@ function calculateNextScheduledAt(
 
     case 'monthly': {
       const selectedMonthDays = push.selectedMonthDays || [1, 15];
-      const nextTime = new Date(baseTime);
+      const timezone = userTimezone || push.timezone || 'Asia/Shanghai';
 
-      // 从下一天开始找
-      for (let i = 1; i <= 62; i++) {
-        const checkDate = new Date(nextTime);
-        checkDate.setUTCDate(nextTime.getUTCDate() + i);
-        // 设置正确的小时和分钟
-        checkDate.setUTCHours(hour, minute, 0, 0);
+      // 使用用户时区获取当前日期信息
+      const monthFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+      });
+      const parts = monthFormatter.formatToParts(nowDate);
+      const nowYear = parseInt(parts.find(p => p.type === 'year')?.value || '0', 10);
+      const nowMonth = parseInt(parts.find(p => p.type === 'month')?.value || '0', 10);
+      const nowDay = parseInt(parts.find(p => p.type === 'day')?.value || '0', 10);
+
+      // 从当前月份开始查找下一个匹配的日期
+      for (let monthOffset = 0; monthOffset <= 12; monthOffset++) {
+        const checkMonth = nowMonth + monthOffset;
+        const checkYear = nowYear + Math.floor((checkMonth - 1) / 12);
+        const actualMonth = ((checkMonth - 1) % 12) + 1;
 
         const lastDayOfMonth = new Date(
-          Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth() + 1, 0)
+          Date.UTC(checkYear, actualMonth, 0)
         ).getUTCDate();
+
+        // 对于当前月份，从当前日期的下一天开始查找
+        const startDay = monthOffset === 0 ? nowDay + 1 : 1;
 
         for (const day of selectedMonthDays) {
           const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
 
-          if (checkDate.getUTCDate() === effectiveDay && checkDate > nowDate) {
-            return checkDate.toISOString();
+          if (effectiveDay >= startDay) {
+            const checkDate = new Date(Date.UTC(checkYear, actualMonth - 1, effectiveDay, hour, minute, 0, 0));
+            if (checkDate > nowDate) {
+              return checkDate.toISOString();
+            }
           }
         }
       }
 
       // 默认下一个月同一天
-      const fallbackTime = new Date(baseTime);
+      const fallbackTime = new Date(Date.UTC(nowYear, nowMonth - 1, selectedMonthDays[0] || 1, hour, minute, 0, 0));
       fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
-      fallbackTime.setUTCHours(hour, minute, 0, 0);
       while (fallbackTime <= nowDate) {
         fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
       }

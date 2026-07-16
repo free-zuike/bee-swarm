@@ -1238,7 +1238,11 @@ export class PushService {
       const timeDiffMs = now.getTime() - scheduledTime.getTime();
       const timeDiffMinutes = timeDiffMs / (1000 * 60);
 
-      if (timeDiffMinutes > overdueMinutes && push.status !== 'overdue') {
+      // 对于循环任务，检查是否在当前执行周期内超时
+      // 对于一次性任务，检查是否超过指定时间
+      const isOverdue = timeDiffMinutes > overdueMinutes;
+
+      if (isOverdue && push.status !== 'overdue') {
         await this.markPushAsOverdue(push.id);
         overduePushes.push({ ...push, status: 'overdue' });
       }
