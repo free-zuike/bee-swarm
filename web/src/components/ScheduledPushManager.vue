@@ -1093,11 +1093,11 @@ async function openRenewModal(push: ScheduledPush): Promise<void> {
   try {
     const { batchEnableScheduled } = await import('@/api');
     await batchEnableScheduled(props.accessToken, [push.id]);
-    showToast(t('scheduled.message.renewSuccess') || '已恢复', 'success');
+    showToast(t('scheduled.message.renewSuccess'), 'success');
     await loadScheduledPushes();
   } catch (error) {
     console.error('Failed to renew push:', error);
-    showToast(t('scheduled.message.renewFailed') || '恢复失败', 'error');
+    showToast(t('scheduled.message.renewFailed'), 'error');
   }
 }
 
