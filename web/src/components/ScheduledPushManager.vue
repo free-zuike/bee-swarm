@@ -1083,17 +1083,25 @@ function resetForm(): void {
 }
 
 function openCreateModal(): void {
+  if (showModal.value) return; // 防止重复打开
   resetForm();
   showModal.value = true;
 }
 
 function openRenewModal(push: ScheduledPush): void {
+  if (showModal.value) return; // 防止重复打开
   renewPush.value = push;
   editingPush.value = null;
   resetForm();
   newPush.value.name = push.title;
   newPush.value.content = push.content || '';
   newPush.value.channels = [...push.channels];
+  // 从原始任务复制时间
+  const tz = push.timezone || 'Asia/Shanghai';
+  const originalTime = push.originalNextRun || push.scheduledAt;
+  const timeDate = new Date(originalTime);
+  const { hour, minute } = getTimeInTimezone(timeDate, tz);
+  newPush.value.time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   if (push.templateId) {
     newPush.value.templateId = push.templateId;
   }
@@ -1136,6 +1144,7 @@ function openRenewModal(push: ScheduledPush): void {
 }
 
 function openEditModal(push: ScheduledPush): void {
+  if (showModal.value) return; // 防止重复打开
   editingPush.value = push;
   renewPush.value = null;
   resetForm();
