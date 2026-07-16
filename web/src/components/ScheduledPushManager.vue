@@ -130,7 +130,7 @@
                 {{ t('scheduled.button.cancelTask') }}
               </button>
               <button
-                v-if="push.status === 'completed' || push.status === 'failed'"
+                v-if="push.status === 'completed' || push.status === 'failed' || push.status === 'cancelled'"
                 class="action-btn action-renew"
                 @click="openRenewModal(push)"
               >
@@ -946,6 +946,7 @@ const statusFilters = [
   { value: 'running', label: 'scheduled.filter.running' },
   { value: 'completed', label: 'scheduled.filter.completed' },
   { value: 'failed', label: 'scheduled.filter.failed' },
+  { value: 'cancelled', label: 'scheduled.filter.cancelled' },
   { value: 'overdue', label: 'scheduled.filter.overdue' },
 ];
 
@@ -990,7 +991,7 @@ function getStatusLabel(status: string): string {
     running: 'scheduled.filter.running',
     completed: 'scheduled.filter.completed',
     failed: 'scheduled.filter.failed',
-    cancelled: 'scheduled.filter.pending',
+    cancelled: 'scheduled.filter.cancelled',
     overdue: 'scheduled.filter.overdue',
   };
   return labelMap[status] || status;
@@ -2409,6 +2410,11 @@ async function loadTemplates(): Promise<void> {
 .status-badge.failed {
   background: #ff4d4f20;
   color: #ff4d4f;
+}
+
+.status-badge.cancelled {
+  background: #d9d9d920;
+  color: #8c8c8c;
 }
 
 .status-badge.overdue {
