@@ -1088,59 +1088,17 @@ function openCreateModal(): void {
   showModal.value = true;
 }
 
-function openRenewModal(push: ScheduledPush): void {
-  if (showModal.value) return; // 防止重复打开
-  renewPush.value = push;
-  editingPush.value = null;
-  resetForm();
-  newPush.value.name = push.title;
-  newPush.value.content = push.content || '';
-  newPush.value.channels = [...push.channels];
-  // 从原始任务复制时间
-  const tz = push.timezone || 'Asia/Shanghai';
-  const originalTime = push.originalNextRun || push.scheduledAt;
-  const timeDate = new Date(originalTime);
-  const { hour, minute } = getTimeInTimezone(timeDate, tz);
-  newPush.value.time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-  if (push.templateId) {
-    newPush.value.templateId = push.templateId;
+async function openRenewModal(push: ScheduledPush): Promise<void> {
+  if (showModal.value) return;
+  try {
+    const { batchEnableScheduled } = await import('@/api');
+    await batchEnableScheduled(props.accessToken, [push.id]);
+    showToast(t('scheduled.message.renewSuccess') || '已恢复', 'success');
+    await loadScheduledPushes();
+  } catch (error) {
+    console.error('Failed to renew push:', error);
+    showToast(t('scheduled.message.renewFailed') || '恢复失败', 'error');
   }
-  if (push.scheduleType) {
-    scheduleType.value = push.scheduleType;
-  }
-  if (push.recurringType) {
-    recurringType.value = push.recurringType as
-      | 'hourly'
-      | 'daily'
-      | 'weekly'
-      | 'monthly'
-      | 'yearly'
-      | 'cron';
-  }
-  if (push.selectedWeekDays) {
-    selectedWeekDays.value = [...push.selectedWeekDays];
-  }
-  if (push.selectedMonthDays) {
-    selectedMonthDays.value = [...push.selectedMonthDays];
-  }
-  if (push.yearlyDates && push.yearlyDates.length > 0) {
-    yearlyDates.value = [...push.yearlyDates];
-  } else {
-    yearlyDates.value = [{ month: 1, day: 1 }];
-  }
-  if (push.cronExpression) {
-    cronExpression.value = push.cronExpression;
-  }
-  if (push.timezone) {
-    newPush.value.timezone = push.timezone;
-  }
-  if (push.abTestEnabled !== undefined) {
-    abTestEnabled.value = push.abTestEnabled;
-  }
-  if (push.abTestVariants && push.abTestVariants.length > 0) {
-    abTestVariants.value = [...push.abTestVariants];
-  }
-  showModal.value = true;
 }
 
 function openEditModal(push: ScheduledPush): void {
