@@ -35,6 +35,7 @@ interface ScheduledPushRow {
   url?: string;
   channels?: string;
   next_run?: number;
+  original_next_run?: number; // 原始执行时间
   enabled?: number;
   recurring_type?: string;
   selected_week_days?: string;
