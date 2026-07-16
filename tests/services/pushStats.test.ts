@@ -193,9 +193,11 @@ class MockPreparedStatement {
             let statusMatch = true;
             if (sqlLower.includes("and status = 'pending'") && row.status !== 'pending') statusMatch = false;
             if (sqlLower.includes("and status = 'failed'") && row.status !== 'failed') statusMatch = false;
+            if (sqlLower.includes("and status in ('failed', 'cancelled')") && row.status !== 'failed' && row.status !== 'cancelled') statusMatch = false;
 
             if (statusMatch) {
               if (sqlLower.includes("set status = 'failed'")) row.status = 'failed';
+              if (sqlLower.includes("set status = 'cancelled'")) row.status = 'cancelled';
               if (sqlLower.includes("set status = 'pending'")) row.status = 'pending';
               row.updated_at = this.boundParams[0];
               table.set(id, row);
@@ -216,6 +218,7 @@ class MockPreparedStatement {
 
           if (statusMatch) {
             if (sqlLower.includes("set status = 'failed'")) row.status = 'failed';
+            if (sqlLower.includes("set status = 'cancelled'")) row.status = 'cancelled';
             if (sqlLower.includes("set status = 'overdue'")) row.status = 'overdue';
             if (sqlLower.includes("set status = 'pending'")) row.status = 'pending';
             if (sqlLower.includes('status = ?')) row.status = this.boundParams[0];
