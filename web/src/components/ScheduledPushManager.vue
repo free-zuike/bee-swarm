@@ -2056,7 +2056,6 @@ function getNextMonthly(
     }
   }
   const fallback = makeDateInTimezone(todayLocal.year, todayLocal.month + 1, days[0], hour, minute, tz);
-  );
   return fallback;
 }
 
