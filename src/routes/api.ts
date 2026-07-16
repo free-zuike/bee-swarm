@@ -3736,12 +3736,19 @@ function findNextMatchingTime(
   const now = new Date();
   const local = getLocalParts(baseTime);
 
+  // 将本地时间正确转换为 UTC Date
+  const makeDateInTimezone = (year: number, month: number, day: number, hour: number, minute: number): Date => {
+    const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+    const guessLocal = getLocalParts(guess);
+    const diffMinutes = (guessLocal.hour * 60 + guessLocal.minute) - (hour * 60 + minute);
+    guess.setUTCMinutes(guess.getUTCMinutes() - diffMinutes);
+    return guess;
+  };
+
   switch (recurringType) {
     case 'daily': {
       for (let offset = 0; offset <= 1; offset++) {
-        const candidate = new Date(
-          Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
-        );
+        const candidate = makeDateInTimezone(local.year, local.month, local.day + offset, local.hour, local.minute);
         if (candidate > now) return candidate;
       }
       return null;
@@ -3753,9 +3760,7 @@ function findNextMatchingTime(
           ? options.selectedWeekDays
           : [1, 2, 3, 4, 5];
       for (let offset = 0; offset <= 7; offset++) {
-        const candidate = new Date(
-          Date.UTC(local.year, local.month - 1, local.day + offset, local.hour, local.minute, 0, 0)
-        );
+        const candidate = makeDateInTimezone(local.year, local.month, local.day + offset, local.hour, local.minute);
         const candidateLocal = getLocalParts(candidate);
         if (days.includes(candidateLocal.weekday) && candidate > now) {
           return candidate;
@@ -3789,9 +3794,7 @@ function findNextMatchingTime(
           const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
 
           if (effectiveDay >= startDay) {
-            const candidate = new Date(
-              Date.UTC(checkYear, actualMonth - 1, effectiveDay, local.hour, local.minute, 0, 0)
-            );
+            const candidate = makeDateInTimezone(checkYear, actualMonth, effectiveDay, local.hour, local.minute);
             if (candidate > now) {
               return candidate;
             }
@@ -3808,9 +3811,7 @@ function findNextMatchingTime(
           : [{ month: 1, day: 1 }];
       for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
         for (const d of dates) {
-          const candidate = new Date(
-            Date.UTC(local.year + yearOffset, d.month - 1, d.day, local.hour, local.minute, 0, 0)
-          );
+          const candidate = makeDateInTimezone(local.year + yearOffset, d.month, d.day, local.hour, local.minute);
           if (candidate > now) return candidate;
         }
       }
