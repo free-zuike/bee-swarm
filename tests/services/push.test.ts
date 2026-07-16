@@ -329,12 +329,17 @@ class MockPreparedStatement {
             if (sqlLower.includes('and status = \'failed\'')) {
               if (row.status !== 'failed') statusMatch = false;
             }
-            
+            if (sqlLower.includes('and status in (\'failed\', \'cancelled\')')) {
+              if (row.status !== 'failed' && row.status !== 'cancelled') statusMatch = false;
+            }
+
             if (statusMatch) {
               if (sqlLower.includes('set status = ')) {
                 // cancel 或者 enable 操作
                 if (sqlLower.includes('set status = \'failed\'')) {
                   row.status = 'failed';
+                } else if (sqlLower.includes('set status = \'cancelled\'')) {
+                  row.status = 'cancelled';
                 } else if (sqlLower.includes('set status = \'pending\'')) {
                   row.status = 'pending';
                 }
@@ -364,6 +369,9 @@ class MockPreparedStatement {
           if (statusMatch) {
             if (sqlLower.includes('set status = \'failed\'')) {
               row.status = 'failed';
+              row.updated_at = this.params[0];
+            } else if (sqlLower.includes('set status = \'cancelled\'')) {
+              row.status = 'cancelled';
               row.updated_at = this.params[0];
             } else if (sqlLower.includes('status = ?')) {
               row.status = this.params[0];
