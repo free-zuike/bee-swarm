@@ -670,7 +670,7 @@ export class PushService {
         )
         .run();
     } catch (e) {
-      // 回退到旧结构
+      // 回退到旧结构（不包含 original_next_run）
       await this.env.DB.prepare(
         `
         INSERT INTO scheduled_pushes (
@@ -698,6 +698,17 @@ export class PushService {
           now
         )
         .run();
+
+      // 尝试更新 original_next_run 字段（如果数据库支持）
+      try {
+        await this.env.DB.prepare(
+          'UPDATE scheduled_pushes SET original_next_run = ? WHERE id = ? AND user_id = ?'
+        )
+          .bind(nextRun, id, this.userId)
+          .run();
+      } catch {
+        // 忽略错误，数据库可能还没有 original_next_run 字段
+      }
     }
 
     return {

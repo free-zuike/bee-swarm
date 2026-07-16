@@ -1863,11 +1863,26 @@ function openRescheduleModal(push: ScheduledPush): void {
   const tz = push.timezone || 'Asia/Shanghai';
   const now = new Date();
 
-  // 对于循环任务，使用原始执行时间（originalNextRun）来获取正确的小时和分钟
-  // 如果 originalNextRun 不存在，回退到 scheduledAt
-  const timeSource = push.originalNextRun || push.scheduledAt;
-  const originalTime = new Date(timeSource);
-  const { hour, minute } = getTimeInTimezone(originalTime, tz);
+  // 对于循环任务，使用原始执行时间来获取正确的小时和分钟
+  // 优先使用 originalNextRun，如果不存在则使用 scheduledAt
+  // 注意：scheduledAt 在任务执行后会被更新为下次执行时间
+  let hour = 9;
+  let minute = 0;
+
+  if (push.originalNextRun) {
+    // 如果有原始执行时间，使用它
+    const originalTime = new Date(push.originalNextRun);
+    const timeParts = getTimeInTimezone(originalTime, tz);
+    hour = timeParts.hour;
+    minute = timeParts.minute;
+  } else {
+    // 如果没有原始执行时间，尝试从 scheduledAt 获取
+    // 这可能是下次执行时间，但对于重新安排来说，我们使用它作为参考
+    const scheduledTime = new Date(push.scheduledAt);
+    const timeParts = getTimeInTimezone(scheduledTime, tz);
+    hour = timeParts.hour;
+    minute = timeParts.minute;
+  }
 
   let nextDate = new Date(now);
 
