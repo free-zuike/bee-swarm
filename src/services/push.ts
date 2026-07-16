@@ -819,7 +819,7 @@ export class PushService {
     if (!this.env.DB) return false;
 
     const result = await this.env.DB.prepare(
-      "UPDATE scheduled_pushes SET status = 'failed', updated_at = ? WHERE id = ? AND user_id = ? AND status = 'pending'"
+      "UPDATE scheduled_pushes SET status = 'cancelled', updated_at = ? WHERE id = ? AND user_id = ? AND status = 'pending'"
     )
       .bind(new Date().toISOString(), id, this.userId)
       .run();
@@ -834,7 +834,7 @@ export class PushService {
 
     const placeholders = ids.map(() => '?').join(',');
     const result = await this.env.DB.prepare(
-      `UPDATE scheduled_pushes SET status = 'failed', updated_at = ? WHERE id IN (${placeholders}) AND user_id = ? AND status = 'pending'`
+      `UPDATE scheduled_pushes SET status = 'cancelled', updated_at = ? WHERE id IN (${placeholders}) AND user_id = ? AND status = 'pending'`
     )
       .bind(new Date().toISOString(), ...ids, this.userId)
       .run();
@@ -882,12 +882,14 @@ export class PushService {
   ): Promise<void> {
     if (!this.env.DB) return;
 
+    // next_run 存储的是以分钟为单位的时间戳
+    const nextRunMinutes = Math.floor(new Date(nextScheduledAt).getTime() / 60000);
     await this.env.DB.prepare(
       `
       UPDATE scheduled_pushes SET status = ?, next_run = ?, updated_at = ? WHERE id = ? AND user_id = ?
     `
     )
-      .bind(status, new Date(nextScheduledAt).getTime(), new Date().toISOString(), id, this.userId)
+      .bind(status, nextRunMinutes, new Date().toISOString(), id, this.userId)
       .run();
   }
 

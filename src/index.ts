@@ -654,6 +654,8 @@ function calculateNextScheduledAt(
       for (let i = 1; i <= 14; i++) {
         const checkDate = new Date(nextTime);
         checkDate.setUTCDate(nextTime.getUTCDate() + i);
+        // 设置正确的小时和分钟
+        checkDate.setUTCHours(hour, minute, 0, 0);
         if (selectedWeekDays.includes(checkDate.getUTCDay())) {
           if (checkDate > nowDate) {
             return checkDate.toISOString();
@@ -664,6 +666,7 @@ function calculateNextScheduledAt(
       // 如果两周内没找到，默认下一周同一天
       const fallbackTime = new Date(baseTime);
       fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
+      fallbackTime.setUTCHours(hour, minute, 0, 0);
       while (fallbackTime <= nowDate) {
         fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
       }
@@ -678,6 +681,8 @@ function calculateNextScheduledAt(
       for (let i = 1; i <= 62; i++) {
         const checkDate = new Date(nextTime);
         checkDate.setUTCDate(nextTime.getUTCDate() + i);
+        // 设置正确的小时和分钟
+        checkDate.setUTCHours(hour, minute, 0, 0);
 
         const lastDayOfMonth = new Date(
           Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth() + 1, 0)
@@ -695,6 +700,7 @@ function calculateNextScheduledAt(
       // 默认下一个月同一天
       const fallbackTime = new Date(baseTime);
       fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
+      fallbackTime.setUTCHours(hour, minute, 0, 0);
       while (fallbackTime <= nowDate) {
         fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
       }
