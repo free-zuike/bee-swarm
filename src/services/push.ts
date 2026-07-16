@@ -122,6 +122,7 @@ export interface ScheduledPush {
   url?: string;
   scheduledAt: string;
   nextRun?: string;
+  originalNextRun?: string; // 原始执行时间，用于循环任务在执行后仍能获取原始的小时和分钟
   scheduleType?: 'once' | 'recurring';
   recurringType?:
     | 'hourly'
@@ -605,6 +606,9 @@ export class PushService {
       nextRun: row.next_run && row.next_run > 0
         ? new Date((row.next_run > 1e12 ? row.next_run : row.next_run * 60000)).toISOString()
         : new Date().toISOString(),
+      originalNextRun: row.original_next_run && row.original_next_run > 0
+        ? new Date((row.original_next_run > 1e12 ? row.original_next_run : row.original_next_run * 60000)).toISOString()
+        : undefined,
       scheduleType: row.enabled ? 'recurring' : 'once',
       recurringType: (row.recurring_type as ScheduledPush['recurringType']) || undefined,
       enabled: row.enabled === 1,
@@ -636,9 +640,9 @@ export class PushService {
       await this.env.DB.prepare(
         `
         INSERT INTO scheduled_pushes (
-          id, user_id, template_id, cron, next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, created_at, updated_at
+          id, user_id, template_id, cron, next_run, original_next_run, title, body, url, channels, enabled, recurring_type, selected_week_days, selected_month_days, yearly_dates, timezone, ab_test_enabled, ab_test_variants, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       )
         .bind(
@@ -647,6 +651,7 @@ export class PushService {
           push.templateId || null,
           push.cronExpression || '* * * * *',
           nextRun,
+          nextRun, // original_next_run 与 next_run 相同
           push.title,
           push.content || '',
           push.url || null,

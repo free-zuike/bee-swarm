@@ -782,6 +782,7 @@ interface ScheduledPush {
   title: string;
   content: string;
   scheduledAt: string;
+  originalNextRun?: string; // 原始执行时间，用于循环任务在执行后仍能获取原始的小时和分钟
   channels: string[];
   templateId?: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'overdue';
@@ -1861,12 +1862,16 @@ function openRescheduleModal(push: ScheduledPush): void {
 
   const tz = push.timezone || 'Asia/Shanghai';
   const now = new Date();
+
+  // 对于循环任务，使用原始执行时间（originalNextRun）来获取正确的小时和分钟
+  // 如果 originalNextRun 不存在，回退到 scheduledAt
+  const timeSource = push.originalNextRun || push.scheduledAt;
+  const originalTime = new Date(timeSource);
+  const { hour, minute } = getTimeInTimezone(originalTime, tz);
+
   let nextDate = new Date(now);
 
   if (push.scheduleType === 'recurring' && push.recurringType) {
-    const originalTime = new Date(push.scheduledAt);
-    const { hour, minute } = getTimeInTimezone(originalTime, tz);
-
     switch (push.recurringType) {
       case 'daily': {
         nextDate = getNextDaily(hour, minute, tz);
