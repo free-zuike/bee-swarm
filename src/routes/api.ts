@@ -3772,7 +3772,7 @@ function findNextMatchingTime(
     case 'monthly': {
       const days =
         options.selectedMonthDays && options.selectedMonthDays.length > 0
-          ? options.selectedMonthDays
+          ? [...options.selectedMonthDays].sort((a, b) => a - b)
           : [1, 15];
 
       // 使用当前日期作为基准，而不是用户输入的日期

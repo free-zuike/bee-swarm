@@ -2047,7 +2047,7 @@ function getNextMonthly(
   minute: number,
   tz: string
 ): Date {
-  const days = selectedMonthDays && selectedMonthDays.length > 0 ? selectedMonthDays : [1, 15];
+  const days = selectedMonthDays && selectedMonthDays.length > 0 ? [...selectedMonthDays].sort((a, b) => a - b) : [1, 15];
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
   for (let offset = 0; offset <= 31; offset++) {

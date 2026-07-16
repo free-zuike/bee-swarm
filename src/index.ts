@@ -693,7 +693,7 @@ function calculateNextScheduledAt(
     }
 
     case 'monthly': {
-      const selectedMonthDays = push.selectedMonthDays || [1, 15];
+      const selectedMonthDays = push.selectedMonthDays ? [...push.selectedMonthDays].sort((a, b) => a - b) : [1, 15];
       const timezone = userTimezone || push.timezone || 'Asia/Shanghai';
 
       // 使用用户时区获取当前日期信息
@@ -1016,7 +1016,7 @@ function shouldExecutePush(
     }
 
     case 'monthly': {
-      const selectedMonthDays = push.selectedMonthDays || [1, 15];
+      const selectedMonthDays = push.selectedMonthDays ? [...push.selectedMonthDays].sort((a, b) => a - b) : [1, 15];
       const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
       const localDateStr = formatter.format(nowDate);
       const nowDateOfMonth = parseInt(localDateStr.split('-')[2], 10);
