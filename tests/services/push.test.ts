@@ -227,21 +227,53 @@ class MockPreparedStatement {
     if (sqlLower.includes('scheduled_pushes')) {
       const table = this.tables.get('scheduled_pushes') || new Map();
       const id = this.params[0];
-      const row = {
-        id: this.params[0],
-        user_id: this.params[1],
-        template_id: this.params[2],
-        cron: this.params[3],
-        next_run: this.params[4],
-        title: this.params[5],
-        body: this.params[6],
-        url: this.params[7],
-        channels: this.params[8],
-        enabled: this.params[9],
-        status: 'pending',
-        created_at: this.params[10],
-        updated_at: this.params[11],
-      };
+
+      // 检查是否有 original_next_run 字段
+      const hasOriginalNextRun = sqlLower.includes('original_next_run');
+
+      let row: Record<string, any>;
+      if (hasOriginalNextRun) {
+        // 新结构：包含 original_next_run
+        row = {
+          id: this.params[0],
+          user_id: this.params[1],
+          template_id: this.params[2],
+          cron: this.params[3],
+          next_run: this.params[4],
+          original_next_run: this.params[5],
+          title: this.params[6],
+          body: this.params[7],
+          url: this.params[8],
+          channels: this.params[9],
+          enabled: this.params[10],
+          recurring_type: this.params[11],
+          selected_week_days: this.params[12],
+          selected_month_days: this.params[13],
+          yearly_dates: this.params[14],
+          timezone: this.params[15],
+          status: 'pending',
+          created_at: this.params[18],
+          updated_at: this.params[19],
+        };
+      } else {
+        // 旧结构：不包含 original_next_run
+        row = {
+          id: this.params[0],
+          user_id: this.params[1],
+          template_id: this.params[2],
+          cron: this.params[3],
+          next_run: this.params[4],
+          title: this.params[5],
+          body: this.params[6],
+          url: this.params[7],
+          channels: this.params[8],
+          enabled: this.params[9],
+          status: 'pending',
+          created_at: this.params[10],
+          updated_at: this.params[11],
+        };
+      }
+
       table.set(id, row);
       this.tables.set('scheduled_pushes', table);
     }
