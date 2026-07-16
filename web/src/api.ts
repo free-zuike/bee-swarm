@@ -815,16 +815,21 @@ export async function cancelScheduledPush(
   token: string,
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  const result = await tokenRequest<{ success: boolean; message: string }>(
-    `${BASE}/admin/scheduled/${id}`,
+  const result = await tokenRequest<{ success: boolean; message: string; cancelled: number }>(
+    `${BASE}/admin/scheduled/batch-cancel`,
     token,
-    { method: 'DELETE' }
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    }
   );
   apiCache.invalidate(`${BASE}/admin/scheduled`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=pending`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=running`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=completed`, token);
   apiCache.invalidate(`${BASE}/admin/scheduled?status=failed`, token);
+  apiCache.invalidate(`${BASE}/admin/scheduled?status=cancelled`, token);
   return result;
 }
 
