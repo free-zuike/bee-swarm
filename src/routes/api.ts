@@ -15,6 +15,7 @@ import {
 } from '../middleware/rateLimit';
 import { UserService } from '../services/userService';
 import type { AITool } from '../services/userService';
+import { getLocalTime } from '../utils/datetime';
 import {
   dispatchPush,
   dispatchPushWithOptions,
@@ -2884,6 +2885,7 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
       selected_week_days?: string;
       selected_month_days?: string;
       yearly_dates?: string;
+      next_run?: number;
     }>();
 
   let finalScheduledAt = body.scheduledAt;
@@ -2900,7 +2902,20 @@ adminApi.post('/scheduled/:id/reschedule', async (c) => {
       : undefined;
     const yearlyDates = pushResult.yearly_dates ? JSON.parse(pushResult.yearly_dates) : undefined;
 
-    const adjusted = findNextMatchingTime(newScheduledTime, recurringType, tz, {
+    // 对于循环任务，使用原始任务的时间（小时和分钟），而不是用户选择的时间
+    // 从next_run获取原始时间，然后使用用户选择的日期
+    const originalTime = pushResult.next_run
+      ? new Date(pushResult.next_run > 1e12 ? pushResult.next_run : pushResult.next_run * 60000)
+      : newScheduledTime;
+
+    // 获取原始时间的小时和分钟
+    const { hour: originalHour, minute: originalMinute } = getLocalTime(originalTime, tz);
+
+    // 使用用户选择的日期，但保持原始时间的小时和分钟
+    const adjustedDate = new Date(newScheduledTime);
+    adjustedDate.setUTCHours(originalHour, originalMinute, 0, 0);
+
+    const adjusted = findNextMatchingTime(adjustedDate, recurringType, tz, {
       selectedWeekDays,
       selectedMonthDays,
       yearlyDates,
