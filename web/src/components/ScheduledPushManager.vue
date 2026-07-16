@@ -1586,7 +1586,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
 
     case 'monthly': {
       const monthDays =
-        push.selectedMonthDays && push.selectedMonthDays.length > 0 ? push.selectedMonthDays : [1];
+        push.selectedMonthDays && push.selectedMonthDays.length > 0 ? [...push.selectedMonthDays].sort((a, b) => a - b) : [1];
       current.setHours(hours, minutes, 0, 0);
       if (current <= now) {
         current.setDate(current.getDate() + 1);
@@ -1657,6 +1657,8 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     }
   }
 
+  // 按时间排序
+  executions.sort((a, b) => a.getTime() - b.getTime());
   return executions.slice(0, count);
 }
 
