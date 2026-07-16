@@ -725,9 +725,13 @@ function calculateNextScheduledAt(
           const effectiveDay = day > lastDayOfMonth ? lastDayOfMonth : day;
 
           if (effectiveDay >= startDay) {
-            const checkDate = new Date(Date.UTC(checkYear, actualMonth - 1, effectiveDay, hour, minute, 0, 0));
-            if (checkDate > nowDate) {
-              return checkDate.toISOString();
+            // 正确处理时区：将本地时间转换为UTC
+            const guess = new Date(Date.UTC(checkYear, actualMonth - 1, effectiveDay, hour, minute, 0, 0));
+            const guessLocal = getLocalTime(guess, timezone);
+            const diffMinutes = (guessLocal.hour * 60 + guessLocal.minute) - (hour * 60 + minute);
+            guess.setUTCMinutes(guess.getUTCMinutes() - diffMinutes);
+            if (guess > nowDate) {
+              return guess.toISOString();
             }
           }
         }
@@ -735,6 +739,8 @@ function calculateNextScheduledAt(
 
       // 默认下一个月同一天
       const fallbackTime = new Date(Date.UTC(nowYear, nowMonth - 1, selectedMonthDays[0] || 1, hour, minute, 0, 0));
+      const fallbackLocalTime = getLocalTime(fallbackTime, timezone);
+      fallbackTime.setUTCMinutes(fallbackTime.getUTCMinutes() - ((fallbackLocalTime.hour * 60 + fallbackLocalTime.minute) - (hour * 60 + minute)));
       fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
       while (fallbackTime <= nowDate) {
         fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
