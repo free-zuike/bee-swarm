@@ -228,11 +228,13 @@ class MockPreparedStatement {
       const table = this.tables.get('scheduled_pushes') || new Map();
       const id = this.params[0];
 
-      // 检查是否有 original_next_run 字段
-      const hasOriginalNextRun = sqlLower.includes('original_next_run');
+      // 根据参数数量判断结构
+      // 新结构：20个参数（包含 original_next_run, ab_test_enabled, ab_test_variants）
+      // 旧结构：16个参数
+      const isNewStructure = this.params.length >= 20;
 
       let row: Record<string, any>;
-      if (hasOriginalNextRun) {
+      if (isNewStructure) {
         // 新结构：包含 original_next_run
         row = {
           id: this.params[0],
