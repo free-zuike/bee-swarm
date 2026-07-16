@@ -347,7 +347,7 @@ describe('PushService 推送统计', () => {
       expect(result).toBe(true);
 
       const pushes = await pushService.getScheduledPushes();
-      expect(pushes[0].status).toBe('failed');
+      expect(pushes[0].status).toBe('cancelled');
     });
 
     it('应该批量取消定时推送', async () => {

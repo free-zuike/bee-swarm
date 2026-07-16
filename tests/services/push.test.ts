@@ -620,7 +620,7 @@ describe('PushService', () => {
       expect(cancelled).toBe(true);
 
       const pushes = await pushService.getScheduledPushes();
-      expect(pushes[0].status).toBe('failed');
+      expect(pushes[0].status).toBe('cancelled');
     });
 
     it('应该正确批量取消定时推送', async () => {

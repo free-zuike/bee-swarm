@@ -850,7 +850,7 @@ export class PushService {
 
     const placeholders = ids.map(() => '?').join(',');
     const result = await this.env.DB.prepare(
-      `UPDATE scheduled_pushes SET status = 'pending', updated_at = ? WHERE id IN (${placeholders}) AND user_id = ? AND status = 'failed'`
+      `UPDATE scheduled_pushes SET status = 'pending', updated_at = ? WHERE id IN (${placeholders}) AND user_id = ? AND status IN ('failed', 'cancelled')`
     )
       .bind(new Date().toISOString(), ...ids, this.userId)
       .run();
