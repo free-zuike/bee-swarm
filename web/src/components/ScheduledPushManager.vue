@@ -1996,12 +1996,23 @@ function formatTimeInTimezone(date: Date, tz: string): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+// 将本地时间（year, month, day, hour, minute）正确转换为 UTC Date
+function makeDateInTimezone(year: number, month: number, day: number, hour: number, minute: number, tz: string): Date {
+  // 先创建一个 UTC 时间的猜测值
+  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+  // 获取这个 UTC 时间在目标时区的本地时间
+  const localTime = getTimeInTimezone(guess, tz);
+  // 计算差值：本地时间 - 期望时间 = 时区偏移
+  const diffMinutes = (localTime.hour * 60 + localTime.minute) - (hour * 60 + minute);
+  // 调整 UTC 时间
+  guess.setUTCMinutes(guess.getUTCMinutes() - diffMinutes);
+  return guess;
+}
+
 function getNextDaily(hour: number, minute: number, tz: string): Date {
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
-  const candidate = new Date(
-    Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day, hour, minute, 0, 0)
-  );
+  const candidate = makeDateInTimezone(todayLocal.year, todayLocal.month, todayLocal.day, hour, minute, tz);
   const nowUtc = now.getTime();
   if (candidate.getTime() > nowUtc) return candidate;
   candidate.setUTCDate(candidate.getUTCDate() + 1);
@@ -2018,17 +2029,13 @@ function getNextWeekly(
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
   for (let offset = 0; offset <= 7; offset++) {
-    const candidate = new Date(
-      Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0)
-    );
+    const candidate = makeDateInTimezone(todayLocal.year, todayLocal.month, todayLocal.day + offset, hour, minute, tz);
     const candidateLocal = getLocalDateInTimezone(candidate, tz);
     if (days.includes(candidateLocal.weekday) && candidate.getTime() > now.getTime()) {
       return candidate;
     }
   }
-  const fallback = new Date(
-    Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + 7, hour, minute, 0, 0)
-  );
+  const fallback = makeDateInTimezone(todayLocal.year, todayLocal.month, todayLocal.day + 7, hour, minute, tz);
   return fallback;
 }
 
@@ -2042,16 +2049,13 @@ function getNextMonthly(
   const now = new Date();
   const todayLocal = getLocalDateInTimezone(now, tz);
   for (let offset = 0; offset <= 31; offset++) {
-    const candidate = new Date(
-      Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day + offset, hour, minute, 0, 0)
-    );
+    const candidate = makeDateInTimezone(todayLocal.year, todayLocal.month, todayLocal.day + offset, hour, minute, tz);
     const candidateLocal = getLocalDateInTimezone(candidate, tz);
     if (days.includes(candidateLocal.day) && candidate.getTime() > now.getTime()) {
       return candidate;
     }
   }
-  const fallback = new Date(
-    Date.UTC(todayLocal.year, todayLocal.month, days[0], hour, minute, 0, 0)
+  const fallback = makeDateInTimezone(todayLocal.year, todayLocal.month + 1, days[0], hour, minute, tz);
   );
   return fallback;
 }

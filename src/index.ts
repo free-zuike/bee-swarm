@@ -651,14 +651,29 @@ function calculateNextScheduledAt(
 
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
-      const nextTime = new Date(baseTime);
 
-      // 从下一天开始找
-      for (let i = 1; i <= 14; i++) {
-        const checkDate = new Date(nextTime);
-        checkDate.setUTCDate(nextTime.getUTCDate() + i);
-        // 设置正确的小时和分钟
+      // 从当前日期开始查找下一个匹配的日期
+      const weekFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+      });
+      const weekParts = weekFormatter.formatToParts(nowDate);
+      const nowYear = parseInt(weekParts.find(p => p.type === 'year')?.value || '0', 10);
+      const nowMonth = parseInt(weekParts.find(p => p.type === 'month')?.value || '0', 10);
+      const nowDay = parseInt(weekParts.find(p => p.type === 'day')?.value || '0', 10);
+
+      // 从当前日期开始查找
+      for (let i = 0; i <= 14; i++) {
+        const checkDate = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + i, 0, 0, 0, 0));
+        // 获取这个 UTC 时间在目标时区的本地时间
+        const checkLocalTime = getLocalTime(checkDate, timezone);
+        // 计算时区偏移并设置正确的 UTC 时间
+        const diffMinutes = (checkLocalTime.hour * 60 + checkLocalTime.minute);
         checkDate.setUTCHours(hour, minute, 0, 0);
+        checkDate.setUTCMinutes(checkDate.getUTCMinutes() - diffMinutes);
+
         if (selectedWeekDays.includes(checkDate.getUTCDay())) {
           if (checkDate > nowDate) {
             return checkDate.toISOString();
@@ -666,10 +681,11 @@ function calculateNextScheduledAt(
         }
       }
 
-      // 如果两周内没找到，默认下一周同一天
-      const fallbackTime = new Date(baseTime);
-      fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
+      // 默认下一周同一天
+      const fallbackTime = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + 7, 0, 0, 0, 0));
+      const fallbackLocalTime = getLocalTime(fallbackTime, timezone);
       fallbackTime.setUTCHours(hour, minute, 0, 0);
+      fallbackTime.setUTCMinutes(fallbackTime.getUTCMinutes() - (fallbackLocalTime.hour * 60 + fallbackLocalTime.minute));
       while (fallbackTime <= nowDate) {
         fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
       }
