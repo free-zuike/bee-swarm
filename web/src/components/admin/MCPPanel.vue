@@ -95,7 +95,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
 
-const { t } = useTranslation();
+const t = useTranslation();
 
 const props = defineProps<{
   token: string;
