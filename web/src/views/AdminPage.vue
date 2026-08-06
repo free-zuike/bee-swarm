@@ -54,6 +54,7 @@ import AvatarSettings from '@/components/admin/AvatarSettings.vue';
 import SystemSettingsPanel from '@/components/admin/SystemSettingsPanel.vue';
 import DatabaseManager from '@/components/admin/DatabaseManager.vue';
 import TwoFactorSettings from '@/components/admin/TwoFactorSettings.vue';
+import MCPPanel from '@/components/admin/MCPPanel.vue';
 import AllowedIPsPanel from '@/components/admin/AllowedIPsPanel.vue';
 import SystemHealthPanel from '@/components/admin/SystemHealthPanel.vue';
 import DataExportPanel from '@/components/admin/DataExportPanel.vue';
@@ -173,6 +174,7 @@ const settingsMenu = [
   { id: 'export', icon: '📥', label: 'label.dataExport' },
   { id: 'channels', icon: '📡', label: 'label.channel_settings' },
   { id: '2fa', icon: '🔐', label: 'label.2fa_settings' },
+  { id: 'mcp', icon: '🔌', label: 'label.mcp_settings' },
   { id: 'ipWhitelist', icon: '🌐', label: 'label.ip_whitelist' },
   { id: 'database', icon: '🗃️', label: 'label.database_management', permission: 'users:manage' },
   { id: 'system', icon: '⚙️', label: 'label.system_settings', permission: 'users:manage' },
@@ -1069,6 +1071,9 @@ function handleResend(record: PushHistoryRecord) {
 
           <!-- 双因素认证 -->
           <TwoFactorSettings v-else-if="activeSettingsTab === '2fa'" :token="accessToken" />
+
+          <!-- MCP 接口 -->
+          <MCPPanel v-else-if="activeSettingsTab === 'mcp'" :token="accessToken" />
 
           <!-- IP 白名单 -->
           <AllowedIPsPanel
