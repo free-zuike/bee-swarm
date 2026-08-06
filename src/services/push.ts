@@ -1,5 +1,7 @@
 import type { Env, ChannelResult, PushChannel, ChannelConfig } from '../types';
 import { MetricsCollector } from './metrics';
+import { getLocalTime, getLocalWeekday } from '../utils/datetime';
+import { matchCronField } from '../utils/cron';
 
 interface PushTemplateRow {
   id: string;
@@ -1251,6 +1253,69 @@ export class PushService {
     const overduePushes: ScheduledPush[] = [];
 
     for (const push of pushes) {
+      // 对于循环任务，检查当前时间是否匹配执行计划，避免在非执行日误判为超时
+      if (push.scheduleType === 'recurring') {
+        const timezone = push.timezone || 'Asia/Shanghai';
+        const recurringType = push.recurringType || 'daily';
+
+        let shouldExecute = true;
+        switch (recurringType) {
+          case 'weekly': {
+            const nowDay = getLocalWeekday(now, timezone);
+            const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
+            shouldExecute = selectedWeekDays.includes(nowDay);
+            break;
+          }
+          case 'monthly': {
+            const selectedMonthDays = push.selectedMonthDays ? [...push.selectedMonthDays].sort((a, b) => a - b) : [1, 15];
+            const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
+            const localDateStr = formatter.format(now);
+            const nowDateOfMonth = parseInt(localDateStr.split('-')[2], 10);
+            const lastDayOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+            const effectiveDays = selectedMonthDays.map((day) => (day > lastDayOfMonth ? lastDayOfMonth : day));
+            shouldExecute = effectiveDays.includes(nowDateOfMonth);
+            break;
+          }
+          case 'yearly': {
+            const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
+            const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
+            const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
+            const nowMonth = parseInt(monthFormatter.format(now), 10);
+            const nowDayOfMonth = parseInt(dayFormatter.format(now), 10);
+            shouldExecute = yearlyDates.some((d) => d.month === nowMonth && d.day === nowDayOfMonth);
+            break;
+          }
+          case 'cron': {
+            if (push.cronExpression) {
+              const parts = push.cronExpression.trim().split(/\s+/);
+              if (parts.length === 5) {
+                const [minuteField, hourField, dayOfMonthField, monthField, dayOfWeekField] = parts;
+                const { hour: nowHour, minute: nowMinute } = getLocalTime(now, timezone);
+                const monthFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric' });
+                const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, day: 'numeric' });
+                const localMonth = parseInt(monthFormatter.format(now), 10);
+                const localDayOfMonth = parseInt(dayFormatter.format(now), 10);
+                const nowDay = getLocalWeekday(now, timezone);
+                shouldExecute =
+                  matchCronField(minuteField, nowMinute) &&
+                  matchCronField(hourField, nowHour) &&
+                  matchCronField(dayOfMonthField, localDayOfMonth) &&
+                  matchCronField(monthField, localMonth) &&
+                  matchCronField(dayOfWeekField, nowDay);
+              }
+            }
+            break;
+          }
+          // hourly / daily / interval 等类型每天都会执行，不需要额外检查
+          default:
+            break;
+        }
+
+        if (!shouldExecute) {
+          continue; // 非执行日，跳过超时检测
+        }
+      }
+
       const scheduledTime = new Date(push.scheduledAt);
       const timeDiffMs = now.getTime() - scheduledTime.getTime();
       const timeDiffMinutes = timeDiffMs / (1000 * 60);

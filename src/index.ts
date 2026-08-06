@@ -224,6 +224,13 @@ export default {
                 nextRun: message.payload.scheduledAt || new Date().toISOString(),
                 recurringType: message.payload.recurringType || 'daily',
                 timezone: userTimezone,
+                selectedWeekDays: message.payload.selectedWeekDays,
+                selectedMonthDays: message.payload.selectedMonthDays,
+                yearlyDates: message.payload.yearlyDates,
+                intervalHours: message.payload.intervalHours,
+                intervalMonths: message.payload.intervalMonths,
+                intervalYears: message.payload.intervalYears,
+                cronExpression: message.payload.cronExpression,
               } as ScheduledPush,
               nowDate,
               userTimezone
@@ -483,6 +490,13 @@ async function processScheduledPushes(
           timezone: userTimezone,
           scheduledAt: push.scheduledAt,
           originalNextRun: push.originalNextRun, // 传递原始执行时间
+          selectedWeekDays: push.selectedWeekDays,
+          selectedMonthDays: push.selectedMonthDays,
+          yearlyDates: push.yearlyDates,
+          intervalHours: push.intervalHours,
+          intervalMonths: push.intervalMonths,
+          intervalYears: push.intervalYears,
+          cronExpression: push.cronExpression,
         },
         createdAt: new Date().toISOString(),
       });

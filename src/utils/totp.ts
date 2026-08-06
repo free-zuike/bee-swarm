@@ -2,6 +2,7 @@
  * TOTP (Time-based One-Time Password) 工具
  * 使用 Web Crypto API 实现，兼容 Cloudflare Workers
  */
+import QRCode from 'qrcode';
 
 /**
  * 生成随机 TOTP secret (Base32 编码)
@@ -136,140 +137,18 @@ export async function verifyTOTP(
 }
 
 /**
- * 生成二维码 data URL（使用纯 SVG 实现）
+ * 生成二维码 data URL（使用 qrcode 库）
  */
 export async function generateQRCodeDataURL(url: string): Promise<string> {
-  const qr = createQRCodeSVG(url);
-  const svgBase64 = btoa(unescape(encodeURIComponent(qr)));
+  const svg = await QRCode.toString(url, {
+    type: 'svg',
+    margin: 2,
+    width: 200,
+    color: {
+      dark: '#000000',
+      light: '#ffffff',
+    },
+  });
+  const svgBase64 = btoa(unescape(encodeURIComponent(svg)));
   return `data:image/svg+xml;base64,${svgBase64}`;
-}
-
-/**
- * QR Code SVG 生成器（基于 qr-code 规范的简化实现）
- */
-function createQRCodeSVG(url: string): string {
-  // 使用简化的 QR 码生成（Version 2, 25x25 模块）
-  const size = 25;
-  const modules = generateQRMatrix(url, size);
-  const cellSize = 4;
-  const margin = 20;
-  const svgSize = size * cellSize + margin * 2;
-
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`;
-  svg += `<rect width="${svgSize}" height="${svgSize}" fill="white"/>`;
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (modules[y][x]) {
-        svg += `<rect x="${margin + x * cellSize}" y="${margin + y * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`;
-      }
-    }
-  }
-
-  svg += '</svg>';
-  return svg;
-}
-
-/**
- * 生成 QR 码矩阵（简化版，适合短 URL）
- */
-function generateQRMatrix(text: string, size: number): boolean[][] {
-  const matrix: boolean[][] = Array.from({ length: size }, () =>
-    Array(size).fill(false)
-  );
-
-  // 添加固定模式（三个角的定位图案）
-  addFinderPattern(matrix, 0, 0);
-  addFinderPattern(matrix, size - 7, 0);
-  addFinderPattern(matrix, 0, size - 7);
-
-  // 添加时序图案
-  for (let i = 8; i < size - 8; i++) {
-    matrix[6][i] = i % 2 === 0;
-    matrix[i][6] = i % 2 === 0;
-  }
-
-  // 将文本数据编码到矩阵中（简化：使用字节模式）
-  const data = encodeText(text, size);
-  let bitIndex = 0;
-
-  for (let x = size - 1; x >= 0; x -= 2) {
-    if (x === 6) x = 5; // 跳过时序图案列
-    for (let y = 0; y < size; y++) {
-      for (let dx = 0; dx < 2; dx++) {
-        const currentX = x - dx;
-        if (currentX < 0 || currentX >= size) continue;
-        if (matrix[y][currentX]) continue; // 跳过已填充的图案
-        if (isReservedArea(currentX, y, size)) continue;
-
-        matrix[y][currentX] = bitIndex < data.length ? data[bitIndex] : false;
-        bitIndex++;
-      }
-    }
-  }
-
-  return matrix;
-}
-
-/**
- * 添加定位图案
- */
-function addFinderPattern(matrix: boolean[][], row: number, col: number): void {
-  for (let y = 0; y < 7; y++) {
-    for (let x = 0; x < 7; x++) {
-      if (
-        y === 0 ||
-        y === 6 ||
-        x === 0 ||
-        x === 6 ||
-        (y >= 2 && y <= 4 && x >= 2 && x <= 4)
-      ) {
-        matrix[row + y][col + x] = true;
-      }
-    }
-  }
-}
-
-/**
- * 检查是否是保留区域
- */
-function isReservedArea(x: number, y: number, size: number): boolean {
-  // 定位图案 + 分隔符
-  if (x < 8 && y < 8) return true;
-  if (x >= size - 8 && y < 8) return true;
-  if (x < 8 && y >= size - 8) return true;
-  // 时序图案
-  if (x === 6 || y === 6) return true;
-  return false;
-}
-
-/**
- * 编码文本为位数组（简化版字节模式）
- */
-function encodeText(text: string, size: number): boolean[] {
-  const bits: boolean[] = [];
-  const bytes = new TextEncoder().encode(text);
-
-  // 模式指示符：字节模式 = 0100
-  bits.push(false, true, false, false);
-
-  // 字符计数（简化：使用 8 位）
-  const count = Math.min(bytes.length, 255);
-  for (let i = 7; i >= 0; i--) {
-    bits.push(((count >> i) & 1) === 1);
-  }
-
-  // 数据
-  for (const byte of bytes) {
-    for (let i = 7; i >= 0; i--) {
-      bits.push(((byte >> i) & 1) === 1);
-    }
-  }
-
-  // 终止符
-  for (let i = 0; i < 8; i++) {
-    bits.push(false);
-  }
-
-  return bits;
 }
