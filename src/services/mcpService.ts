@@ -9,6 +9,10 @@ import { PushService, type ScheduledPush } from './push';
 import { CHANNEL_DEFINITIONS } from './dispatcher';
 import { getBackupEndpoints, executeAllBackups, listBackupsFromEndpoint } from './backup';
 import { UserService } from './userService';
+import { SystemSettingsService } from './systemSettingsService';
+import { createAuditLogger } from '../utils/audit';
+import { getDatabaseStats, cleanupExpiredData, deleteTable, cleanupOrphanTablesForce } from './cleanupService';
+import { archivePushHistory, listArchives, restoreArchivedData } from './archiveService';
 
 // ==================== MCP 类型定义 ====================
 
@@ -39,7 +43,24 @@ export interface MCPTool {
 // ==================== 工具定义 ====================
 
 /** 需要管理员权限的工具 */
-const ADMIN_TOOLS = new Set(['get_system_status']);
+const ADMIN_TOOLS = new Set([
+  'get_system_status',
+  'list_users',
+  'create_user',
+  'update_user_role',
+  'disable_user',
+  'enable_user',
+  'delete_user',
+  'get_audit_logs',
+  'clear_audit_logs',
+  'get_system_settings',
+  'update_system_settings',
+  'get_database_stats',
+  'cleanup_database',
+  'archive_push_history',
+  'list_archives',
+  'restore_archive',
+]);
 
 /** 根据角色返回可见的工具列表 */
 function getToolsForRole(role: string): MCPTool[] {
@@ -464,11 +485,168 @@ const tools: MCPTool[] = [
       type: 'object', properties: {}, required: [],
     },
   },
+  // ==================== 管理员工具 ====================
   {
     name: 'get_system_status',
     description: '获取系统健康状态和统计信息（仅管理员）',
     inputSchema: {
       type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'list_users',
+    description: '获取所有用户列表（仅管理员）',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'create_user',
+    description: '创建新用户（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', description: '用户邮箱' },
+        password: { type: 'string', description: '密码（至少 8 位）' },
+        role: { type: 'string', description: '角色：admin / user / viewer', enum: ['admin', 'user', 'viewer'] },
+      },
+      required: ['email', 'password'],
+    },
+  },
+  {
+    name: 'update_user_role',
+    description: '修改用户角色（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', description: '用户 ID' },
+        role: { type: 'string', description: '新角色：admin / user / viewer', enum: ['admin', 'user', 'viewer'] },
+      },
+      required: ['userId', 'role'],
+    },
+  },
+  {
+    name: 'disable_user',
+    description: '禁用用户账号（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', description: '用户 ID' },
+        reason: { type: 'string', description: '禁用原因' },
+      },
+      required: ['userId'],
+    },
+  },
+  {
+    name: 'enable_user',
+    description: '启用用户账号（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', description: '用户 ID' },
+      },
+      required: ['userId'],
+    },
+  },
+  {
+    name: 'delete_user',
+    description: '删除用户账号（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', description: '用户 ID' },
+      },
+      required: ['userId'],
+    },
+  },
+  {
+    name: 'get_audit_logs',
+    description: '获取审计日志列表（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'string', description: '返回条数，默认 50' },
+        action: { type: 'string', description: '按操作类型筛选' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'clear_audit_logs',
+    description: '清除所有审计日志（仅管理员）',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'get_system_settings',
+    description: '获取系统设置（仅管理员）',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'update_system_settings',
+    description: '更新系统设置（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        turnstile_enabled: { type: 'string', description: '是否启用 Turnstile：true / false' },
+        turnstile_site_key: { type: 'string', description: 'Turnstile 站点密钥' },
+        turnstile_secret_key: { type: 'string', description: 'Turnstile 密钥' },
+        allowed_origins: { type: 'string', description: '允许的跨域来源，逗号分隔' },
+        cleanup_push_history_days: { type: 'string', description: '推送历史保留天数' },
+        cleanup_audit_log_days: { type: 'string', description: '审计日志保留天数' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_database_stats',
+    description: '获取数据库统计信息（仅管理员）',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'cleanup_database',
+    description: '清理过期数据（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pushHistoryDays: { type: 'string', description: '推送历史保留天数，默认 30' },
+        auditLogDays: { type: 'string', description: '审计日志保留天数，默认 90' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'archive_push_history',
+    description: '归档推送历史（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        archiveAfterDays: { type: 'string', description: '归档 N 天前的数据，默认 30' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'list_archives',
+    description: '列出归档记录（仅管理员）',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'restore_archive',
+    description: '从归档恢复数据（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        archiveKey: { type: 'string', description: '归档文件的 key' },
+      },
+      required: ['archiveKey'],
     },
   },
 ];
@@ -1218,6 +1396,145 @@ async function handleExportData(
   return data;
 }
 
+// ==================== 管理员工具处理函数 ====================
+
+async function handleListUsers(env: Env): Promise<unknown> {
+  if (!env.DB) return { users: [] };
+  const result = await env.DB.prepare(
+    "SELECT id, email, role, disabled, disabled_reason, created_at FROM users ORDER BY created_at ASC LIMIT 500"
+  ).all();
+  return { users: result.results || [] };
+}
+
+async function handleCreateUser(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const { hashPassword } = await import('../utils/password');
+  const email = String(args.email || '');
+  const password = String(args.password || '');
+  const role = (args.role as string) || 'user';
+
+  if (!email || !password) throw new Error('邮箱和密码不能为空');
+  if (password.length < 8) throw new Error('密码至少 8 位');
+
+  const userService = new UserService(env);
+  const hashed = await hashPassword(password);
+  const user = await userService.createUser(email, hashed, role as any);
+  return { id: user.id, email: user.email, role: user.role };
+}
+
+async function handleUpdateUserRole(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const userId = String(args.userId || '');
+  const role = String(args.role || '');
+  if (!userId || !role) throw new Error('用户 ID 和角色不能为空');
+
+  const userService = new UserService(env);
+  const updated = await userService.updateUser(userId, { role: role as any });
+  if (!updated) throw new Error('未找到该用户');
+  return { success: true, email: updated.email, role: updated.role };
+}
+
+async function handleDisableUser(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const userId = String(args.userId || '');
+  if (!userId) throw new Error('用户 ID 不能为空');
+
+  const userService = new UserService(env);
+  const reason = args.reason ? String(args.reason) : undefined;
+  const updated = await userService.updateUser(userId, { disabled: 1, disabled_reason: reason || null });
+  if (!updated) throw new Error('未找到该用户');
+  return { success: true, email: updated.email, disabled: true, reason };
+}
+
+async function handleEnableUser(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const userId = String(args.userId || '');
+  if (!userId) throw new Error('用户 ID 不能为空');
+
+  const userService = new UserService(env);
+  const updated = await userService.updateUser(userId, { disabled: 0, disabled_reason: null });
+  if (!updated) throw new Error('未找到该用户');
+  return { success: true, email: updated.email, disabled: false };
+}
+
+async function handleDeleteUser(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const userId = String(args.userId || '');
+  if (!userId) throw new Error('用户 ID 不能为空');
+
+  const userService = new UserService(env);
+  const deleted = await userService.deleteUser(userId);
+  return { success: deleted, message: deleted ? '用户已删除' : '未找到该用户' };
+}
+
+async function handleGetAuditLogs(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const limit = Math.min(Math.max(parseInt(String(args.limit || '50'), 10) || 50, 1), 200);
+  const action = args.action ? String(args.action) : undefined;
+  if (!env.DB) return { logs: [] };
+
+  let sql = 'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?';
+  const params: (string | number)[] = [limit];
+  if (action) {
+    sql = 'SELECT * FROM audit_logs WHERE action = ? ORDER BY created_at DESC LIMIT ?';
+    params.unshift(action);
+  }
+  const result = await env.DB.prepare(sql).bind(...params).all();
+  return { logs: result.results || [] };
+}
+
+async function handleClearAuditLogs(env: Env): Promise<unknown> {
+  if (!env.DB) return { success: false };
+  await env.DB.prepare('DELETE FROM audit_logs').run();
+  return { success: true, message: '审计日志已清除' };
+}
+
+async function handleGetSystemSettings(env: Env): Promise<unknown> {
+  const systemSettings = new SystemSettingsService(env);
+  await systemSettings.ensureTable();
+  const settings = await systemSettings.getAllSettings();
+  return { settings };
+}
+
+async function handleUpdateSystemSettings(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const systemSettings = new SystemSettingsService(env);
+  await systemSettings.ensureTable();
+  const updates: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (value !== undefined) updates[key] = value;
+  }
+  await systemSettings.saveSettings(updates);
+  return { success: true, message: '系统设置已保存' };
+}
+
+async function handleGetDatabaseStats(env: Env): Promise<unknown> {
+  const stats = await getDatabaseStats(env);
+  return { stats };
+}
+
+async function handleCleanupDatabase(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const result = await cleanupExpiredData(env, {
+    pushHistoryRetentionDays: parseInt(String(args.pushHistoryDays || '30'), 10) || 30,
+    auditLogRetentionDays: parseInt(String(args.auditLogDays || '90'), 10) || 90,
+    batchSize: 100,
+  });
+  return { success: true, ...result };
+}
+
+async function handleArchivePushHistory(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const result = await archivePushHistory(env, username, {
+    archiveAfterDays: parseInt(String(args.archiveAfterDays || '30'), 10) || 30,
+    batchSize: 50,
+  });
+  return { success: true, ...result };
+}
+
+async function handleListArchives(env: Env, username: string): Promise<unknown> {
+  const archives = await listArchives(env, username);
+  return { archives };
+}
+
+async function handleRestoreArchive(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const archiveKey = String(args.archiveKey || '');
+  if (!archiveKey) throw new Error('归档 key 不能为空');
+  const result = await restoreArchivedData(env, username, archiveKey);
+  return { success: true, ...result };
+}
+
 async function handleGetTemplates(
   env: Env,
   username: string
@@ -1473,6 +1790,51 @@ export async function handleMCPRequest(
             break;
           case 'get_system_status':
             result = await handleGetSystemStatus(env);
+            break;
+          case 'list_users':
+            result = await handleListUsers(env);
+            break;
+          case 'create_user':
+            result = await handleCreateUser(env, args);
+            break;
+          case 'update_user_role':
+            result = await handleUpdateUserRole(env, args);
+            break;
+          case 'disable_user':
+            result = await handleDisableUser(env, args);
+            break;
+          case 'enable_user':
+            result = await handleEnableUser(env, args);
+            break;
+          case 'delete_user':
+            result = await handleDeleteUser(env, args);
+            break;
+          case 'get_audit_logs':
+            result = await handleGetAuditLogs(env, args);
+            break;
+          case 'clear_audit_logs':
+            result = await handleClearAuditLogs(env);
+            break;
+          case 'get_system_settings':
+            result = await handleGetSystemSettings(env);
+            break;
+          case 'update_system_settings':
+            result = await handleUpdateSystemSettings(env, args);
+            break;
+          case 'get_database_stats':
+            result = await handleGetDatabaseStats(env);
+            break;
+          case 'cleanup_database':
+            result = await handleCleanupDatabase(env, args);
+            break;
+          case 'archive_push_history':
+            result = await handleArchivePushHistory(env, username, args);
+            break;
+          case 'list_archives':
+            result = await handleListArchives(env, username);
+            break;
+          case 'restore_archive':
+            result = await handleRestoreArchive(env, username, args);
             break;
           default:
             return {
