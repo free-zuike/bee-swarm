@@ -127,10 +127,28 @@ const tools = [
     ],
   },
   {
-    name: 'list_channels',
-    description: '列出所有可用的推送渠道及其启用状态。',
+    name: 'create_scheduled_push',
+    description: '创建定时推送任务，支持一次性或循环（daily/weekly/monthly/cron）。',
     permission: '所有用户',
-    params: [],
+    params: [
+      { name: 'title', type: 'string', required: true },
+      { name: 'channels', type: 'string (逗号分隔)', required: true },
+      { name: 'scheduledAt', type: 'string (ISO 8601)', required: true },
+      { name: 'body', type: 'string', required: false },
+      { name: 'scheduleType', type: 'once/recurring', required: false },
+      { name: 'recurringType', type: 'daily/weekly/monthly/cron', required: false },
+      { name: 'selectedWeekDays', type: 'string (0-6 逗号分隔)', required: false },
+      { name: 'cronExpression', type: 'string', required: false },
+      { name: 'timezone', type: 'string (默认 Asia/Shanghai)', required: false },
+    ],
+  },
+  {
+    name: 'cancel_scheduled_push',
+    description: '取消一个定时推送任务。',
+    permission: '所有用户',
+    params: [
+      { name: 'id', type: 'string', required: true },
+    ],
   },
   {
     name: 'list_scheduled_pushes',
@@ -141,12 +159,32 @@ const tools = [
     ],
   },
   {
+    name: 'get_templates',
+    description: '获取所有推送模板列表。',
+    permission: '所有用户',
+    params: [],
+  },
+  {
     name: 'get_push_history',
     description: '获取最近的推送历史记录。',
     permission: '所有用户',
     params: [
       { name: 'limit', type: 'number (默认 10)', required: false },
     ],
+  },
+  {
+    name: 'get_push_stats',
+    description: '获取推送统计信息，包括成功率、趋势、每日统计等。',
+    permission: '所有用户',
+    params: [
+      { name: 'days', type: 'number (默认 7)', required: false },
+    ],
+  },
+  {
+    name: 'list_channels',
+    description: '列出所有可用的推送渠道及其启用状态。',
+    permission: '所有用户',
+    params: [],
   },
   {
     name: 'get_system_status',

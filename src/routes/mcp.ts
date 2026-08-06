@@ -34,15 +34,19 @@ mcp.get('/', async (c) => {
     },
     tools: [
       'send_push - 发送推送通知',
-      'list_channels - 列出所有推送渠道',
+      'create_scheduled_push - 创建定时推送任务',
+      'cancel_scheduled_push - 取消定时推送任务',
       'list_scheduled_pushes - 列出定时任务',
+      'get_templates - 获取推送模板',
       'get_push_history - 获取推送历史',
+      'get_push_stats - 获取推送统计',
+      'list_channels - 列出所有推送渠道',
       ...(isAdmin ? ['get_system_status - 获取系统状态'] : []),
     ],
     userRole,
     permissions: {
       admin: '所有工具可用（含 get_system_status 全局统计）',
-      user: '个人工具可用：send_push, list_channels, list_scheduled_pushes, get_push_history',
+      user: '个人工具可用：send_push, create_scheduled_push, cancel_scheduled_push, list_scheduled_pushes, get_templates, get_push_history, get_push_stats, list_channels',
       viewer: '同 user',
     },
   });
