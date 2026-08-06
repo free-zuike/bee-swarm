@@ -36,6 +36,15 @@ export interface MCPTool {
 
 // ==================== 工具定义 ====================
 
+/** 需要管理员权限的工具 */
+const ADMIN_TOOLS = new Set(['get_system_status']);
+
+/** 根据角色返回可见的工具列表 */
+function getToolsForRole(role: string): MCPTool[] {
+  if (role === 'admin') return tools;
+  return tools.filter((t) => !ADMIN_TOOLS.has(t.name));
+}
+
 const tools: MCPTool[] = [
   {
     name: 'send_push',
@@ -277,16 +286,14 @@ async function loadUserChannelSettings(username: string, env: Env): Promise<Chan
 export async function handleMCPRequest(
   request: MCPRequest,
   env: Env,
-  username: string
+  username: string,
+  userRole: string = 'user'
 ): Promise<MCPResponse> {
   const { id, method, params } = request;
 
   try {
     switch (method) {
       case 'initialize': {
-        const clientInfo = params?.protocolVersion
-          ? { name: 'unknown', version: '0.0.0' }
-          : undefined;
         return {
           jsonrpc: '2.0',
           id,
@@ -308,12 +315,21 @@ export async function handleMCPRequest(
         return { jsonrpc: '2.0', id, result: null };
 
       case 'tools/list':
-        return { jsonrpc: '2.0', id, result: { tools } };
+        return { jsonrpc: '2.0', id, result: { tools: getToolsForRole(userRole) } };
 
       case 'tools/call': {
         const p = params as { name?: string; arguments?: Record<string, unknown> } | undefined;
         const toolName = p?.name || '';
         const args = p?.arguments || {};
+
+        // 权限检查：管理员工具仅管理员可用
+        if (ADMIN_TOOLS.has(toolName) && userRole !== 'admin') {
+          return {
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32001, message: '权限不足，此工具需要管理员权限' },
+          };
+        }
 
         let result: unknown;
         switch (toolName) {

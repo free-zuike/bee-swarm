@@ -63,6 +63,9 @@
               </span>
             </div>
           </div>
+          <div class="tool-permission">
+            <span class="perm-badge" :class="{ admin: tool.permission === '仅管理员' }">{{ tool.permission }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -115,6 +118,7 @@ const tools = [
   {
     name: 'send_push',
     description: '发送推送通知到指定渠道。支持 wework、dingtalk、telegram、bark 等 15+ 渠道。',
+    permission: '所有用户',
     params: [
       { name: 'title', type: 'string', required: true },
       { name: 'body', type: 'string', required: false },
@@ -125,11 +129,13 @@ const tools = [
   {
     name: 'list_channels',
     description: '列出所有可用的推送渠道及其启用状态。',
+    permission: '所有用户',
     params: [],
   },
   {
     name: 'list_scheduled_pushes',
     description: '列出所有定时推送任务，可按状态筛选。',
+    permission: '所有用户',
     params: [
       { name: 'status', type: 'string (pending/completed/failed)', required: false },
     ],
@@ -137,6 +143,7 @@ const tools = [
   {
     name: 'get_push_history',
     description: '获取最近的推送历史记录。',
+    permission: '所有用户',
     params: [
       { name: 'limit', type: 'number (默认 10)', required: false },
     ],
@@ -144,6 +151,7 @@ const tools = [
   {
     name: 'get_system_status',
     description: '获取系统健康状态、用户数量、待处理任务数等统计信息。',
+    permission: '仅管理员',
     params: [],
   },
 ];
@@ -313,6 +321,23 @@ async function testConnection() {
 
 .tool-params {
   margin-top: 6px;
+}
+
+.tool-permission {
+  margin-top: 6px;
+}
+
+.perm-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.perm-badge.admin {
+  background: #fce8e6;
+  color: #d93025;
 }
 
 .params-label {
