@@ -4,9 +4,11 @@
 // ============================================
 
 import type { Env, PushChannel, ChannelResult } from '../types';
-import { dispatchPushWithOptions } from './dispatcher';
+import { dispatchPushWithOptions, saveUserChannelSetting, getPushHistory, deletePushHistory, batchDeletePushHistory } from './dispatcher';
 import { PushService, type ScheduledPush } from './push';
 import { CHANNEL_DEFINITIONS } from './dispatcher';
+import { getBackupEndpoints, executeAllBackups, listBackupsFromEndpoint } from './backup';
+import { UserService } from './userService';
 
 // ==================== MCP 类型定义 ====================
 
@@ -239,6 +241,225 @@ const tools: MCPTool[] = [
   {
     name: 'list_channels',
     description: '列出所有可用的推送渠道及其状态',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'save_channel_config',
+    description: '保存/更新推送渠道的配置',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: { type: 'string', description: '渠道标识' },
+        enabled: { type: 'string', description: '是否启用：true / false' },
+        webhook_url: { type: 'string', description: 'Webhook URL（如适用）' },
+        secret: { type: 'string', description: '加签密钥（如钉钉）' },
+        bot_token: { type: 'string', description: 'Bot Token（如 Telegram）' },
+        chat_id: { type: 'string', description: 'Chat ID（如 Telegram）' },
+        topic: { type: 'string', description: 'Topic（如 ntfy）' },
+      },
+      required: ['channel', 'enabled'],
+    },
+  },
+  {
+    name: 'create_template',
+    description: '创建推送模板',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '模板名称' },
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        channels: { type: 'string', description: '默认渠道，逗号分隔' },
+        url: { type: 'string', description: '跳转链接' },
+        category: { type: 'string', description: '分类' },
+      },
+      required: ['name', 'title'],
+    },
+  },
+  {
+    name: 'update_template',
+    description: '更新推送模板',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '模板 ID' },
+        name: { type: 'string', description: '模板名称' },
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        channels: { type: 'string', description: '默认渠道，逗号分隔' },
+        url: { type: 'string', description: '跳转链接' },
+        category: { type: 'string', description: '分类' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_template',
+    description: '删除推送模板',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '模板 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'create_channel_group',
+    description: '创建渠道分组',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '分组名称' },
+        channels: { type: 'string', description: '渠道列表，逗号分隔' },
+      },
+      required: ['name', 'channels'],
+    },
+  },
+  {
+    name: 'update_channel_group',
+    description: '更新渠道分组',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '分组 ID' },
+        name: { type: 'string', description: '分组名称' },
+        channels: { type: 'string', description: '渠道列表，逗号分隔' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_channel_group',
+    description: '删除渠道分组',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '分组 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'create_draft',
+    description: '创建推送草稿',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        channels: { type: 'string', description: '渠道，逗号分隔' },
+        url: { type: 'string', description: '跳转链接' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'update_draft',
+    description: '更新推送草稿',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '草稿 ID' },
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        channels: { type: 'string', description: '渠道，逗号分隔' },
+        url: { type: 'string', description: '跳转链接' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_draft',
+    description: '删除推送草稿',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '草稿 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'create_favorite',
+    description: '创建推送收藏',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        channels: { type: 'string', description: '渠道，逗号分隔' },
+        url: { type: 'string', description: '跳转链接' },
+      },
+      required: ['title', 'channels'],
+    },
+  },
+  {
+    name: 'delete_favorite',
+    description: '删除推送收藏',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '收藏 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_push_history',
+    description: '删除推送历史记录',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ids: { type: 'string', description: '要删除的历史 ID，逗号分隔。留空则删除全部' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'list_backup_endpoints',
+    description: '列出备份端点配置',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'run_backup',
+    description: '立即执行备份到所有已启用的端点',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'list_backups',
+    description: '列出备份端点的备份文件',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        endpointId: { type: 'string', description: '备份端点 ID' },
+      },
+      required: ['endpointId'],
+    },
+  },
+  {
+    name: 'get_user_settings',
+    description: '获取当前用户的设置',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'get_allowed_ips',
+    description: '获取 IP 白名单',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'export_data',
+    description: '导出用户数据为 JSON',
     inputSchema: {
       type: 'object', properties: {}, required: [],
     },
@@ -703,6 +924,300 @@ async function handleGetFavorites(
   return favorites;
 }
 
+async function handleCreateTemplate(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const channels = args.channels
+    ? String(args.channels).split(',').map((c) => c.trim() as PushChannel).filter(Boolean)
+    : [];
+  const template = await pushService.saveTemplate({
+    name: String(args.name || ''),
+    title: String(args.title || ''),
+    content: String(args.body || ''),
+    channels: channels.length > 0 ? channels : undefined,
+    url: args.url ? String(args.url) : undefined,
+    category: args.category ? String(args.category) : undefined,
+    useMarkdown: false,
+    variables: [],
+  });
+  return template;
+}
+
+async function handleUpdateTemplate(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('模板 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const updates: Record<string, unknown> = {};
+  if (args.name !== undefined) updates.name = String(args.name);
+  if (args.title !== undefined) updates.title = String(args.title);
+  if (args.body !== undefined) updates.content = String(args.body);
+  if (args.url !== undefined) updates.url = String(args.url);
+  if (args.category !== undefined) updates.category = String(args.category);
+  if (args.channels !== undefined) {
+    updates.channels = String(args.channels).split(',').map((c) => c.trim() as PushChannel).filter(Boolean);
+  }
+  const updated = await pushService.updateTemplate(id, updates as any);
+  if (!updated) throw new Error('未找到该模板');
+  return updated;
+}
+
+async function handleDeleteTemplate(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('模板 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const deleted = await pushService.deleteTemplate(id);
+  return { success: deleted, message: deleted ? '模板已删除' : '未找到该模板' };
+}
+
+async function handleCreateChannelGroup(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const channels = String(args.channels || '').split(',').map((c) => c.trim() as PushChannel).filter(Boolean);
+  const group = await pushService.saveChannelGroup({
+    name: String(args.name || ''),
+    channels,
+  });
+  return group;
+}
+
+async function handleUpdateChannelGroup(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('分组 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const updates: { name?: string; channels?: PushChannel[] } = {};
+  if (args.name !== undefined) updates.name = String(args.name);
+  if (args.channels !== undefined) {
+    updates.channels = String(args.channels).split(',').map((c) => c.trim() as PushChannel).filter(Boolean);
+  }
+  const updated = await pushService.updateChannelGroup(id, updates);
+  if (!updated) throw new Error('未找到该分组');
+  return updated;
+}
+
+async function handleDeleteChannelGroup(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('分组 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const deleted = await pushService.deleteChannelGroup(id);
+  return { success: deleted, message: deleted ? '分组已删除' : '未找到该分组' };
+}
+
+async function handleCreateDraft(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const channels = args.channels
+    ? String(args.channels).split(',').map((c) => c.trim() as PushChannel).filter(Boolean)
+    : [];
+  const draft = await pushService.saveDraft({
+    title: String(args.title || ''),
+    body: args.body ? String(args.body) : undefined,
+    url: args.url ? String(args.url) : undefined,
+    channels: channels.length > 0 ? channels : undefined,
+  });
+  return draft;
+}
+
+async function handleUpdateDraft(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('草稿 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const updates: { title?: string; body?: string; url?: string; channels?: PushChannel[] } = {};
+  if (args.title !== undefined) updates.title = String(args.title);
+  if (args.body !== undefined) updates.body = String(args.body);
+  if (args.url !== undefined) updates.url = String(args.url);
+  if (args.channels !== undefined) {
+    updates.channels = String(args.channels).split(',').map((c) => c.trim() as PushChannel).filter(Boolean);
+  }
+  const updated = await pushService.updateDraft(id, updates);
+  if (!updated) throw new Error('未找到该草稿');
+  return updated;
+}
+
+async function handleDeleteDraft(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('草稿 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const deleted = await pushService.deleteDraft(id);
+  return { success: deleted, message: deleted ? '草稿已删除' : '未找到该草稿' };
+}
+
+async function handleCreateFavorite(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const channels = String(args.channels || '').split(',').map((c) => c.trim() as PushChannel).filter(Boolean);
+  if (channels.length === 0) throw new Error('至少需要一个推送渠道');
+  const favorite = await pushService.saveFavorite({
+    title: String(args.title || ''),
+    body: args.body ? String(args.body) : undefined,
+    url: args.url ? String(args.url) : undefined,
+    channels,
+  });
+  return favorite;
+}
+
+async function handleDeleteFavorite(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('收藏 ID 不能为空');
+  const pushService = new PushService(env, username);
+  const deleted = await pushService.deleteFavorite(id);
+  return { success: deleted, message: deleted ? '收藏已删除' : '未找到该收藏' };
+}
+
+async function handleDeletePushHistory(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  if (!env.DB) return { success: false, message: '数据库不可用' };
+  const ids = args.ids ? String(args.ids).split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if (ids.length === 0) {
+    await deletePushHistory(username, env);
+    return { success: true, message: '全部推送历史已删除' };
+  }
+  const result = await batchDeletePushHistory(username, env, ids);
+  return result;
+}
+
+async function handleSaveChannelConfig(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const channel = String(args.channel || '');
+  if (!channel) throw new Error('渠道标识不能为空');
+
+  const fields: Record<string, string> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (key !== 'channel' && value !== undefined) {
+      fields[key] = String(value);
+    }
+  }
+
+  await saveUserChannelSetting(username, channel, fields, env);
+  return { success: true, channel, message: '渠道配置已保存' };
+}
+
+async function handleListBackupEndpoints(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const endpoints = await getBackupEndpoints(env, username);
+  return endpoints.map((ep) => ({
+    id: ep.id,
+    name: ep.name,
+    type: ep.type,
+    enabled: ep.enabled,
+    schedule: ep.schedule,
+    lastBackup: ep.lastBackup,
+  }));
+}
+
+async function handleRunBackup(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const results = await executeAllBackups(env, username);
+  return {
+    success: results.every((r) => r.success),
+    results: results.map((r) => ({
+      endpointId: r.endpointId,
+      endpointName: r.endpointName,
+      success: r.success,
+      message: r.message,
+    })),
+  };
+}
+
+async function handleListBackups(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const endpointId = String(args.endpointId || '');
+  if (!endpointId) throw new Error('备份端点 ID 不能为空');
+
+  const { getBackupEndpoint } = await import('./backup');
+  const endpoint = await getBackupEndpoint(env, username, endpointId);
+  if (!endpoint) throw new Error('未找到该备份端点');
+
+  const backups = await listBackupsFromEndpoint(env, username, endpoint);
+  return { endpointId, endpointName: endpoint.name, backups };
+}
+
+async function handleGetUserSettings(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  return {
+    email: user.email,
+    role: user.role,
+    settings: await userService.getUserSettings(user.id),
+    allowedIPs: await userService.getAllowedIPs(user.id),
+  };
+}
+
+async function handleGetAllowedIPs(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) return { allowedIPs: [] };
+  return { allowedIPs: await userService.getAllowedIPs(user.id) };
+}
+
+async function handleExportData(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const { exportData } = await import('./backup');
+  const data = await exportData(env, username);
+  return data;
+}
+
 async function handleGetTemplates(
   env: Env,
   username: string
@@ -898,6 +1413,63 @@ export async function handleMCPRequest(
             break;
           case 'get_favorites':
             result = await handleGetFavorites(env, username);
+            break;
+          case 'save_channel_config':
+            result = await handleSaveChannelConfig(env, username, args);
+            break;
+          case 'create_template':
+            result = await handleCreateTemplate(env, username, args);
+            break;
+          case 'update_template':
+            result = await handleUpdateTemplate(env, username, args);
+            break;
+          case 'delete_template':
+            result = await handleDeleteTemplate(env, username, args);
+            break;
+          case 'create_channel_group':
+            result = await handleCreateChannelGroup(env, username, args);
+            break;
+          case 'update_channel_group':
+            result = await handleUpdateChannelGroup(env, username, args);
+            break;
+          case 'delete_channel_group':
+            result = await handleDeleteChannelGroup(env, username, args);
+            break;
+          case 'create_draft':
+            result = await handleCreateDraft(env, username, args);
+            break;
+          case 'update_draft':
+            result = await handleUpdateDraft(env, username, args);
+            break;
+          case 'delete_draft':
+            result = await handleDeleteDraft(env, username, args);
+            break;
+          case 'create_favorite':
+            result = await handleCreateFavorite(env, username, args);
+            break;
+          case 'delete_favorite':
+            result = await handleDeleteFavorite(env, username, args);
+            break;
+          case 'delete_push_history':
+            result = await handleDeletePushHistory(env, username, args);
+            break;
+          case 'list_backup_endpoints':
+            result = await handleListBackupEndpoints(env, username);
+            break;
+          case 'run_backup':
+            result = await handleRunBackup(env, username);
+            break;
+          case 'list_backups':
+            result = await handleListBackups(env, username, args);
+            break;
+          case 'get_user_settings':
+            result = await handleGetUserSettings(env, username);
+            break;
+          case 'get_allowed_ips':
+            result = await handleGetAllowedIPs(env, username);
+            break;
+          case 'export_data':
+            result = await handleExportData(env, username);
             break;
           case 'get_system_status':
             result = await handleGetSystemStatus(env);
