@@ -849,6 +849,71 @@ const tools: MCPTool[] = [
     description: '获取 Webhook 推送 URL',
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
+  {
+    name: 'get_avatar_status',
+    description: '检查头像存储服务状态',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'test_bark_key',
+    description: '测试 Bark Key 是否有效',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'Bark Key' },
+        server: { type: 'string', description: 'Bark 服务器地址，默认 https://api.day.app' },
+      },
+      required: ['key'],
+    },
+  },
+  {
+    name: 'get_push_version_detail',
+    description: '获取推送版本详情',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '推送历史 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'compare_push_versions',
+    description: '对比两个推送版本的差异',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id1: { type: 'string', description: '第一个推送 ID' },
+        id2: { type: 'string', description: '第二个推送 ID' },
+      },
+      required: ['id1', 'id2'],
+    },
+  },
+  {
+    name: 'ai_execute',
+    description: 'AI 执行命令（通过自然语言执行推送操作）',
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: '自然语言指令，如"给所有人发送系统维护通知"' } },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'ai_agent',
+    description: 'AI 智能体模式（自动分析并执行任务）',
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: '自然语言指令' } },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'run_backup_single',
+    description: '备份到指定端点',
+    inputSchema: {
+      type: 'object',
+      properties: { endpointId: { type: 'string', description: '备份端点 ID' } },
+      required: ['endpointId'],
+    },
+  },
   // ==================== 管理员工具 ====================
   {
     name: 'get_system_status',
@@ -2106,6 +2171,89 @@ async function handleGetWebhookUrl(env: Env, username: string): Promise<unknown>
   return { webhookUrl: `${baseUrl}/api/webhook/push?token=${username}` };
 }
 
+async function handleGetAvatarStatus(env: Env, username: string): Promise<unknown> {
+  const endpoints = await getBackupEndpoints(env, username);
+  const r2Endpoint = endpoints.find((e) => e.type === 'r2' && e.r2_domain);
+  const hasUserR2 = !!r2Endpoint;
+  return { hasR2: hasUserR2, storageType: hasUserR2 ? 'r2' : 'base64', message: hasUserR2 ? '头像存储服务可用' : '头像将使用 base64 存储' };
+}
+
+async function handleTestBarkKey(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const key = String(args.key || '');
+  const server = String(args.server || 'https://api.day.app');
+  if (!key) throw new Error('Bark Key 不能为空');
+  if (!/^[a-zA-Z0-9_-]+$/.test(key)) throw new Error('Bark Key 包含非法字符');
+  try {
+    const serverUrl = new URL(server);
+    if (serverUrl.protocol !== 'https:') throw new Error('Server 必须是 HTTPS');
+    const testUrl = new URL(`${server}/${key}/测试标题`);
+    testUrl.searchParams.set('body', '这是一条测试消息');
+    const res = await fetch(testUrl.toString());
+    const data = await res.json() as { code: number; message: string };
+    return { success: data.code === 200, message: data.code === 200 ? 'Bark Key 有效' : data.message };
+  } catch (err) {
+    return { success: false, message: (err as Error).message };
+  }
+}
+
+async function handleGetPushVersionDetail(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id || !env.DB) return null;
+  const result = await env.DB.prepare('SELECT id, title, body, url, channels, status, created_at FROM push_history WHERE id = ? AND user_id = ?').bind(id, username).first();
+  if (!result) return null;
+  const r = result as Record<string, unknown>;
+  return { id: r.id, title: r.title, body: r.body, url: r.url, channels: JSON.parse((r.channels as string) || '[]'), status: r.status, createdAt: r.created_at };
+}
+
+async function handleComparePushVersions(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const id1 = String(args.id1 || '');
+  const id2 = String(args.id2 || '');
+  if (!id1 || !id2 || !env.DB) throw new Error('需要两个推送 ID');
+  const result = await env.DB.prepare('SELECT id, title, body, url, channels, status, created_at FROM push_history WHERE id IN (?, ?) AND user_id = ?').bind(id1, id2, username).all();
+  const records = (result.results || []).map((r: Record<string, unknown>) => ({ id: r.id, title: r.title, body: r.body, url: r.url, channels: JSON.parse((r.channels as string) || '[]'), status: r.status, createdAt: r.created_at }));
+  if (records.length !== 2) throw new Error('未找到两个推送记录');
+  const diff: Record<string, { old: unknown; new: unknown }> = {};
+  for (const key of ['title', 'body', 'url', 'status'] as const) {
+    if (records[0][key] !== records[1][key]) { diff[key] = { old: records[0][key], new: records[1][key] }; }
+  }
+  return { version1: records[0], version2: records[1], diff };
+}
+
+async function handleAIExecute(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const query = String(args.query || '');
+  if (!query) throw new Error('指令不能为空');
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  const aiService = new AIService(env);
+  return await aiService.executeCommand({ query, userId: user.id, username });
+}
+
+async function handleAIAgent(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const query = String(args.query || '');
+  if (!query) throw new Error('指令不能为空');
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  const { AIAgentService } = await import('./aiAgentService');
+  const agent = new AIAgentService(env);
+  return await agent.execute({ query, userId: user.id, username });
+}
+
+async function handleRunBackupSingle(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const endpointId = String(args.endpointId || '');
+  if (!endpointId) throw new Error('端点 ID 不能为空');
+  const endpoints = await getBackupEndpoints(env, username);
+  const endpoint = endpoints.find((e) => e.id === endpointId);
+  if (!endpoint) throw new Error('未找到该备份端点');
+  if (!endpoint.enabled) throw new Error('该备份端点已禁用');
+  const { uploadBackupToEndpoint, saveBackupEndpoint } = await import('./backup');
+  const result = await uploadBackupToEndpoint(env, username, endpoint);
+  endpoint.lastBackup = { time: new Date().toISOString(), status: result.success ? 'success' : 'failed', message: result.message };
+  await saveBackupEndpoint(env, username, endpoint);
+  return { ...result, endpointName: endpoint.name };
+}
+
 // ==================== 管理员工具处理函数 ====================
 
 async function handleListUsers(env: Env): Promise<unknown> {
@@ -2649,6 +2797,27 @@ export async function handleMCPRequest(
             break;
           case 'get_webhook_url':
             result = await handleGetWebhookUrl(env, username);
+            break;
+          case 'get_avatar_status':
+            result = await handleGetAvatarStatus(env, username);
+            break;
+          case 'test_bark_key':
+            result = await handleTestBarkKey(env, args);
+            break;
+          case 'get_push_version_detail':
+            result = await handleGetPushVersionDetail(env, username, args);
+            break;
+          case 'compare_push_versions':
+            result = await handleComparePushVersions(env, username, args);
+            break;
+          case 'ai_execute':
+            result = await handleAIExecute(env, username, args);
+            break;
+          case 'ai_agent':
+            result = await handleAIAgent(env, username, args);
+            break;
+          case 'run_backup_single':
+            result = await handleRunBackupSingle(env, username, args);
             break;
           case 'get_system_status':
             result = await handleGetSystemStatus(env);

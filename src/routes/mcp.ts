@@ -41,6 +41,8 @@ mcp.get('/', async (c) => {
       'update_ai_settings - 更新 AI 设置',
       'get_ai_tools - 获取 AI 工具列表',
       'ai_generate - AI 生成内容',
+      'ai_execute - AI 执行命令',
+      'ai_agent - AI 智能体',
       // 定时任务
       'create_scheduled_push - 创建定时推送任务',
       'update_scheduled_push - 更新定时推送任务',
@@ -120,6 +122,11 @@ mcp.get('/', async (c) => {
       'get_user_settings - 获取用户设置',
       'get_allowed_ips - 获取 IP 白名单',
       'get_webhook_url - 获取 Webhook URL',
+      'get_avatar_status - 头像存储状态',
+      'test_bark_key - 测试 Bark Key',
+      'get_push_version_detail - 推送版本详情',
+      'compare_push_versions - 对比推送版本',
+      'run_backup_single - 备份到单个端点',
       ...(isAdmin ? [
         '--- 管理员工具 ---',
         'get_system_status - 系统状态',
@@ -147,10 +154,10 @@ mcp.get('/', async (c) => {
       ] : []),
     ],
     userRole,
-    totalTools: isAdmin ? 97 : 73,
+    totalTools: isAdmin ? 104 : 80,
     permissions: {
-      admin: '全部 97 个工具可用',
-      user: '73 个个人工具可用',
+      admin: '全部 104 个工具可用',
+      user: '80 个个人工具可用',
     },
   });
 });
