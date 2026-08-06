@@ -4,15 +4,18 @@
 // ============================================
 
 import type { Env, PushChannel, ChannelResult } from '../types';
-import { dispatchPushWithOptions, saveUserChannelSetting, getPushHistory, deletePushHistory, batchDeletePushHistory } from './dispatcher';
+import { dispatchPushWithOptions, saveUserChannelSetting, getPushHistory, deletePushHistory, batchDeletePushHistory, batchDeletePushHistoryByFilter, getChannelConfigs } from './dispatcher';
 import { PushService, type ScheduledPush } from './push';
 import { CHANNEL_DEFINITIONS } from './dispatcher';
-import { getBackupEndpoints, executeAllBackups, listBackupsFromEndpoint } from './backup';
+import { getBackupEndpoints, executeAllBackups, listBackupsFromEndpoint, saveBackupEndpoint, deleteBackupEndpoint, testBackupEndpoint, deleteBackupFromEndpoint, restoreFromEndpoint, importData, validateBackup, getBackupHistory, deleteBackupRecordItem } from './backup';
 import { UserService } from './userService';
 import { SystemSettingsService } from './systemSettingsService';
 import { createAuditLogger } from '../utils/audit';
-import { getDatabaseStats, cleanupExpiredData, deleteTable, cleanupOrphanTablesForce } from './cleanupService';
+import { getDatabaseStats, cleanupExpiredData, deleteTable, cleanupOrphanTablesForce, getAllTables } from './cleanupService';
 import { archivePushHistory, listArchives, restoreArchivedData } from './archiveService';
+import { AIService } from './aiService';
+import { generateTOTPSecret, verifyTOTP, generateQRCodeDataURL } from '../utils/totp';
+import { replaceTemplateVariables, extractVariables } from './push';
 
 // ==================== MCP 类型定义 ====================
 
@@ -60,6 +63,12 @@ const ADMIN_TOOLS = new Set([
   'archive_push_history',
   'list_archives',
   'restore_archive',
+  'get_database_tables',
+  'delete_database_table',
+  'cleanup_orphan_tables',
+  'get_system_health',
+  'get_analytics_activity',
+  'get_metrics',
 ]);
 
 /** 根据角色返回可见的工具列表 */
@@ -485,6 +494,361 @@ const tools: MCPTool[] = [
       type: 'object', properties: {}, required: [],
     },
   },
+  {
+    name: 'get_current_user',
+    description: '获取当前登录用户的信息',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'update_avatar',
+    description: '更新用户头像',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avatar_url: { type: 'string', description: '头像 URL' },
+        use_avatar_as_popup: { type: 'string', description: '是否在弹窗中使用头像：1 / 0' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'update_cache_settings',
+    description: '更新缓存 TTL 设置',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cache_ttl_backup: { type: 'string', description: '备份缓存 TTL (ms)' },
+        cache_ttl_channels: { type: 'string', description: '渠道缓存 TTL (ms)' },
+        cache_ttl_templates: { type: 'string', description: '模板缓存 TTL (ms)' },
+        cache_ttl_groups: { type: 'string', description: '分组缓存 TTL (ms)' },
+        cache_ttl_scheduled: { type: 'string', description: '定时任务缓存 TTL (ms)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'update_ai_settings',
+    description: '更新 AI 设置',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ai_enabled: { type: 'string', description: '是否启用 AI：true / false' },
+        ai_provider: { type: 'string', description: 'AI 提供商：workers-ai / openai / anthropic / custom' },
+        ai_api_key: { type: 'string', description: 'API 密钥' },
+        ai_api_url: { type: 'string', description: 'API 地址' },
+        ai_model_name: { type: 'string', description: '模型名称' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_ai_tools',
+    description: '获取 AI 工具列表',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'ai_generate',
+    description: '使用 AI 生成推送内容',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: '提示词，描述要生成的推送内容' },
+        type: { type: 'string', description: '生成类型：title / body / both', enum: ['title', 'body', 'both'] },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'get_execution_log_detail',
+    description: '获取单条推送执行日志的详细信息',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '执行日志 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'get_push_history_filtered',
+    description: '按条件筛选推送历史记录',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        page: { type: 'string', description: '页码，默认 1' },
+        pageSize: { type: 'string', description: '每页条数，默认 20' },
+        channel: { type: 'string', description: '按渠道筛选' },
+        status: { type: 'string', description: '按状态筛选' },
+        keyword: { type: 'string', description: '关键词搜索标题/内容' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'batch_delete_push_history_by_filter',
+    description: '按条件批量删除推送历史',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        olderThan: { type: 'string', description: '删除早于此日期的记录（ISO 8601）' },
+        channel: { type: 'string', description: '按渠道筛选' },
+        status: { type: 'string', description: '按状态筛选' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'mark_push_delivered',
+    description: '标记推送为已送达',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '推送历史 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'mark_push_read',
+    description: '标记推送为已读',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '推送历史 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'mark_push_clicked',
+    description: '标记推送为已点击',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '推送历史 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'revoke_push',
+    description: '撤销一条推送',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '推送历史 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'preview_template',
+    description: '预览推送模板（渲染变量）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '模板 ID' },
+        variables: { type: 'string', description: '变量键值对 JSON，如 {"name":"张三"}' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'get_template_variables',
+    description: '获取模板中的变量列表',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '模板 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_scheduled_push',
+    description: '删除定时推送任务',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '定时任务 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'batch_cancel_scheduled',
+    description: '批量取消定时推送任务',
+    inputSchema: {
+      type: 'object',
+      properties: { ids: { type: 'string', description: '定时任务 ID 列表，逗号分隔' } },
+      required: ['ids'],
+    },
+  },
+  {
+    name: 'batch_enable_scheduled',
+    description: '批量启用已取消/失败的定时任务',
+    inputSchema: {
+      type: 'object',
+      properties: { ids: { type: 'string', description: '定时任务 ID 列表，逗号分隔' } },
+      required: ['ids'],
+    },
+  },
+  {
+    name: 'batch_delete_scheduled',
+    description: '批量删除定时推送任务',
+    inputSchema: {
+      type: 'object',
+      properties: { ids: { type: 'string', description: '定时任务 ID 列表，逗号分隔' } },
+      required: ['ids'],
+    },
+  },
+  {
+    name: 'get_overdue_tasks',
+    description: '获取所有超时的定时任务',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'batch_delete_groups',
+    description: '批量删除渠道分组',
+    inputSchema: {
+      type: 'object',
+      properties: { ids: { type: 'string', description: '分组 ID 列表，逗号分隔' } },
+      required: ['ids'],
+    },
+  },
+  {
+    name: 'batch_send_to_groups',
+    description: '向指定渠道分组发送推送',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        groupIds: { type: 'string', description: '分组 ID 列表，逗号分隔' },
+        url: { type: 'string', description: '跳转链接' },
+      },
+      required: ['title', 'groupIds'],
+    },
+  },
+  {
+    name: 'get_2fa_status',
+    description: '获取当前用户的 2FA 状态',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'setup_2fa',
+    description: '设置双因素认证，返回密钥和二维码',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'verify_2fa_setup',
+    description: '验证 2FA 验证码并启用',
+    inputSchema: {
+      type: 'object',
+      properties: { code: { type: 'string', description: '认证器 App 显示的 6 位验证码' } },
+      required: ['code'],
+    },
+  },
+  {
+    name: 'disable_2fa',
+    description: '禁用双因素认证',
+    inputSchema: {
+      type: 'object',
+      properties: { code: { type: 'string', description: '当前 6 位验证码' } },
+      required: ['code'],
+    },
+  },
+  {
+    name: 'save_backup_endpoint',
+    description: '添加或更新备份端点配置',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '端点 ID（更新时必填）' },
+        name: { type: 'string', description: '端点名称' },
+        type: { type: 'string', description: '类型：s3 / webdav / r2', enum: ['s3', 'webdav', 'r2'] },
+        enabled: { type: 'string', description: '是否启用：true / false' },
+        endpoint: { type: 'string', description: 'S3 端点 URL' },
+        accessKeyId: { type: 'string', description: 'S3 访问密钥' },
+        secretAccessKey: { type: 'string', description: 'S3 秘密密钥' },
+        bucket: { type: 'string', description: 'S3 存储桶' },
+        region: { type: 'string', description: 'S3 区域' },
+        url: { type: 'string', description: 'WebDAV URL' },
+        username: { type: 'string', description: 'WebDAV 用户名' },
+        password: { type: 'string', description: 'WebDAV 密码' },
+        path: { type: 'string', description: '存储路径' },
+      },
+      required: ['name', 'type'],
+    },
+  },
+  {
+    name: 'delete_backup_endpoint',
+    description: '删除备份端点配置',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '端点 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'test_backup_endpoint',
+    description: '测试备份端点的连通性',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '端点 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_backup',
+    description: '删除备份文件',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        endpointId: { type: 'string', description: '端点 ID' },
+        key: { type: 'string', description: '备份文件 key' },
+      },
+      required: ['endpointId', 'key'],
+    },
+  },
+  {
+    name: 'restore_backup',
+    description: '从备份端点恢复数据',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        endpointId: { type: 'string', description: '端点 ID' },
+        key: { type: 'string', description: '备份文件 key' },
+      },
+      required: ['endpointId', 'key'],
+    },
+  },
+  {
+    name: 'import_data',
+    description: '导入备份数据',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        data: { type: 'string', description: 'JSON 格式的备份数据字符串' },
+        mergeMode: { type: 'string', description: '导入模式：overwrite / merge', enum: ['overwrite', 'merge'] },
+      },
+      required: ['data'],
+    },
+  },
+  {
+    name: 'validate_backup_data',
+    description: '验证备份数据格式',
+    inputSchema: {
+      type: 'object',
+      properties: { data: { type: 'string', description: 'JSON 格式的备份数据字符串' } },
+      required: ['data'],
+    },
+  },
+  {
+    name: 'get_backup_history',
+    description: '获取备份历史记录',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'delete_backup_record',
+    description: '删除备份历史记录',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: '备份记录 ID' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'get_webhook_url',
+    description: '获取 Webhook 推送 URL',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
   // ==================== 管理员工具 ====================
   {
     name: 'get_system_status',
@@ -648,6 +1012,44 @@ const tools: MCPTool[] = [
       },
       required: ['archiveKey'],
     },
+  },
+  {
+    name: 'get_database_tables',
+    description: '获取所有数据库表列表（仅管理员）',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'delete_database_table',
+    description: '删除数据库表（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: { name: { type: 'string', description: '表名' } },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'cleanup_orphan_tables',
+    description: '清理孤立的数据库表（仅管理员）',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'get_system_health',
+    description: '获取系统健康检查报告（仅管理员）',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'get_analytics_activity',
+    description: '获取用户活动分析数据（仅管理员）',
+    inputSchema: {
+      type: 'object',
+      properties: { days: { type: 'string', description: '统计天数，默认 7' } },
+      required: [],
+    },
+  },
+  {
+    name: 'get_metrics',
+    description: '获取系统指标统计（仅管理员）',
+    inputSchema: { type: 'object', properties: {}, required: [] },
   },
 ];
 
@@ -1396,6 +1798,314 @@ async function handleExportData(
   return data;
 }
 
+async function handleGetCurrentUser(env: Env, username: string): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  return { id: user.id, email: user.email, role: user.role, disabled: user.disabled, avatar_url: user.avatar_url };
+}
+
+async function handleUpdateAvatar(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  const updates: Record<string, unknown> = {};
+  if (args.avatar_url !== undefined) updates.avatar_url = String(args.avatar_url);
+  if (args.use_avatar_as_popup !== undefined) updates.use_avatar_as_popup = parseInt(String(args.use_avatar_as_popup), 10) || 0;
+  const updated = await userService.updateUser(user.id, updates);
+  return { success: true, avatar_url: updated?.avatar_url };
+}
+
+async function handleUpdateCacheSettings(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  const settings: Record<string, number> = {};
+  for (const key of ['cache_ttl_backup', 'cache_ttl_channels', 'cache_ttl_templates', 'cache_ttl_groups', 'cache_ttl_scheduled']) {
+    if (args[key] !== undefined) settings[key] = parseInt(String(args[key]), 10) || 0;
+  }
+  await userService.saveCacheSettings(user.id, settings as any);
+  return { success: true };
+}
+
+async function handleUpdateAISettings(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  const settings: Record<string, unknown> = {};
+  if (args.ai_enabled !== undefined) settings.ai_enabled = args.ai_enabled === 'true';
+  if (args.ai_provider !== undefined) settings.ai_provider = String(args.ai_provider);
+  if (args.ai_api_key !== undefined) settings.ai_api_key = String(args.ai_api_key);
+  if (args.ai_api_url !== undefined) settings.ai_api_url = String(args.ai_api_url);
+  if (args.ai_model_name !== undefined) settings.ai_model_name = String(args.ai_model_name);
+  await userService.saveAISettings(user.id, settings as any);
+  return { success: true };
+}
+
+async function handleGetAITools(env: Env, username: string): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  const settings = await userService.getAISettings(user.id);
+  return { tools: userService.getUserAITools(settings) };
+}
+
+async function handleAIGenerate(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const prompt = String(args.prompt || '');
+  const type = String(args.type || 'both');
+  if (!prompt) throw new Error('提示词不能为空');
+  const aiService = new AIService(env);
+  const result = await aiService.generateMessage({ prompt, type: type as any } as any);
+  return result;
+}
+
+async function handleGetExecutionLogDetail(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id || !env.DB) return null;
+  const result = await env.DB.prepare('SELECT * FROM push_execution_logs WHERE id = ? AND user_id = ?').bind(id, username).first();
+  if (!result) return null;
+  const r = result as Record<string, unknown>;
+  return {
+    id: r.id, pushHistoryId: r.push_history_id, startedAt: r.started_at, finishedAt: r.finished_at,
+    status: r.status, channels: JSON.parse((r.channels as string) || '[]'),
+    channelResults: JSON.parse((r.channel_results as string) || '[]'),
+    errorMessage: r.error_message, createdAt: r.created_at,
+  };
+}
+
+async function handleGetPushHistoryFiltered(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const result = await getPushHistory(username, env, {
+    page: parseInt(String(args.page || '1'), 10) || 1,
+    pageSize: parseInt(String(args.pageSize || '20'), 10) || 20,
+    channel: args.channel ? String(args.channel) : undefined,
+    status: args.status ? String(args.status) : undefined,
+    keyword: args.keyword ? String(args.keyword) : undefined,
+  });
+  return result;
+}
+
+async function handleBatchDeleteHistoryByFilter(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const result = await batchDeletePushHistoryByFilter(username, env, {
+    olderThan: args.olderThan ? String(args.olderThan) : undefined,
+    channel: args.channel ? String(args.channel) : undefined,
+    status: args.status ? String(args.status) : undefined,
+  });
+  return result;
+}
+
+async function handleMarkPushDelivered(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const result = await pushService.markDelivered(String(args.id || ''));
+  return { success: result };
+}
+async function handleMarkPushRead(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const result = await pushService.markRead(String(args.id || ''));
+  return { success: result };
+}
+async function handleMarkPushClicked(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const result = await pushService.markClicked(String(args.id || ''));
+  return { success: result };
+}
+async function handleRevokePush(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const result = await pushService.revokePush(String(args.id || ''));
+  return { success: result };
+}
+
+async function handlePreviewTemplate(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const id = String(args.id || '');
+  const pushService = new PushService(env, username);
+  const template = await pushService['getTemplateById'](id);
+  if (!template) throw new Error('模板不存在');
+  const variables = args.variables ? JSON.parse(String(args.variables)) : {};
+  return {
+    id: template.id, name: template.name,
+    title: replaceTemplateVariables(template.title, variables),
+    content: replaceTemplateVariables(template.content, variables),
+  };
+}
+
+async function handleGetTemplateVariables(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const id = String(args.id || '');
+  const pushService = new PushService(env, username);
+  const template = await pushService['getTemplateById'](id);
+  if (!template) throw new Error('模板不存在');
+  const titleVars = extractVariables(template.title);
+  const contentVars = extractVariables(template.content);
+  return { variables: [...new Set([...titleVars, ...contentVars])] };
+}
+
+async function handleDeleteScheduledPush(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const deleted = await pushService.deleteScheduledPush(String(args.id || ''));
+  return { success: deleted };
+}
+
+async function handleBatchCancelScheduled(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const ids = String(args.ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const pushService = new PushService(env, username);
+  return await pushService.batchCancelScheduledPushes(ids);
+}
+
+async function handleBatchEnableScheduled(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const ids = String(args.ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const pushService = new PushService(env, username);
+  return await pushService.batchEnableScheduledPushes(ids);
+}
+
+async function handleBatchDeleteScheduled(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const ids = String(args.ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+  let deleted = 0;
+  const pushService = new PushService(env, username);
+  for (const id of ids) { if (await pushService.deleteScheduledPush(id)) deleted++; }
+  return { deleted, total: ids.length };
+}
+
+async function handleGetOverdueTasks(env: Env, username: string): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  return await pushService.getOverdueTasks();
+}
+
+async function handleBatchDeleteGroups(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const ids = String(args.ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const pushService = new PushService(env, username);
+  let deleted = 0;
+  for (const id of ids) { if (await pushService.deleteChannelGroup(id)) deleted++; }
+  return { deleted, total: ids.length };
+}
+
+async function handleBatchSendToGroups(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const title = String(args.title || '');
+  const body = args.body ? String(args.body) : '';
+  const url = args.url ? String(args.url) : '';
+  const groupIds = String(args.groupIds || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!title) throw new Error('推送标题不能为空');
+  if (groupIds.length === 0) throw new Error('至少需要一个分组');
+  const pushService = new PushService(env, username);
+  const allChannels: PushChannel[] = [];
+  for (const gid of groupIds) {
+    const group = await pushService['getChannelGroupById'](gid);
+    if (group) allChannels.push(...group.channels);
+  }
+  const uniqueChannels = [...new Set(allChannels)];
+  if (uniqueChannels.length === 0) throw new Error('未找到有效的渠道');
+  return await dispatchPushWithOptions({ title, body, url }, uniqueChannels, username, env);
+}
+
+async function handleGet2FAStatus(env: Env, username: string): Promise<unknown> {
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  return { enabled: !!user?.totp_enabled, hasSecret: !!user?.totp_secret };
+}
+
+async function handleSetup2FA(env: Env, username: string): Promise<unknown> {
+  const secret = generateTOTPSecret();
+  const otpauthUrl = `otpauth://totp/BeeSwarm:${encodeURIComponent(username)}?secret=${secret}&issuer=BeeSwarm&algorithm=SHA1&digits=6&period=30`;
+  const qrCode = await generateQRCodeDataURL(otpauthUrl);
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user) throw new Error('用户不存在');
+  await userService.updateUser(user.id, { totp_secret: secret });
+  return { secret, qrCode, otpauthUrl };
+}
+
+async function handleVerify2FASetup(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const code = String(args.code || '');
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user?.totp_secret) throw new Error('请先生成 TOTP secret');
+  const valid = await verifyTOTP(user.totp_secret, code);
+  if (!valid) throw new Error('验证码无效');
+  await userService.updateUser(user.id, { totp_enabled: 1 });
+  return { success: true, message: '2FA 已启用' };
+}
+
+async function handleDisable2FA(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const code = String(args.code || '');
+  const userService = new UserService(env);
+  const user = await userService.findByEmail(username);
+  if (!user?.totp_secret) throw new Error('2FA 未设置');
+  const valid = await verifyTOTP(user.totp_secret, code);
+  if (!valid) throw new Error('验证码无效');
+  await userService.updateUser(user.id, { totp_enabled: 0, totp_secret: null });
+  return { success: true, message: '2FA 已禁用' };
+}
+
+async function handleSaveBackupEndpoint(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const endpoint = {
+    id: args.id ? String(args.id) : crypto.randomUUID(),
+    name: String(args.name || ''),
+    type: String(args.type || 's3') as any,
+    enabled: args.enabled !== 'false',
+    config: {} as any,
+    schedule: { enabled: false, interval: 24, startTime: '02:00' },
+    retention: 30,
+  };
+  if (args.type === 's3' || args.type === undefined) {
+    endpoint.config = { endpoint: args.endpoint || '', accessKeyId: args.accessKeyId || '', secretAccessKey: args.secretAccessKey || '', bucket: args.bucket || '', region: args.region || '', path: args.path || '' };
+  } else if (args.type === 'webdav') {
+    endpoint.config = { url: args.url || '', username: args.username || '', password: args.password || '', path: args.path || '' };
+  } else {
+    endpoint.config = { path: args.path || '' };
+  }
+  await saveBackupEndpoint(env, username, endpoint as any);
+  return { success: true, id: endpoint.id };
+}
+
+async function handleDeleteBackupEndpoint(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const deleted = await deleteBackupEndpoint(env, username, String(args.id || ''));
+  return { success: deleted };
+}
+
+async function handleTestBackupEndpoint(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const { getBackupEndpoint } = await import('./backup');
+  const endpoint = await getBackupEndpoint(env, username, String(args.id || ''));
+  if (!endpoint) throw new Error('未找到该备份端点');
+  const result = await testBackupEndpoint(endpoint, env);
+  return result;
+}
+
+async function handleDeleteBackup(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const { getBackupEndpoint } = await import('./backup');
+  const endpoint = await getBackupEndpoint(env, username, String(args.endpointId || ''));
+  if (!endpoint) throw new Error('未找到该备份端点');
+  return await deleteBackupFromEndpoint(env, username, endpoint, String(args.key || ''));
+}
+
+async function handleRestoreBackup(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const { getBackupEndpoint } = await import('./backup');
+  const endpoint = await getBackupEndpoint(env, username, String(args.endpointId || ''));
+  if (!endpoint) throw new Error('未找到该备份端点');
+  return await restoreFromEndpoint(env, username, endpoint, String(args.key || ''));
+}
+
+async function handleImportData(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  const data = JSON.parse(String(args.data || '{}'));
+  const mergeMode = (String(args.mergeMode || 'overwrite') as 'overwrite' | 'merge');
+  return await importData(env, username, data, { mergeMode });
+}
+
+async function handleValidateBackupData(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const data = JSON.parse(String(args.data || '{}'));
+  return validateBackup(data);
+}
+
+async function handleGetBackupHistory(env: Env, username: string): Promise<unknown> {
+  return await getBackupHistory(env, username);
+}
+
+async function handleDeleteBackupRecord(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
+  await deleteBackupRecordItem(env, String(args.id || ''), username);
+  return { success: true };
+}
+
+async function handleGetWebhookUrl(env: Env, username: string): Promise<unknown> {
+  const baseUrl = env.ALLOWED_ORIGINS?.split(',')[0] || '';
+  return { webhookUrl: `${baseUrl}/api/webhook/push?token=${username}` };
+}
+
 // ==================== 管理员工具处理函数 ====================
 
 async function handleListUsers(env: Env): Promise<unknown> {
@@ -1533,6 +2243,50 @@ async function handleRestoreArchive(env: Env, username: string, args: Record<str
   if (!archiveKey) throw new Error('归档 key 不能为空');
   const result = await restoreArchivedData(env, username, archiveKey);
   return { success: true, ...result };
+}
+
+async function handleGetDatabaseTables(env: Env): Promise<unknown> {
+  const tables = await getAllTables(env);
+  return { tables };
+}
+
+async function handleDeleteDatabaseTable(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const name = String(args.name || '');
+  if (!name) throw new Error('表名不能为空');
+  const result = await deleteTable(env, name);
+  return result;
+}
+
+async function handleCleanupOrphanTables(env: Env): Promise<unknown> {
+  const result = await cleanupOrphanTablesForce(env);
+  return result;
+}
+
+async function handleGetSystemHealth(env: Env): Promise<unknown> {
+  let healthy = true; const checks: Record<string, unknown> = {};
+  try {
+    checks.database = env.DB ? 'connected' : 'not configured';
+    if (env.DB) await env.DB.prepare('SELECT 1').run();
+  } catch { checks.database = 'error'; healthy = false; }
+  return { status: healthy ? 'healthy' : 'unhealthy', checks };
+}
+
+async function handleGetAnalyticsActivity(env: Env, args: Record<string, unknown>): Promise<unknown> {
+  const days = Math.min(Math.max(parseInt(String(args.days || '7'), 10) || 7, 1), 90);
+  if (!env.DB) return { activity: [] };
+  const since = new Date(); since.setDate(since.getDate() - days);
+  const result = await env.DB.prepare(
+    `SELECT DATE(created_at) as date, action, COUNT(*) as count FROM audit_logs WHERE created_at >= ? GROUP BY DATE(created_at), action ORDER BY date DESC`
+  ).bind(since.toISOString()).all();
+  return { activity: result.results || [] };
+}
+
+async function handleGetMetrics(env: Env): Promise<unknown> {
+  if (!env.DB) return { metrics: {} };
+  const userCount = (await env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>())?.count || 0;
+  const pushCount = (await env.DB.prepare('SELECT COUNT(*) as count FROM push_history').first<{ count: number }>())?.count || 0;
+  const taskCount = (await env.DB.prepare('SELECT COUNT(*) as count FROM scheduled_pushes').first<{ count: number }>())?.count || 0;
+  return { metrics: { users: userCount, totalPushes: pushCount, totalScheduledTasks: taskCount } };
 }
 
 async function handleGetTemplates(
@@ -1788,6 +2542,114 @@ export async function handleMCPRequest(
           case 'export_data':
             result = await handleExportData(env, username);
             break;
+          case 'get_current_user':
+            result = await handleGetCurrentUser(env, username);
+            break;
+          case 'update_avatar':
+            result = await handleUpdateAvatar(env, username, args);
+            break;
+          case 'update_cache_settings':
+            result = await handleUpdateCacheSettings(env, username, args);
+            break;
+          case 'update_ai_settings':
+            result = await handleUpdateAISettings(env, username, args);
+            break;
+          case 'get_ai_tools':
+            result = await handleGetAITools(env, username);
+            break;
+          case 'ai_generate':
+            result = await handleAIGenerate(env, username, args);
+            break;
+          case 'get_execution_log_detail':
+            result = await handleGetExecutionLogDetail(env, username, args);
+            break;
+          case 'get_push_history_filtered':
+            result = await handleGetPushHistoryFiltered(env, username, args);
+            break;
+          case 'batch_delete_push_history_by_filter':
+            result = await handleBatchDeleteHistoryByFilter(env, username, args);
+            break;
+          case 'mark_push_delivered':
+            result = await handleMarkPushDelivered(env, username, args);
+            break;
+          case 'mark_push_read':
+            result = await handleMarkPushRead(env, username, args);
+            break;
+          case 'mark_push_clicked':
+            result = await handleMarkPushClicked(env, username, args);
+            break;
+          case 'revoke_push':
+            result = await handleRevokePush(env, username, args);
+            break;
+          case 'preview_template':
+            result = await handlePreviewTemplate(env, username, args);
+            break;
+          case 'get_template_variables':
+            result = await handleGetTemplateVariables(env, username, args);
+            break;
+          case 'delete_scheduled_push':
+            result = await handleDeleteScheduledPush(env, username, args);
+            break;
+          case 'batch_cancel_scheduled':
+            result = await handleBatchCancelScheduled(env, username, args);
+            break;
+          case 'batch_enable_scheduled':
+            result = await handleBatchEnableScheduled(env, username, args);
+            break;
+          case 'batch_delete_scheduled':
+            result = await handleBatchDeleteScheduled(env, username, args);
+            break;
+          case 'get_overdue_tasks':
+            result = await handleGetOverdueTasks(env, username);
+            break;
+          case 'batch_delete_groups':
+            result = await handleBatchDeleteGroups(env, username, args);
+            break;
+          case 'batch_send_to_groups':
+            result = await handleBatchSendToGroups(env, username, args);
+            break;
+          case 'get_2fa_status':
+            result = await handleGet2FAStatus(env, username);
+            break;
+          case 'setup_2fa':
+            result = await handleSetup2FA(env, username);
+            break;
+          case 'verify_2fa_setup':
+            result = await handleVerify2FASetup(env, username, args);
+            break;
+          case 'disable_2fa':
+            result = await handleDisable2FA(env, username, args);
+            break;
+          case 'save_backup_endpoint':
+            result = await handleSaveBackupEndpoint(env, username, args);
+            break;
+          case 'delete_backup_endpoint':
+            result = await handleDeleteBackupEndpoint(env, username, args);
+            break;
+          case 'test_backup_endpoint':
+            result = await handleTestBackupEndpoint(env, username, args);
+            break;
+          case 'delete_backup':
+            result = await handleDeleteBackup(env, username, args);
+            break;
+          case 'restore_backup':
+            result = await handleRestoreBackup(env, username, args);
+            break;
+          case 'import_data':
+            result = await handleImportData(env, username, args);
+            break;
+          case 'validate_backup_data':
+            result = await handleValidateBackupData(env, args);
+            break;
+          case 'get_backup_history':
+            result = await handleGetBackupHistory(env, username);
+            break;
+          case 'delete_backup_record':
+            result = await handleDeleteBackupRecord(env, username, args);
+            break;
+          case 'get_webhook_url':
+            result = await handleGetWebhookUrl(env, username);
+            break;
           case 'get_system_status':
             result = await handleGetSystemStatus(env);
             break;
@@ -1835,6 +2697,24 @@ export async function handleMCPRequest(
             break;
           case 'restore_archive':
             result = await handleRestoreArchive(env, username, args);
+            break;
+          case 'get_database_tables':
+            result = await handleGetDatabaseTables(env);
+            break;
+          case 'delete_database_table':
+            result = await handleDeleteDatabaseTable(env, args);
+            break;
+          case 'cleanup_orphan_tables':
+            result = await handleCleanupOrphanTables(env);
+            break;
+          case 'get_system_health':
+            result = await handleGetSystemHealth(env);
+            break;
+          case 'get_analytics_activity':
+            result = await handleGetAnalyticsActivity(env, args);
+            break;
+          case 'get_metrics':
+            result = await handleGetMetrics(env);
             break;
           default:
             return {
