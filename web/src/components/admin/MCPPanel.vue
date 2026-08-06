@@ -143,20 +143,47 @@ const tools = [
     ],
   },
   {
-    name: 'cancel_scheduled_push',
-    description: '取消一个定时推送任务。',
+    name: 'update_scheduled_push',
+    description: '更新一个定时推送任务（仅 pending 状态可编辑）。',
     permission: '所有用户',
     params: [
       { name: 'id', type: 'string', required: true },
+      { name: 'title', type: 'string', required: false },
+      { name: 'body', type: 'string', required: false },
+      { name: 'channels', type: 'string (逗号分隔)', required: false },
+      { name: 'scheduledAt', type: 'string (ISO 8601)', required: false },
+      { name: 'scheduleType', type: 'once/recurring', required: false },
+      { name: 'recurringType', type: 'daily/weekly/monthly/cron', required: false },
+      { name: 'selectedWeekDays', type: 'string (0-6 逗号分隔)', required: false },
+      { name: 'timezone', type: 'string', required: false },
+    ],
+  },
+  {
+    name: 'cancel_scheduled_push',
+    description: '取消一个定时推送任务。',
+    permission: '所有用户',
+    params: [{ name: 'id', type: 'string', required: true }],
+  },
+  {
+    name: 'reschedule_overdue_task',
+    description: '重新安排一个已超时的定时任务。',
+    permission: '所有用户',
+    params: [
+      { name: 'id', type: 'string', required: true },
+      { name: 'scheduledAt', type: 'string (ISO 8601)', required: true },
     ],
   },
   {
     name: 'list_scheduled_pushes',
     description: '列出所有定时推送任务，可按状态筛选。',
     permission: '所有用户',
-    params: [
-      { name: 'status', type: 'string (pending/completed/failed)', required: false },
-    ],
+    params: [{ name: 'status', type: 'string (pending/completed/failed)', required: false }],
+  },
+  {
+    name: 'get_scheduled_push_detail',
+    description: '获取单个定时推送任务的详细信息。',
+    permission: '所有用户',
+    params: [{ name: 'id', type: 'string', required: true }],
   },
   {
     name: 'get_templates',
@@ -165,20 +192,58 @@ const tools = [
     params: [],
   },
   {
+    name: 'get_channel_groups',
+    description: '获取渠道分组列表。',
+    permission: '所有用户',
+    params: [],
+  },
+  {
     name: 'get_push_history',
     description: '获取最近的推送历史记录。',
     permission: '所有用户',
-    params: [
-      { name: 'limit', type: 'number (默认 10)', required: false },
-    ],
+    params: [{ name: 'limit', type: 'number (默认 10)', required: false }],
+  },
+  {
+    name: 'get_push_history_detail',
+    description: '获取单条推送历史的详细信息，包含渠道结果。',
+    permission: '所有用户',
+    params: [{ name: 'id', type: 'string', required: true }],
   },
   {
     name: 'get_push_stats',
     description: '获取推送统计信息，包括成功率、趋势、每日统计等。',
     permission: '所有用户',
-    params: [
-      { name: 'days', type: 'number (默认 7)', required: false },
-    ],
+    params: [{ name: 'days', type: 'number (默认 7)', required: false }],
+  },
+  {
+    name: 'get_execution_logs',
+    description: '获取推送执行日志，包含渠道结果和错误信息。',
+    permission: '所有用户',
+    params: [{ name: 'limit', type: 'number (默认 10)', required: false }],
+  },
+  {
+    name: 'test_channel',
+    description: '测试单个推送渠道，发送真实测试消息验证是否可用。',
+    permission: '所有用户',
+    params: [{ name: 'channel', type: 'string', required: true }],
+  },
+  {
+    name: 'check_all_channels_health',
+    description: '检查所有已配置渠道的健康状态，逐个发送测试消息。',
+    permission: '所有用户',
+    params: [],
+  },
+  {
+    name: 'get_drafts',
+    description: '获取推送草稿列表。',
+    permission: '所有用户',
+    params: [],
+  },
+  {
+    name: 'get_favorites',
+    description: '获取推送收藏列表。',
+    permission: '所有用户',
+    params: [],
   },
   {
     name: 'list_channels',

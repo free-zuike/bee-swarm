@@ -55,10 +55,7 @@ const tools: MCPTool[] = [
         title: { type: 'string', description: '推送标题' },
         body: { type: 'string', description: '推送内容' },
         url: { type: 'string', description: '点击跳转链接' },
-        channels: {
-          type: 'string',
-          description: '目标渠道，逗号分隔（如 wework,dingtalk,telegram）。留空则使用所有已启用渠道',
-        },
+        channels: { type: 'string', description: '目标渠道，逗号分隔（如 wework,dingtalk,telegram）。留空则使用所有已启用渠道' },
       },
       required: ['title'],
     },
@@ -84,6 +81,27 @@ const tools: MCPTool[] = [
     },
   },
   {
+    name: 'update_scheduled_push',
+    description: '更新定时推送任务（仅 pending 状态可编辑）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '定时任务 ID' },
+        title: { type: 'string', description: '推送标题' },
+        body: { type: 'string', description: '推送内容' },
+        channels: { type: 'string', description: '目标渠道，逗号分隔' },
+        scheduledAt: { type: 'string', description: '执行时间（ISO 8601）' },
+        scheduleType: { type: 'string', description: '调度类型', enum: ['once', 'recurring'] },
+        recurringType: { type: 'string', description: '循环类型', enum: ['daily', 'weekly', 'monthly', 'hourly', 'cron'] },
+        selectedWeekDays: { type: 'string', description: '每周执行日，逗号分隔' },
+        cronExpression: { type: 'string', description: 'Cron 表达式' },
+        timezone: { type: 'string', description: '时区' },
+        url: { type: 'string', description: '点击跳转链接' },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'cancel_scheduled_push',
     description: '取消定时推送任务',
     inputSchema: {
@@ -95,27 +113,51 @@ const tools: MCPTool[] = [
     },
   },
   {
+    name: 'reschedule_overdue_task',
+    description: '重新安排已超时的定时任务',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '超时任务 ID' },
+        scheduledAt: { type: 'string', description: '新的执行时间（ISO 8601）' },
+      },
+      required: ['id', 'scheduledAt'],
+    },
+  },
+  {
     name: 'list_scheduled_pushes',
     description: '列出定时推送任务列表',
     inputSchema: {
       type: 'object',
       properties: {
-        status: {
-          type: 'string',
-          description: '按状态筛选：pending / processing / completed / failed / overdue',
-          enum: ['pending', 'processing', 'completed', 'failed', 'overdue'],
-        },
+        status: { type: 'string', description: '按状态筛选：pending / processing / completed / failed / overdue', enum: ['pending', 'processing', 'completed', 'failed', 'overdue'] },
       },
       required: [],
+    },
+  },
+  {
+    name: 'get_scheduled_push_detail',
+    description: '获取单个定时推送任务的详细信息',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '定时任务 ID' },
+      },
+      required: ['id'],
     },
   },
   {
     name: 'get_templates',
     description: '获取推送模板列表',
     inputSchema: {
-      type: 'object',
-      properties: {},
-      required: [],
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'get_channel_groups',
+    description: '获取渠道分组列表',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
     },
   },
   {
@@ -130,6 +172,17 @@ const tools: MCPTool[] = [
     },
   },
   {
+    name: 'get_push_history_detail',
+    description: '获取单条推送历史的详细信息（含渠道结果）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '推送历史 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'get_push_stats',
     description: '获取推送统计信息（成功率、趋势等）',
     inputSchema: {
@@ -141,21 +194,60 @@ const tools: MCPTool[] = [
     },
   },
   {
+    name: 'get_execution_logs',
+    description: '获取推送执行日志',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'string', description: '返回条数，默认 10' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'test_channel',
+    description: '测试单个推送渠道（发送真实测试消息）',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: { type: 'string', description: '渠道标识，如 wework / dingtalk / telegram / bark / ntfy / email / slack / discord / serverchan / pushplus / webhook / gotify / line / teams / pushover' },
+      },
+      required: ['channel'],
+    },
+  },
+  {
+    name: 'check_all_channels_health',
+    description: '检查所有已配置渠道的健康状态',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'get_drafts',
+    description: '获取推送草稿列表',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
+    name: 'get_favorites',
+    description: '获取推送收藏列表',
+    inputSchema: {
+      type: 'object', properties: {}, required: [],
+    },
+  },
+  {
     name: 'list_channels',
     description: '列出所有可用的推送渠道及其状态',
     inputSchema: {
-      type: 'object',
-      properties: {},
-      required: [],
+      type: 'object', properties: {}, required: [],
     },
   },
   {
     name: 'get_system_status',
     description: '获取系统健康状态和统计信息（仅管理员）',
     inputSchema: {
-      type: 'object',
-      properties: {},
-      required: [],
+      type: 'object', properties: {}, required: [],
     },
   },
 ];
@@ -295,6 +387,123 @@ async function handleCancelScheduledPush(
   };
 }
 
+async function handleUpdateScheduledPush(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id) throw new Error('定时任务 ID 不能为空');
+
+  const pushService = new PushService(env, username);
+  const updates: Record<string, unknown> = {};
+
+  if (args.title !== undefined) updates.title = String(args.title);
+  if (args.body !== undefined) updates.content = String(args.body);
+  if (args.url !== undefined) updates.url = String(args.url);
+  if (args.scheduleType !== undefined) updates.scheduleType = args.scheduleType;
+  if (args.recurringType !== undefined) updates.recurringType = args.recurringType;
+  if (args.timezone !== undefined) updates.timezone = String(args.timezone);
+  if (args.cronExpression !== undefined) updates.cronExpression = String(args.cronExpression);
+  if (args.scheduledAt !== undefined) updates.scheduledAt = String(args.scheduledAt);
+  if (args.channels !== undefined) {
+    updates.channels = String(args.channels)
+      .split(',')
+      .map((c) => c.trim() as PushChannel)
+      .filter(Boolean);
+  }
+  if (args.selectedWeekDays !== undefined) {
+    updates.selectedWeekDays = String(args.selectedWeekDays)
+      .split(',')
+      .map((d) => parseInt(d.trim(), 10))
+      .filter((d) => !isNaN(d) && d >= 0 && d <= 6);
+  }
+
+  const updated = await pushService.updateScheduledPush(id, updates as any);
+  if (!updated) {
+    return { success: false, message: '未找到该任务或状态不允许编辑' };
+  }
+  return {
+    success: true,
+    scheduled: {
+      id: updated.id,
+      title: updated.title,
+      content: updated.content,
+      channels: updated.channels,
+      scheduledAt: updated.scheduledAt,
+      scheduleType: updated.scheduleType,
+      recurringType: updated.recurringType,
+      status: updated.status,
+      timezone: updated.timezone,
+    },
+  };
+}
+
+async function handleRescheduleOverdueTask(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  const scheduledAt = String(args.scheduledAt || '');
+  if (!id) throw new Error('超时任务 ID 不能为空');
+  if (!scheduledAt) throw new Error('新的执行时间不能为空');
+
+  const pushService = new PushService(env, username);
+  const updated = await pushService.rescheduleOverdueTask(id, scheduledAt);
+
+  if (!updated) {
+    return { success: false, message: '未找到该超时任务' };
+  }
+  return {
+    success: true,
+    scheduled: {
+      id: updated.id,
+      title: updated.title,
+      scheduledAt: updated.scheduledAt,
+      status: updated.status,
+    },
+  };
+}
+
+async function handleGetScheduledPushDetail(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id || !env.DB) return null;
+
+  const result = await env.DB.prepare(
+    'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, username)
+    .first();
+
+  if (!result) return null;
+
+  const r = result as Record<string, unknown>;
+  return {
+    id: r.id,
+    title: r.title,
+    content: r.body,
+    channels: r.channels ? JSON.parse(r.channels as string) : [],
+    url: r.url,
+    scheduledAt: r.next_run && (r.next_run as number) > 0
+      ? new Date(((r.next_run as number) > 1e12 ? (r.next_run as number) : (r.next_run as number) * 60000)).toISOString()
+      : null,
+    scheduleType: r.enabled === 1 ? 'recurring' : 'once',
+    recurringType: r.recurring_type,
+    selectedWeekDays: r.selected_week_days ? JSON.parse(r.selected_week_days as string) : undefined,
+    cronExpression: r.cron,
+    status: r.status,
+    enabled: r.enabled === 1,
+    timezone: r.timezone || 'Asia/Shanghai',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
 async function handleListScheduledPushes(
   env: Env,
   username: string,
@@ -326,7 +535,6 @@ async function handleGetPushHistory(
   args: Record<string, unknown>
 ): Promise<unknown> {
   const limit = Math.min(Math.max(parseInt(String(args.limit || '10'), 10) || 10, 1), 100);
-
   if (!env.DB) return { history: [] };
 
   const result = await env.DB.prepare(
@@ -345,6 +553,154 @@ async function handleGetPushHistory(
       createdAt: r.created_at,
     })),
   };
+}
+
+async function handleGetPushHistoryDetail(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const id = String(args.id || '');
+  if (!id || !env.DB) return null;
+
+  const result = await env.DB.prepare(
+    `SELECT * FROM push_history WHERE id = ? AND user_id = ?`
+  )
+    .bind(id, username)
+    .first();
+
+  if (!result) return null;
+
+  const r = result as Record<string, unknown>;
+  return {
+    id: r.id,
+    title: r.title,
+    body: r.body,
+    url: r.url,
+    imageUrl: r.image_url,
+    markdown: r.markdown === 1,
+    channels: r.channels ? JSON.parse(r.channels as string) : [],
+    results: r.results ? JSON.parse(r.results as string) : [],
+    status: r.status,
+    createdAt: r.created_at,
+    deliveredAt: r.delivered_at,
+    readAt: r.read_at,
+    clickedAt: r.clicked_at,
+  };
+}
+
+async function handleGetExecutionLogs(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const limit = Math.min(Math.max(parseInt(String(args.limit || '10'), 10) || 10, 1), 100);
+  if (!env.DB) return { logs: [] };
+
+  const result = await env.DB.prepare(
+    `SELECT * FROM push_execution_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`
+  )
+    .bind(username, limit)
+    .all();
+
+  return {
+    logs: (result.results || []).map((r: Record<string, unknown>) => ({
+      id: r.id,
+      pushHistoryId: r.push_history_id,
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+      status: r.status,
+      channels: r.channels ? JSON.parse(r.channels as string) : [],
+      channelResults: r.channel_results ? JSON.parse(r.channel_results as string) : [],
+      errorMessage: r.error_message,
+      createdAt: r.created_at,
+    })),
+  };
+}
+
+async function handleTestChannel(
+  env: Env,
+  username: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const channel = String(args.channel || '') as PushChannel;
+  if (!channel) throw new Error('渠道标识不能为空');
+
+  const results = await dispatchPushWithOptions(
+    { title: '渠道测试', body: `这是一条来自 MCP 的测试消息，用于验证 ${channel} 渠道。` },
+    [channel],
+    username,
+    env,
+  );
+
+  const result = results[0];
+  return {
+    channel,
+    healthy: result?.success,
+    message: result?.success ? '渠道正常' : result?.message,
+    testedAt: new Date().toISOString(),
+  };
+}
+
+async function handleCheckAllChannelsHealth(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const settings = await loadUserChannelSettings(username, env);
+
+  const results = await Promise.all(
+    CHANNEL_DEFINITIONS.map(async (ch) => {
+      const channelPrefix = `channel:${ch.id}:`;
+      const isConfigured = Object.keys(settings).some((key) => key.startsWith(channelPrefix));
+
+      if (!isConfigured) {
+        return { channel: ch.id, healthy: false, message: '渠道未配置', testedAt: new Date().toISOString() };
+      }
+
+      const res = await dispatchPushWithOptions(
+        { title: '渠道健康检查', body: `验证 ${ch.id} 渠道是否正常工作。` },
+        [ch.id as PushChannel],
+        username,
+        env,
+      );
+
+      return {
+        channel: ch.id,
+        healthy: res[0]?.success,
+        message: res[0]?.success ? '渠道正常' : res[0]?.message,
+        testedAt: new Date().toISOString(),
+      };
+    })
+  );
+
+  return { channels: results };
+}
+
+async function handleGetChannelGroups(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const groups = await pushService.getChannelGroups();
+  return groups;
+}
+
+async function handleGetDrafts(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const drafts = await pushService.getDrafts();
+  return drafts;
+}
+
+async function handleGetFavorites(
+  env: Env,
+  username: string
+): Promise<unknown> {
+  const pushService = new PushService(env, username);
+  const favorites = await pushService.getFavorites();
+  return favorites;
 }
 
 async function handleGetTemplates(
@@ -495,8 +851,14 @@ export async function handleMCPRequest(
           case 'create_scheduled_push':
             result = await handleCreateScheduledPush(env, username, args);
             break;
+          case 'update_scheduled_push':
+            result = await handleUpdateScheduledPush(env, username, args);
+            break;
           case 'cancel_scheduled_push':
             result = await handleCancelScheduledPush(env, username, args);
+            break;
+          case 'reschedule_overdue_task':
+            result = await handleRescheduleOverdueTask(env, username, args);
             break;
           case 'list_channels':
             result = await handleListChannels(env, username);
@@ -504,14 +866,38 @@ export async function handleMCPRequest(
           case 'list_scheduled_pushes':
             result = await handleListScheduledPushes(env, username, args);
             break;
+          case 'get_scheduled_push_detail':
+            result = await handleGetScheduledPushDetail(env, username, args);
+            break;
           case 'get_templates':
             result = await handleGetTemplates(env, username);
+            break;
+          case 'get_channel_groups':
+            result = await handleGetChannelGroups(env, username);
             break;
           case 'get_push_history':
             result = await handleGetPushHistory(env, username, args);
             break;
+          case 'get_push_history_detail':
+            result = await handleGetPushHistoryDetail(env, username, args);
+            break;
           case 'get_push_stats':
             result = await handleGetPushStats(env, username, args);
+            break;
+          case 'get_execution_logs':
+            result = await handleGetExecutionLogs(env, username, args);
+            break;
+          case 'test_channel':
+            result = await handleTestChannel(env, username, args);
+            break;
+          case 'check_all_channels_health':
+            result = await handleCheckAllChannelsHealth(env, username);
+            break;
+          case 'get_drafts':
+            result = await handleGetDrafts(env, username);
+            break;
+          case 'get_favorites':
+            result = await handleGetFavorites(env, username);
             break;
           case 'get_system_status':
             result = await handleGetSystemStatus(env);
