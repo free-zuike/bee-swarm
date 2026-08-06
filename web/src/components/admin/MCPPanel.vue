@@ -79,12 +79,25 @@
       </button>
     </div>
 
+    <!-- MiMoCode 配置 -->
+    <div class="settings-card">
+      <h4>🤖 {{ t('mcp.mimocode_config') }}</h4>
+      <p class="hint">{{ t('mcp.mimocode_hint') }}</p>
+      <pre :class="{ dark: isDark }"><code>{{ mimocodeConfig }}</code></pre>
+      <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="copyText(mimocodeConfig)">
+        📋 {{ t('mcp.copy_config') }}
+      </button>
+    </div>
+
     <!-- 连接测试 -->
     <div class="settings-card">
       <h4>🔍 {{ t('mcp.test_connection') }}</h4>
       <div class="test-actions">
         <button class="btn btn-sm btn-primary" :class="{ dark: isDark, loading: testing }" @click="testConnection">
           {{ testing ? t('mcp.testing') : t('mcp.test') }}
+        </button>
+        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark, loading: testingTools }" @click="testToolsList">
+          {{ testingTools ? t('mcp.testing') : t('mcp.test_tools') }}
         </button>
       </div>
       <div v-if="testResult" class="test-result" :class="{ success: testSuccess, error: !testSuccess }">
@@ -106,6 +119,7 @@ const props = defineProps<{
 
 const isDark = computed(() => document.documentElement.getAttribute('data-theme') === 'dark');
 const testing = ref(false);
+const testingTools = ref(false);
 const testResult = ref('');
 const testSuccess = ref(false);
 
@@ -113,6 +127,18 @@ const mcpEndpoint = computed(() => `${window.location.origin}/mcp`);
 const mcpMessageEndpoint = computed(() => `${window.location.origin}/mcp/message`);
 const protocolVersion = '2024-11-05';
 const serverInfo = { name: 'bee-swarm-mcp', version: '1.0.0' };
+
+const mimocodeConfig = computed(() => `{
+  "mcp": {
+    "bee-swarm": {
+      "type": "remote",
+      "url": "${window.location.origin}/mcp?apikey=YOUR_API_KEY",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY"
+      }
+    }
+  }
+}`);
 
 const tools = [
   {
@@ -259,8 +285,8 @@ const tools = [
   },
 ];
 
-const usageExample = `// 列出可用工具
-POST /mcp/message
+const usageExample = `// 列出可用工具 (Streamable HTTP)
+POST /mcp
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -268,7 +294,7 @@ POST /mcp/message
 }
 
 // 发送推送
-POST /mcp/message
+POST /mcp
 {
   "jsonrpc": "2.0",
   "id": 2,
@@ -304,16 +330,41 @@ async function testConnection() {
 
   try {
     const res = await fetch(mcpEndpoint.value, {
-      headers: { 'X-Token': props.token },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Token': props.token },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }),
     });
     const data = await res.json();
-    testResult.value = JSON.stringify(data, null, 2);
-    testSuccess.value = true;
+    testResult.value = `HTTP ${res.status}\n${JSON.stringify(data, null, 2)}`;
+    testSuccess.value = res.ok;
   } catch (err) {
     testResult.value = `连接失败: ${(err as Error).message}`;
     testSuccess.value = false;
   } finally {
     testing.value = false;
+  }
+}
+
+async function testToolsList() {
+  testingTools.value = true;
+  testResult.value = '';
+  testSuccess.value = false;
+
+  try {
+    const res = await fetch(mcpEndpoint.value, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Token': props.token },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    const data = await res.json();
+    const toolCount = data?.result?.tools?.length ?? 0;
+    testResult.value = `HTTP ${res.status} | 工具数: ${toolCount}\n${JSON.stringify(data, null, 2)}`;
+    testSuccess.value = res.ok && toolCount > 0;
+  } catch (err) {
+    testResult.value = `获取工具失败: ${(err as Error).message}`;
+    testSuccess.value = false;
+  } finally {
+    testingTools.value = false;
   }
 }
 </script>

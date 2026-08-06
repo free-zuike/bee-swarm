@@ -1072,6 +1072,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'mcp.test': '测试连接',
     'mcp.testing': '测试中...',
     'mcp.copy': '复制',
+    'mcp.copy_config': '复制配置',
+    'mcp.test_tools': '获取工具列表',
+    'mcp.mimocode_config': 'MiMoCode 配置',
+    'mcp.mimocode_hint': '将以下配置添加到 .mimocode/mimocode.jsonc 或全局配置中，即可在 MiMoCode 中使用 bee-swarm 工具：',
     // Push Favorites & Revoke
     'label.favorite': '收藏',
     'label.revoke': '撤销',
@@ -2220,6 +2224,10 @@ const messages: Record<Locale, LocaleMessages> = {
     'mcp.test': 'Test Connection',
     'mcp.testing': 'Testing...',
     'mcp.copy': 'Copy',
+    'mcp.copy_config': 'Copy Config',
+    'mcp.test_tools': 'List Tools',
+    'mcp.mimocode_config': 'MiMoCode Config',
+    'mcp.mimocode_hint': 'Add this config to .mimocode/mimocode.jsonc or global config to use bee-swarm tools in MiMoCode:',
     // Push Favorites & Revoke
     'label.favorite': 'Favorite',
     'label.revoke': 'Revoke',
