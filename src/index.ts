@@ -27,6 +27,7 @@ import { QueueService, type PushQueueMessage } from './services/queueService';
 import { MigrationService } from './services/migrationService';
 import { cleanupExpiredData, detectNewTables } from './services/cleanupService';
 import { SystemSettingsService } from './services/systemSettingsService';
+import mcp from './routes/mcp';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -170,6 +171,9 @@ app.get('/health', async (c) => {
 
 // API 路由
 app.route('/api', api);
+
+// MCP 协议端点（AI 模型远程调用）
+app.route('/mcp', mcp);
 
 // 404 处理 → 返回静态资源
 app.notFound(async (c) => {
