@@ -2822,7 +2822,9 @@ export async function handleMCPRequest(
               error: { code: -32601, message: `未知工具: ${toolName}` },
             };
         }
-        return { jsonrpc: '2.0', id, result };
+        // 包装为 MCP 标准响应格式
+        const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+        return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } };
       }
 
       default:
