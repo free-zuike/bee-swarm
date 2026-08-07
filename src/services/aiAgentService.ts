@@ -224,7 +224,7 @@ export class AIAgentService {
     steps: AgentStep[],
     originalQuery?: string
   ): Promise<string> {
-    const pushService = new PushService(this.env, userId);
+    const pushService = new PushService(this.env, username);
 
     switch (intent.type) {
       case 'capability':
@@ -259,13 +259,13 @@ export class AIAgentService {
         return await this.executePushIntent(intent, userId, username, steps, originalQuery);
 
       case 'query':
-        return await this.executeQueryIntent(intent, userId, steps, pushService);
+        return await this.executeQueryIntent(intent, username, steps, pushService);
 
       case 'info':
-        return await this.executeInfoIntent(intent, userId, steps);
+        return await this.executeInfoIntent(intent, username, steps);
 
       case 'create':
-        return await this.executeCreateIntent(intent, userId, steps, pushService);
+        return await this.executeCreateIntent(intent, username, steps, pushService);
 
       default:
         return `抱歉，我无法理解这个请求。您可以尝试：
@@ -386,8 +386,7 @@ export class AIAgentService {
     try {
       // 如果指定了邮件收件人，临时修改配置
       if (emailTo && channels.includes('email')) {
-        const { loadUserChannelSettings } = await import('./dispatcher');
-        const settings = await loadUserChannelSettings(userId, this.env);
+        const settings = await loadUserChannelSettings(username, this.env);
         const emailConfig = settings['channel:email:to'];
 
         // 临时覆盖收件人
@@ -426,7 +425,7 @@ export class AIAgentService {
    */
   private async executeQueryIntent(
     intent: { action: string; params: Record<string, unknown> },
-    userId: string,
+    username: string,
     steps: AgentStep[],
     pushService: PushService
   ): Promise<string> {
@@ -437,7 +436,7 @@ export class AIAgentService {
       const step: AgentStep = { action: 'get_history', params: { limit } };
 
       try {
-        const { records } = await getPushHistory(userId, this.env, { pageSize: limit });
+        const { records } = await getPushHistory(username, this.env, { pageSize: limit });
         step.result = records;
         steps.push(step);
 
@@ -511,7 +510,7 @@ export class AIAgentService {
    */
   private async executeInfoIntent(
     intent: { action: string; params: Record<string, unknown> },
-    userId: string,
+    username: string,
     steps: AgentStep[]
   ): Promise<string> {
     // 灵活匹配 action（支持多种命名方式）
@@ -520,7 +519,7 @@ export class AIAgentService {
     if (/channel|渠道|通道/.test(action)) {
       const step: AgentStep = { action: 'list_channels', params: {} };
       try {
-        const settings = await loadUserChannelSettings(userId, this.env);
+        const settings = await loadUserChannelSettings(username, this.env);
         step.result = settings;
         steps.push(step);
 
@@ -545,7 +544,7 @@ export class AIAgentService {
    */
   private async executeCreateIntent(
     intent: { action: string; params: Record<string, unknown> },
-    userId: string,
+    username: string,
     steps: AgentStep[],
     pushService: PushService
   ): Promise<string> {
