@@ -402,6 +402,48 @@ export async function getApiKeyWithToken(
   return tokenRequest(url, token);
 }
 
+// 多 API Key 管理
+export async function getApiKeys(token: string): Promise<{
+  success: boolean;
+  keys: Array<{
+    id: string;
+    name: string;
+    last4: string;
+    expiresAt: string | null;
+    lastUsedAt: string | null;
+    createdAt: string;
+  }>;
+}> {
+  return tokenRequest(`${BASE}/admin/api-keys`, token);
+}
+
+export async function createApiKey(
+  token: string,
+  name: string,
+  expiresInDays?: number
+): Promise<{
+  success: boolean;
+  key: string;
+  id: string;
+  name: string;
+  expiresAt: string | null;
+  message: string;
+}> {
+  return tokenRequest(`${BASE}/admin/api-keys`, token, {
+    method: 'POST',
+    body: JSON.stringify({ name, expiresInDays }),
+  });
+}
+
+export async function deleteApiKey(token: string, id: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  return tokenRequest(`${BASE}/admin/api-keys/${id}`, token, {
+    method: 'DELETE',
+  });
+}
+
 // -------------------------------------------
 // 多备份端接口（Token 认证）
 // -------------------------------------------

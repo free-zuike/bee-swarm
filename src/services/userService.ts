@@ -104,6 +104,18 @@ export interface AISettings {
   ai_tools?: AITool[];
 }
 
+export interface ApiKeyRecord {
+  id: string;
+  user_id: string;
+  name: string;
+  key: string;
+  expires_at?: number | null;
+  enabled?: number;
+  last_used_at?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export class UserService {
   private env: Env;
 
@@ -151,15 +163,87 @@ export class UserService {
 
   async findByApiKey(apikey: string): Promise<User | null> {
     this.checkDB();
+    // 1. 先查询 api_keys 新表
+    const keyRecord = await this.env.DB.prepare(
+      "SELECT * FROM api_keys WHERE key = ? AND enabled = 1"
+    )
+      .bind(apikey)
+      .first<ApiKeyRecord>();
+
+    if (keyRecord) {
+      // 检查过期
+      if (keyRecord.expires_at && keyRecord.expires_at <= Date.now()) {
+        return null;
+      }
+      // 更新最后使用时间
+      try {
+        await this.env.DB.prepare(
+          "UPDATE api_keys SET last_used_at = ? WHERE id = ?"
+        )
+          .bind(Date.now(), keyRecord.id)
+          .run();
+      } catch {
+        // 忽略更新失败
+      }
+      // 根据 user_id 查找用户
+      return this.findById(keyRecord.user_id);
+    }
+
+    // 2. 回退到旧的 users.apikey 字段
     const result = await this.env.DB.prepare('SELECT * FROM users WHERE apikey = ?')
       .bind(apikey)
       .first<User>();
     if (!result) return null;
-    // API Key 过期检查
     if (result.apikey_expires_at && result.apikey_expires_at <= Date.now()) {
       return null;
     }
     return result;
+  }
+
+  /** 获取用户的所有 API Key */
+  async getApiKeys(userId: string): Promise<ApiKeyRecord[]> {
+    this.checkDB();
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(userId)
+      .all<ApiKeyRecord>();
+    return result.results || [];
+  }
+
+  /** 创建 API Key */
+  async createApiKey(
+    userId: string,
+    name: string,
+    expiresInDays?: number
+  ): Promise<{ id: string; key: string; name: string; expiresAt: number | null }> {
+    this.checkDB();
+    const id = crypto.randomUUID();
+    const key = crypto.randomUUID().replace(/-/g, '');
+    const now = new Date().toISOString();
+    let expiresAt: number | null = null;
+    if (expiresInDays && expiresInDays > 0) {
+      expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
+    }
+
+    await this.env.DB.prepare(
+      'INSERT INTO api_keys (id, user_id, name, key, expires_at, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
+    )
+      .bind(id, userId, name, key, expiresAt, now, now)
+      .run();
+
+    return { id, key, name, expiresAt };
+  }
+
+  /** 删除 API Key */
+  async deleteApiKey(userId: string, id: string): Promise<boolean> {
+    this.checkDB();
+    const result = await this.env.DB.prepare(
+      'DELETE FROM api_keys WHERE id = ? AND user_id = ?'
+    )
+      .bind(id, userId)
+      .run();
+    return result.success && (result.meta?.changes || 0) > 0;
   }
 
   async createUser(email: string, hashedPassword: string, role: UserRole = 'user'): Promise<User> {

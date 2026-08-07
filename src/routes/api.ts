@@ -2148,6 +2148,87 @@ function formatBytes(bytes: number): string {
 }
 
 // ============================================
+// API Key 管理（多 Key，支持有效期）
+// ============================================
+
+/** 获取当前用户的所有 API Key */
+adminApi.get('/api-keys', async (c) => {
+  const username = c.get('username');
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  const keys = await userService.getApiKeys(user.id);
+  return c.json({
+    success: true,
+    keys: keys.map((k) => ({
+      id: k.id,
+      name: k.name,
+      last4: k.key.slice(-4),
+      expiresAt: k.expires_at ? new Date(k.expires_at).toISOString() : null,
+      lastUsedAt: k.last_used_at ? new Date(k.last_used_at).toISOString() : null,
+      createdAt: k.created_at,
+    })),
+  });
+});
+
+/** 创建 API Key（可指定有效期） */
+adminApi.post('/api-keys', async (c) => {
+  const username = c.get('username');
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name?: string;
+    expiresInDays?: number;
+  };
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  const name = body.name?.trim() || 'default';
+  const days = body.expiresInDays ? parseInt(String(body.expiresInDays), 10) : undefined;
+  if (days !== undefined && (isNaN(days) || days < 1)) {
+    return c.json({ error: '有效期天数必须大于 0', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const result = await userService.createApiKey(user.id, name, days);
+  return c.json({
+    success: true,
+    key: result.key,
+    id: result.id,
+    name: result.name,
+    expiresAt: result.expiresAt ? new Date(result.expiresAt).toISOString() : null,
+    message: result.expiresAt ? `API Key 已生成，${days} 天后过期` : 'API Key 已生成（永不过期）',
+  });
+});
+
+/** 删除 API Key */
+adminApi.delete('/api-keys/:id', async (c) => {
+  const username = c.get('username');
+  const id = c.req.param('id');
+  const userService = new UserService(c.env);
+  const user = await userService.findByEmail(username);
+  if (!user) {
+    return c.json({ error: '用户不存在', code: 'NOT_FOUND' }, 404);
+  }
+
+  const deleted = await userService.deleteApiKey(user.id, id);
+  if (!deleted) {
+    return c.json({ error: 'API Key 不存在', code: 'NOT_FOUND' }, 404);
+  }
+  return c.json({ success: true, message: 'API Key 已删除' });
+});
+
+/** 获取 MCP 工具列表（Web UI 使用，无需 API Key） */
+adminApi.get('/mcp-tools', async (c) => {
+  const { getToolsForRole } = await import('../services/mcpService');
+  const userRole = c.get('userRole');
+  return c.json({ tools: getToolsForRole(userRole) });
+});
+
+// ============================================
 // 测试接口（需要认证）
 // ============================================
 

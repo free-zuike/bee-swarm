@@ -55,6 +55,7 @@ import SystemSettingsPanel from '@/components/admin/SystemSettingsPanel.vue';
 import DatabaseManager from '@/components/admin/DatabaseManager.vue';
 import TwoFactorSettings from '@/components/admin/TwoFactorSettings.vue';
 import MCPPanel from '@/components/admin/MCPPanel.vue';
+import ApiKeyManager from '@/components/admin/ApiKeyManager.vue';
 import AllowedIPsPanel from '@/components/admin/AllowedIPsPanel.vue';
 import SystemHealthPanel from '@/components/admin/SystemHealthPanel.vue';
 import DataExportPanel from '@/components/admin/DataExportPanel.vue';
@@ -902,36 +903,11 @@ function handleResend(record: PushHistoryRecord) {
             </div>
           </div>
 
-          <!-- API Key 设置 -->
-          <div
+          <!-- API Key 设置（多 Key 管理） -->
+          <ApiKeyManager
             v-else-if="activeSettingsTab === 'apiKey'"
-            class="settings-panel"
-            :class="{ dark: isDark }"
-          >
-            <h3>🔑 {{ t('label.api_key') }}</h3>
-            <div class="settings-card">
-              <p class="hint">{{ t('hint.api_key') }}</p>
-              <div v-if="apiKey" class="api-key-display">
-                <code :class="{ dark: isDark }">{{ apiKey }}</code>
-                <button
-                  class="btn btn-sm btn-icon"
-                  :class="{ dark: isDark }"
-                  @click="copyApiKey"
-                  :title="t('button.copy_api_key')"
-                >
-                  📋
-                </button>
-                <button class="btn btn-sm btn-warning" @click="loadApiKey(true)">
-                  {{ t('button.refresh') }}
-                </button>
-              </div>
-              <div v-else>
-                <button class="btn btn-secondary" :class="{ dark: isDark }" @click="loadApiKey()">
-                  {{ t('button.generate_api_key') }}
-                </button>
-              </div>
-            </div>
-          </div>
+            :access-token="accessToken"
+          />
 
           <!-- 缓存设置 -->
           <div

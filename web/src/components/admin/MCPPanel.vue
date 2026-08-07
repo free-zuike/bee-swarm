@@ -171,43 +171,34 @@ function isAdminTool(tool: { name: string }): boolean {
 
 async function loadApiKey() {
   try {
-    const { getApiKeyWithToken } = await import('@/api');
-    const result = await getApiKeyWithToken(props.token);
-    apiKey.value = result.apikey;
+    const { getApiKeys } = await import('@/api');
+    const result = await getApiKeys(props.token);
+    if (result.success && result.keys.length > 0) {
+      const active = result.keys.find((k: { expiresAt: string | null }) => !k.expiresAt || new Date(k.expiresAt).getTime() > Date.now());
+      if (active) {
+        apiKey.value = `...${active.last4}`;
+        apiKeyExpiresAt.value = active.expiresAt || '';
+      }
+    }
   } catch {
     // 获取失败不影响其他功能
   }
 }
 
 async function refreshApiKey() {
-  try {
-    const { getApiKeyWithToken } = await import('@/api');
-    const result = await getApiKeyWithToken(props.token, true);
-    apiKey.value = result.apikey;
-    showToast('API Key 已刷新', 'success');
-  } catch {
-    showToast('刷新失败', 'error');
-  }
-}
-
-async function mcpFetch(body: unknown) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey.value) {
-    headers['X-API-Key'] = apiKey.value;
-  } else {
-    headers['X-Token'] = props.token;
-  }
-  return fetch(mcpEndpoint.value, { method: 'POST', headers, body: JSON.stringify(body) });
+  showToast('请在 API Key 管理设置中创建或查看 Key', 'info');
 }
 
 async function loadTools() {
   loadingTools.value = true;
   toolsError.value = '';
   try {
-    const res = await mcpFetch({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
-    const data = await res.json();
-    if (data?.result?.tools) {
-      tools.value = data.result.tools;
+    const res = await fetch(`${window.location.origin}/api/admin/mcp-tools`, {
+      headers: { 'X-Token': props.token },
+    });
+    const json = await res.json();
+    if (json?.tools) {
+      tools.value = json.tools;
     } else {
       toolsError.value = '获取工具列表失败: 响应格式错误';
     }
@@ -272,9 +263,12 @@ async function testConnection() {
   testSuccess.value = false;
 
   try {
-    const res = await mcpFetch({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
-    const data = await res.json();
-    testResult.value = `HTTP ${res.status}\n${JSON.stringify(data, null, 2)}`;
+    const res = await fetch(`${window.location.origin}/api/admin/mcp-tools`, {
+      headers: { 'X-Token': props.token },
+    });
+    const json = await res.json();
+    const toolCount = json?.tools?.length ?? 0;
+    testResult.value = `HTTP ${res.status} | MCP 服务正常 | 可用工具: ${toolCount} 个`;
     testSuccess.value = res.ok;
   } catch (err) {
     testResult.value = `连接失败: ${(err as Error).message}`;

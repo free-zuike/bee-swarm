@@ -84,6 +84,23 @@ export class MigrationService {
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )`
       ).run();
+
+      // 检查 api_keys 表是否存在
+      await this.env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS api_keys (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL DEFAULT 'default',
+          key TEXT NOT NULL UNIQUE,
+          expires_at INTEGER,
+          enabled INTEGER DEFAULT 1,
+          last_used_at INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`
+      ).run();
+      await this.addIndexIfNotExists('api_keys', 'idx_api_keys_user_id', 'user_id');
+      await this.addIndexIfNotExists('api_keys', 'idx_api_keys_key', 'key');
     } catch (err) {
       console.error('[Migration] Error:', (err as Error).message);
     }
@@ -98,6 +115,16 @@ export class MigrationService {
       }
     } catch {
       // 表不存在或列已存在，忽略
+    }
+  }
+
+  private async addIndexIfNotExists(table: string, indexName: string, column: string): Promise<void> {
+    try {
+      await this.env.DB.prepare(
+        `CREATE INDEX IF NOT EXISTS ${indexName} ON ${table}(${column})`
+      ).run();
+    } catch {
+      // 表不存在或索引已存在，忽略
     }
   }
 }

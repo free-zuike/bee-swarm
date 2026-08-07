@@ -71,7 +71,7 @@ const ADMIN_TOOLS = new Set([
 ]);
 
 /** 根据角色返回可见的工具列表 */
-function getToolsForRole(role: string): MCPTool[] {
+export function getToolsForRole(role: string): MCPTool[] {
   if (role === 'admin') return tools;
   return tools.filter((t) => !ADMIN_TOOLS.has(t.name));
 }
