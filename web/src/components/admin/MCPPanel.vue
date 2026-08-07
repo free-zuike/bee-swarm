@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-panel" :class="{ dark: isDark }">
+  <div class="mcp-panel" :class="{ dark: isDark }">
     <h3>🔌 {{ t('mcp.title') }}</h3>
 
     <!-- 连接信息 -->
@@ -108,16 +108,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useTranslation } from '@/i18n';
+import { useThemeStore } from '@/stores/theme';
+import { useGlobalToast } from '@/composables/useToast';
 
 const t = useTranslation();
+const { showToast } = useGlobalToast();
+const themeStore = useThemeStore();
+const isDark = computed(() => themeStore.isDark);
 
 const props = defineProps<{
   token: string;
 }>();
-
-const isDark = computed(() => document.documentElement.getAttribute('data-theme') === 'dark');
 const testing = ref(false);
 const testingTools = ref(false);
 const testResult = ref('');
@@ -312,14 +315,15 @@ POST /mcp
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
+    showToast(t('label.copied') || '已复制', 'success');
   } catch {
-    // fallback
     const textarea = document.createElement('textarea');
     textarea.value = text;
     document.body.appendChild(textarea);
     textarea.select();
     document.execCommand('copy');
     document.body.removeChild(textarea);
+    showToast(t('label.copied') || '已复制', 'success');
   }
 }
 
@@ -370,6 +374,34 @@ async function testToolsList() {
 </script>
 
 <style scoped>
+.mcp-panel h3 {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+.settings-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.mcp-panel.dark .settings-card {
+  background: #2d2d2d;
+  border-color: #3c3c3c;
+}
+
+.settings-card h4 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: #333;
+}
+
+.mcp-panel.dark .settings-card h4 {
+  color: #e0e0e0;
+}
+
 .mcp-info-grid {
   display: flex;
   flex-direction: column;
