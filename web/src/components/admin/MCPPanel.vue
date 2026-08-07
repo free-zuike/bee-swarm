@@ -31,14 +31,35 @@
     <div class="settings-card">
       <h4>🔑 {{ t('mcp.auth') }}</h4>
       <p class="hint">{{ t('mcp.auth_hint') }}</p>
-      <div class="auth-methods">
-        <div class="auth-method">
-          <code :class="{ dark: isDark }">X-API-Key: {{ apiKey || '&lt;your-api-key&gt;' }}</code>
-          <button class="btn-copy" @click="copyText(apiKey || '')" :disabled="!apiKey">📋</button>
+
+      <div v-if="newKey" class="new-key-display">
+        <p class="hint" style="color:#d93025">请立即复制保存，关闭后无法再次查看完整 Key。</p>
+        <div class="key-value-row">
+          <code :class="{ dark: isDark }" class="key-value">{{ newKey }}</code>
+          <button class="btn btn-sm btn-primary" :class="{ dark: isDark }" @click="copyText(newKey)">📋 复制</button>
         </div>
-        <div class="api-key-actions">
-          <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="refreshApiKey">
-            {{ t('button.refresh') }}
+        <div class="key-meta">
+          <span>名称: MCP</span>
+          <span>过期: {{ newKeyExpiryText }}</span>
+        </div>
+      </div>
+
+      <div v-else class="auth-methods">
+        <div class="expiry-row">
+          <label>有效期：</label>
+          <button
+            v-for="opt in expiryOptions"
+            :key="opt.value ?? 'never'"
+            class="btn btn-sm"
+            :class="{ 'btn-primary': selectedExpiry === opt.value, 'btn-secondary': selectedExpiry !== opt.value, dark: isDark }"
+            @click="selectedExpiry = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+        <div class="gen-row">
+          <button class="btn btn-primary" :class="{ dark: isDark, loading: creating }" @click="generateApiKey" :disabled="creating">
+            {{ creating ? '生成中...' : '🔑 生成 API Key' }}
           </button>
         </div>
       </div>
@@ -127,6 +148,17 @@ const props = defineProps<{
 }>();
 const apiKey = ref('');
 const apiKeyExpiresAt = ref('');
+const newKey = ref('');
+const newKeyExpiryText = ref('');
+const creating = ref(false);
+const selectedExpiry = ref<number | null>(null);
+
+const expiryOptions = [
+  { label: '永不过期', value: null },
+  { label: '7 天', value: 7 },
+  { label: '30 天', value: 30 },
+  { label: '90 天', value: 90 },
+];
 const testing = ref(false);
 const testResult = ref('');
 const testSuccess = ref(false);
@@ -169,24 +201,24 @@ function isAdminTool(tool: { name: string }): boolean {
   return ADMIN_TOOL_NAMES.has(tool.name);
 }
 
-async function loadApiKey() {
+async function generateApiKey() {
+  creating.value = true;
   try {
-    const { getApiKeys } = await import('@/api');
-    const result = await getApiKeys(props.token);
-    if (result.success && result.keys.length > 0) {
-      const active = result.keys.find((k: { expiresAt: string | null }) => !k.expiresAt || new Date(k.expiresAt).getTime() > Date.now());
-      if (active) {
-        apiKey.value = `...${active.last4}`;
-        apiKeyExpiresAt.value = active.expiresAt || '';
-      }
+    const { createApiKey } = await import('@/api');
+    const result = await createApiKey(props.token, 'MCP', selectedExpiry.value ?? undefined);
+    if (result.success) {
+      newKey.value = result.key;
+      apiKey.value = result.key;
+      newKeyExpiryText.value = result.expiresAt
+        ? `${selectedExpiry.value} 天后过期`
+        : '永不过期';
+      showToast(result.message, 'success');
     }
   } catch {
-    // 获取失败不影响其他功能
+    showToast('生成失败', 'error');
+  } finally {
+    creating.value = false;
   }
-}
-
-async function refreshApiKey() {
-  showToast('请在 API Key 管理设置中创建或查看 Key', 'info');
 }
 
 async function loadTools() {
@@ -210,7 +242,6 @@ async function loadTools() {
 }
 
 onMounted(async () => {
-  await loadApiKey();
   await loadTools();
 });
 
@@ -349,26 +380,60 @@ async function testConnection() {
 .auth-methods {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   margin-top: 12px;
 }
 
-.auth-method code {
-  display: block;
-  padding: 8px 12px;
-  background: #f5f5f5;
-  border-radius: 6px;
+.expiry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.expiry-row label {
   font-size: 13px;
-  word-break: break-all;
+  color: #666;
+  margin-right: 4px;
 }
 
-.auth-method code.dark {
-  background: #2a2a2a;
-  color: #e0e0e0;
+.gen-row {
+  margin-top: 4px;
 }
 
-.api-key-actions {
+.new-key-display {
   margin-top: 8px;
+}
+
+.key-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.key-value {
+  flex: 1;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid #34a853;
+  border-radius: 6px;
+  font-size: 14px;
+  word-break: break-all;
+  font-family: monospace;
+}
+
+.key-value.dark {
+  background: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #34a853;
+}
+
+.key-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: #666;
 }
 
 .tools-list {
