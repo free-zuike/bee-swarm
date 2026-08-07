@@ -83,12 +83,12 @@
       </button>
     </div>
 
-    <!-- MiMoCode 配置 -->
+    <!-- 客户端配置 -->
     <div class="settings-card">
-      <h4>🤖 {{ t('mcp.mimocode_config') }}</h4>
-      <p class="hint">{{ t('mcp.mimocode_hint') }}</p>
-      <pre :class="{ dark: isDark }"><code>{{ mimocodeConfig }}</code></pre>
-      <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="copyText(mimocodeConfig)">
+      <h4>🔗 {{ t('mcp.client_config') }}</h4>
+      <p class="hint">{{ t('mcp.client_hint') }}</p>
+      <pre :class="{ dark: isDark }"><code>{{ clientConfig }}</code></pre>
+      <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="copyText(clientConfig)">
         📋 {{ t('mcp.copy_config') }}
       </button>
     </div>
@@ -131,17 +131,22 @@ const mcpMessageEndpoint = computed(() => `${window.location.origin}/mcp/message
 const protocolVersion = '2024-11-05';
 const serverInfo = { name: 'bee-swarm-mcp', version: '1.0.0' };
 
-const mimocodeConfig = computed(() => `{
-  "mcp": {
-    "bee-swarm": {
-      "type": "remote",
-      "url": "${window.location.origin}/mcp?apikey=YOUR_API_KEY",
-      "headers": {
-        "X-API-Key": "YOUR_API_KEY"
-      }
-    }
-  }
-}`);
+const clientConfig = computed(() => `MCP 端点地址:
+  POST ${window.location.origin}/mcp
+
+请求头:
+  X-API-Key: YOUR_API_KEY
+  Content-Type: application/json
+
+请求体 (JSON-RPC 2.0):
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list"
+}
+
+支持任何 MCP 客户端连接，
+如 Claude Desktop、Cursor、MiMoCode 等。`);
 
 const tools = ref<Array<{ name: string; description: string; inputSchema: { type: string; properties: Record<string, { type: string; description?: string }>; required?: string[] } }>>([]);
 const loadingTools = ref(true);

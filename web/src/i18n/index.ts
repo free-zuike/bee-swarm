@@ -1074,8 +1074,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'mcp.copy': '复制',
     'mcp.copy_config': '复制配置',
     'mcp.test_tools': '获取工具列表',
-    'mcp.mimocode_config': 'MiMoCode 配置',
-    'mcp.mimocode_hint': '将以下配置添加到 .mimocode/mimocode.jsonc 或全局配置中，即可在 MiMoCode 中使用 bee-swarm 工具：',
+    'mcp.client_config': '客户端配置',
+    'mcp.client_hint': '任何支持 MCP 协议的客户端（Claude Desktop、Cursor、MiMoCode 等）都可连接。通用配置如下：',
     // Push Favorites & Revoke
     'label.favorite': '收藏',
     'label.revoke': '撤销',
@@ -2226,8 +2226,8 @@ const messages: Record<Locale, LocaleMessages> = {
     'mcp.copy': 'Copy',
     'mcp.copy_config': 'Copy Config',
     'mcp.test_tools': 'List Tools',
-    'mcp.mimocode_config': 'MiMoCode Config',
-    'mcp.mimocode_hint': 'Add this config to .mimocode/mimocode.jsonc or global config to use bee-swarm tools in MiMoCode:',
+    'mcp.client_config': 'Client Config',
+    'mcp.client_hint': 'Any MCP-compatible client (Claude Desktop, Cursor, MiMoCode, etc.) can connect. Generic config:',
     // Push Favorites & Revoke
     'label.favorite': 'Favorite',
     'label.revoke': 'Revoke',
