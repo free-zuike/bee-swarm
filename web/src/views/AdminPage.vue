@@ -1049,7 +1049,7 @@ function handleResend(record: PushHistoryRecord) {
           <TwoFactorSettings v-else-if="activeSettingsTab === '2fa'" :token="accessToken" />
 
           <!-- MCP 接口 -->
-          <MCPPanel v-else-if="activeSettingsTab === 'mcp'" :token="accessToken" />
+          <MCPPanel v-else-if="activeSettingsTab === 'mcp'" :token="accessToken" @switch-tab="activeSettingsTab = $event" />
 
           <!-- IP 白名单 -->
           <AllowedIPsPanel
