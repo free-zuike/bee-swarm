@@ -63,7 +63,7 @@ function createMockContext(options: {
   queryToken?: string;
 }) {
   const headers: Record<string, string> = {};
-  if (options.apiKey) headers['x-api-key'] = options.apiKey;
+  if (options.apiKey) headers['authorization'] = `Bearer ${options.apiKey}`;
   if (options.token) headers['x-token'] = options.token;
 
   const queryParams: Record<string, string> = {};
@@ -112,7 +112,7 @@ describe('authMiddleware', () => {
       expect(ctx.json).not.toHaveBeenCalled();
     });
 
-    it('应该使用 header 中的 X-API-Key', async () => {
+    it('应该使用 header 中的 Authorization: Bearer', async () => {
       const table = mockDb.getTable('users');
       table.set('u1', {
         id: 'u1',
