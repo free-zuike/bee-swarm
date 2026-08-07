@@ -31,36 +31,13 @@
     <div class="settings-card">
       <h4>🔑 {{ t('mcp.auth') }}</h4>
       <p class="hint">{{ t('mcp.auth_hint') }}</p>
-
-      <div v-if="newKey" class="new-key-display">
-        <p class="hint" style="color:#d93025">请立即复制保存，关闭后无法再次查看完整 Key。</p>
-        <div class="key-value-row">
-          <code :class="{ dark: isDark }" class="key-value">{{ newKey }}</code>
-          <button class="btn btn-sm btn-primary" :class="{ dark: isDark }" @click="copyText(newKey)">📋 复制</button>
+      <div class="auth-methods">
+        <div v-for="k in keys" :key="k.id" class="auth-key-item">
+          <code :class="{ dark: isDark }">{{ k.name }}: ...{{ k.last4 }}</code>
+          <span class="key-expiry-label">{{ k.expiresAt ? formatTime(k.expiresAt) : '永不过期' }}</span>
         </div>
-        <div class="key-meta">
-          <span>名称: MCP</span>
-          <span>过期: {{ newKeyExpiryText }}</span>
-        </div>
-      </div>
-
-      <div v-else class="auth-methods">
-        <div class="expiry-row">
-          <label>有效期：</label>
-          <button
-            v-for="opt in expiryOptions"
-            :key="opt.value ?? 'never'"
-            class="btn btn-sm"
-            :class="{ 'btn-primary': selectedExpiry === opt.value, 'btn-secondary': selectedExpiry !== opt.value, dark: isDark }"
-            @click="selectedExpiry = opt.value"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-        <div class="gen-row">
-          <button class="btn btn-primary" :class="{ dark: isDark, loading: creating }" @click="generateApiKey" :disabled="creating">
-            {{ creating ? '生成中...' : '🔑 生成 API Key' }}
-          </button>
+        <div v-if="keys.length === 0" class="no-keys-hint">
+          暂无 API Key，请前往 <a href="#" @click.prevent="$emit('switch-tab', 'apiKey')">API Key 管理</a> 创建
         </div>
       </div>
     </div>
@@ -146,19 +123,11 @@ const isDark = computed(() => themeStore.isDark);
 const props = defineProps<{
   token: string;
 }>();
-const apiKey = ref('');
-const apiKeyExpiresAt = ref('');
-const newKey = ref('');
-const newKeyExpiryText = ref('');
-const creating = ref(false);
-const selectedExpiry = ref<number | null>(null);
+const emit = defineEmits<{
+  (e: 'switch-tab', tab: string): void;
+}>();
 
-const expiryOptions = [
-  { label: '永不过期', value: null },
-  { label: '7 天', value: 7 },
-  { label: '30 天', value: 30 },
-  { label: '90 天', value: 90 },
-];
+const keys = ref<Array<{ id: string; name: string; last4: string; expiresAt: string | null }>>([]);
 const testing = ref(false);
 const testResult = ref('');
 const testSuccess = ref(false);
@@ -168,7 +137,7 @@ const mcpMessageEndpoint = computed(() => `${window.location.origin}/mcp/message
 const protocolVersion = '2024-11-05';
 const serverInfo = { name: 'bee-swarm-mcp', version: '1.0.0' };
 
-const apiKeyHeader = computed(() => apiKey.value || 'YOUR_API_KEY');
+const apiKeyHeader = computed(() => 'YOUR_API_KEY');
 
 const clientConfig = computed(() => `{
   "mcpServers": {
@@ -201,24 +170,25 @@ function isAdminTool(tool: { name: string }): boolean {
   return ADMIN_TOOL_NAMES.has(tool.name);
 }
 
-async function generateApiKey() {
-  creating.value = true;
+async function loadKeys() {
   try {
-    const { createApiKey } = await import('@/api');
-    const result = await createApiKey(props.token, 'MCP', selectedExpiry.value ?? undefined);
+    const { getApiKeys } = await import('@/api');
+    const result = await getApiKeys(props.token);
     if (result.success) {
-      newKey.value = result.key;
-      apiKey.value = result.key;
-      newKeyExpiryText.value = result.expiresAt
-        ? `${selectedExpiry.value} 天后过期`
-        : '永不过期';
-      showToast(result.message, 'success');
+      keys.value = result.keys;
     }
   } catch {
-    showToast('生成失败', 'error');
-  } finally {
-    creating.value = false;
+    // 获取失败不影响
   }
+}
+
+function formatTime(iso: string | null): string {
+  if (!iso) return '永不过期';
+  if (new Date(iso).getTime() < Date.now()) return '已过期';
+  const d = new Date(iso);
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+  if (days <= 30) return `${days} 天后过期`;
+  return d.toLocaleDateString('zh-CN');
 }
 
 async function loadTools() {
@@ -242,6 +212,7 @@ async function loadTools() {
 }
 
 onMounted(async () => {
+  await loadKeys();
   await loadTools();
 });
 
@@ -380,8 +351,52 @@ async function testConnection() {
 .auth-methods {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   margin-top: 12px;
+}
+
+.auth-key-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.mcp-panel.dark .auth-key-item {
+  background: #2a2a2a;
+}
+
+.auth-key-item code {
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.key-expiry-label {
+  font-size: 11px;
+  color: #34a853;
+  padding: 2px 6px;
+  background: #e6f4ea;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.mcp-panel.dark .key-expiry-label {
+  background: #1a3a2a;
+  color: #4caf50;
+}
+
+.no-keys-hint {
+  font-size: 13px;
+  color: #888;
+  padding: 8px;
+}
+
+.no-keys-hint a {
+  color: #6366f1;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .expiry-row {
