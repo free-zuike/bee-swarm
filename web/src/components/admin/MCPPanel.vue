@@ -41,39 +41,6 @@
       </div>
     </div>
 
-    <div v-if="loadingTools" class="settings-card" style="text-align:center;padding:40px">
-      {{ t('label.loading') }}
-    </div>
-    <div v-else-if="toolsError" class="settings-card">
-      <p style="color:#d93025">{{ toolsError }}</p>
-    </div>
-    <!-- 可用工具列表 -->
-    <div v-else class="settings-card">
-      <h4>🛠️ {{ t('mcp.available_tools') }} ({{ tools.length }})</h4>
-      <div class="tools-list">
-        <div v-for="tool in tools" :key="tool.name" class="tool-card" :class="{ dark: isDark }">
-          <div class="tool-header">
-            <code class="tool-name" :class="{ dark: isDark }">{{ tool.name }}</code>
-            <span class="perm-badge" :class="{ admin: isAdminTool(tool) }">{{ isAdminTool(tool) ? '仅管理员' : '所有用户' }}</span>
-          </div>
-          <p class="tool-desc">{{ tool.description }}</p>
-          <div v-if="tool.inputSchema?.properties && Object.keys(tool.inputSchema.properties).length > 0" class="tool-params">
-            <span class="params-label">{{ t('mcp.params') }}:</span>
-            <div class="param-list">
-              <span
-                v-for="(prop, key) in tool.inputSchema.properties"
-                :key="key"
-                class="param-tag"
-                :class="{ required: tool.inputSchema.required?.includes(key) }"
-              >
-                {{ key }}<span v-if="tool.inputSchema.required?.includes(key)">*</span>: {{ prop.type }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 使用示例 -->
     <div class="settings-card">
       <h4>📝 {{ t('mcp.usage_example') }}</h4>
@@ -105,6 +72,39 @@
         <pre :class="{ dark: isDark }">{{ testResult }}</pre>
       </div>
     </div>
+
+    <!-- 可用工具列表（放在最下方） -->
+    <div v-if="loadingTools" class="settings-card" style="text-align:center;padding:40px">
+      {{ t('label.loading') }}
+    </div>
+    <div v-else-if="toolsError" class="settings-card">
+      <p style="color:#d93025">{{ toolsError }}</p>
+    </div>
+    <div v-else class="settings-card">
+      <h4>🛠️ {{ t('mcp.available_tools') }} ({{ tools.length }})</h4>
+      <div class="tools-list">
+        <div v-for="tool in tools" :key="tool.name" class="tool-card" :class="{ dark: isDark }">
+          <div class="tool-header">
+            <code class="tool-name" :class="{ dark: isDark }">{{ tool.name }}</code>
+            <span class="perm-badge" :class="{ admin: isAdminTool(tool) }">{{ isAdminTool(tool) ? '仅管理员' : '所有用户' }}</span>
+          </div>
+          <p class="tool-desc">{{ tool.description }}</p>
+          <div v-if="tool.inputSchema?.properties && Object.keys(tool.inputSchema.properties).length > 0" class="tool-params">
+            <span class="params-label">{{ t('mcp.params') }}:</span>
+            <div class="param-list">
+              <span
+                v-for="(prop, key) in tool.inputSchema.properties"
+                :key="key"
+                class="param-tag"
+                :class="{ required: tool.inputSchema.required?.includes(key) }"
+              >
+                {{ key }}<span v-if="tool.inputSchema.required?.includes(key)">*</span>: {{ prop.type }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -131,22 +131,20 @@ const mcpMessageEndpoint = computed(() => `${window.location.origin}/mcp/message
 const protocolVersion = '2024-11-05';
 const serverInfo = { name: 'bee-swarm-mcp', version: '1.0.0' };
 
-const clientConfig = computed(() => `MCP 端点地址:
-  POST ${window.location.origin}/mcp
-
-请求头:
-  X-API-Key: YOUR_API_KEY
-  Content-Type: application/json
-
-请求体 (JSON-RPC 2.0):
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/list"
+const clientConfig = computed(() => `{
+  "mcpServers": {
+    "bee-swarm": {
+      "type": "remote",
+      "url": "${window.location.origin}/mcp",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY"
+      }
+    }
+  }
 }
 
-支持任何 MCP 客户端连接，
-如 Claude Desktop、Cursor、MiMoCode 等。`);
+// 或使用查询参数方式（适用于无法设置请求头的客户端）：
+// url: "${window.location.origin}/mcp?apikey=YOUR_API_KEY"`);
 
 const tools = ref<Array<{ name: string; description: string; inputSchema: { type: string; properties: Record<string, { type: string; description?: string }>; required?: string[] } }>>([]);
 const loadingTools = ref(true);
