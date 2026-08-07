@@ -13,7 +13,6 @@ import { SystemSettingsService } from './systemSettingsService';
 import { createAuditLogger } from '../utils/audit';
 import { getDatabaseStats, cleanupExpiredData, deleteTable, cleanupOrphanTablesForce, getAllTables } from './cleanupService';
 import { archivePushHistory, listArchives, restoreArchivedData } from './archiveService';
-import { AIService } from './aiService';
 import { generateTOTPSecret, verifyTOTP, generateQRCodeDataURL } from '../utils/totp';
 import { replaceTemplateVariables, extractVariables } from './push';
 
@@ -547,18 +546,6 @@ const tools: MCPTool[] = [
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
   {
-    name: 'ai_generate',
-    description: '使用 AI 生成推送内容',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        prompt: { type: 'string', description: '提示词，描述要生成的推送内容' },
-        type: { type: 'string', description: '生成类型：title / body / both', enum: ['title', 'body', 'both'] },
-      },
-      required: ['prompt'],
-    },
-  },
-  {
     name: 'get_execution_log_detail',
     description: '获取单条推送执行日志的详细信息',
     inputSchema: {
@@ -885,24 +872,6 @@ const tools: MCPTool[] = [
         id2: { type: 'string', description: '第二个推送 ID' },
       },
       required: ['id1', 'id2'],
-    },
-  },
-  {
-    name: 'ai_execute',
-    description: 'AI 执行命令（通过自然语言执行推送操作）',
-    inputSchema: {
-      type: 'object',
-      properties: { query: { type: 'string', description: '自然语言指令，如"给所有人发送系统维护通知"' } },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'ai_agent',
-    description: 'AI 智能体模式（自动分析并执行任务）',
-    inputSchema: {
-      type: 'object',
-      properties: { query: { type: 'string', description: '自然语言指令' } },
-      required: ['query'],
     },
   },
   {
@@ -1915,15 +1884,6 @@ async function handleGetAITools(env: Env, username: string): Promise<unknown> {
   return { tools: userService.getUserAITools(settings) };
 }
 
-async function handleAIGenerate(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
-  const prompt = String(args.prompt || '');
-  const type = String(args.type || 'both');
-  if (!prompt) throw new Error('提示词不能为空');
-  const aiService = new AIService(env);
-  const result = await aiService.generateMessage({ prompt, type: type as any } as any);
-  return result;
-}
-
 async function handleGetExecutionLogDetail(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
   const id = String(args.id || '');
   if (!id || !env.DB) return null;
@@ -2217,27 +2177,6 @@ async function handleComparePushVersions(env: Env, username: string, args: Recor
     if (records[0][key] !== records[1][key]) { diff[key] = { old: records[0][key], new: records[1][key] }; }
   }
   return { version1: records[0], version2: records[1], diff };
-}
-
-async function handleAIExecute(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
-  const query = String(args.query || '');
-  if (!query) throw new Error('指令不能为空');
-  const userService = new UserService(env);
-  const user = await userService.findByEmail(username);
-  if (!user) throw new Error('用户不存在');
-  const aiService = new AIService(env);
-  return await aiService.executeCommand({ query, userId: user.id, username });
-}
-
-async function handleAIAgent(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
-  const query = String(args.query || '');
-  if (!query) throw new Error('指令不能为空');
-  const userService = new UserService(env);
-  const user = await userService.findByEmail(username);
-  if (!user) throw new Error('用户不存在');
-  const { AIAgentService } = await import('./aiAgentService');
-  const agent = new AIAgentService(env);
-  return await agent.execute({ query, userId: user.id, username });
 }
 
 async function handleRunBackupSingle(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
@@ -2705,9 +2644,6 @@ export async function handleMCPRequest(
           case 'get_ai_tools':
             result = await handleGetAITools(env, username);
             break;
-          case 'ai_generate':
-            result = await handleAIGenerate(env, username, args);
-            break;
           case 'get_execution_log_detail':
             result = await handleGetExecutionLogDetail(env, username, args);
             break;
@@ -2809,12 +2745,6 @@ export async function handleMCPRequest(
             break;
           case 'compare_push_versions':
             result = await handleComparePushVersions(env, username, args);
-            break;
-          case 'ai_execute':
-            result = await handleAIExecute(env, username, args);
-            break;
-          case 'ai_agent':
-            result = await handleAIAgent(env, username, args);
             break;
           case 'run_backup_single':
             result = await handleRunBackupSingle(env, username, args);
