@@ -96,9 +96,6 @@
         <button class="btn btn-sm btn-primary" :class="{ dark: isDark, loading: testing }" @click="testConnection">
           {{ testing ? t('mcp.testing') : t('mcp.test') }}
         </button>
-        <button class="btn btn-sm btn-secondary" :class="{ dark: isDark, loading: testingTools }" @click="testToolsList">
-          {{ testingTools ? t('mcp.testing') : t('mcp.test_tools') }}
-        </button>
       </div>
       <div v-if="testResult" class="test-result" :class="{ success: testSuccess, error: !testSuccess }">
         <pre :class="{ dark: isDark }">{{ testResult }}</pre>
@@ -122,7 +119,6 @@ const props = defineProps<{
   token: string;
 }>();
 const testing = ref(false);
-const testingTools = ref(false);
 const testResult = ref('');
 const testSuccess = ref(false);
 
@@ -346,29 +342,6 @@ async function testConnection() {
     testSuccess.value = false;
   } finally {
     testing.value = false;
-  }
-}
-
-async function testToolsList() {
-  testingTools.value = true;
-  testResult.value = '';
-  testSuccess.value = false;
-
-  try {
-    const res = await fetch(mcpEndpoint.value, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Token': props.token },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
-    });
-    const data = await res.json();
-    const toolCount = data?.result?.tools?.length ?? 0;
-    testResult.value = `HTTP ${res.status} | 工具数: ${toolCount}\n${JSON.stringify(data, null, 2)}`;
-    testSuccess.value = res.ok && toolCount > 0;
-  } catch (err) {
-    testResult.value = `获取工具失败: ${(err as Error).message}`;
-    testSuccess.value = false;
-  } finally {
-    testingTools.value = false;
   }
 }
 </script>
