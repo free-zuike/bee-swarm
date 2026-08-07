@@ -164,29 +164,33 @@ export class UserService {
   async findByApiKey(apikey: string): Promise<User | null> {
     this.checkDB();
     // 1. 先查询 api_keys 新表
-    const keyRecord = await this.env.DB.prepare(
-      "SELECT * FROM api_keys WHERE key = ? AND enabled = 1"
-    )
-      .bind(apikey)
-      .first<ApiKeyRecord>();
+    try {
+      const keyRecord = await this.env.DB.prepare(
+        "SELECT * FROM api_keys WHERE key = ? AND enabled = 1"
+      )
+        .bind(apikey)
+        .first<ApiKeyRecord>();
 
-    if (keyRecord) {
-      // 检查过期
-      if (keyRecord.expires_at && keyRecord.expires_at <= Date.now()) {
-        return null;
+      // 仅当返回的是真实的 api_keys 记录（含 user_id）时才使用
+      if (keyRecord && keyRecord.user_id) {
+        // 检查过期
+        if (keyRecord.expires_at && keyRecord.expires_at <= Date.now()) {
+          return null;
+        }
+        // 更新最后使用时间
+        try {
+          await this.env.DB.prepare(
+            "UPDATE api_keys SET last_used_at = ? WHERE id = ?"
+          )
+            .bind(Date.now(), keyRecord.id)
+            .run();
+        } catch {
+          // 忽略更新失败
+        }
+        return this.findById(keyRecord.user_id);
       }
-      // 更新最后使用时间
-      try {
-        await this.env.DB.prepare(
-          "UPDATE api_keys SET last_used_at = ? WHERE id = ?"
-        )
-          .bind(Date.now(), keyRecord.id)
-          .run();
-      } catch {
-        // 忽略更新失败
-      }
-      // 根据 user_id 查找用户
-      return this.findById(keyRecord.user_id);
+    } catch {
+      // api_keys 表不存在，回退到旧字段
     }
 
     // 2. 回退到旧的 users.apikey 字段
