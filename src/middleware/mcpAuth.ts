@@ -4,7 +4,7 @@ import { UserService } from '../services/userService';
 
 /**
  * MCP 认证中间件
- * 支持 X-API-Key 或 Authorization: Bearer 认证
+ * 支持 Authorization: Bearer 或查询参数认证
  * 不支持 X-Token（登录会话 Token，仅限 Web 使用）
  */
 export async function mcpAuthMiddleware(
@@ -13,15 +13,14 @@ export async function mcpAuthMiddleware(
 ) {
   const userService = new UserService(c.env);
 
-  // MCP 仅接受 API Key（支持 X-API-Key header、Authorization: Bearer、查询参数）
-  const apiKey = c.req.header('X-API-Key')
-    || c.req.header('Authorization')?.replace(/^Bearer\s+/i, '')
+  // MCP 接受 API Key（支持 Authorization: Bearer header 或查询参数）
+  const apiKey = c.req.header('Authorization')?.replace(/^Bearer\s+/i, '')
     || c.req.query('apikey');
   if (!apiKey) {
     return c.json(
       {
         error: 'MCP 接口仅支持 API Key 认证',
-        hint: '请通过 X-API-Key 或 Authorization: Bearer 请求头提供 API Key',
+        hint: '请通过 Authorization: Bearer 请求头或 apikey 查询参数提供 API Key',
         code: 'AUTH_ERROR',
       },
       401

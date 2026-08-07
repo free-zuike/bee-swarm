@@ -145,7 +145,7 @@ const clientConfig = computed(() => `{
       "type": "remote",
       "url": "${window.location.origin}/mcp",
       "headers": {
-        "X-API-Key": "${apiKeyHeader.value}"
+        "Authorization": "Bearer ${apiKeyHeader.value}"
       }
     }
   }
@@ -218,7 +218,7 @@ onMounted(async () => {
 
 const usageExample = computed(() => `// 列出可用工具
 POST ${mcpEndpoint.value}
-X-API-Key: ${apiKeyHeader.value}
+Authorization: Bearer ${apiKeyHeader.value}
 
 {
   "jsonrpc": "2.0",
@@ -228,7 +228,7 @@ X-API-Key: ${apiKeyHeader.value}
 
 // 发送推送
 POST ${mcpEndpoint.value}
-X-API-Key: ${apiKeyHeader.value}
+Authorization: Bearer ${apiKeyHeader.value}
 
 {
   "jsonrpc": "2.0",

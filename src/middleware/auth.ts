@@ -4,7 +4,7 @@ import { UserService } from '../services/userService';
 
 /**
  * 认证中间件
- * 支持通过 X-API-Key、X-Token 或查询参数认证
+ * 支持通过 Authorization: Bearer、X-Token 或查询参数认证
  * 使用 D1 数据库
  */
 export async function authMiddleware(
@@ -14,8 +14,8 @@ export async function authMiddleware(
   const requestId = crypto.randomUUID().slice(0, 8);
   const userService = new UserService(c.env);
 
-  // 1. 优先使用 API Key
-  const apiKey = c.req.header('X-API-Key') || c.req.query('apikey');
+  // 1. 优先使用 API Key（Authorization: Bearer 或查询参数）
+  const apiKey = c.req.header('Authorization')?.replace(/^Bearer\s+/i, '') || c.req.query('apikey');
   if (apiKey) {
     const user = await userService.findByApiKey(apiKey);
     if (user) {

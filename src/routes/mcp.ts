@@ -12,7 +12,7 @@ import { handleMCPRequest, type MCPRequest } from '../services/mcpService';
 
 const mcp = new Hono<{ Bindings: Env }>();
 
-// 所有 MCP 接口需要认证，仅接受 X-API-Key（不支持 X-Token）
+// 所有 MCP 接口需要认证，仅接受 API Key（Authorization: Bearer，不支持 X-Token）
 mcp.use('*', mcpAuthMiddleware);
 
 /**

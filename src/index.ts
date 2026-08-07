@@ -143,7 +143,7 @@ app.use('*', async (c, next) => {
   await cors({
     origin: allowedOrigin,
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'X-Token', 'X-API-Key'],
+    allowHeaders: ['Content-Type', 'X-Token', 'Authorization'],
     credentials: true,
   })(c, next);
 });
