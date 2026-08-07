@@ -186,8 +186,10 @@ async function loadTools() {
 
 onMounted(() => { loadTools(); });
 
-const usageExample = `// 列出可用工具 (Streamable HTTP)
-POST /mcp
+const usageExample = computed(() => `// 列出可用工具
+POST ${mcpEndpoint.value}
+X-API-Key: YOUR_API_KEY
+
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -195,7 +197,9 @@ POST /mcp
 }
 
 // 发送推送
-POST /mcp
+POST ${mcpEndpoint.value}
+X-API-Key: YOUR_API_KEY
+
 {
   "jsonrpc": "2.0",
   "id": 2,
@@ -208,7 +212,7 @@ POST /mcp
       "channels": "wework,dingtalk"
     }
   }
-}`;
+}`);
 
 async function copyText(text: string) {
   try {
