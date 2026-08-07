@@ -130,6 +130,7 @@ export const schemas = {
     username: z.string().min(1, '请输入用户名'),
     password: z.string().min(1, '请输入密码'),
     refresh: z.boolean().optional().default(false),
+    expiresInDays: z.number().int().positive().optional(),
   }),
 
   push: z.object({

@@ -33,10 +33,13 @@
       <p class="hint">{{ t('mcp.auth_hint') }}</p>
       <div class="auth-methods">
         <div class="auth-method">
-          <code :class="{ dark: isDark }">X-API-Key: &lt;your-api-key&gt;</code>
+          <code :class="{ dark: isDark }">X-API-Key: {{ apiKey || '&lt;your-api-key&gt;' }}</code>
+          <button class="btn-copy" @click="copyText(apiKey || '')" :disabled="!apiKey">📋</button>
         </div>
-        <div class="auth-method">
-          <code :class="{ dark: isDark }">X-Token: &lt;your-token&gt;</code>
+        <div class="api-key-actions">
+          <button class="btn btn-sm btn-secondary" :class="{ dark: isDark }" @click="refreshApiKey">
+            {{ t('button.refresh') }}
+          </button>
         </div>
       </div>
     </div>
@@ -122,6 +125,8 @@ const isDark = computed(() => themeStore.isDark);
 const props = defineProps<{
   token: string;
 }>();
+const apiKey = ref('');
+const apiKeyExpiresAt = ref('');
 const testing = ref(false);
 const testResult = ref('');
 const testSuccess = ref(false);
@@ -131,20 +136,22 @@ const mcpMessageEndpoint = computed(() => `${window.location.origin}/mcp/message
 const protocolVersion = '2024-11-05';
 const serverInfo = { name: 'bee-swarm-mcp', version: '1.0.0' };
 
+const apiKeyHeader = computed(() => apiKey.value || 'YOUR_API_KEY');
+
 const clientConfig = computed(() => `{
   "mcpServers": {
     "bee-swarm": {
       "type": "remote",
       "url": "${window.location.origin}/mcp",
       "headers": {
-        "X-API-Key": "YOUR_API_KEY"
+        "X-API-Key": "${apiKeyHeader.value}"
       }
     }
   }
 }
 
 // 或使用查询参数方式（适用于无法设置请求头的客户端）：
-// url: "${window.location.origin}/mcp?apikey=YOUR_API_KEY"`);
+// url: "${window.location.origin}/mcp?apikey=${apiKeyHeader.value}"`);
 
 const tools = ref<Array<{ name: string; description: string; inputSchema: { type: string; properties: Record<string, { type: string; description?: string }>; required?: string[] } }>>([]);
 const loadingTools = ref(true);
@@ -162,15 +169,42 @@ function isAdminTool(tool: { name: string }): boolean {
   return ADMIN_TOOL_NAMES.has(tool.name);
 }
 
+async function loadApiKey() {
+  try {
+    const { getApiKeyWithToken } = await import('@/api');
+    const result = await getApiKeyWithToken(props.token);
+    apiKey.value = result.apikey;
+  } catch {
+    // 获取失败不影响其他功能
+  }
+}
+
+async function refreshApiKey() {
+  try {
+    const { getApiKeyWithToken } = await import('@/api');
+    const result = await getApiKeyWithToken(props.token, true);
+    apiKey.value = result.apikey;
+    showToast('API Key 已刷新', 'success');
+  } catch {
+    showToast('刷新失败', 'error');
+  }
+}
+
+async function mcpFetch(body: unknown) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey.value) {
+    headers['X-API-Key'] = apiKey.value;
+  } else {
+    headers['X-Token'] = props.token;
+  }
+  return fetch(mcpEndpoint.value, { method: 'POST', headers, body: JSON.stringify(body) });
+}
+
 async function loadTools() {
   loadingTools.value = true;
   toolsError.value = '';
   try {
-    const res = await fetch(mcpEndpoint.value, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Token': props.token },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
-    });
+    const res = await mcpFetch({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
     const data = await res.json();
     if (data?.result?.tools) {
       tools.value = data.result.tools;
@@ -184,11 +218,14 @@ async function loadTools() {
   }
 }
 
-onMounted(() => { loadTools(); });
+onMounted(async () => {
+  await loadApiKey();
+  await loadTools();
+});
 
 const usageExample = computed(() => `// 列出可用工具
 POST ${mcpEndpoint.value}
-X-API-Key: YOUR_API_KEY
+X-API-Key: ${apiKeyHeader.value}
 
 {
   "jsonrpc": "2.0",
@@ -198,7 +235,7 @@ X-API-Key: YOUR_API_KEY
 
 // 发送推送
 POST ${mcpEndpoint.value}
-X-API-Key: YOUR_API_KEY
+X-API-Key: ${apiKeyHeader.value}
 
 {
   "jsonrpc": "2.0",
@@ -235,11 +272,7 @@ async function testConnection() {
   testSuccess.value = false;
 
   try {
-    const res = await fetch(mcpEndpoint.value, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Token': props.token },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }),
-    });
+    const res = await mcpFetch({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
     const data = await res.json();
     testResult.value = `HTTP ${res.status}\n${JSON.stringify(data, null, 2)}`;
     testSuccess.value = res.ok;
@@ -338,6 +371,10 @@ async function testConnection() {
 .auth-method code.dark {
   background: #2a2a2a;
   color: #e0e0e0;
+}
+
+.api-key-actions {
+  margin-top: 8px;
 }
 
 .tools-list {

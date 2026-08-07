@@ -7,12 +7,13 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { authMiddleware } from '../middleware/auth';
+import { mcpAuthMiddleware } from '../middleware/mcpAuth';
 import { handleMCPRequest, type MCPRequest } from '../services/mcpService';
 
 const mcp = new Hono<{ Bindings: Env }>();
 
-// 所有 MCP 接口需要认证
-mcp.use('*', authMiddleware);
+// 所有 MCP 接口需要认证，仅接受 X-API-Key（不支持 X-Token）
+mcp.use('*', mcpAuthMiddleware);
 
 /**
  * SSE 端点：建立 MCP 连接

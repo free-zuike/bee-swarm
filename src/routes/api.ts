@@ -466,16 +466,35 @@ api.get('/apikey', async (c) => {
   }
 
   const forceRefresh = c.req.query('refresh') === 'true';
+  const expiresInDays = c.req.query('expiresInDays')
+    ? parseInt(c.req.query('expiresInDays')!, 10)
+    : undefined;
 
   if (user.apikey && !forceRefresh) {
-    return c.json({ apikey: user.apikey });
+    // 检查现有 key 是否过期
+    if (user.apikey_expires_at && user.apikey_expires_at <= Date.now()) {
+      // 过期了，需要重新生成
+    } else {
+      return c.json({
+        apikey: user.apikey,
+        expiresAt: user.apikey_expires_at ? new Date(user.apikey_expires_at).toISOString() : null,
+      });
+    }
   }
 
   const newApikey = crypto.randomUUID().replace(/-/g, '');
+  let expiresAt: number | null = null;
+  if (expiresInDays && expiresInDays > 0) {
+    expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
+  }
 
-  await userService.updateUser(user.id, { apikey: newApikey });
+  await userService.updateUser(user.id, { apikey: newApikey, apikey_expires_at: expiresAt });
 
-  return c.json({ apikey: newApikey, message: 'API Key 已生成' });
+  return c.json({
+    apikey: newApikey,
+    expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+    message: expiresAt ? `API Key 已生成，${expiresInDays} 天后过期` : 'API Key 已生成（永不过期）',
+  });
 });
 
 /** 使用用户名密码获取 API Key（POST 方式，更安全） */
@@ -484,8 +503,10 @@ api.post('/apikey', validateBody(schemas.apikey), async (c) => {
     username: string;
     password: string;
     refresh?: boolean;
+    expiresInDays?: number;
   };
   const { username, password, refresh } = body;
+  const expiresInDays = body.expiresInDays;
   const userService = new UserService(c.env);
 
   const user = await userService.findByEmail(username);
@@ -499,14 +520,29 @@ api.post('/apikey', validateBody(schemas.apikey), async (c) => {
   }
 
   if (user.apikey && !refresh) {
-    return c.json({ apikey: user.apikey });
+    if (user.apikey_expires_at && user.apikey_expires_at <= Date.now()) {
+      // 过期了，自动重新生成
+    } else {
+      return c.json({
+        apikey: user.apikey,
+        expiresAt: user.apikey_expires_at ? new Date(user.apikey_expires_at).toISOString() : null,
+      });
+    }
   }
 
   const newApikey = crypto.randomUUID().replace(/-/g, '');
+  let expiresAt: number | null = null;
+  if (expiresInDays && expiresInDays > 0) {
+    expiresAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
+  }
 
-  await userService.updateUser(user.id, { apikey: newApikey });
+  await userService.updateUser(user.id, { apikey: newApikey, apikey_expires_at: expiresAt });
 
-  return c.json({ apikey: newApikey, message: 'API Key 已生成' });
+  return c.json({
+    apikey: newApikey,
+    expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+    message: expiresAt ? `API Key 已生成，${expiresInDays} 天后过期` : 'API Key 已生成（永不过期）',
+  });
 });
 
 api.post('/token', validateBody(schemas.token), async (c) => {

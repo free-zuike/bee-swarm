@@ -154,7 +154,12 @@ export class UserService {
     const result = await this.env.DB.prepare('SELECT * FROM users WHERE apikey = ?')
       .bind(apikey)
       .first<User>();
-    return result || null;
+    if (!result) return null;
+    // API Key 过期检查
+    if (result.apikey_expires_at && result.apikey_expires_at <= Date.now()) {
+      return null;
+    }
+    return result;
   }
 
   async createUser(email: string, hashedPassword: string, role: UserRole = 'user'): Promise<User> {
