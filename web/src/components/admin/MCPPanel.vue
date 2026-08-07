@@ -41,30 +41,34 @@
       </div>
     </div>
 
+    <div v-if="loadingTools" class="settings-card" style="text-align:center;padding:40px">
+      {{ t('label.loading') }}
+    </div>
+    <div v-else-if="toolsError" class="settings-card">
+      <p style="color:#d93025">{{ toolsError }}</p>
+    </div>
     <!-- 可用工具列表 -->
-    <div class="settings-card">
-      <h4>🛠️ {{ t('mcp.available_tools') }}</h4>
+    <div v-else class="settings-card">
+      <h4>🛠️ {{ t('mcp.available_tools') }} ({{ tools.length }})</h4>
       <div class="tools-list">
         <div v-for="tool in tools" :key="tool.name" class="tool-card" :class="{ dark: isDark }">
           <div class="tool-header">
             <code class="tool-name" :class="{ dark: isDark }">{{ tool.name }}</code>
+            <span class="perm-badge" :class="{ admin: isAdminTool(tool) }">{{ isAdminTool(tool) ? '仅管理员' : '所有用户' }}</span>
           </div>
           <p class="tool-desc">{{ tool.description }}</p>
-          <div v-if="tool.params.length > 0" class="tool-params">
+          <div v-if="tool.inputSchema?.properties && Object.keys(tool.inputSchema.properties).length > 0" class="tool-params">
             <span class="params-label">{{ t('mcp.params') }}:</span>
             <div class="param-list">
               <span
-                v-for="param in tool.params"
-                :key="param.name"
+                v-for="(prop, key) in tool.inputSchema.properties"
+                :key="key"
                 class="param-tag"
-                :class="{ required: param.required }"
+                :class="{ required: tool.inputSchema.required?.includes(key) }"
               >
-                {{ param.name }}<span v-if="param.required">*</span>: {{ param.type }}
+                {{ key }}<span v-if="tool.inputSchema.required?.includes(key)">*</span>: {{ prop.type }}
               </span>
             </div>
-          </div>
-          <div class="tool-permission">
-            <span class="perm-badge" :class="{ admin: tool.permission === '仅管理员' }">{{ tool.permission }}</span>
           </div>
         </div>
       </div>
@@ -105,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useTranslation } from '@/i18n';
 import { useThemeStore } from '@/stores/theme';
 import { useGlobalToast } from '@/composables/useToast';
@@ -139,150 +143,45 @@ const mimocodeConfig = computed(() => `{
   }
 }`);
 
-const tools = [
-  {
-    name: 'send_push',
-    description: '发送推送通知到指定渠道。支持 wework、dingtalk、telegram、bark 等 15+ 渠道。',
-    permission: '所有用户',
-    params: [
-      { name: 'title', type: 'string', required: true },
-      { name: 'body', type: 'string', required: false },
-      { name: 'url', type: 'string', required: false },
-      { name: 'channels', type: 'string (逗号分隔)', required: false },
-    ],
-  },
-  {
-    name: 'create_scheduled_push',
-    description: '创建定时推送任务，支持一次性或循环（daily/weekly/monthly/cron）。',
-    permission: '所有用户',
-    params: [
-      { name: 'title', type: 'string', required: true },
-      { name: 'channels', type: 'string (逗号分隔)', required: true },
-      { name: 'scheduledAt', type: 'string (ISO 8601)', required: true },
-      { name: 'body', type: 'string', required: false },
-      { name: 'scheduleType', type: 'once/recurring', required: false },
-      { name: 'recurringType', type: 'daily/weekly/monthly/cron', required: false },
-      { name: 'selectedWeekDays', type: 'string (0-6 逗号分隔)', required: false },
-      { name: 'cronExpression', type: 'string', required: false },
-      { name: 'timezone', type: 'string (默认 Asia/Shanghai)', required: false },
-    ],
-  },
-  {
-    name: 'update_scheduled_push',
-    description: '更新一个定时推送任务（仅 pending 状态可编辑）。',
-    permission: '所有用户',
-    params: [
-      { name: 'id', type: 'string', required: true },
-      { name: 'title', type: 'string', required: false },
-      { name: 'body', type: 'string', required: false },
-      { name: 'channels', type: 'string (逗号分隔)', required: false },
-      { name: 'scheduledAt', type: 'string (ISO 8601)', required: false },
-      { name: 'scheduleType', type: 'once/recurring', required: false },
-      { name: 'recurringType', type: 'daily/weekly/monthly/cron', required: false },
-      { name: 'selectedWeekDays', type: 'string (0-6 逗号分隔)', required: false },
-      { name: 'timezone', type: 'string', required: false },
-    ],
-  },
-  {
-    name: 'cancel_scheduled_push',
-    description: '取消一个定时推送任务。',
-    permission: '所有用户',
-    params: [{ name: 'id', type: 'string', required: true }],
-  },
-  {
-    name: 'reschedule_overdue_task',
-    description: '重新安排一个已超时的定时任务。',
-    permission: '所有用户',
-    params: [
-      { name: 'id', type: 'string', required: true },
-      { name: 'scheduledAt', type: 'string (ISO 8601)', required: true },
-    ],
-  },
-  {
-    name: 'list_scheduled_pushes',
-    description: '列出所有定时推送任务，可按状态筛选。',
-    permission: '所有用户',
-    params: [{ name: 'status', type: 'string (pending/completed/failed)', required: false }],
-  },
-  {
-    name: 'get_scheduled_push_detail',
-    description: '获取单个定时推送任务的详细信息。',
-    permission: '所有用户',
-    params: [{ name: 'id', type: 'string', required: true }],
-  },
-  {
-    name: 'get_templates',
-    description: '获取所有推送模板列表。',
-    permission: '所有用户',
-    params: [],
-  },
-  {
-    name: 'get_channel_groups',
-    description: '获取渠道分组列表。',
-    permission: '所有用户',
-    params: [],
-  },
-  {
-    name: 'get_push_history',
-    description: '获取最近的推送历史记录。',
-    permission: '所有用户',
-    params: [{ name: 'limit', type: 'number (默认 10)', required: false }],
-  },
-  {
-    name: 'get_push_history_detail',
-    description: '获取单条推送历史的详细信息，包含渠道结果。',
-    permission: '所有用户',
-    params: [{ name: 'id', type: 'string', required: true }],
-  },
-  {
-    name: 'get_push_stats',
-    description: '获取推送统计信息，包括成功率、趋势、每日统计等。',
-    permission: '所有用户',
-    params: [{ name: 'days', type: 'number (默认 7)', required: false }],
-  },
-  {
-    name: 'get_execution_logs',
-    description: '获取推送执行日志，包含渠道结果和错误信息。',
-    permission: '所有用户',
-    params: [{ name: 'limit', type: 'number (默认 10)', required: false }],
-  },
-  {
-    name: 'test_channel',
-    description: '测试单个推送渠道，发送真实测试消息验证是否可用。',
-    permission: '所有用户',
-    params: [{ name: 'channel', type: 'string', required: true }],
-  },
-  {
-    name: 'check_all_channels_health',
-    description: '检查所有已配置渠道的健康状态，逐个发送测试消息。',
-    permission: '所有用户',
-    params: [],
-  },
-  {
-    name: 'get_drafts',
-    description: '获取推送草稿列表。',
-    permission: '所有用户',
-    params: [],
-  },
-  {
-    name: 'get_favorites',
-    description: '获取推送收藏列表。',
-    permission: '所有用户',
-    params: [],
-  },
-  {
-    name: 'list_channels',
-    description: '列出所有可用的推送渠道及其启用状态。',
-    permission: '所有用户',
-    params: [],
-  },
-  {
-    name: 'get_system_status',
-    description: '获取系统健康状态、用户数量、待处理任务数等统计信息。',
-    permission: '仅管理员',
-    params: [],
-  },
-];
+const tools = ref<Array<{ name: string; description: string; inputSchema: { type: string; properties: Record<string, { type: string; description?: string }>; required?: string[] } }>>([]);
+const loadingTools = ref(true);
+const toolsError = ref('');
+
+const ADMIN_TOOL_NAMES = new Set([
+  'get_system_status', 'list_users', 'create_user', 'update_user_role',
+  'disable_user', 'enable_user', 'delete_user', 'get_audit_logs', 'clear_audit_logs',
+  'get_system_settings', 'update_system_settings', 'get_database_stats', 'cleanup_database',
+  'archive_push_history', 'list_archives', 'restore_archive', 'get_database_tables',
+  'delete_database_table', 'cleanup_orphan_tables', 'get_system_health', 'get_analytics_activity', 'get_metrics',
+]);
+
+function isAdminTool(tool: { name: string }): boolean {
+  return ADMIN_TOOL_NAMES.has(tool.name);
+}
+
+async function loadTools() {
+  loadingTools.value = true;
+  toolsError.value = '';
+  try {
+    const res = await fetch(mcpEndpoint.value, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Token': props.token },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    const data = await res.json();
+    if (data?.result?.tools) {
+      tools.value = data.result.tools;
+    } else {
+      toolsError.value = '获取工具列表失败: 响应格式错误';
+    }
+  } catch (err) {
+    toolsError.value = `获取工具列表失败: ${(err as Error).message}`;
+  } finally {
+    loadingTools.value = false;
+  }
+}
+
+onMounted(() => { loadTools(); });
 
 const usageExample = `// 列出可用工具 (Streamable HTTP)
 POST /mcp
@@ -455,6 +354,10 @@ async function testConnection() {
 
 .tool-header {
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .tool-name {
