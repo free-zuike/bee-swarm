@@ -201,7 +201,7 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可
 
 ### 传输协议
 
-采用 **Streamable HTTP** 传输（JSON-RPC over POST），适合 Cloudflare Workers 无状态架构。
+采用 **Streamable HTTP** 传输（JSON-RPC over POST），符合 **MCP 2026-07-28** 协议版本，适合 Cloudflare Workers 无状态架构。每请求通过 `_meta` 声明协议版本与客户端能力，初始化使用 `server/discover`。
 
 ### 37 个可用工具
 
@@ -226,7 +226,8 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可
       "type": "remote",
       "url": "https://beeswarm.qzz.io/mcp",
       "headers": {
-        "Authorization": "Bearer <你的API Key>"
+        "Authorization": "Bearer <你的API Key>",
+        "MCP-Protocol-Version": "2026-07-28"
       }
     }
   }
@@ -236,25 +237,37 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可
 ### 手动调用示例
 
 ```bash
-# 初始化
+# 服务发现（替代旧的 initialize）
 curl -X POST "https://beeswarm.qzz.io/mcp" \
   -H "Authorization: Bearer <你的API Key>" \
+  -H "MCP-Protocol-Version: 2026-07-28" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
+  -d '{
+    "jsonrpc":"2.0","id":1,"method":"server/discover",
+    "params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}
+  }'
 
 # 获取工具列表
 curl -X POST "https://beeswarm.qzz.io/mcp" \
   -H "Authorization: Bearer <你的API Key>" \
+  -H "MCP-Protocol-Version: 2026-07-28" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+  -d '{
+    "jsonrpc":"2.0","id":2,"method":"tools/list",
+    "params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}
+  }'
 
 # 发送推送通知
 curl -X POST "https://beeswarm.qzz.io/mcp" \
   -H "Authorization: Bearer <你的API Key>" \
+  -H "MCP-Protocol-Version: 2026-07-28" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0","id":3,"method":"tools/call",
-    "params":{"name":"send_push","arguments":{"title":"告警","body":"CPU 超过 90%","channels":"wework,telegram"}}
+    "params":{
+      "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}},
+      "name":"send_push","arguments":{"title":"告警","body":"CPU 超过 90%","channels":"wework,telegram"}
+    }
   }'
 ```
 
