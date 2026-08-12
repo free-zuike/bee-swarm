@@ -48,32 +48,29 @@ export interface MCPTool {
 const ADMIN_TOOLS = new Set([
   'get_system_status',
   'list_users',
-  'create_user',
-  'update_user_role',
-  'disable_user',
-  'enable_user',
-  'delete_user',
   'get_audit_logs',
-  'clear_audit_logs',
   'get_system_settings',
-  'update_system_settings',
-  'get_database_stats',
-  'cleanup_database',
-  'archive_push_history',
-  'list_archives',
-  'restore_archive',
-  'get_database_tables',
-  'delete_database_table',
-  'cleanup_orphan_tables',
   'get_system_health',
-  'get_analytics_activity',
   'get_metrics',
+]);
+
+/** 保留的工具列表（37个核心工具） */
+const KEEP_TOOLS = new Set([
+  'send_push', 'create_scheduled_push', 'update_scheduled_push', 'cancel_scheduled_push',
+  'reschedule_overdue_task', 'list_scheduled_pushes', 'get_scheduled_push_detail',
+  'get_templates', 'get_channel_groups', 'get_push_history', 'get_push_history_detail',
+  'get_push_stats', 'get_execution_logs', 'test_channel', 'check_all_channels_health',
+  'list_channels', 'revoke_push', 'batch_send_to_groups', 'get_overdue_tasks',
+  'create_template', 'update_template', 'preview_template', 'get_template_variables',
+  'run_backup', 'list_backups', 'list_backup_endpoints', 'get_backup_history',
+  'get_current_user', 'get_user_settings', 'export_data', 'get_webhook_url',
+  'get_system_status', 'get_system_health', 'get_metrics', 'list_users',
+  'get_audit_logs', 'get_system_settings',
 ]);
 
 /** 根据角色返回可见的工具列表 */
 export function getToolsForRole(role: string): MCPTool[] {
-  if (role === 'admin') return tools;
-  return tools.filter((t) => !ADMIN_TOOLS.has(t.name));
+  return tools.filter((t) => KEEP_TOOLS.has(t.name));
 }
 
 const tools: MCPTool[] = [

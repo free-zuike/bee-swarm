@@ -159,11 +159,8 @@ const loadingTools = ref(true);
 const toolsError = ref('');
 
 const ADMIN_TOOL_NAMES = new Set([
-  'get_system_status', 'list_users', 'create_user', 'update_user_role',
-  'disable_user', 'enable_user', 'delete_user', 'get_audit_logs', 'clear_audit_logs',
-  'get_system_settings', 'update_system_settings', 'get_database_stats', 'cleanup_database',
-  'archive_push_history', 'list_archives', 'restore_archive', 'get_database_tables',
-  'delete_database_table', 'cleanup_orphan_tables', 'get_system_health', 'get_analytics_activity', 'get_metrics',
+  'get_system_status', 'list_users', 'get_audit_logs',
+  'get_system_settings', 'get_system_health', 'get_metrics',
 ]);
 
 function isAdminTool(tool: { name: string }): boolean {
