@@ -1305,11 +1305,12 @@ export async function handleMCPRequest(
           supportedVersions: SUPPORTED_PROTOCOL_VERSIONS,
           capabilities: {
             tools: { listChanged: false },
-            logging: { },
           },
           instructions:
             'Bee Swarm 推送通知系统。可用工具：send_push 发送推送，create_scheduled_push 创建定时推送，list_channels 查看渠道。' +
             '所有结果均为 JSON 文本，可通过 isError 判断工具调用是否失败。',
+          ttlMs: 3600000,
+          cacheScope: 'public',
         });
       }
 
@@ -1319,7 +1320,6 @@ export async function handleMCPRequest(
           protocolVersion: LATEST_PROTOCOL_VERSION,
           capabilities: {
             tools: { listChanged: false },
-            logging: { },
           },
           serverInfo: SERVER_INFO,
         });
@@ -1336,7 +1336,11 @@ export async function handleMCPRequest(
       case 'tools/list': {
         const versionError = checkProtocolVersion(request);
         if (versionError) return versionError;
-        return ok(id, { tools: getToolsForRole(userRole) });
+        return ok(id, {
+          tools: getToolsForRole(userRole),
+          ttlMs: 300000,
+          cacheScope: 'public',
+        });
       }
 
       case 'tools/call': {
