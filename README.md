@@ -40,8 +40,10 @@ bee-swarm/
 ├── src/                              # Workers 后端
 │   ├── index.ts                      # 入口 + Cron 调度
 │   ├── routes/api.ts                 # 全部 API 路由
+│   ├── routes/mcp.ts                 # MCP Streamable HTTP 端点
 │   ├── middleware/                    # 认证/限流/缓存
 │   ├── services/
+│   │   ├── mcpService.ts             # MCP 工具定义与分发（37 个工具）
 │   │   ├── dispatcher.ts             # 推送调度器
 │   │   ├── push.ts                   # 推送核心服务
 │   │   ├── backup.ts                 # 数据备份恢复
@@ -111,6 +113,7 @@ bee-swarm/
 - **系统健康** — 实时监控数据库/队列/用户/推送状态
 - **数据导出** — JSON/CSV 格式导出推送历史
 - **AI 助手** — 内置 AI 对话，自然语言查询统计数据
+- **MCP 集成** — 37 个标准 MCP 工具，支持 Claude/MiMoCode 等 AI 客户端直接调用推送
 
 ### 国际化
 - **中英文切换** — 完整的 i18n 支持
@@ -192,19 +195,67 @@ npx wrangler deploy
 | SMTP 邮件 | `wrangler secret` | Cloudflare 云端加密存储 |
 | 数据安全 | 备份 + 审计日志 | 可追溯可恢复 |
 
-## 🔌 API 接口
+## 🔌 MCP 智能工具集成
+
+Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型（如 Claude、MiMoCode）可直接调用推送通知工具。
+
+### 传输协议
+
+采用 **Streamable HTTP** 传输（JSON-RPC over POST），适合 Cloudflare Workers 无状态架构。
+
+### 37 个可用工具
+
+| 分类 | 工具 | 说明 |
+|------|------|------|
+| 📣 推送 | `send_push` | 发送推送通知到指定渠道 |
+| 📅 定时推送 | `create_scheduled_push` / `update_scheduled_push` / `cancel_scheduled_push` / `list_scheduled_pushes` / `get_scheduled_push_detail` / `reschedule_overdue_task` / `get_overdue_tasks` | 管理定时推送任务 |
+| 📊 历史与统计 | `get_push_history` / `get_push_history_detail` / `get_push_stats` / `get_execution_logs` / `revoke_push` | 查看推送历史、统计和日志 |
+| 📋 模板 | `get_templates` / `create_template` / `update_template` / `preview_template` / `get_template_variables` | 管理推送模板 |
+| 📡 渠道 | `list_channels` / `test_channel` / `check_all_channels_health` / `get_channel_groups` / `batch_send_to_groups` | 查看和管理推送渠道 |
+| 💾 备份 | `list_backup_endpoints` / `run_backup` / `list_backups` / `get_backup_history` | 查看和执行备份 |
+| 👤 用户 | `get_current_user` / `get_user_settings` / `export_data` / `get_webhook_url` | 获取用户信息和导出数据 |
+| ⚙️ 系统管理 | `get_system_status` / `get_system_health` / `get_metrics` / `list_users` / `get_audit_logs` / `get_system_settings` | 系统状态监控（管理员） |
+
+### 客户端配置（MiMoCode）
+
+```jsonc
+{
+  "mcpServers": {
+    "bee-swarm": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://beeswarm.qzz.io/mcp",
+      "headers": {
+        "Authorization": "Bearer <你的API Key>"
+      }
+    }
+  }
+}
+```
+
+### 手动调用示例
 
 ```bash
-# 发送推送（API Key 认证）
-curl -X POST "https://你的域名/api/admin/push" \
-  -H "X-Token: 你的API-Key" \
+# 初始化
+curl -X POST "https://beeswarm.qzz.io/mcp" \
+  -H "Authorization: Bearer <你的API Key>" \
   -H "Content-Type: application/json" \
-  -d '{"title":"告警","body":"CPU 超过 90%","channels":["wework","telegram"]}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
 
-# 发送推送（密码认证）
-curl -X POST "https://你的域名/api/admin/push?password=密码" \
+# 获取工具列表
+curl -X POST "https://beeswarm.qzz.io/mcp" \
+  -H "Authorization: Bearer <你的API Key>" \
   -H "Content-Type: application/json" \
-  -d '{"title":"告警","body":"CPU 超过 90%","channels":["wework","telegram"]}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+
+# 发送推送通知
+curl -X POST "https://beeswarm.qzz.io/mcp" \
+  -H "Authorization: Bearer <你的API Key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0","id":3,"method":"tools/call",
+    "params":{"name":"send_push","arguments":{"title":"告警","body":"CPU 超过 90%","channels":"wework,telegram"}}
+  }'
 ```
 
 ## 📊 数据库表
