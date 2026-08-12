@@ -113,7 +113,7 @@ bee-swarm/
 - **系统健康** — 实时监控数据库/队列/用户/推送状态
 - **数据导出** — JSON/CSV 格式导出推送历史
 - **AI 助手** — 内置 AI 对话，自然语言查询统计数据
-- **MCP 集成** — 37 个标准 MCP 工具，支持 Claude/MiMoCode 等 AI 客户端直接调用推送
+- **MCP 集成** — 37 个标准 MCP 工具，支持 AI 客户端直接调用推送
 
 ### 国际化
 - **中英文切换** — 完整的 i18n 支持
@@ -197,7 +197,7 @@ npx wrangler deploy
 
 ## 🔌 MCP 智能工具集成
 
-Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型（如 Claude、MiMoCode）可直接调用推送通知工具。
+Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可直接调用推送通知工具。
 
 ### 传输协议
 
@@ -216,7 +216,7 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型（
 | 👤 用户 | `get_current_user` / `get_user_settings` / `export_data` / `get_webhook_url` | 获取用户信息和导出数据 |
 | ⚙️ 系统管理 | `get_system_status` / `get_system_health` / `get_metrics` / `list_users` / `get_audit_logs` / `get_system_settings` | 系统状态监控（管理员） |
 
-### 客户端配置（MiMoCode）
+### 客户端配置示例
 
 ```jsonc
 {
