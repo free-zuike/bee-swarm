@@ -222,6 +222,7 @@ const usageExample = computed(() => `// 1. 服务发现（替代旧的 initializ
 POST ${mcpEndpoint.value}
 Authorization: Bearer ${apiKeyHeader.value}
 MCP-Protocol-Version: ${protocolVersion}
+Mcp-Method: server/discover
 
 {
   "jsonrpc": "2.0",
@@ -239,6 +240,7 @@ MCP-Protocol-Version: ${protocolVersion}
 POST ${mcpEndpoint.value}
 Authorization: Bearer ${apiKeyHeader.value}
 MCP-Protocol-Version: ${protocolVersion}
+Mcp-Method: tools/list
 
 {
   "jsonrpc": "2.0",
@@ -256,6 +258,8 @@ MCP-Protocol-Version: ${protocolVersion}
 POST ${mcpEndpoint.value}
 Authorization: Bearer ${apiKeyHeader.value}
 MCP-Protocol-Version: ${protocolVersion}
+Mcp-Method: tools/call
+Mcp-Name: send_push
 
 {
   "jsonrpc": "2.0",
