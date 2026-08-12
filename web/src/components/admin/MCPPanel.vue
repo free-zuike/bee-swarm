@@ -24,6 +24,10 @@
           <span class="info-label">{{ t('mcp.server_name') }}</span>
           <span class="info-value">{{ serverInfo.name }} v{{ serverInfo.version }}</span>
         </div>
+        <div class="info-item">
+          <span class="info-label">{{ t('mcp.transport') }}</span>
+          <span class="info-value">Streamable HTTP</span>
+        </div>
       </div>
     </div>
 
@@ -134,8 +138,8 @@ const testSuccess = ref(false);
 
 const mcpEndpoint = computed(() => `${window.location.origin}/mcp`);
 const mcpMessageEndpoint = computed(() => `${window.location.origin}/mcp/message`);
-const protocolVersion = '2024-11-05';
-const serverInfo = { name: 'bee-swarm-mcp', version: '1.0.0' };
+const protocolVersion = '2026-07-28';
+const serverInfo = { name: 'bee-swarm-mcp', version: '1.1.0' };
 
 const apiKeyHeader = computed(() => 'YOUR_API_KEY');
 
@@ -145,14 +149,15 @@ const clientConfig = computed(() => `{
       "type": "remote",
       "url": "${window.location.origin}/mcp",
       "headers": {
-        "Authorization": "Bearer ${apiKeyHeader.value}"
+        "Authorization": "Bearer ${apiKeyHeader.value}",
+        "MCP-Protocol-Version": "${protocolVersion}"
       }
     }
   }
 }
 
-// 或使用查询参数方式（适用于无法设置请求头的客户端）：
-// url: "${window.location.origin}/mcp?apikey=${apiKeyHeader.value}"`);
+// 协议版本 2026-07-28：每请求在 _meta 中声明协议版本和能力
+// 使用 server/discover 替代 initialize`);
 
 const tools = ref<Array<{ name: string; description: string; inputSchema: { type: string; properties: Record<string, { type: string; description?: string }>; required?: string[] } }>>([]);
 const loadingTools = ref(true);
@@ -213,25 +218,54 @@ onMounted(async () => {
   await loadTools();
 });
 
-const usageExample = computed(() => `// 列出可用工具
+const usageExample = computed(() => `// 1. 服务发现（替代旧的 initialize）
 POST ${mcpEndpoint.value}
 Authorization: Bearer ${apiKeyHeader.value}
+MCP-Protocol-Version: ${protocolVersion}
 
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "method": "tools/list"
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "${protocolVersion}",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
 }
 
-// 发送推送
+// 2. 列出可用工具
 POST ${mcpEndpoint.value}
 Authorization: Bearer ${apiKeyHeader.value}
+MCP-Protocol-Version: ${protocolVersion}
 
 {
   "jsonrpc": "2.0",
   "id": 2,
+  "method": "tools/list",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "${protocolVersion}",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}
+
+// 3. 发送推送
+POST ${mcpEndpoint.value}
+Authorization: Bearer ${apiKeyHeader.value}
+MCP-Protocol-Version: ${protocolVersion}
+
+{
+  "jsonrpc": "2.0",
+  "id": 3,
   "method": "tools/call",
   "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "${protocolVersion}",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
     "name": "send_push",
     "arguments": {
       "title": "Hello",

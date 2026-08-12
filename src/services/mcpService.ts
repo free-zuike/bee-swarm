@@ -18,26 +18,75 @@ import { replaceTemplateVariables, extractVariables } from './push';
 
 // ==================== MCP 类型定义 ====================
 
+/** MCP 协议版本（2026-07-28） */
+export const LATEST_PROTOCOL_VERSION = '2026-07-28';
+/** 服务器支持的协议版本列表 */
+export const SUPPORTED_PROTOCOL_VERSIONS = ['2026-07-28', '2025-11-25'];
+
+/** 服务器信息 */
+export const SERVER_INFO = {
+  name: 'bee-swarm-mcp',
+  version: '1.1.0',
+  description: 'Bee Swarm 推送通知系统 MCP 服务器',
+};
+
+/** JSON-RPC 错误码 */
+export const MCP_ERROR = {
+  PARSE_ERROR: -32700,
+  INVALID_REQUEST: -32600,
+  METHOD_NOT_FOUND: -32601,
+  INVALID_PARAMS: -32602,
+  INTERNAL_ERROR: -32603,
+  HEADER_MISMATCH: -32020,
+  MISSING_REQUIRED_CLIENT_CAPABILITY: -32021,
+  UNSUPPORTED_PROTOCOL_VERSION: -32022,
+} as const;
+
+/** MCP 请求体（支持 `_meta` 每请求元数据） */
 export interface MCPRequest {
   jsonrpc: '2.0';
-  id: number | string;
+  id?: number | string;
   method: string;
   params?: Record<string, unknown>;
+  _meta?: {
+    'io.modelcontextprotocol/protocolVersion'?: string;
+    'io.modelcontextprotocol/clientCapabilities'?: Record<string, unknown>;
+    'io.modelcontextprotocol/clientInfo'?: Record<string, unknown>;
+    'io.modelcontextprotocol/logLevel'?: string;
+    progressToken?: string | number;
+    [key: string]: unknown;
+  };
 }
 
 export interface MCPResponse {
   jsonrpc: '2.0';
-  id: number | string;
-  result?: unknown;
+  id?: number | string | null;
+  result?: Record<string, unknown> & { resultType: 'complete' | 'input_required' | string; _meta?: Record<string, unknown> };
   error?: { code: number; message: string; data?: unknown };
+}
+
+/** 工具注解（2025-11-25+ 规范） */
+interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
 }
 
 export interface MCPTool {
   name: string;
+  title?: string;
   description: string;
   inputSchema: {
     type: 'object';
     properties: Record<string, { type: string; description?: string; enum?: string[] }>;
+    required?: string[];
+  };
+  annotations?: ToolAnnotations;
+  outputSchema?: {
+    type: 'object';
+    properties: Record<string, unknown>;
     required?: string[];
   };
 }
@@ -68,9 +117,23 @@ const KEEP_TOOLS = new Set([
   'get_audit_logs', 'get_system_settings',
 ]);
 
+/** 根据工具名推断注解（只读/破坏性提示） */
+function buildAnnotations(name: string): ToolAnnotations {
+  const readOnly = /^(list_|get_|check_|preview_)/.test(name);
+  const destructive = /^(cancel_|revoke_|delete_)/.test(name);
+  return {
+    readOnlyHint: readOnly,
+    destructiveHint: destructive,
+    idempotentHint: destructive,
+    openWorldHint: false,
+  };
+}
+
 /** 根据角色返回可见的工具列表 */
 export function getToolsForRole(role: string): MCPTool[] {
-  return tools.filter((t) => KEEP_TOOLS.has(t.name));
+  return tools
+    .filter((t) => KEEP_TOOLS.has(t.name))
+    .map((t) => ({ ...t, annotations: buildAnnotations(t.name) }));
 }
 
 const tools: MCPTool[] = [
@@ -1194,194 +1257,240 @@ async function loadUserChannelSettings(username: string, env: Env): Promise<Chan
 
 // ==================== MCP 请求分发 ====================
 
+/** 统一构造成功响应（2026-07-28 要求 resultType + _meta） */
+function ok(id: number | string | undefined, result: Record<string, unknown>): MCPResponse {
+  return {
+    jsonrpc: '2.0',
+    id: id ?? null,
+    result: {
+      resultType: 'complete',
+      _meta: { 'io.modelcontextprotocol/serverInfo': SERVER_INFO },
+      ...result,
+    },
+  };
+}
+
+/** 统一构造错误响应 */
+function fail(id: number | string | undefined, code: number, message: string, data?: unknown): MCPResponse {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data !== undefined ? { data } : {}) } };
+}
+
+/** 校验请求 `_meta` 中的协议版本（2026-07-28 每请求协商） */
+function checkProtocolVersion(request: MCPRequest): MCPResponse | null {
+  const requested = request._meta?.['io.modelcontextprotocol/protocolVersion'];
+  if (!requested) {
+    return fail(request.id, MCP_ERROR.HEADER_MISMATCH, '缺少协议版本，请在请求 _meta 中声明 io.modelcontextprotocol/protocolVersion');
+  }
+  if (!SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) {
+    return fail(request.id, MCP_ERROR.UNSUPPORTED_PROTOCOL_VERSION, `不支持的协议版本: ${requested}`, {
+      supported: SUPPORTED_PROTOCOL_VERSIONS,
+      requested,
+    });
+  }
+  return null;
+}
+
 export async function handleMCPRequest(
   request: MCPRequest,
   env: Env,
   username: string,
   userRole: string = 'user'
-): Promise<MCPResponse> {
+): Promise<MCPResponse | null> {
   const { id, method, params } = request;
 
   try {
     switch (method) {
-      case 'initialize': {
-        return {
-          jsonrpc: '2.0',
-          id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: {
-              tools: {},
-              resources: {},
-            },
-            serverInfo: {
-              name: 'bee-swarm-mcp',
-              version: '1.0.0',
-            },
+      case 'server/discover': {
+        return ok(id, {
+          supportedVersions: SUPPORTED_PROTOCOL_VERSIONS,
+          capabilities: {
+            tools: { listChanged: false },
+            logging: { },
           },
-        };
+          instructions:
+            'Bee Swarm 推送通知系统。可用工具：send_push 发送推送，create_scheduled_push 创建定时推送，list_channels 查看渠道。' +
+            '所有结果均为 JSON 文本，可通过 isError 判断工具调用是否失败。',
+        });
       }
 
-      case 'notifications/initialized':
-        return { jsonrpc: '2.0', id, result: null };
+      // 兼容旧客户端：initialize 仍返回能力信息（响应与 discover 等价）
+      case 'initialize': {
+        return ok(id, {
+          protocolVersion: LATEST_PROTOCOL_VERSION,
+          capabilities: {
+            tools: { listChanged: false },
+            logging: { },
+          },
+          serverInfo: SERVER_INFO,
+        });
+      }
 
-      case 'tools/list':
-        return { jsonrpc: '2.0', id, result: { tools: getToolsForRole(userRole) } };
+      // 通知类消息：无响应（返回 null 表示已接收）
+      case 'notifications/initialized':
+      case 'notifications/cancelled':
+        return null;
+
+      case 'ping':
+        return ok(id, {});
+
+      case 'tools/list': {
+        const versionError = checkProtocolVersion(request);
+        if (versionError) return versionError;
+        return ok(id, { tools: getToolsForRole(userRole) });
+      }
 
       case 'tools/call': {
+        const versionError = checkProtocolVersion(request);
+        if (versionError) return versionError;
         const p = params as { name?: string; arguments?: Record<string, unknown> } | undefined;
         const toolName = p?.name || '';
         const args = p?.arguments || {};
 
         // 权限检查：管理员工具仅管理员可用
         if (ADMIN_TOOLS.has(toolName) && userRole !== 'admin') {
-          return {
-            jsonrpc: '2.0',
-            id,
-            error: { code: -32001, message: '权限不足，此工具需要管理员权限' },
-          };
+          return ok(id, {
+            content: [{ type: 'text', text: '权限不足，此工具需要管理员权限' }],
+            isError: true,
+          });
         }
 
-        let result: unknown;
-        switch (toolName) {
-          case 'list_channels':
-            result = await handleListChannels(env, username);
-            break;
-          case 'check_all_channels_health':
-            result = await handleCheckAllChannelsHealth(env, username);
-            break;
-          case 'get_channel_groups':
-            result = await handleGetChannelGroups(env, username);
-            break;
-          case 'get_overdue_tasks':
-            result = await handleGetOverdueTasks(env, username);
-            break;
-          case 'run_backup':
-            result = await handleRunBackup(env, username);
-            break;
-          case 'list_backups':
-            result = await handleListBackups(env, username, args);
-            break;
-          case 'list_backup_endpoints':
-            result = await handleListBackupEndpoints(env, username);
-            break;
-          case 'get_backup_history':
-            result = await handleGetBackupHistory(env, username);
-            break;
-          case 'get_current_user':
-            result = await handleGetCurrentUser(env, username);
-            break;
-          case 'get_user_settings':
-            result = await handleGetUserSettings(env, username);
-            break;
-          case 'export_data':
-            result = await handleExportData(env, username);
-            break;
-          case 'get_webhook_url':
-            result = await handleGetWebhookUrl(env, username);
-            break;
-          case 'get_system_status':
-            result = await handleGetSystemStatus(env);
-            break;
-          case 'get_system_health':
-            result = await handleGetSystemHealth(env);
-            break;
-          case 'get_metrics':
-            result = await handleGetMetrics(env);
-            break;
-          case 'list_users':
-            result = await handleListUsers(env);
-            break;
-          case 'get_system_settings':
-            result = await handleGetSystemSettings(env);
-            break;
-          case 'get_templates':
-            result = await handleGetTemplates(env, username);
-            break;
-          case 'send_push':
-            result = await handleSendPush(env, username, args);
-            break;
-          case 'create_scheduled_push':
-            result = await handleCreateScheduledPush(env, username, args);
-            break;
-          case 'update_scheduled_push':
-            result = await handleUpdateScheduledPush(env, username, args);
-            break;
-          case 'cancel_scheduled_push':
-            result = await handleCancelScheduledPush(env, username, args);
-            break;
-          case 'reschedule_overdue_task':
-            result = await handleRescheduleOverdueTask(env, username, args);
-            break;
-          case 'list_scheduled_pushes':
-            result = await handleListScheduledPushes(env, username, args);
-            break;
-          case 'get_scheduled_push_detail':
-            result = await handleGetScheduledPushDetail(env, username, args);
-            break;
-          case 'get_push_history':
-            result = await handleGetPushHistory(env, username, args);
-            break;
-          case 'get_push_history_detail':
-            result = await handleGetPushHistoryDetail(env, username, args);
-            break;
-          case 'get_push_stats':
-            result = await handleGetPushStats(env, username, args);
-            break;
-          case 'get_execution_logs':
-            result = await handleGetExecutionLogs(env, username, args);
-            break;
-          case 'test_channel':
-            result = await handleTestChannel(env, username, args);
-            break;
-          case 'revoke_push':
-            result = await handleRevokePush(env, username, args);
-            break;
-          case 'create_template':
-            result = await handleCreateTemplate(env, username, args);
-            break;
-          case 'update_template':
-            result = await handleUpdateTemplate(env, username, args);
-            break;
-          case 'preview_template':
-            result = await handlePreviewTemplate(env, username, args);
-            break;
-          case 'get_template_variables':
-            result = await handleGetTemplateVariables(env, username, args);
-            break;
-          case 'batch_send_to_groups':
-            result = await handleBatchSendToGroups(env, username, args);
-            break;
-          case 'get_audit_logs':
-            result = await handleGetAuditLogs(env, args);
-            break;
-          default:
-            return {
-              jsonrpc: '2.0',
-              id,
-              error: { code: -32601, message: `未知工具: ${toolName}` },
-            };
+        try {
+          let result: unknown;
+          switch (toolName) {
+            case 'list_channels':
+              result = await handleListChannels(env, username);
+              break;
+            case 'check_all_channels_health':
+              result = await handleCheckAllChannelsHealth(env, username);
+              break;
+            case 'get_channel_groups':
+              result = await handleGetChannelGroups(env, username);
+              break;
+            case 'get_overdue_tasks':
+              result = await handleGetOverdueTasks(env, username);
+              break;
+            case 'run_backup':
+              result = await handleRunBackup(env, username);
+              break;
+            case 'list_backups':
+              result = await handleListBackups(env, username, args);
+              break;
+            case 'list_backup_endpoints':
+              result = await handleListBackupEndpoints(env, username);
+              break;
+            case 'get_backup_history':
+              result = await handleGetBackupHistory(env, username);
+              break;
+            case 'get_current_user':
+              result = await handleGetCurrentUser(env, username);
+              break;
+            case 'get_user_settings':
+              result = await handleGetUserSettings(env, username);
+              break;
+            case 'export_data':
+              result = await handleExportData(env, username);
+              break;
+            case 'get_webhook_url':
+              result = await handleGetWebhookUrl(env, username);
+              break;
+            case 'get_system_status':
+              result = await handleGetSystemStatus(env);
+              break;
+            case 'get_system_health':
+              result = await handleGetSystemHealth(env);
+              break;
+            case 'get_metrics':
+              result = await handleGetMetrics(env);
+              break;
+            case 'list_users':
+              result = await handleListUsers(env);
+              break;
+            case 'get_system_settings':
+              result = await handleGetSystemSettings(env);
+              break;
+            case 'get_templates':
+              result = await handleGetTemplates(env, username);
+              break;
+            case 'send_push':
+              result = await handleSendPush(env, username, args);
+              break;
+            case 'create_scheduled_push':
+              result = await handleCreateScheduledPush(env, username, args);
+              break;
+            case 'update_scheduled_push':
+              result = await handleUpdateScheduledPush(env, username, args);
+              break;
+            case 'cancel_scheduled_push':
+              result = await handleCancelScheduledPush(env, username, args);
+              break;
+            case 'reschedule_overdue_task':
+              result = await handleRescheduleOverdueTask(env, username, args);
+              break;
+            case 'list_scheduled_pushes':
+              result = await handleListScheduledPushes(env, username, args);
+              break;
+            case 'get_scheduled_push_detail':
+              result = await handleGetScheduledPushDetail(env, username, args);
+              break;
+            case 'get_push_history':
+              result = await handleGetPushHistory(env, username, args);
+              break;
+            case 'get_push_history_detail':
+              result = await handleGetPushHistoryDetail(env, username, args);
+              break;
+            case 'get_push_stats':
+              result = await handleGetPushStats(env, username, args);
+              break;
+            case 'get_execution_logs':
+              result = await handleGetExecutionLogs(env, username, args);
+              break;
+            case 'test_channel':
+              result = await handleTestChannel(env, username, args);
+              break;
+            case 'revoke_push':
+              result = await handleRevokePush(env, username, args);
+              break;
+            case 'create_template':
+              result = await handleCreateTemplate(env, username, args);
+              break;
+            case 'update_template':
+              result = await handleUpdateTemplate(env, username, args);
+              break;
+            case 'preview_template':
+              result = await handlePreviewTemplate(env, username, args);
+              break;
+            case 'get_template_variables':
+              result = await handleGetTemplateVariables(env, username, args);
+              break;
+            case 'batch_send_to_groups':
+              result = await handleBatchSendToGroups(env, username, args);
+              break;
+            case 'get_audit_logs':
+              result = await handleGetAuditLogs(env, args);
+              break;
+            default:
+              return fail(id, MCP_ERROR.INVALID_PARAMS, `未知工具: ${toolName}`);
+          }
+          // 2026-07-28：工具结果携带结构化内容 + isError 标记
+          const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+          return ok(id, {
+            content: [{ type: 'text', text }],
+            structuredContent: result,
+            isError: false,
+          });
+        } catch (err) {
+          // 工具执行错误应在结果内以 isError 呈现，而非 JSON-RPC 错误
+          return ok(id, {
+            content: [{ type: 'text', text: (err as Error).message || '工具执行失败' }],
+            isError: true,
+          });
         }
-        // 包装为 MCP 标准响应格式
-        const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-        return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } };
       }
 
       default:
-        return {
-          jsonrpc: '2.0',
-          id,
-          error: { code: -32601, message: `未知方法: ${method}` },
-        };
+        return fail(id, MCP_ERROR.METHOD_NOT_FOUND, `未知方法: ${method}`);
     }
   } catch (err) {
-    return {
-      jsonrpc: '2.0',
-      id,
-      error: {
-        code: -32603,
-        message: (err as Error).message,
-      },
-    };
+    return fail(id, MCP_ERROR.INTERNAL_ERROR, (err as Error).message || 'Internal error');
   }
 }
