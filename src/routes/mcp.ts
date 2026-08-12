@@ -26,8 +26,30 @@ function validateProtocolHeader(header: string | undefined): string | null {
 }
 
 /**
+ * 校验 Mcp-Method 和 Mcp-Name 请求头（2026-07-28 REQUIRED）
+ */
+function validateMcpHeaders(
+  body: MCPRequest,
+  mcpMethod: string | undefined,
+  mcpName: string | undefined
+): string | null {
+  if (!mcpMethod) return '缺少 Mcp-Method 请求头';
+  if (mcpMethod !== body.method) {
+    return `Mcp-Method 请求头值 '${mcpMethod}' 与 body method '${body.method}' 不匹配`;
+  }
+  // tools/call 需要校验 Mcp-Name
+  if (body.method === 'tools/call') {
+    const bodyName = (body.params as Record<string, unknown> | undefined)?.name;
+    if (bodyName && !mcpName) return '缺少 Mcp-Name 请求头（tools/call 必需）';
+    if (bodyName && mcpName && mcpName !== bodyName) {
+      return `Mcp-Name 请求头值 '${mcpName}' 与 body params.name '${bodyName}' 不匹配`;
+    }
+  }
+  return null;
+}
+
+/**
  * POST —— 处理 JSON-RPC 请求（Streamable HTTP 传输）
- * 支持 application/json 和 text/event-stream 两种响应
  */
 mcp.post('/', async (c) => {
   const username = c.get('username');
@@ -53,6 +75,18 @@ mcp.post('/', async (c) => {
     );
   }
 
+  // 校验 Mcp-Method / Mcp-Name 请求头
+  const mcpMethod = c.req.header('Mcp-Method');
+  const mcpName = c.req.header('Mcp-Name');
+  const mcpHeaderError = validateMcpHeaders(body, mcpMethod, mcpName);
+  if (mcpHeaderError) {
+    return c.json(
+      { jsonrpc: '2.0', id: body.id ?? null, error: { code: MCP_ERROR.HEADER_MISMATCH, message: mcpHeaderError } },
+      400,
+      { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION }
+    );
+  }
+
   // subscriptions/listen：打开长连接推送流
   if (body.method === 'subscriptions/listen') {
     const ackNotification = JSON.stringify({
@@ -68,9 +102,7 @@ mcp.post('/', async (c) => {
 
     const stream = new ReadableStream({
       start(controller) {
-        // 立即发送 acknowledge 通知
         controller.enqueue(new TextEncoder().encode(`data: ${ackNotification}\n\n`));
-        // 保持心跳（每 30 秒）
         const keepAlive = setInterval(() => {
           try {
             controller.enqueue(new TextEncoder().encode(': heartbeat\n\n'));
@@ -78,7 +110,6 @@ mcp.post('/', async (c) => {
             clearInterval(keepAlive);
           }
         }, 30_000);
-        // 清理
         c.req.raw.signal.addEventListener('abort', () => clearInterval(keepAlive));
       },
     });
@@ -87,6 +118,7 @@ mcp.post('/', async (c) => {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
         'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION,
         'MCP-Version': LATEST_PROTOCOL_VERSION,
       },
@@ -104,6 +136,14 @@ mcp.post('/', async (c) => {
     });
   }
 
+  // 未知方法 → 404 Not Found（2026-07-28 规范要求）
+  if (response.error?.code === MCP_ERROR.METHOD_NOT_FOUND) {
+    return c.json(response, 404, {
+      'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION,
+      'MCP-Version': LATEST_PROTOCOL_VERSION,
+    });
+  }
+
   return c.json(response, 200, {
     'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION,
     'MCP-Version': LATEST_PROTOCOL_VERSION,
@@ -112,13 +152,19 @@ mcp.post('/', async (c) => {
 });
 
 /**
- * GET —— 健康检查
- * 2026-07-28 不再使用老式 SSE 端点，health 用于简单存活检测
+ * GET —— 2026-07-28 Streamable HTTP 不支持 GET，返回 405
  */
 mcp.get('/', async (c) => {
-  return c.json({ status: 'ok', service: 'mcp', protocolVersion: LATEST_PROTOCOL_VERSION });
+  return c.json(
+    { jsonrpc: '2.0', id: null, error: { code: MCP_ERROR.METHOD_NOT_FOUND, message: 'Method Not Allowed. MCP 2026-07-28 使用 POST。' } },
+    405,
+    { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION }
+  );
 });
 
+/**
+ * GET /health —— 健康检查（非 MCP 端点，可独立使用）
+ */
 mcp.get('/health', async (c) => {
   return c.json({ status: 'ok', service: 'mcp', protocolVersion: LATEST_PROTOCOL_VERSION });
 });
@@ -142,6 +188,9 @@ mcp.post('/message', async (c) => {
 
   const response = await handleMCPRequest(body, c.env, username, userRole);
   if (response === null) return c.newResponse(null, 202);
+  if (response.error?.code === MCP_ERROR.METHOD_NOT_FOUND) {
+    return c.json(response, 404, { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION });
+  }
   return c.json(response, 200, { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION });
 });
 

@@ -201,7 +201,7 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可
 
 ### 传输协议
 
-采用 **Streamable HTTP** 传输（JSON-RPC over POST），符合 **MCP 2026-07-28** 协议版本，适合 Cloudflare Workers 无状态架构。每请求通过 `_meta` 声明协议版本与客户端能力，初始化使用 `server/discover`。
+采用 **Streamable HTTP** 传输（JSON-RPC over POST），符合 **MCP 2026-07-28** 协议版本，适合 Cloudflare Workers 无状态架构。每请求通过 `_meta` 声明协议版本与客户端能力，初始化使用 `server/discover`，POST 请求需携带 `MCP-Protocol-Version` 和 `Mcp-Method`（`tools/call` 还需 `Mcp-Name`）请求头。
 
 ### 37 个可用工具
 
@@ -241,6 +241,7 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可
 curl -X POST "https://beeswarm.qzz.io/mcp" \
   -H "Authorization: Bearer <你的API Key>" \
   -H "MCP-Protocol-Version: 2026-07-28" \
+  -H "Mcp-Method: server/discover" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0","id":1,"method":"server/discover",
@@ -251,6 +252,7 @@ curl -X POST "https://beeswarm.qzz.io/mcp" \
 curl -X POST "https://beeswarm.qzz.io/mcp" \
   -H "Authorization: Bearer <你的API Key>" \
   -H "MCP-Protocol-Version: 2026-07-28" \
+  -H "Mcp-Method: tools/list" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0","id":2,"method":"tools/list",
@@ -261,6 +263,8 @@ curl -X POST "https://beeswarm.qzz.io/mcp" \
 curl -X POST "https://beeswarm.qzz.io/mcp" \
   -H "Authorization: Bearer <你的API Key>" \
   -H "MCP-Protocol-Version: 2026-07-28" \
+  -H "Mcp-Method: tools/call" \
+  -H "Mcp-Name: send_push" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0","id":3,"method":"tools/call",
