@@ -1281,12 +1281,11 @@ function fail(id: number | string | undefined, code: number, message: string, da
   return { jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data !== undefined ? { data } : {}) } };
 }
 
-/** 校验请求 `_meta` 中的协议版本（2026-07-28 每请求协商） */
+/** 校验请求 `_meta` 中的协议版本（2026-07-28 每请求协商）
+ * 缺失时宽松放行（兼容 2024-11-05 等旧客户端，不发 _meta），存在时严格校验 */
 function checkProtocolVersion(request: MCPRequest): MCPResponse | null {
   const requested = request._meta?.['io.modelcontextprotocol/protocolVersion'];
-  if (!requested) {
-    return fail(request.id, MCP_ERROR.HEADER_MISMATCH, '缺少协议版本，请在请求 _meta 中声明 io.modelcontextprotocol/protocolVersion');
-  }
+  if (!requested) return null;
   if (!SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) {
     return fail(request.id, MCP_ERROR.UNSUPPORTED_PROTOCOL_VERSION, `不支持的协议版本: ${requested}`, {
       supported: SUPPORTED_PROTOCOL_VERSIONS,

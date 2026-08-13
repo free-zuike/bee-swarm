@@ -16,9 +16,10 @@ mcp.use('*', mcpAuthMiddleware);
 
 /**
  * 校验 MCP-Protocol-Version 请求头（2026-07-28 传输层要求）
+ * 缺失时宽松放行（兼容旧客户端，缺失视为 2025-11-25），存在时严格校验
  */
 function validateProtocolHeader(header: string | undefined): string | null {
-  if (!header) return '缺少 MCP-Protocol-Version 请求头';
+  if (!header) return null;
   if (!SUPPORTED_PROTOCOL_VERSIONS.includes(header)) {
     return `不支持的协议版本: ${header}，支持: ${SUPPORTED_PROTOCOL_VERSIONS.join(', ')}`;
   }
@@ -27,21 +28,21 @@ function validateProtocolHeader(header: string | undefined): string | null {
 
 /**
  * 校验 Mcp-Method 和 Mcp-Name 请求头（2026-07-28 REQUIRED）
+ * 缺失时宽松放行（兼容旧客户端），存在时严格校验一致性
  */
 function validateMcpHeaders(
   body: MCPRequest,
   mcpMethod: string | undefined,
   mcpName: string | undefined
 ): string | null {
-  if (!mcpMethod) return '缺少 Mcp-Method 请求头';
+  if (!mcpMethod) return null;
   if (mcpMethod !== body.method) {
     return `Mcp-Method 请求头值 '${mcpMethod}' 与 body method '${body.method}' 不匹配`;
   }
   // tools/call 需要校验 Mcp-Name
-  if (body.method === 'tools/call') {
+  if (body.method === 'tools/call' && mcpName) {
     const bodyName = (body.params as Record<string, unknown> | undefined)?.name;
-    if (bodyName && !mcpName) return '缺少 Mcp-Name 请求头（tools/call 必需）';
-    if (bodyName && mcpName && mcpName !== bodyName) {
+    if (bodyName && mcpName !== bodyName) {
       return `Mcp-Name 请求头值 '${mcpName}' 与 body params.name '${bodyName}' 不匹配`;
     }
   }
