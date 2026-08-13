@@ -20,8 +20,14 @@ import { replaceTemplateVariables, extractVariables } from './push';
 
 /** MCP 协议版本（2026-07-28） */
 export const LATEST_PROTOCOL_VERSION = '2026-07-28';
-/** 服务器支持的协议版本列表 */
-export const SUPPORTED_PROTOCOL_VERSIONS = ['2026-07-28', '2025-11-25'];
+/** 服务器支持的协议版本列表（含官方 SDK 标准版本，兼容 legacy SSE 客户端） */
+export const SUPPORTED_PROTOCOL_VERSIONS = [
+  '2026-07-28',
+  '2025-11-25',
+  '2025-06-18',
+  '2025-03-26',
+  '2024-11-05',
+];
 
 /** 服务器信息 */
 export const SERVER_INFO = {

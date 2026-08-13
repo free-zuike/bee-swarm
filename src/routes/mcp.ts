@@ -152,14 +152,49 @@ mcp.post('/', async (c) => {
 });
 
 /**
- * GET —— 2026-07-28 Streamable HTTP 不支持 GET，返回 405
+ * GET —— 旧版 SSE 传输握手（官方 SDK 的 SSEClientTransport 使用）
+ * 建立 SSE 流并发送 endpoint 事件，客户端随后 POST 到 /mcp/message
+ * 非 text/event-stream 请求（如 curl 直接 GET）仍返回 405
  */
+const SSE_HEARTBEAT_INTERVAL_MS = 30_000;
+
 mcp.get('/', async (c) => {
-  return c.json(
-    { jsonrpc: '2.0', id: null, error: { code: MCP_ERROR.METHOD_NOT_FOUND, message: 'Method Not Allowed. MCP 2026-07-28 使用 POST。' } },
-    405,
-    { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION }
-  );
+  const acceptsEventStream = c.req.header('Accept')?.includes('text/event-stream');
+
+  if (!acceptsEventStream) {
+    return c.json(
+      { jsonrpc: '2.0', id: null, error: { code: MCP_ERROR.METHOD_NOT_FOUND, message: 'Method Not Allowed. MCP 2026-07-28 使用 POST。' } },
+      405,
+      { 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION }
+    );
+  }
+
+  const endpointUrl = new URL('/mcp/message', c.req.url);
+
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        new TextEncoder().encode(`event: endpoint\ndata: ${endpointUrl.toString()}\n\n`)
+      );
+      const keepAlive = setInterval(() => {
+        try {
+          controller.enqueue(new TextEncoder().encode(': heartbeat\n\n'));
+        } catch {
+          clearInterval(keepAlive);
+        }
+      }, SSE_HEARTBEAT_INTERVAL_MS);
+      c.req.raw.signal.addEventListener('abort', () => clearInterval(keepAlive));
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no',
+      'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION,
+    },
+  });
 });
 
 /**

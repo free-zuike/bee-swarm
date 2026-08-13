@@ -203,6 +203,8 @@ Bee Swarm 支持 **MCP（Model Context Protocol）** 标准协议，AI 模型可
 
 采用 **Streamable HTTP** 传输（JSON-RPC over POST），符合 **MCP 2026-07-28** 协议版本，适合 Cloudflare Workers 无状态架构。每请求通过 `_meta` 声明协议版本与客户端能力，初始化使用 `server/discover`，POST 请求需携带 `MCP-Protocol-Version` 和 `Mcp-Method`（`tools/call` 还需 `Mcp-Name`）请求头。
 
+同时保留 **旧版 SSE 传输** 兼容：`GET /mcp`（`Accept: text/event-stream`）会建立 SSE 流并返回 `endpoint` 事件指向 `/mcp/message`，标准 MCP SDK 客户端（如 Claude、Cursor 等，它们不发送自定义头）可直接通过 URL 连接，无需额外配置。
+
 ### 37 个可用工具
 
 | 分类 | 工具 | 说明 |
