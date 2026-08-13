@@ -1323,9 +1323,21 @@ export async function handleMCPRequest(
       }
 
       // 兼容旧客户端：initialize 仍返回能力信息（响应与 discover 等价）
+      // 协议版本按客户端请求协商（取服务器支持列表中的最高共同版本），
+      // 不协商时回退到服务器最新版。MiMoCode 客户端只支持到 2025-11-25，
+      // 直接回 2026-07-28 会被客户端判为不支持。
       case 'initialize': {
+        const params = request.params as Record<string, unknown> | undefined;
+        const meta = (params?._meta as Record<string, unknown> | undefined) ?? request._meta;
+        const clientProtocol =
+          (params?.protocolVersion as string | undefined)
+          ?? (meta?.['io.modelcontextprotocol/protocolVersion'] as string | undefined);
+        const negotiated = clientProtocol
+          ? (SUPPORTED_PROTOCOL_VERSIONS.find((v) => v === clientProtocol)
+             ?? SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_VERSIONS.length - 1])
+          : LATEST_PROTOCOL_VERSION;
         return ok(id, {
-          protocolVersion: LATEST_PROTOCOL_VERSION,
+          protocolVersion: negotiated,
           capabilities: {
             tools: { listChanged: false },
           },
