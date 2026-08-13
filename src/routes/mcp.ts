@@ -39,8 +39,8 @@ function decodeHeaderValue(value: string): string {
 
 /**
  * 校验标准 MCP 请求头（2026-07-28）与 body 的一致性
- * 头缺失时宽松放行（并非所有标准客户端都发 Mcp-Method/Mcp-Name），
- * 存在时校验：与 beecount 服务器行为保持一致。
+ * 2026-07-28 协议：Mcp-Method 和 Mcp-Name 为 REQUIRED 头，缺失时拒绝
+ * 旧版协议（2025-11-25 及更早）：缺失时放行，存在时校验一致性
  */
 function validateMcpHeaders(
   body: MCPRequest,
@@ -48,8 +48,15 @@ function validateMcpHeaders(
   mcpName: string | undefined,
   protocolHeader: string | undefined
 ): string | null {
+  const isModern = protocolHeader === '2026-07-28';
+  if (isModern && !mcpMethod) {
+    return '缺少 Mcp-Method 请求头（2026-07-28 协议必需）';
+  }
   if (mcpMethod && mcpMethod !== body.method) {
     return `Mcp-Method 请求头值 '${mcpMethod}' 与 body method '${body.method}' 不匹配`;
+  }
+  if (isModern && body.method === 'tools/call' && !mcpName) {
+    return '缺少 Mcp-Name 请求头（tools/call 必需）';
   }
   if (body.method === 'tools/call') {
     const bodyName = (body.params as Record<string, unknown> | undefined)?.name;
