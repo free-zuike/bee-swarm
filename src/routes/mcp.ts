@@ -16,7 +16,7 @@ mcp.use('*', mcpAuthMiddleware);
 
 /**
  * 校验 MCP-Protocol-Version 请求头（2026-07-28 传输层要求）
- * 缺失时宽松放行（兼容旧客户端，缺失视为 2025-11-25），存在时严格校验
+ * 缺失时宽松放行：按规范 MAY 条款视为旧客户端（2025-06-18 之前的版本未定义该头）
  */
 function validateProtocolHeader(header: string | undefined): string | null {
   if (!header) return null;
@@ -26,24 +26,48 @@ function validateProtocolHeader(header: string | undefined): string | null {
   return null;
 }
 
+/** 解码 Mcp-Name 的 base64 sentinel 值（=?base64?xxx?=），非该格式原样返回 */
+function decodeHeaderValue(value: string): string {
+  const m = /^=\?base64\?(.+)\?=$/.exec(value);
+  if (!m) return value;
+  try {
+    return atob(m[1]);
+  } catch {
+    return value;
+  }
+}
+
 /**
- * 校验 Mcp-Method 和 Mcp-Name 请求头（2026-07-28 REQUIRED）
- * 缺失时宽松放行（兼容旧客户端），存在时严格校验一致性
+ * 校验标准 MCP 请求头（2026-07-28 REQUIRED）与 body 的一致性
+ * 仅当 MCP-Protocol-Version 头存在时执行（缺失视为旧客户端，跳过新协议头校验）：
+ * - Mcp-Method 必须存在并与 body.method 一致
+ * - tools/call 的 Mcp-Name 必须存在并与 body.params.name 一致
+ * - header 的 MCP-Protocol-Version 必须与 body._meta.protocolVersion 一致
  */
 function validateMcpHeaders(
   body: MCPRequest,
   mcpMethod: string | undefined,
-  mcpName: string | undefined
+  mcpName: string | undefined,
+  protocolHeader: string | undefined
 ): string | null {
-  if (!mcpMethod) return null;
+  if (!protocolHeader) return null;
+  if (!mcpMethod) return '缺少 Mcp-Method 请求头';
   if (mcpMethod !== body.method) {
     return `Mcp-Method 请求头值 '${mcpMethod}' 与 body method '${body.method}' 不匹配`;
   }
-  // tools/call 需要校验 Mcp-Name
-  if (body.method === 'tools/call' && mcpName) {
+  if (body.method === 'tools/call') {
     const bodyName = (body.params as Record<string, unknown> | undefined)?.name;
-    if (bodyName && mcpName !== bodyName) {
+    if (!bodyName) return 'tools/call 请求缺少 params.name';
+    if (!mcpName) return '缺少 Mcp-Name 请求头（tools/call 必需）';
+    if (decodeHeaderValue(mcpName) !== bodyName) {
       return `Mcp-Name 请求头值 '${mcpName}' 与 body params.name '${bodyName}' 不匹配`;
+    }
+  }
+  if (protocolHeader) {
+    const bodyVersion = body._meta?.['io.modelcontextprotocol/protocolVersion'];
+    if (!bodyVersion) return '缺少 body _meta.io.modelcontextprotocol/protocolVersion 字段';
+    if (bodyVersion !== protocolHeader) {
+      return `MCP-Protocol-Version 请求头值 '${protocolHeader}' 与 body _meta.protocolVersion '${bodyVersion}' 不匹配`;
     }
   }
   return null;
@@ -76,10 +100,10 @@ mcp.post('/', async (c) => {
     );
   }
 
-  // 校验 Mcp-Method / Mcp-Name 请求头
+  // 校验 Mcp-Method / Mcp-Name / header-body 版本一致性请求头
   const mcpMethod = c.req.header('Mcp-Method');
   const mcpName = c.req.header('Mcp-Name');
-  const mcpHeaderError = validateMcpHeaders(body, mcpMethod, mcpName);
+  const mcpHeaderError = validateMcpHeaders(body, mcpMethod, mcpName, protocolVersion);
   if (mcpHeaderError) {
     return c.json(
       { jsonrpc: '2.0', id: body.id ?? null, error: { code: MCP_ERROR.HEADER_MISMATCH, message: mcpHeaderError } },

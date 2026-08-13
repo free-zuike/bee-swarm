@@ -1331,12 +1331,10 @@ export async function handleMCPRequest(
       }
 
       // 通知类消息：无响应（返回 null 表示已接收）
+      // 2026-07-28 已移除 ping RPC；旧客户端发送 ping 会落入默认分支返回该方法不存在
       case 'notifications/initialized':
       case 'notifications/cancelled':
         return null;
-
-      case 'ping':
-        return ok(id, {});
 
       case 'tools/list': {
         const versionError = checkProtocolVersion(request);
