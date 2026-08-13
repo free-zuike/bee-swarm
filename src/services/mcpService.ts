@@ -1282,9 +1282,12 @@ function fail(id: number | string | undefined, code: number, message: string, da
 }
 
 /** 校验请求 `_meta` 中的协议版本（2026-07-28 每请求协商）
- * 缺失时宽松放行（兼容 2024-11-05 等旧客户端，不发 _meta），存在时严格校验 */
+ * 缺失时宽松放行（兼容 2024-11-05 等旧客户端，不发 _meta），存在时严格校验。
+ * 规范位置为 params._meta；历史实现曾用顶层 body._meta，两者都兼容。 */
 function checkProtocolVersion(request: MCPRequest): MCPResponse | null {
-  const requested = request._meta?.['io.modelcontextprotocol/protocolVersion'];
+  const params = request.params as Record<string, unknown> | undefined;
+  const meta = (params?._meta as Record<string, unknown> | undefined) ?? request._meta;
+  const requested = meta?.['io.modelcontextprotocol/protocolVersion'] as string | undefined;
   if (!requested) return null;
   if (!SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) {
     return fail(request.id, MCP_ERROR.UNSUPPORTED_PROTOCOL_VERSION, `不支持的协议版本: ${requested}`, {

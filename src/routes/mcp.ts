@@ -64,7 +64,11 @@ function validateMcpHeaders(
     }
   }
   if (protocolHeader) {
-    const bodyVersion = body._meta?.['io.modelcontextprotocol/protocolVersion'];
+    // 规范位置：params._meta['io.modelcontextprotocol/protocolVersion']
+    // 兼容旧实现：顶层 body._meta（历史偏离的客户端可能仍发这里）
+    const params = body.params as Record<string, unknown> | undefined;
+    const meta = (params?._meta as Record<string, unknown> | undefined) ?? body._meta;
+    const bodyVersion = meta?.['io.modelcontextprotocol/protocolVersion'];
     if (!bodyVersion) return '缺少 body _meta.io.modelcontextprotocol/protocolVersion 字段';
     if (bodyVersion !== protocolHeader) {
       return `MCP-Protocol-Version 请求头值 '${protocolHeader}' 与 body _meta.protocolVersion '${bodyVersion}' 不匹配`;
