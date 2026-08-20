@@ -1405,12 +1405,8 @@ function calculateNextValidTime(scheduledTime: Date): Date {
       // 检查今天是否在选择的工作日内
       const isTodayWorkday = weekdays.includes(todayDay);
       const isTodayBeforeScheduledTime =
-        todayDay === 0
-          ? false // 周日不是工作日
-          : todayDay === 6
-            ? false // 周六不是工作日
-            : currentHour < scheduledHour ||
-              (currentHour === scheduledHour && currentMinute < scheduledMinute);
+        currentHour < scheduledHour ||
+        (currentHour === scheduledHour && currentMinute < scheduledMinute);
 
       // 如果今天是工作日且还没到指定时间，就用今天
       if (isTodayWorkday && isTodayBeforeScheduledTime) {
@@ -1419,10 +1415,10 @@ function calculateNextValidTime(scheduledTime: Date): Date {
         return next;
       }
 
-      // 否则找下一个工作日
+      // 否则找下一个选中的星期
       for (let i = 1; i <= 7; i++) {
         const checkDay = (todayDay + i) % 7;
-        if (weekdays.includes(checkDay) && checkDay !== 0 && checkDay !== 6) {
+        if (weekdays.includes(checkDay)) {
           const next = new Date(now);
           next.setDate(next.getDate() + i);
           next.setHours(hours, minutes, 0, 0);

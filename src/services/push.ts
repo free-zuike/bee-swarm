@@ -753,7 +753,8 @@ export class PushService {
     }
     if (updates.scheduledAt !== undefined) {
       fields.push('next_run = ?');
-      values.push(new Date(updates.scheduledAt).getTime());
+      // 与 createScheduledPush / updateScheduledPushAndTime 保持一致，使用分钟单位
+      values.push(Math.floor(new Date(updates.scheduledAt).getTime() / 60000));
     }
     if (updates.scheduleType !== undefined) {
       fields.push('enabled = ?');
@@ -939,7 +940,8 @@ export class PushService {
       UPDATE scheduled_pushes SET status = 'pending', next_run = ?, updated_at = ? WHERE id = ? AND user_id = ?
     `
     )
-      .bind(new Date(newScheduledAt).getTime(), new Date().toISOString(), id, this.userId)
+      // next_run 使用分钟单位，与 createScheduledPush 保持一致
+      .bind(Math.floor(new Date(newScheduledAt).getTime() / 60000), new Date().toISOString(), id, this.userId)
       .run();
 
     // 优化：直接查询单个记录，而不是整个列表

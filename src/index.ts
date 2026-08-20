@@ -220,8 +220,9 @@ export default {
             // 循环任务：计算下次执行时间
             const nowDate = new Date();
             const userTimezone = message.payload.timezone || 'Asia/Shanghai';
-            // 使用原始执行时间来计算小时和分钟
-            const timeSource = message.payload.originalNextRun || message.payload.scheduledAt || new Date().toISOString();
+            // 使用本次实际执行的计划时间来计算小时和分钟
+            // （originalNextRun 在任务创建后永不更新，用户修改执行时间后会产生错位）
+            const timeSource = message.payload.scheduledAt || message.payload.originalNextRun || new Date().toISOString();
             const nextScheduledAt = calculateNextScheduledAt(
               {
                 scheduledAt: timeSource,
@@ -621,7 +622,7 @@ async function processScheduledPushesDirect(
  * @param nowDate 当前时间（UTC）
  * @param userTimezone 用户时区，默认 Asia/Shanghai
  */
-function calculateNextScheduledAt(
+export function calculateNextScheduledAt(
   push: ScheduledPush,
   nowDate: Date,
   userTimezone?: string
@@ -670,7 +671,7 @@ function calculateNextScheduledAt(
     case 'weekly': {
       const selectedWeekDays = push.selectedWeekDays || [1, 2, 3, 4, 5];
 
-      // 从当前日期开始查找下一个匹配的日期
+      // 当前日期（用户时区）
       const weekFormatter = new Intl.DateTimeFormat('en-US', {
         timeZone: timezone,
         year: 'numeric',
@@ -682,31 +683,33 @@ function calculateNextScheduledAt(
       const nowMonth = parseInt(weekParts.find(p => p.type === 'month')?.value || '0', 10);
       const nowDay = parseInt(weekParts.find(p => p.type === 'day')?.value || '0', 10);
 
-      // 从当前日期开始查找
-      for (let i = 0; i <= 14; i++) {
-        const checkDate = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + i, 0, 0, 0, 0));
-        // 获取这个 UTC 时间在目标时区的本地时间
-        const checkLocalTime = getLocalTime(checkDate, timezone);
-        // 计算时区偏移并设置正确的 UTC 时间
-        const diffMinutes = (checkLocalTime.hour * 60 + checkLocalTime.minute);
-        checkDate.setUTCHours(hour, minute, 0, 0);
-        checkDate.setUTCMinutes(checkDate.getUTCMinutes() - diffMinutes);
+      // 从当天开始最多找 8 天（7 天内必覆盖所有星期）
+      for (let i = 0; i <= 8; i++) {
+        // 星期几只取决于日历日期本身，与时区无关
+        const localWeekday = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + i, 0, 0, 0, 0)).getUTCDay();
+        if (!selectedWeekDays.includes(localWeekday)) continue;
 
-        if (selectedWeekDays.includes(checkDate.getUTCDay())) {
-          if (checkDate > nowDate) {
-            return checkDate.toISOString();
-          }
+        // 将本地 (nowDay+i, hour:minute) 转换为正确的 UTC 时间
+        const guess = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + i, hour, minute, 0, 0));
+        const guessLocal = getLocalTime(guess, timezone);
+        let diffMinutes = (guessLocal.hour * 60 + guessLocal.minute) - (hour * 60 + minute);
+        // 本地时分（如 19:00）当 UTC 转换时会跨天，归一化到 ±12h 内得到真实时区偏移
+        if (diffMinutes > 720) diffMinutes -= 1440;
+        if (diffMinutes < -720) diffMinutes += 1440;
+        guess.setUTCMinutes(guess.getUTCMinutes() - diffMinutes);
+
+        if (guess > nowDate) {
+          return guess.toISOString();
         }
       }
 
-      // 默认下一周同一天
-      const fallbackTime = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + 7, 0, 0, 0, 0));
+      // 保底：下一周同一天
+      const fallbackTime = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay + 7, hour, minute, 0, 0));
       const fallbackLocalTime = getLocalTime(fallbackTime, timezone);
-      fallbackTime.setUTCHours(hour, minute, 0, 0);
-      fallbackTime.setUTCMinutes(fallbackTime.getUTCMinutes() - (fallbackLocalTime.hour * 60 + fallbackLocalTime.minute));
-      while (fallbackTime <= nowDate) {
-        fallbackTime.setUTCDate(fallbackTime.getUTCDate() + 7);
-      }
+      let fallbackDiff = (fallbackLocalTime.hour * 60 + fallbackLocalTime.minute) - (hour * 60 + minute);
+      if (fallbackDiff > 720) fallbackDiff -= 1440;
+      if (fallbackDiff < -720) fallbackDiff += 1440;
+      fallbackTime.setUTCMinutes(fallbackTime.getUTCMinutes() - fallbackDiff);
       return fallbackTime.toISOString();
     }
 
@@ -746,7 +749,10 @@ function calculateNextScheduledAt(
             // 正确处理时区：将本地时间转换为UTC
             const guess = new Date(Date.UTC(checkYear, actualMonth - 1, effectiveDay, hour, minute, 0, 0));
             const guessLocal = getLocalTime(guess, timezone);
-            const diffMinutes = (guessLocal.hour * 60 + guessLocal.minute) - (hour * 60 + minute);
+            let diffMinutes = (guessLocal.hour * 60 + guessLocal.minute) - (hour * 60 + minute);
+            // 本地时分当 UTC 转换会跨天，归一化到 ±12h 内得到真实时区偏移
+            if (diffMinutes > 720) diffMinutes -= 1440;
+            if (diffMinutes < -720) diffMinutes += 1440;
             guess.setUTCMinutes(guess.getUTCMinutes() - diffMinutes);
             if (guess > nowDate) {
               return guess.toISOString();
@@ -758,7 +764,10 @@ function calculateNextScheduledAt(
       // 默认下一个月同一天
       const fallbackTime = new Date(Date.UTC(nowYear, nowMonth - 1, selectedMonthDays[0] || 1, hour, minute, 0, 0));
       const fallbackLocalTime = getLocalTime(fallbackTime, timezone);
-      fallbackTime.setUTCMinutes(fallbackTime.getUTCMinutes() - ((fallbackLocalTime.hour * 60 + fallbackLocalTime.minute) - (hour * 60 + minute)));
+      let fallbackDiff = (fallbackLocalTime.hour * 60 + fallbackLocalTime.minute) - (hour * 60 + minute);
+      if (fallbackDiff > 720) fallbackDiff -= 1440;
+      if (fallbackDiff < -720) fallbackDiff += 1440;
+      fallbackTime.setUTCMinutes(fallbackTime.getUTCMinutes() - fallbackDiff);
       fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
       while (fallbackTime <= nowDate) {
         fallbackTime.setUTCMonth(fallbackTime.getUTCMonth() + 1);
@@ -779,9 +788,16 @@ function calculateNextScheduledAt(
     case 'yearly': {
       const yearlyDates = push.yearlyDates || [{ month: 1, day: 1 }];
 
+      // 用用户时区的当前年份起算，避免跨年边界时 UTC/本地年份不一致
+      const localYearFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+      });
+      const nowLocalYear = parseInt(localYearFmt.format(nowDate), 10);
+
       // 查找下一个有效日期
       for (let yearOffset = 0; yearOffset <= 10; yearOffset++) {
-        const checkYear = nowDate.getUTCFullYear() + yearOffset;
+        const checkYear = nowLocalYear + yearOffset;
 
         for (const dateConfig of yearlyDates) {
           // hour/minute 是目标时区的本地值，需要转换为 UTC
@@ -820,7 +836,7 @@ function calculateNextScheduledAt(
       }
 
       // 默认返回明年1月1日
-      const defaultCandidate = new Date(Date.UTC(nowDate.getUTCFullYear() + 1, 0, 1, hour, minute, 0, 0));
+      const defaultCandidate = new Date(Date.UTC(nowLocalYear + 1, 0, 1, hour, minute, 0, 0));
       const fmtDef = new Intl.DateTimeFormat('en-US', {
         timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
       });
@@ -846,7 +862,7 @@ function calculateNextScheduledAt(
 
     case 'cron': {
       if (push.cronExpression) {
-        const nextTime = calculateNextCronTime(push.cronExpression, nowDate);
+        const nextTime = calculateNextCronTime(push.cronExpression, nowDate, timezone);
         if (nextTime) {
           return nextTime.toISOString();
         }
@@ -873,13 +889,17 @@ function calculateNextScheduledAt(
 
 /**
  * 解析 cron 表达式计算下一次执行时间
+ * @param cronExpression 5 字段 cron 表达式
+ * @param nowDate 当前时间（UTC）
+ * @param timezone 用户时区，cron 字段按该时区的本地时间匹配
  */
-function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | null {
+function calculateNextCronTime(cronExpression: string, nowDate: Date, timezone?: string): Date | null {
   const parts = cronExpression.trim().split(/\s+/);
   if (parts.length !== 5) {
     return null;
   }
 
+  const tz = timezone || 'Asia/Shanghai';
   const [minuteStr, hourStr, dayOfMonthStr, monthStr, dayOfWeekStr] = parts;
 
   const parseCronField = (field: string, minVal: number, maxVal: number): number[] => {
@@ -927,9 +947,30 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
     return null;
   }
 
-  let current = new Date(nowDate);
-  current.setSeconds(0, 0);
-  current.setMinutes(current.getMinutes() + 1);
+  // 用户时区的当前时分，用"本地时间视作 UTC"的假时间轴迭代
+  const nowFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const nowParts = nowFmt.formatToParts(nowDate);
+  const getPart = (type: string) => parseInt(nowParts.find((p) => p.type === type)?.value || '0', 10);
+  let current = new Date(
+    Date.UTC(
+      getPart('year'),
+      getPart('month') - 1,
+      getPart('day'),
+      getPart('hour') % 24,
+      getPart('minute'),
+      0,
+      0
+    )
+  );
+  current.setUTCMinutes(current.getUTCMinutes() + 1);
 
   const maxIterations = 525600;
   let iterations = 0;
@@ -937,48 +978,59 @@ function calculateNextCronTime(cronExpression: string, nowDate: Date): Date | nu
   while (iterations < maxIterations) {
     iterations++;
 
-    const minuteMatches = validMinutes.includes(current.getMinutes());
-    const hourMatches = validHours.includes(current.getHours());
-    const dayMatches = !validDaysOfMonth || validDaysOfMonth.includes(current.getDate());
-    const monthMatches = !validMonths || validMonths.includes(current.getMonth() + 1);
-    const weekdayMatches = !validDaysOfWeek || validDaysOfWeek.includes(current.getDay());
+    const minuteMatches = validMinutes.includes(current.getUTCMinutes());
+    const hourMatches = validHours.includes(current.getUTCHours());
+    const dayMatches = !validDaysOfMonth || validDaysOfMonth.includes(current.getUTCDate());
+    const monthMatches = !validMonths || validMonths.includes(current.getUTCMonth() + 1);
+    const weekdayMatches = !validDaysOfWeek || validDaysOfWeek.includes(current.getUTCDay());
 
     if (minuteMatches && hourMatches && dayMatches && monthMatches && weekdayMatches) {
-      return new Date(current);
+      // 命中的是用户时区的本地时间，需转换为真实 UTC
+      const localHour = current.getUTCHours();
+      const localMinute = current.getUTCMinutes();
+      const guessLocal = getLocalTime(current, tz);
+      const diffMinutes =
+        (guessLocal.hour * 60 + guessLocal.minute) - (localHour * 60 + localMinute);
+      if (diffMinutes !== 0) {
+        current.setUTCMinutes(current.getUTCMinutes() - diffMinutes);
+      }
+      if (current > nowDate) {
+        return new Date(current);
+      }
     }
 
     if (!minuteMatches) {
-      const currentMin = current.getMinutes();
+      const currentMin = current.getUTCMinutes();
       const nextMinute = validMinutes.find((m) => m > currentMin);
       if (nextMinute !== undefined) {
-        current.setMinutes(nextMinute);
+        current.setUTCMinutes(nextMinute);
       } else {
-        current.setHours(current.getHours() + 1);
-        current.setMinutes(validMinutes[0]);
+        current.setUTCHours(current.getUTCHours() + 1);
+        current.setUTCMinutes(validMinutes[0]);
       }
-      current.setSeconds(0, 0);
+      current.setUTCSeconds(0, 0);
       continue;
     }
 
     if (!hourMatches) {
-      const currentHour = current.getHours();
+      const currentHour = current.getUTCHours();
       const nextHour = validHours.find((h) => h > currentHour);
       if (nextHour !== undefined) {
-        current.setHours(nextHour);
+        current.setUTCHours(nextHour);
       } else {
-        current.setDate(current.getDate() + 1);
-        current.setHours(validHours[0]);
+        current.setUTCDate(current.getUTCDate() + 1);
+        current.setUTCHours(validHours[0]);
       }
-      current.setMinutes(validMinutes[0]);
-      current.setSeconds(0, 0);
+      current.setUTCMinutes(validMinutes[0]);
+      current.setUTCSeconds(0, 0);
       continue;
     }
 
     if (!dayMatches || !monthMatches || !weekdayMatches) {
-      current.setDate(current.getDate() + 1);
-      current.setHours(validHours[0]);
-      current.setMinutes(validMinutes[0]);
-      current.setSeconds(0, 0);
+      current.setUTCDate(current.getUTCDate() + 1);
+      current.setUTCHours(validHours[0]);
+      current.setUTCMinutes(validMinutes[0]);
+      current.setUTCSeconds(0, 0);
       continue;
     }
   }
@@ -1017,12 +1069,11 @@ function shouldExecutePush(
       return true;
 
     case 'interval': {
-      const scheduledLocal = getLocalTime(scheduledTime, timezone);
-      const hoursSinceStart = Math.floor(
-        ((nowHour - scheduledLocal.hour + 24) % 24) +
-          Math.floor((nowDate.getTime() - scheduledTime.getTime()) / (1000 * 60 * 60))
-      );
-      return hoursSinceStart > 0 && hoursSinceStart % (push.intervalHours || 2) === 0;
+      // next_run 已在 calculateNextScheduledAt 中精确推进到"本次执行时间"（含追赶），
+      // 到期即执行，与 hourly/daily 一致。
+      // 原实现要求 hoursSinceStart 恰好为间隔整数倍且 > 0，
+      // 导致首次执行被推迟一个完整间隔（如 2h 间隔要等 2 小时后才推送）。
+      return true;
     }
 
     case 'daily':
@@ -1037,11 +1088,11 @@ function shouldExecutePush(
       const selectedMonthDays = push.selectedMonthDays ? [...push.selectedMonthDays].sort((a, b) => a - b) : [1, 15];
       const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
       const localDateStr = formatter.format(nowDate);
-      const nowDateOfMonth = parseInt(localDateStr.split('-')[2], 10);
+      const [localYear, localMonth, localDay] = localDateStr.split('-').map(Number);
+      const nowDateOfMonth = localDay;
 
-      const lastDayOfMonth = new Date(
-        Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0)
-      ).getUTCDate();
+      // 月末日期按用户时区的年月计算，避免月初/月末边界时 UTC 年月错位导致 clamp 错误
+      const lastDayOfMonth = new Date(Date.UTC(localYear, localMonth, 0)).getUTCDate();
       const effectiveDays = selectedMonthDays.map((day) =>
         day > lastDayOfMonth ? lastDayOfMonth : day
       );
@@ -1062,9 +1113,13 @@ function shouldExecutePush(
       for (const dateConfig of yearlyDates) {
         if (dateConfig.month === nowMonth) {
           if (dateConfig.month === 2 && dateConfig.day === 29) {
+            const yearFormatter = new Intl.DateTimeFormat('en-US', {
+              timeZone: timezone,
+              year: 'numeric',
+            });
+            const localYear = parseInt(yearFormatter.format(nowDate), 10);
             const isLeapYear =
-              (nowDate.getUTCFullYear() % 4 === 0 && nowDate.getUTCFullYear() % 100 !== 0) ||
-              nowDate.getUTCFullYear() % 400 === 0;
+              (localYear % 4 === 0 && localYear % 100 !== 0) || localYear % 400 === 0;
             if (isLeapYear) {
               return nowDayOfMonth === 29;
             } else {
