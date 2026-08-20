@@ -557,16 +557,18 @@ async function handleListChannels(
 ): Promise<unknown> {
   const settings = await loadUserChannelSettings(username, env);
 
-  return CHANNEL_DEFINITIONS.map((ch) => {
-    const enabled = settings[`channel:${ch.id}:enabled`];
-    return {
-      id: ch.id,
-      name: ch.name,
-      icon: ch.icon,
-      enabled: enabled !== 'false',
-      supportsMarkdown: ch.supportsMarkdown,
-    };
-  });
+  return {
+    channels: CHANNEL_DEFINITIONS.map((ch) => {
+      const enabled = settings[`channel:${ch.id}:enabled`];
+      return {
+        id: ch.id,
+        name: ch.name,
+        icon: ch.icon,
+        enabled: enabled !== 'false',
+        supportsMarkdown: ch.supportsMarkdown,
+      };
+    }),
+  };
 }
 
 async function handleCreateScheduledPush(
@@ -728,7 +730,7 @@ async function handleGetScheduledPushDetail(
   args: Record<string, unknown>
 ): Promise<unknown> {
   const id = String(args.id || '');
-  if (!id || !env.DB) return null;
+  if (!id || !env.DB) return { ok: false, error: '参数无效或数据库不可用' };
 
   const result = await env.DB.prepare(
     'SELECT * FROM scheduled_pushes WHERE id = ? AND user_id = ?'
@@ -736,7 +738,7 @@ async function handleGetScheduledPushDetail(
     .bind(id, username)
     .first();
 
-  if (!result) return null;
+  if (!result) return { ok: false, error: `未找到定时任务 ${id}` };
 
   const r = result as Record<string, unknown>;
   return {
@@ -771,18 +773,20 @@ async function handleListScheduledPushes(
     status as 'pending' | 'processing' | 'completed' | 'failed' | 'overdue' | undefined
   );
 
-  return pushes.map((p) => ({
-    id: p.id,
-    title: p.title,
-    status: p.status,
-    scheduleType: p.scheduleType,
-    recurringType: p.recurringType,
-    scheduledAt: p.scheduledAt,
-    nextRun: p.nextRun,
-    channels: p.channels,
-    enabled: p.enabled,
-    timezone: p.timezone,
-  }));
+  return {
+    pushes: pushes.map((p) => ({
+      id: p.id,
+      title: p.title,
+      status: p.status,
+      scheduleType: p.scheduleType,
+      recurringType: p.recurringType,
+      scheduledAt: p.scheduledAt,
+      nextRun: p.nextRun,
+      channels: p.channels,
+      enabled: p.enabled,
+      timezone: p.timezone,
+    })),
+  };
 }
 
 async function handleGetPushHistory(
@@ -817,7 +821,7 @@ async function handleGetPushHistoryDetail(
   args: Record<string, unknown>
 ): Promise<unknown> {
   const id = String(args.id || '');
-  if (!id || !env.DB) return null;
+  if (!id || !env.DB) return { ok: false, error: '参数无效或数据库不可用' };
 
   const result = await env.DB.prepare(
     `SELECT * FROM push_history WHERE id = ? AND user_id = ?`
@@ -825,7 +829,7 @@ async function handleGetPushHistoryDetail(
     .bind(id, username)
     .first();
 
-  if (!result) return null;
+  if (!result) return { ok: false, error: `未找到推送记录 ${id}` };
 
   const r = result as Record<string, unknown>;
   return {
@@ -938,7 +942,7 @@ async function handleGetChannelGroups(
 ): Promise<unknown> {
   const pushService = new PushService(env, username);
   const groups = await pushService.getChannelGroups();
-  return groups;
+  return { groups };
 }
 
 async function handleCreateTemplate(
@@ -990,14 +994,16 @@ async function handleListBackupEndpoints(
   username: string
 ): Promise<unknown> {
   const endpoints = await getBackupEndpoints(env, username);
-  return endpoints.map((ep) => ({
-    id: ep.id,
-    name: ep.name,
-    type: ep.type,
-    enabled: ep.enabled,
-    schedule: ep.schedule,
-    lastBackup: ep.lastBackup,
-  }));
+  return {
+    endpoints: endpoints.map((ep) => ({
+      id: ep.id,
+      name: ep.name,
+      type: ep.type,
+      enabled: ep.enabled,
+      schedule: ep.schedule,
+      lastBackup: ep.lastBackup,
+    })),
+  };
 }
 
 async function handleRunBackup(
@@ -1092,7 +1098,7 @@ async function handleGetTemplateVariables(env: Env, username: string, args: Reco
 
 async function handleGetOverdueTasks(env: Env, username: string): Promise<unknown> {
   const pushService = new PushService(env, username);
-  return await pushService.getOverdueTasks();
+  return { tasks: await pushService.getOverdueTasks() };
 }
 
 async function handleBatchSendToGroups(env: Env, username: string, args: Record<string, unknown>): Promise<unknown> {
@@ -1114,7 +1120,7 @@ async function handleBatchSendToGroups(env: Env, username: string, args: Record<
 }
 
 async function handleGetBackupHistory(env: Env, username: string): Promise<unknown> {
-  return await getBackupHistory(env, username);
+  return { backupHistory: await getBackupHistory(env, username) };
 }
 
 async function handleGetWebhookUrl(env: Env, username: string): Promise<unknown> {
@@ -1178,16 +1184,18 @@ async function handleGetTemplates(
   const pushService = new PushService(env, username);
   const templates = await pushService.getTemplates();
 
-  return templates.map((t) => ({
-    id: t.id,
-    name: t.name,
-    title: t.title,
-    content: t.content,
-    channels: t.channels,
-    category: t.category,
-    useMarkdown: t.useMarkdown,
-    createdAt: t.createdAt,
-  }));
+  return {
+    templates: templates.map((t) => ({
+      id: t.id,
+      name: t.name,
+      title: t.title,
+      content: t.content,
+      channels: t.channels,
+      category: t.category,
+      useMarkdown: t.useMarkdown,
+      createdAt: t.createdAt,
+    })),
+  };
 }
 
 async function handleGetPushStats(
