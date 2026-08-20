@@ -416,7 +416,7 @@ onMounted(async () => {
       const refreshSuccess = await authStore.doRefreshToken();
       if (refreshSuccess) {
       // 并行加载独立数据
-      await Promise.all([loadCurrentUser(accessToken.value), loadUserSettings()]);
+      await Promise.all([loadCurrentUser(accessToken.value), loadUserSettings(), loadUserAvatar()]);
       await loadChannels();
         pageState.value = 'dashboard';
         return;
@@ -493,7 +493,7 @@ async function doLogin(authEmail: string, authPassword: string, turnstileToken?:
   if (result) {
     try {
       // 并行加载独立数据
-      await Promise.all([loadCurrentUser(accessToken.value)]);
+      await Promise.all([loadCurrentUser(accessToken.value), loadUserAvatar()]);
       await loadChannels();
     } catch {
       // 数据加载失败不影响登录
@@ -506,7 +506,7 @@ async function doLogin2FA(authEmail: string, authPassword: string, code: string)
   const success = await authStore.doLogin2FA(authEmail, authPassword, code);
   if (success) {
     try {
-      await Promise.all([loadCurrentUser(accessToken.value)]);
+      await Promise.all([loadCurrentUser(accessToken.value), loadUserAvatar()]);
       await loadChannels();
     } catch {
       // 数据加载失败不影响登录
@@ -526,7 +526,7 @@ async function doRegister(authEmail: string, authPassword: string, turnstileToke
   if (result.success) {
     try {
       // 并行加载独立数据
-      await Promise.all([loadCurrentUser(accessToken.value)]);
+      await Promise.all([loadCurrentUser(accessToken.value), loadUserAvatar()]);
       await loadChannels();
     } catch {
       // 数据加载失败不影响注册
