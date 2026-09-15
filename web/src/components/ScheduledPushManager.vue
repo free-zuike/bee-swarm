@@ -212,52 +212,52 @@
               </button>
             </div>
 
-            <div v-if="scheduleType === 'once'" class="datetime-section">
-              <div class="expiry-toggle">
-                <label class="expiry-toggle-label">
+            <div class="expiry-toggle">
+              <label class="expiry-toggle-label">
+                <input
+                  v-model="expiryReminderMode"
+                  type="checkbox"
+                  @change="onExpiryModeChange"
+                />
+                {{ t('scheduled.label.expiryReminder') }}
+              </label>
+            </div>
+
+            <div v-if="expiryReminderMode" class="expiry-section">
+              <div class="expiry-inputs">
+                <div class="expiry-field">
+                  <label class="expiry-field-label">{{ t('scheduled.label.expiryDate') }}</label>
+                  <input v-model="newPush.expiryDate" type="date" :min="today" required />
+                </div>
+                <div class="expiry-field">
+                  <label class="expiry-field-label">{{
+                    t('scheduled.label.remindDaysBefore')
+                  }}</label>
                   <input
-                    v-model="expiryReminderMode"
-                    type="checkbox"
-                    @change="onExpiryModeChange"
+                    v-model.number="newPush.remindDaysBefore"
+                    type="number"
+                    min="0"
+                    max="365"
+                    required
                   />
-                  {{ t('scheduled.label.expiryReminder') }}
-                </label>
+                </div>
               </div>
+              <div class="expiry-preview">
+                {{
+                  t('scheduled.label.expiryReminderPreview', {
+                    days: newPush.remindDaysBefore ?? 0,
+                    date: expiryReminderDate,
+                  })
+                }}
+              </div>
+            </div>
 
-              <template v-if="expiryReminderMode">
-                <div class="expiry-inputs">
-                  <div class="expiry-field">
-                    <label class="expiry-field-label">{{ t('scheduled.label.expiryDate') }}</label>
-                    <input v-model="newPush.expiryDate" type="date" :min="today" required />
-                  </div>
-                  <div class="expiry-field">
-                    <label class="expiry-field-label">{{
-                      t('scheduled.label.remindDaysBefore')
-                    }}</label>
-                    <input
-                      v-model.number="newPush.remindDaysBefore"
-                      type="number"
-                      min="0"
-                      max="365"
-                      required
-                    />
-                  </div>
-                </div>
-                <div class="expiry-preview">
-                  {{
-                    t('scheduled.label.expiryReminderPreview', {
-                      days: newPush.remindDaysBefore ?? 0,
-                      date: expiryReminderDate,
-                    })
-                  }}
-                </div>
-              </template>
-
-              <div v-else class="datetime-inputs">
+            <div v-if="scheduleType === 'once'" class="datetime-section">
+              <div v-if="!expiryReminderMode" class="datetime-inputs">
                 <input v-model="newPush.date" type="date" :min="today" required />
                 <input v-model="newPush.time" type="time" required />
               </div>
-              <div class="quick-schedule">
+              <div v-if="!expiryReminderMode" class="quick-schedule">
                 <button type="button" class="btn-quick" @click="setQuickSchedule('1h')">
                   {{ t('label.1HourLater') }}
                 </button>
@@ -1347,7 +1347,7 @@ async function updateScheduledPushHandler(): Promise<void> {
   // 到期提醒模式：提醒时间 = 到期时间 - 提前天数
   let expiryAt: string | undefined;
   let remindDaysBefore: number | undefined;
-  if (scheduleType.value === 'once' && expiryReminderMode.value) {
+  if (expiryReminderMode.value) {
     if (!newPush.value.expiryDate) {
       showToast(t('scheduled.message.pleaseSelectExpiryDate'), 'error');
       return;
@@ -1363,6 +1363,22 @@ async function updateScheduledPushHandler(): Promise<void> {
     if (isNaN(scheduledTime.getTime())) {
       showToast(t('scheduled.message.invalidExpiryDate'), 'error');
       return;
+    }
+    // 循环任务：使用用户选择的提醒时刻，并校验首次提醒在到期日之前
+    if (scheduleType.value === 'recurring') {
+      const [hours, minutes] = (newPush.value.time || '09:00').split(':').map(Number);
+      scheduledTime.setHours(hours, minutes, 0, 0);
+      if (scheduledTime > expiry) {
+        showToast(t('scheduled.message.expiryTooSoon'), 'error');
+        return;
+      }
+      if (scheduledTime <= new Date()) {
+        scheduledTime = calculateNextValidTime(scheduledTime);
+        if (scheduledTime > expiry) {
+          showToast(t('scheduled.message.expiryTooSoon'), 'error');
+          return;
+        }
+      }
     }
   }
 
@@ -1425,7 +1441,7 @@ async function createScheduledPushHandler(): Promise<void> {
   // 到期提醒模式：提醒时间 = 到期时间 - 提前天数
   let expiryAt: string | undefined;
   let remindDaysBefore: number | undefined;
-  if (scheduleType.value === 'once' && expiryReminderMode.value) {
+  if (expiryReminderMode.value) {
     if (!newPush.value.expiryDate) {
       showToast(t('scheduled.message.pleaseSelectExpiryDate'), 'error');
       return;
@@ -1442,6 +1458,15 @@ async function createScheduledPushHandler(): Promise<void> {
       showToast(t('scheduled.message.invalidExpiryDate'), 'error');
       return;
     }
+    // 循环任务：使用用户选择的提醒时刻，并校验首次提醒在到期日之前
+    if (scheduleType.value === 'recurring') {
+      const [hours, minutes] = (newPush.value.time || '09:00').split(':').map(Number);
+      scheduledTime.setHours(hours, minutes, 0, 0);
+      if (scheduledTime > expiry) {
+        showToast(t('scheduled.message.expiryTooSoon'), 'error');
+        return;
+      }
+    }
   }
 
   if (scheduleType.value === 'once' && scheduledTime <= new Date()) {
@@ -1451,6 +1476,14 @@ async function createScheduledPushHandler(): Promise<void> {
 
   if (scheduleType.value === 'recurring' && scheduledTime <= new Date()) {
     scheduledTime = calculateNextValidTime(scheduledTime);
+    // 循环 + 到期提醒：顺延后的首次执行时间不能超过到期日
+    if (expiryReminderMode.value && expiryAt) {
+      const expiryDate = new Date(expiryAt);
+      if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
+        showToast(t('scheduled.message.expiryTooSoon'), 'error');
+        return;
+      }
+    }
   }
 
   creating.value = true;

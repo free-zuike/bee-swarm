@@ -26,6 +26,8 @@ export interface PushQueueMessage {
     intervalMonths?: number;
     intervalYears?: number;
     cronExpression?: string;
+    // 到期提醒模式：到期时间，循环任务超过该时间后自动停止
+    expiryAt?: string;
   };
   createdAt: string;
 }

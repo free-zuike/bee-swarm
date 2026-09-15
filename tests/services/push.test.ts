@@ -732,6 +732,32 @@ describe('PushService', () => {
       expect(updated?.remindDaysBefore).toBe(15);
     });
 
+    it('应该正确创建循环+到期提醒任务', async () => {
+      const expiryAt = '2026-12-31T00:00:00.000Z';
+      const push = await pushService.createScheduledPush({
+        title: '循环到期提醒',
+        content: '每周提醒续期',
+        channels: ['wework'] as PushChannel[],
+        scheduledAt: new Date(Date.now() + 3600000).toISOString(),
+        scheduleType: 'recurring',
+        recurringType: 'weekly',
+        selectedWeekDays: [1],
+        expiryAt,
+        remindDaysBefore: 30,
+      });
+
+      expect(push.scheduleType).toBe('recurring');
+      expect(push.expiryAt).toBe(expiryAt);
+      expect(push.remindDaysBefore).toBe(30);
+
+      const pushes = await pushService.getScheduledPushes();
+      const saved = pushes.find((p) => p.id === push.id);
+      expect(saved?.scheduleType).toBe('recurring');
+      expect(saved?.recurringType).toBe('weekly');
+      expect(saved?.expiryAt).toBe(expiryAt);
+      expect(saved?.remindDaysBefore).toBe(30);
+    });
+
     it('应该正确批量启用定时推送', async () => {
       const push = await pushService.createScheduledPush({
         title: 'Test',

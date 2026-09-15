@@ -245,6 +245,17 @@ export default {
               'pending',
               nextScheduledAt
             );
+
+            // 到期提醒模式：下次执行时间超过到期时间后停止循环任务
+            if (message.payload.expiryAt) {
+              const expiryDate = new Date(message.payload.expiryAt);
+              if (!isNaN(expiryDate.getTime()) && new Date(nextScheduledAt) > expiryDate) {
+                await pushService.updateScheduledPushStatus(
+                  message.payload.scheduledPushId,
+                  'completed'
+                );
+              }
+            }
           } else {
             // 非循环任务：更新状态
             const finalStatus = results.every((r: ChannelResult) => r.success)
@@ -464,6 +475,15 @@ async function processScheduledPushes(
         continue;
       }
 
+      // 到期提醒模式：计划执行时间已超过到期时间，停止循环任务不再推送
+      if (push.scheduleType === 'recurring' && push.expiryAt) {
+        const expiryDate = new Date(push.expiryAt);
+        if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
+          await pushService.updateScheduledPushStatus(push.id, 'completed');
+          continue;
+        }
+      }
+
       // 防重复执行 - 使用 D1
       const currentMinute = Math.floor(nowDate.getTime() / 60000);
       const existingLock = await getScheduledLock(env, username, push.id);
@@ -502,6 +522,7 @@ async function processScheduledPushes(
           intervalMonths: push.intervalMonths,
           intervalYears: push.intervalYears,
           cronExpression: push.cronExpression,
+          expiryAt: push.expiryAt,
         },
         createdAt: new Date().toISOString(),
       });
@@ -557,6 +578,15 @@ async function processScheduledPushesDirect(
       continue;
     }
 
+    // 到期提醒模式：计划执行时间已超过到期时间，停止循环任务不再推送
+    if (push.scheduleType === 'recurring' && push.expiryAt) {
+      const expiryDate = new Date(push.expiryAt);
+      if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
+        await pushService.updateScheduledPushStatus(push.id, 'completed');
+        continue;
+      }
+    }
+
     const currentMinute = Math.floor(nowDate.getTime() / 60000);
     const existingLock = await getScheduledLock(env, username, push.id);
     if (existingLock && parseInt(existingLock.executedAt, 10) === currentMinute) {
@@ -602,6 +632,14 @@ async function processScheduledPushesDirect(
     if (scheduleType === 'recurring') {
       const nextScheduledAt = calculateNextScheduledAt(push, nowDate, userTimezone);
       await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
+
+      // 到期提醒模式：下次执行时间超过到期时间后停止循环任务
+      if (push.expiryAt) {
+        const expiryDate = new Date(push.expiryAt);
+        if (!isNaN(expiryDate.getTime()) && new Date(nextScheduledAt) > expiryDate) {
+          await pushService.updateScheduledPushStatus(push.id, 'completed');
+        }
+      }
     } else {
       await pushService.updateScheduledPushStatus(push.id, finalStatus);
     }
