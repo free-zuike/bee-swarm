@@ -51,6 +51,8 @@ interface ScheduledPushRow {
   overdue_reminder_sent?: number;
   ab_test_enabled?: number;
   ab_test_variants?: string;
+  expiry_at?: string; // 到期时间(到期提醒模式)
+  remind_days_before?: number; // 提前提醒天数
 }
 
 export interface PushTemplate {
@@ -155,6 +157,9 @@ export interface ScheduledPush {
   enabled?: boolean;
   // 时区配置，默认使用 Asia/Shanghai
   timezone?: string;
+  // 到期提醒模式：到期时间 + 提前提醒天数
+  expiryAt?: string;
+  remindDaysBefore?: number;
   // A/B 测试
   abTestEnabled?: boolean;
   abTestVariants?: Array<{ name: string; content: string; weight: number }>;
@@ -277,6 +282,8 @@ export class PushService {
         : undefined,
       cronExpression: result.cron || undefined,
       timezone: result.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
+      expiryAt: result.expiry_at || undefined,
+      remindDaysBefore: result.remind_days_before ?? undefined,
       abTestEnabled: result.ab_test_enabled === 1,
       abTestVariants: result.ab_test_variants ? JSON.parse(result.ab_test_variants) : undefined,
     };
@@ -624,6 +631,8 @@ export class PushService {
       selectedMonthDays: row.selected_month_days ? JSON.parse(row.selected_month_days) : undefined,
       cronExpression: row.cron || undefined,
       timezone: row.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
+      expiryAt: row.expiry_at || undefined,
+      remindDaysBefore: row.remind_days_before ?? undefined,
       abTestEnabled: row.ab_test_enabled === 1,
       abTestVariants: row.ab_test_variants ? JSON.parse(row.ab_test_variants) : undefined,
     }));
@@ -713,6 +722,19 @@ export class PushService {
       }
     }
 
+    // 到期提醒字段：单独更新以兼容没有这两列的旧库
+    if (push.expiryAt !== undefined || push.remindDaysBefore !== undefined) {
+      try {
+        await this.env.DB.prepare(
+          'UPDATE scheduled_pushes SET expiry_at = ?, remind_days_before = ? WHERE id = ? AND user_id = ?'
+        )
+          .bind(push.expiryAt || null, push.remindDaysBefore ?? 0, id, this.userId)
+          .run();
+      } catch {
+        // 忽略错误，数据库可能还没有 expiry_at / remind_days_before 字段
+      }
+    }
+
     return {
       ...push,
       id,
@@ -783,6 +805,14 @@ export class PushService {
     if (updates.timezone !== undefined) {
       fields.push('timezone = ?');
       values.push(updates.timezone);
+    }
+    if (updates.expiryAt !== undefined) {
+      fields.push('expiry_at = ?');
+      values.push(updates.expiryAt);
+    }
+    if (updates.remindDaysBefore !== undefined) {
+      fields.push('remind_days_before = ?');
+      values.push(updates.remindDaysBefore);
     }
     if (updates.abTestEnabled !== undefined) {
       fields.push('ab_test_enabled = ?');

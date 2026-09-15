@@ -173,6 +173,8 @@ const tools: MCPTool[] = [
         cronExpression: { type: 'string', description: 'Cron 表达式（仅 cron 类型，5 字段格式）' },
         timezone: { type: 'string', description: '时区，默认 Asia/Shanghai' },
         url: { type: 'string', description: '点击跳转链接' },
+        expiryAt: { type: 'string', description: '到期时间（ISO 8601，到期提醒模式）' },
+        remindDaysBefore: { type: 'number', description: '提前多少天提醒（到期提醒模式，如 30 表示提前 30 天提醒）' },
       },
       required: ['title', 'channels', 'scheduledAt'],
     },
@@ -194,6 +196,8 @@ const tools: MCPTool[] = [
         cronExpression: { type: 'string', description: 'Cron 表达式' },
         timezone: { type: 'string', description: '时区' },
         url: { type: 'string', description: '点击跳转链接' },
+        expiryAt: { type: 'string', description: '到期时间（ISO 8601，到期提醒模式）' },
+        remindDaysBefore: { type: 'number', description: '提前多少天提醒（到期提醒模式）' },
       },
       required: ['id'],
     },
@@ -612,6 +616,9 @@ async function handleCreateScheduledPush(
     selectedWeekDays,
     cronExpression: args.cronExpression ? String(args.cronExpression) : undefined,
     timezone,
+    expiryAt: args.expiryAt ? String(args.expiryAt) : undefined,
+    remindDaysBefore:
+      args.remindDaysBefore !== undefined ? Number(args.remindDaysBefore) : undefined,
   });
 
   return {
@@ -625,6 +632,8 @@ async function handleCreateScheduledPush(
     selectedWeekDays: push.selectedWeekDays,
     status: push.status,
     timezone: push.timezone,
+    expiryAt: push.expiryAt,
+    remindDaysBefore: push.remindDaysBefore,
   };
 }
 
@@ -676,6 +685,8 @@ async function handleUpdateScheduledPush(
       .map((d) => parseInt(d.trim(), 10))
       .filter((d) => !isNaN(d) && d >= 0 && d <= 6);
   }
+  if (args.expiryAt !== undefined) updates.expiryAt = String(args.expiryAt);
+  if (args.remindDaysBefore !== undefined) updates.remindDaysBefore = Number(args.remindDaysBefore);
 
   const updated = await pushService.updateScheduledPush(id, updates as any);
   if (!updated) {
@@ -693,6 +704,8 @@ async function handleUpdateScheduledPush(
       recurringType: updated.recurringType,
       status: updated.status,
       timezone: updated.timezone,
+      expiryAt: updated.expiryAt,
+      remindDaysBefore: updated.remindDaysBefore,
     },
   };
 }
@@ -757,6 +770,8 @@ async function handleGetScheduledPushDetail(
     status: r.status,
     enabled: r.enabled === 1,
     timezone: r.timezone || 'Asia/Shanghai',
+    expiryAt: r.expiry_at || undefined,
+    remindDaysBefore: r.remind_days_before ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -785,6 +800,8 @@ async function handleListScheduledPushes(
       channels: p.channels,
       enabled: p.enabled,
       timezone: p.timezone,
+      expiryAt: p.expiryAt,
+      remindDaysBefore: p.remindDaysBefore,
     })),
   };
 }

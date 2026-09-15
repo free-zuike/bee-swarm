@@ -476,6 +476,8 @@ export async function exportUserData(
       ab_test_enabled?: number;
       ab_test_variants?: string;
       overdue_reminder_sent?: number;
+      expiry_at?: string;
+      remind_days_before?: number;
       created_at: string;
       updated_at: string;
     }>();
@@ -503,6 +505,8 @@ export async function exportUserData(
         abTestEnabled: r.ab_test_enabled === 1,
         abTestVariants: r.ab_test_variants ? JSON.parse(r.ab_test_variants) : undefined,
         overdueReminderSent: r.overdue_reminder_sent === 1,
+        expiryAt: r.expiry_at || undefined,
+        remindDaysBefore: r.remind_days_before ?? undefined,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       };

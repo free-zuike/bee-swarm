@@ -423,6 +423,13 @@ class MockPreparedStatement {
               row.next_run = this.params[1];
               row.updated_at = this.params[2];
             }
+            if (sqlLower.includes('expiry_at = ?')) {
+              // createScheduledPush 后的补充 UPDATE 不含 updated_at：expiry_at=params[0], remind_days_before=params[1]
+              // updateScheduledPush 的 UPDATE 含 updated_at：expiry_at=params[1], remind_days_before=params[2]
+              const offset = sqlLower.includes('updated_at') ? 1 : 0;
+              row.expiry_at = this.params[offset];
+              row.remind_days_before = this.params[offset + 1];
+            }
             table.set(id, row);
             this.tables.set('scheduled_pushes', table);
             changes = 1;
@@ -684,6 +691,45 @@ describe('PushService', () => {
       
       expect(result.cancelled).toBe(2);
       expect(result.notFound).toBe(1);
+    });
+
+    it('应该正确创建到期提醒定时推送并回读字段', async () => {
+      const expiryAt = '2026-12-31T00:00:00.000Z';
+      const push = await pushService.createScheduledPush({
+        title: '域名续期提醒',
+        content: 'digitalplat.org 即将到期',
+        channels: ['wework'] as PushChannel[],
+        scheduledAt: new Date(Date.now() + 3600000).toISOString(),
+        expiryAt,
+        remindDaysBefore: 30,
+      });
+
+      expect(push.id).toBeDefined();
+      expect(push.expiryAt).toBe(expiryAt);
+      expect(push.remindDaysBefore).toBe(30);
+
+      // 列表回读应保留到期提醒字段
+      const pushes = await pushService.getScheduledPushes();
+      const saved = pushes.find((p) => p.id === push.id);
+      expect(saved?.expiryAt).toBe(expiryAt);
+      expect(saved?.remindDaysBefore).toBe(30);
+    });
+
+    it('应该能更新到期提醒字段', async () => {
+      const push = await pushService.createScheduledPush({
+        title: 'Test',
+        content: 'Test',
+        channels: [],
+        scheduledAt: new Date(Date.now() + 3600000).toISOString(),
+      });
+
+      const updated = await pushService.updateScheduledPush(push.id, {
+        expiryAt: '2027-06-30T00:00:00.000Z',
+        remindDaysBefore: 15,
+      });
+
+      expect(updated?.expiryAt).toBe('2027-06-30T00:00:00.000Z');
+      expect(updated?.remindDaysBefore).toBe(15);
     });
 
     it('应该正确批量启用定时推送', async () => {

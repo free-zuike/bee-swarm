@@ -393,6 +393,10 @@ export interface ScheduledPush {
   overdueAt?: string;
   /** 时区（如 Asia/Shanghai, America/New_York, UTC） */
   timezone?: string;
+  /** 到期时间（到期提醒模式，如域名到期日） */
+  expiryAt?: string;
+  /** 提前多少天提醒（到期提醒模式） */
+  remindDaysBefore?: number;
   /** A/B 测试是否启用 */
   abTestEnabled?: boolean;
   /** A/B 测试变体列表 */

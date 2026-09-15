@@ -781,6 +781,8 @@ export async function updateScheduledPush(
     intervalYears?: number;
     cronExpression?: string;
     timezone?: string;
+    expiryAt?: string;
+    remindDaysBefore?: number;
     abTestEnabled?: boolean;
     abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   }
@@ -831,6 +833,8 @@ export async function createScheduledPush(
     intervalYears?: number;
     cronExpression?: string;
     timezone?: string;
+    expiryAt?: string;
+    remindDaysBefore?: number;
     abTestEnabled?: boolean;
     abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   }

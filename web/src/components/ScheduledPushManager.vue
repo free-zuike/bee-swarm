@@ -48,6 +48,9 @@
                           : t('scheduled.scheduleType.once')
                       }}
                     </span>
+                    <span v-if="push.expiryAt" class="type-badge expiry">
+                      {{ t('scheduled.scheduleType.expiryReminder') }}
+                    </span>
                     <span v-if="push.abTestEnabled" class="type-badge ab-test">A/B</span>
                   </div>
                 </div>
@@ -56,6 +59,14 @@
                 <div class="field-row">
                   <span class="field-label">{{ t('scheduled.label.executeTime') }}</span>
                   <span class="field-value">{{ formatDateTime(push.scheduledAt) }}</span>
+                </div>
+                <div class="field-row" v-if="push.expiryAt">
+                  <span class="field-label">{{ t('scheduled.label.expiryAt') }}</span>
+                  <span class="field-value">{{ formatDateTime(push.expiryAt) }}</span>
+                </div>
+                <div class="field-row" v-if="push.expiryAt">
+                  <span class="field-label">{{ t('scheduled.label.remindDaysBefore') }}</span>
+                  <span class="field-value">{{ push.remindDaysBefore ?? 0 }} 天</span>
                 </div>
                 <div class="field-row">
                   <span class="field-label">{{ t('scheduled.label.channels') }}</span>
@@ -202,7 +213,47 @@
             </div>
 
             <div v-if="scheduleType === 'once'" class="datetime-section">
-              <div class="datetime-inputs">
+              <div class="expiry-toggle">
+                <label class="expiry-toggle-label">
+                  <input
+                    v-model="expiryReminderMode"
+                    type="checkbox"
+                    @change="onExpiryModeChange"
+                  />
+                  {{ t('scheduled.label.expiryReminder') }}
+                </label>
+              </div>
+
+              <template v-if="expiryReminderMode">
+                <div class="expiry-inputs">
+                  <div class="expiry-field">
+                    <label class="expiry-field-label">{{ t('scheduled.label.expiryDate') }}</label>
+                    <input v-model="newPush.expiryDate" type="date" :min="today" required />
+                  </div>
+                  <div class="expiry-field">
+                    <label class="expiry-field-label">{{
+                      t('scheduled.label.remindDaysBefore')
+                    }}</label>
+                    <input
+                      v-model.number="newPush.remindDaysBefore"
+                      type="number"
+                      min="0"
+                      max="365"
+                      required
+                    />
+                  </div>
+                </div>
+                <div class="expiry-preview">
+                  {{
+                    t('scheduled.label.expiryReminderPreview', {
+                      days: newPush.remindDaysBefore ?? 0,
+                      date: expiryReminderDate,
+                    })
+                  }}
+                </div>
+              </template>
+
+              <div v-else class="datetime-inputs">
                 <input v-model="newPush.date" type="date" :min="today" required />
                 <input v-model="newPush.time" type="time" required />
               </div>
@@ -808,6 +859,8 @@ interface ScheduledPush {
   timezone?: string;
   overdueReminderSent?: boolean;
   overdueAt?: string;
+  expiryAt?: string;
+  remindDaysBefore?: number;
   abTestEnabled?: boolean;
   abTestVariants?: Array<{ name: string; content: string; weight: number }>;
 }
@@ -853,6 +906,7 @@ const abTestVariants = ref<Array<{ name: string; content: string; weight: number
 ]);
 
 const scheduleType = ref<'once' | 'recurring'>('once');
+const expiryReminderMode = ref(false); // 到期提醒模式（单次执行下可用）
 const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron'>('daily');
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
 const selectedMonthDays = ref<number[]>([1, 15]);
@@ -972,6 +1026,8 @@ const newPush = ref({
   templateId: '',
   maxRetries: 3,
   timezone: 'Asia/Shanghai',
+  expiryDate: '',
+  remindDaysBefore: 30,
 });
 
 const filteredPushes = computed(() => {
@@ -1009,6 +1065,28 @@ function formatDateTime(dateStr: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+// 到期提醒模式：提醒日期 = 到期日期 - 提前天数（本地时区）
+const expiryReminderDate = computed(() => {
+  if (!newPush.value.expiryDate || newPush.value.remindDaysBefore === undefined) return '-';
+  const expiry = new Date(`${newPush.value.expiryDate}T00:00:00`);
+  if (isNaN(expiry.getTime())) return '-';
+  const remind = new Date(expiry.getTime() - newPush.value.remindDaysBefore * 24 * 60 * 60 * 1000);
+  return remind.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+});
+
+function onExpiryModeChange(): void {
+  if (expiryReminderMode.value) {
+    // 切换到到期提醒时，用到期日期生成提醒时间
+    if (!newPush.value.expiryDate) {
+      newPush.value.expiryDate = today;
+    }
+  }
 }
 
 function getChannelName(ch: string): string {
@@ -1066,7 +1144,10 @@ function resetForm(): void {
     templateId: '',
     maxRetries: 3,
     timezone: 'Asia/Shanghai',
+    expiryDate: '',
+    remindDaysBefore: 30,
   };
+  expiryReminderMode.value = false;
   scheduleType.value = 'once';
   recurringType.value = 'daily';
   selectedWeekDays.value = [1, 2, 3, 4, 5];
@@ -1142,6 +1223,17 @@ function openEditModal(push: ScheduledPush): void {
   const scheduledDate = new Date(push.scheduledAt);
   newPush.value.date = scheduledDate.toISOString().split('T')[0];
   newPush.value.time = scheduledDate.toTimeString().slice(0, 5);
+  // 到期提醒模式回显
+  if (push.expiryAt) {
+    expiryReminderMode.value = true;
+    const expiryDate = new Date(push.expiryAt);
+    if (!isNaN(expiryDate.getTime())) {
+      newPush.value.expiryDate = expiryDate.toISOString().split('T')[0];
+    }
+    newPush.value.remindDaysBefore = push.remindDaysBefore ?? 0;
+  } else {
+    expiryReminderMode.value = false;
+  }
   if (push.timezone) {
     newPush.value.timezone = push.timezone;
   }
@@ -1252,6 +1344,28 @@ async function updateScheduledPushHandler(): Promise<void> {
     return;
   }
 
+  // 到期提醒模式：提醒时间 = 到期时间 - 提前天数
+  let expiryAt: string | undefined;
+  let remindDaysBefore: number | undefined;
+  if (scheduleType.value === 'once' && expiryReminderMode.value) {
+    if (!newPush.value.expiryDate) {
+      showToast(t('scheduled.message.pleaseSelectExpiryDate'), 'error');
+      return;
+    }
+    expiryAt = `${newPush.value.expiryDate}T00:00:00`;
+    remindDaysBefore = newPush.value.remindDaysBefore ?? 0;
+    const expiry = new Date(expiryAt);
+    if (isNaN(expiry.getTime())) {
+      showToast(t('scheduled.message.pleaseSelectExpiryDate'), 'error');
+      return;
+    }
+    scheduledTime = new Date(expiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000);
+    if (isNaN(scheduledTime.getTime())) {
+      showToast(t('scheduled.message.invalidExpiryDate'), 'error');
+      return;
+    }
+  }
+
   creating.value = true;
   try {
     await updateScheduledPush(props.accessToken, editingPush.value.id, {
@@ -1267,6 +1381,8 @@ async function updateScheduledPushHandler(): Promise<void> {
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
       timezone: newPush.value.timezone,
+      expiryAt,
+      remindDaysBefore,
       abTestEnabled: abTestEnabled.value,
       abTestVariants: abTestEnabled.value ? abTestVariants.value : undefined,
     });
@@ -1306,6 +1422,28 @@ async function createScheduledPushHandler(): Promise<void> {
     return;
   }
 
+  // 到期提醒模式：提醒时间 = 到期时间 - 提前天数
+  let expiryAt: string | undefined;
+  let remindDaysBefore: number | undefined;
+  if (scheduleType.value === 'once' && expiryReminderMode.value) {
+    if (!newPush.value.expiryDate) {
+      showToast(t('scheduled.message.pleaseSelectExpiryDate'), 'error');
+      return;
+    }
+    expiryAt = `${newPush.value.expiryDate}T00:00:00`;
+    remindDaysBefore = newPush.value.remindDaysBefore ?? 0;
+    const expiry = new Date(expiryAt);
+    if (isNaN(expiry.getTime())) {
+      showToast(t('scheduled.message.pleaseSelectExpiryDate'), 'error');
+      return;
+    }
+    scheduledTime = new Date(expiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000);
+    if (isNaN(scheduledTime.getTime())) {
+      showToast(t('scheduled.message.invalidExpiryDate'), 'error');
+      return;
+    }
+  }
+
   if (scheduleType.value === 'once' && scheduledTime <= new Date()) {
     showToast(t('message.timeMustBeFuture'), 'error');
     return;
@@ -1331,6 +1469,8 @@ async function createScheduledPushHandler(): Promise<void> {
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
       timezone: newPush.value.timezone,
+      expiryAt,
+      remindDaysBefore,
       abTestEnabled: abTestEnabled.value,
       abTestVariants: abTestEnabled.value ? abTestVariants.value : undefined,
     });
@@ -2432,6 +2572,11 @@ async function loadTemplates(): Promise<void> {
   color: #fa8c16;
 }
 
+.type-badge.expiry {
+  background: #eb2f9620;
+  color: #eb2f96;
+}
+
 .toggle-upcoming-btn {
   background: var(--bg-panel, white);
   border: 1px solid var(--border-color, #d9d9d9);
@@ -2696,6 +2841,51 @@ async function loadTemplates(): Promise<void> {
 
 .datetime-section {
   margin-top: 12px;
+}
+
+.expiry-toggle {
+  margin-bottom: 12px;
+}
+
+.expiry-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  user-select: none;
+}
+
+.expiry-inputs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.expiry-field {
+  flex: 1;
+}
+
+.expiry-field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
+}
+
+.expiry-field input {
+  width: 100%;
+}
+
+.expiry-preview {
+  font-size: 12px;
+  color: #eb2f96;
+  background: #eb2f9610;
+  border: 1px solid #eb2f9630;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
 }
 
 .recurring-section {

@@ -2795,6 +2795,8 @@ adminApi.post('/scheduled', async (c) => {
     intervalHours?: number;
     cronExpression?: string;
     timezone?: string; // 自定义时区，例如 Asia/Shanghai, America/New_York, UTC
+    expiryAt?: string; // 到期时间（到期提醒模式）
+    remindDaysBefore?: number; // 提前多少天提醒（到期提醒模式）
   };
 
   if (!body.title || !body.scheduledAt || !body.channels?.length) {
@@ -2840,6 +2842,8 @@ adminApi.post('/scheduled', async (c) => {
     intervalHours: body.intervalHours,
     cronExpression: body.cronExpression,
     timezone: body.timezone || 'Asia/Shanghai', // 默认与备份任务保持一致
+    expiryAt: body.expiryAt,
+    remindDaysBefore: body.remindDaysBefore,
   });
 
   // 记录定时推送创建日志
@@ -2874,6 +2878,8 @@ adminApi.put('/scheduled/:id', async (c) => {
     intervalHours?: number;
     cronExpression?: string;
     timezone?: string; // 自定义时区
+    expiryAt?: string; // 到期时间（到期提醒模式）
+    remindDaysBefore?: number; // 提前多少天提醒（到期提醒模式）
   };
 
   const pushService = new PushService(c.env, username);

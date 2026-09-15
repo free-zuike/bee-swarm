@@ -46,6 +46,9 @@ export class MigrationService {
         'overdue_reminder_sent',
         'INTEGER DEFAULT 0'
       );
+      // 到期提醒:到期时间 + 提前提醒天数
+      await this.addColumnIfNotExists('scheduled_pushes', 'expiry_at', 'TEXT');
+      await this.addColumnIfNotExists('scheduled_pushes', 'remind_days_before', 'INTEGER DEFAULT 0');
 
       // 检查 push_history 表是否有需要的列
       await this.addColumnIfNotExists('push_history', 'channels', 'TEXT');
