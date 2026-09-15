@@ -1671,8 +1671,11 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
   const scheduledAt = new Date(push.scheduledAt);
   const hours = scheduledAt.getHours();
   const minutes = scheduledAt.getMinutes();
+  // 到期提醒模式：执行时间不能超过到期时间
+  const expiryDate = push.expiryAt ? new Date(push.expiryAt) : null;
 
-  let current = new Date(now);
+  // 从任务计划时间开始计算；若计划时间已过，则从当前时间开始
+  let current = scheduledAt > now ? new Date(scheduledAt) : new Date(now);
 
   switch (push.recurringType) {
     case 'hourly': {
@@ -1681,6 +1684,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
         current.setHours(current.getHours() + 1);
       }
       for (let i = 0; i < count; i++) {
+        if (expiryDate && current > expiryDate) break;
         executions.push(new Date(current));
         current.setHours(current.getHours() + 1);
       }
@@ -1693,6 +1697,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
         current.setDate(current.getDate() + 1);
       }
       for (let i = 0; i < count; i++) {
+        if (expiryDate && current > expiryDate) break;
         executions.push(new Date(current));
         current.setDate(current.getDate() + 1);
       }
@@ -1711,6 +1716,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
       }
       const maxDays = count * 7 + 7;
       for (let i = 0; i < maxDays && executions.length < count; i++) {
+        if (expiryDate && current > expiryDate) break;
         const dayOfWeek = current.getDay();
         if (weekdays.includes(dayOfWeek)) {
           executions.push(new Date(current));
@@ -1737,6 +1743,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
         for (const day of monthDays) {
           if (day > lastDay) continue; // 跳过当月不存在的日期（如2月没有31号）
           const candidate = new Date(year, month, day, hours, minutes, 0, 0);
+          if (expiryDate && candidate > expiryDate) continue;
           if (candidate > now && !executions.some((e) => e.getTime() === candidate.getTime())) {
             executions.push(candidate);
             if (executions.length >= count) break;
@@ -1761,6 +1768,7 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
           const lastDay = new Date(year, date.month, 0).getDate();
           if (date.day > lastDay) continue;
           const candidate = new Date(year, date.month - 1, date.day, hours, minutes, 0, 0);
+          if (expiryDate && candidate > expiryDate) continue;
           if (candidate > now && !executions.some((e) => e.getTime() === candidate.getTime())) {
             executions.push(candidate);
             if (executions.length >= count) break;
@@ -1773,7 +1781,10 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
     case 'cron': {
       if (push.cronExpression) {
         const nextDates = getNextCronExecutions(push.cronExpression, count, scheduledAt);
-        executions.push(...nextDates);
+        for (const d of nextDates) {
+          if (expiryDate && d > expiryDate) break;
+          executions.push(d);
+        }
       }
       break;
     }
