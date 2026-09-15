@@ -307,10 +307,26 @@
                 <button
                   type="button"
                   class="recurring-btn"
+                  :class="{ active: recurringType === 'intervalMonth' }"
+                  @click="recurringType = 'intervalMonth'"
+                >
+                  {{ t('scheduled.label.everyMonths') }}
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
                   :class="{ active: recurringType === 'yearly' }"
                   @click="recurringType = 'yearly'"
                 >
                   {{ t('scheduled.label.yearly') }}
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
+                  :class="{ active: recurringType === 'intervalYear' }"
+                  @click="recurringType = 'intervalYear'"
+                >
+                  {{ t('scheduled.label.everyYears') }}
                 </button>
                 <button
                   type="button"
@@ -400,6 +416,32 @@
                   </button>
                 </div>
                 <p class="selector-hint">{{ t('hint.yearly_dates') }}</p>
+              </div>
+
+              <div v-if="recurringType === 'intervalMonth'" class="interval-input">
+                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
+                <input
+                  v-model.number="intervalMonths"
+                  type="number"
+                  min="1"
+                  max="120"
+                  class="interval-number"
+                  required
+                />
+                <span class="interval-label">{{ t('scheduled.label.monthsOnce') }}</span>
+              </div>
+
+              <div v-if="recurringType === 'intervalYear'" class="interval-input">
+                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
+                <input
+                  v-model.number="intervalYears"
+                  type="number"
+                  min="1"
+                  max="10"
+                  class="interval-number"
+                  required
+                />
+                <span class="interval-label">{{ t('scheduled.label.yearsOnce') }}</span>
               </div>
 
               <div v-if="recurringType === 'cron'" class="cron-input">
@@ -907,7 +949,9 @@ const abTestVariants = ref<Array<{ name: string; content: string; weight: number
 
 const scheduleType = ref<'once' | 'recurring'>('once');
 const expiryReminderMode = ref(false); // 到期提醒模式（单次执行下可用）
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron' | 'intervalMonth' | 'intervalYear'>('daily');
+const intervalMonths = ref(3);
+const intervalYears = ref(1);
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
 const selectedMonthDays = ref<number[]>([1, 15]);
 const selectedMonths = ref<number[]>([1]);
@@ -1150,6 +1194,8 @@ function resetForm(): void {
   expiryReminderMode.value = false;
   scheduleType.value = 'once';
   recurringType.value = 'daily';
+  intervalMonths.value = 3;
+  intervalYears.value = 1;
   selectedWeekDays.value = [1, 2, 3, 4, 5];
   selectedMonthDays.value = [1, 15];
   cronExpression.value = '0 9 * * *';
@@ -1203,7 +1249,15 @@ function openEditModal(push: ScheduledPush): void {
       | 'weekly'
       | 'monthly'
       | 'yearly'
-      | 'cron';
+      | 'cron'
+      | 'intervalMonth'
+      | 'intervalYear';
+  }
+  if (push.intervalMonths) {
+    intervalMonths.value = push.intervalMonths;
+  }
+  if (push.intervalYears) {
+    intervalYears.value = push.intervalYears;
   }
   if (push.selectedWeekDays) {
     selectedWeekDays.value = [...push.selectedWeekDays];
@@ -1396,6 +1450,8 @@ async function updateScheduledPushHandler(): Promise<void> {
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
+      intervalMonths: recurringType.value === 'intervalMonth' ? intervalMonths.value : undefined,
+      intervalYears: recurringType.value === 'intervalYear' ? intervalYears.value : undefined,
       timezone: newPush.value.timezone,
       expiryAt,
       remindDaysBefore,
@@ -1501,6 +1557,8 @@ async function createScheduledPushHandler(): Promise<void> {
       // 每年任务：使用 yearlyDates 数组（每个元素包含 month 和 day）
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
+      intervalMonths: recurringType.value === 'intervalMonth' ? intervalMonths.value : undefined,
+      intervalYears: recurringType.value === 'intervalYear' ? intervalYears.value : undefined,
       timezone: newPush.value.timezone,
       expiryAt,
       remindDaysBefore,
@@ -1751,6 +1809,36 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
         }
         // 跳到下个月1号
         current = new Date(year, month + 1, 1, hours, minutes, 0, 0);
+      }
+      break;
+    }
+
+    case 'intervalMonth': {
+      const months = push.intervalMonths || 1;
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setMonth(current.getMonth() + months);
+        current.setHours(hours, minutes, 0, 0);
+      }
+      for (let i = 0; i < count; i++) {
+        if (expiryDate && current > expiryDate) break;
+        executions.push(new Date(current));
+        current.setMonth(current.getMonth() + months);
+      }
+      break;
+    }
+
+    case 'intervalYear': {
+      const years = push.intervalYears || 1;
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setFullYear(current.getFullYear() + years);
+        current.setHours(hours, minutes, 0, 0);
+      }
+      for (let i = 0; i < count; i++) {
+        if (expiryDate && current > expiryDate) break;
+        executions.push(new Date(current));
+        current.setFullYear(current.getFullYear() + years);
       }
       break;
     }
