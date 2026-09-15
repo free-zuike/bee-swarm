@@ -246,15 +246,16 @@ export default {
               nextScheduledAt
             );
 
-            // 到期提醒模式：下次执行时间超过到期时间后自动续期（到期日 + 续期周期，重新开始提醒）
+            // 到期提醒模式：下次执行时间超过到期时间后自动续期（到期日 + 循环周期，重新开始提醒）
             if (message.payload.expiryAt) {
               const expiryDate = new Date(message.payload.expiryAt);
               if (!isNaN(expiryDate.getTime()) && new Date(nextScheduledAt) > expiryDate) {
-                const renewMonths = message.payload.renewMonths ?? 12;
+                const { months, days } = getRenewalPeriod(message.payload as ScheduledPush);
                 const remindDaysBefore = message.payload.remindDaysBefore ?? 0;
-                // 新到期日 = 原到期日 + 续期周期（月）
+                // 新到期日 = 原到期日 + 续期周期（按循环间隔推进月/天）
                 const newExpiry = new Date(expiryDate);
-                newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+                if (months) newExpiry.setMonth(newExpiry.getMonth() + months);
+                if (days) newExpiry.setDate(newExpiry.getDate() + days);
                 // 新一轮提醒开始时间 = 新到期日 - 提前天数
                 const newStart = new Date(
                   newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
@@ -489,10 +490,11 @@ async function processScheduledPushes(
       if (push.scheduleType === 'recurring' && push.expiryAt) {
         const expiryDate = new Date(push.expiryAt);
         if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
-          const renewMonths = push.renewMonths ?? 12;
+          const { months, days } = getRenewalPeriod(push);
           const remindDaysBefore = push.remindDaysBefore ?? 0;
           const newExpiry = new Date(expiryDate);
-          newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+          if (months) newExpiry.setMonth(newExpiry.getMonth() + months);
+          if (days) newExpiry.setDate(newExpiry.getDate() + days);
           const newStart = new Date(
             newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
           );
@@ -606,10 +608,11 @@ async function processScheduledPushesDirect(
     if (push.scheduleType === 'recurring' && push.expiryAt) {
       const expiryDate = new Date(push.expiryAt);
       if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
-        const renewMonths = push.renewMonths ?? 12;
+        const { months, days } = getRenewalPeriod(push);
         const remindDaysBefore = push.remindDaysBefore ?? 0;
         const newExpiry = new Date(expiryDate);
-        newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+        if (months) newExpiry.setMonth(newExpiry.getMonth() + months);
+        if (days) newExpiry.setDate(newExpiry.getDate() + days);
         const newStart = new Date(
           newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
         );
@@ -668,15 +671,16 @@ async function processScheduledPushesDirect(
       const nextScheduledAt = calculateNextScheduledAt(push, nowDate, userTimezone);
       await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
 
-      // 到期提醒模式：下次执行时间超过到期时间后自动续期（到期日 + 续期周期，重新开始提醒）
+      // 到期提醒模式：下次执行时间超过到期时间后自动续期（到期日 + 循环周期，重新开始提醒）
       if (push.expiryAt) {
         const expiryDate = new Date(push.expiryAt);
         if (!isNaN(expiryDate.getTime()) && new Date(nextScheduledAt) > expiryDate) {
-          const renewMonths = push.renewMonths ?? 12;
+          const { months, days } = getRenewalPeriod(push);
           const remindDaysBefore = push.remindDaysBefore ?? 0;
-          // 新到期日 = 原到期日 + 续期周期（月）
+          // 新到期日 = 原到期日 + 续期周期（按循环间隔推进月/天）
           const newExpiry = new Date(expiryDate);
-          newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+          if (months) newExpiry.setMonth(newExpiry.getMonth() + months);
+          if (days) newExpiry.setDate(newExpiry.getDate() + days);
           // 新一轮提醒开始时间 = 新到期日 - 提前天数
           const newStart = new Date(
             newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
@@ -699,6 +703,40 @@ async function processScheduledPushesDirect(
       executedAt: String(currentMinute),
       createdAt: nowDate.toISOString(),
     });
+  }
+}
+
+/**
+ * 计算到期提醒任务的续期周期
+ * 续期步长直接复用循环间隔配置：
+ * - intervalDay: intervalDays 天
+ * - intervalMonth: intervalMonths 个月
+ * - intervalYear: intervalYears 年
+ * - daily: 1 天 / weekly: 7 天 / monthly: 1 月 / yearly: 1 年
+ * @returns { months, days } 续期推进的月数和天数
+ */
+export function getRenewalPeriod(push: ScheduledPush): { months: number; days: number } {
+  switch (push.recurringType) {
+    case 'intervalDay':
+      return { months: 0, days: push.intervalDays || 1 };
+    case 'intervalMonth':
+      return { months: push.intervalMonths || 1, days: 0 };
+    case 'intervalYear':
+      return { months: (push.intervalYears || 1) * 12, days: 0 };
+    case 'daily':
+      return { months: 0, days: 1 };
+    case 'weekly':
+      return { months: 0, days: 7 };
+    case 'monthly':
+      return { months: 1, days: 0 };
+    case 'yearly':
+      return { months: 12, days: 0 };
+    case 'hourly':
+    case 'cron':
+    case 'interval':
+    default:
+      // 没有明确周期配置时默认按 1 年续期
+      return { months: 12, days: 0 };
   }
 }
 

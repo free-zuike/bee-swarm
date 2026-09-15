@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateNextScheduledAt } from '../../src/index';
+import { calculateNextScheduledAt, getRenewalPeriod } from '../../src/index';
 import type { ScheduledPush } from '../../src/services/push';
 
 function weekdays(iso: string, tz = 'Asia/Shanghai'): string[] {
@@ -197,5 +197,47 @@ describe('calculateNextScheduledAt - yearly', () => {
     );
     // 2027-01-01 00:00 本地已过，应跳到 2028-01-01 00:00 本地 = UTC 2027-12-31T16:00
     expect(next).toBe('2027-12-31T16:00:00.000Z');
+  });
+});
+
+describe('getRenewalPeriod - 到期提醒续期周期（复用循环间隔）', () => {
+  it('intervalDay=3 应续期 3 天', () => {
+    const p = makePush({ recurringType: 'intervalDay', intervalDays: 3 });
+    expect(getRenewalPeriod(p)).toEqual({ months: 0, days: 3 });
+  });
+
+  it('intervalMonth=3 应续期 3 个月', () => {
+    const p = makePush({ recurringType: 'intervalMonth', intervalMonths: 3 });
+    expect(getRenewalPeriod(p)).toEqual({ months: 3, days: 0 });
+  });
+
+  it('intervalYear=2 应续期 24 个月', () => {
+    const p = makePush({ recurringType: 'intervalYear', intervalYears: 2 });
+    expect(getRenewalPeriod(p)).toEqual({ months: 24, days: 0 });
+  });
+
+  it('weekly 应续期 7 天', () => {
+    const p = makePush({ recurringType: 'weekly', selectedWeekDays: [1] });
+    expect(getRenewalPeriod(p)).toEqual({ months: 0, days: 7 });
+  });
+
+  it('monthly 应续期 1 个月', () => {
+    const p = makePush({ recurringType: 'monthly', selectedMonthDays: [1] });
+    expect(getRenewalPeriod(p)).toEqual({ months: 1, days: 0 });
+  });
+
+  it('yearly 应续期 12 个月', () => {
+    const p = makePush({ recurringType: 'yearly', yearlyDates: [{ month: 1, day: 1 }] });
+    expect(getRenewalPeriod(p)).toEqual({ months: 12, days: 0 });
+  });
+
+  it('daily 应续期 1 天', () => {
+    const p = makePush({ recurringType: 'daily' });
+    expect(getRenewalPeriod(p)).toEqual({ months: 0, days: 1 });
+  });
+
+  it('未指定周期时默认按 1 年续期', () => {
+    const p = makePush({ recurringType: 'cron', cronExpression: '0 9 * * *' });
+    expect(getRenewalPeriod(p)).toEqual({ months: 12, days: 0 });
   });
 });
