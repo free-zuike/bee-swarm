@@ -53,6 +53,11 @@ interface ScheduledPushRow {
   ab_test_variants?: string;
   expiry_at?: string; // 到期时间(到期提醒模式)
   remind_days_before?: number; // 提前提醒天数
+  renew_months?: number; // 续期周期(月),到期后自动推进
+  interval_days?: number; // 每几天
+  interval_hours?: number; // 每几小时
+  interval_months?: number; // 每几个月
+  interval_years?: number; // 每几年
 }
 
 export interface PushTemplate {
@@ -135,6 +140,7 @@ export interface ScheduledPush {
     | 'weekly'
     | 'monthly'
     | 'interval'
+    | 'intervalDay'
     | 'cron'
     | 'intervalMonth'
     | 'yearly'
@@ -143,6 +149,7 @@ export interface ScheduledPush {
   selectedMonthDays?: number[];
   // 每年任务的日期组合数组，每个元素包含月份和日期
   yearlyDates?: Array<{ month: number; day: number }>;
+  intervalDays?: number;
   intervalHours?: number;
   intervalMonths?: number;
   intervalYears?: number;
@@ -160,6 +167,8 @@ export interface ScheduledPush {
   // 到期提醒模式：到期时间 + 提前提醒天数
   expiryAt?: string;
   remindDaysBefore?: number;
+  // 续期周期（月），到期后自动将到期时间 +N 个月重新开始提醒，默认 12
+  renewMonths?: number;
   // A/B 测试
   abTestEnabled?: boolean;
   abTestVariants?: Array<{ name: string; content: string; weight: number }>;
@@ -284,6 +293,11 @@ export class PushService {
       timezone: result.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
       expiryAt: result.expiry_at || undefined,
       remindDaysBefore: result.remind_days_before ?? undefined,
+      renewMonths: result.renew_months ?? 12,
+      intervalDays: result.interval_days ?? undefined,
+      intervalHours: result.interval_hours ?? undefined,
+      intervalMonths: result.interval_months ?? undefined,
+      intervalYears: result.interval_years ?? undefined,
       abTestEnabled: result.ab_test_enabled === 1,
       abTestVariants: result.ab_test_variants ? JSON.parse(result.ab_test_variants) : undefined,
     };
@@ -633,6 +647,11 @@ export class PushService {
       timezone: row.timezone || 'Asia/Shanghai', // 如果列不存在，默认值
       expiryAt: row.expiry_at || undefined,
       remindDaysBefore: row.remind_days_before ?? undefined,
+      renewMonths: row.renew_months ?? 12,
+      intervalDays: row.interval_days ?? undefined,
+      intervalHours: row.interval_hours ?? undefined,
+      intervalMonths: row.interval_months ?? undefined,
+      intervalYears: row.interval_years ?? undefined,
       abTestEnabled: row.ab_test_enabled === 1,
       abTestVariants: row.ab_test_variants ? JSON.parse(row.ab_test_variants) : undefined,
     }));
@@ -722,16 +741,37 @@ export class PushService {
       }
     }
 
-    // 到期提醒字段：单独更新以兼容没有这两列的旧库
-    if (push.expiryAt !== undefined || push.remindDaysBefore !== undefined) {
+    // 到期提醒 + 循环间隔字段：单独更新以兼容没有这些列的旧库
+    if (
+      push.expiryAt !== undefined ||
+      push.remindDaysBefore !== undefined ||
+      push.renewMonths !== undefined ||
+      push.intervalDays !== undefined ||
+      push.intervalHours !== undefined ||
+      push.intervalMonths !== undefined ||
+      push.intervalYears !== undefined
+    ) {
       try {
         await this.env.DB.prepare(
-          'UPDATE scheduled_pushes SET expiry_at = ?, remind_days_before = ? WHERE id = ? AND user_id = ?'
+          `UPDATE scheduled_pushes SET
+            expiry_at = ?, remind_days_before = ?, renew_months = ?,
+            interval_days = ?, interval_hours = ?, interval_months = ?, interval_years = ?
+          WHERE id = ? AND user_id = ?`
         )
-          .bind(push.expiryAt || null, push.remindDaysBefore ?? 0, id, this.userId)
+          .bind(
+            push.expiryAt || null,
+            push.remindDaysBefore ?? 0,
+            push.renewMonths ?? 12,
+            push.intervalDays ?? null,
+            push.intervalHours ?? null,
+            push.intervalMonths ?? null,
+            push.intervalYears ?? null,
+            id,
+            this.userId
+          )
           .run();
       } catch {
-        // 忽略错误，数据库可能还没有 expiry_at / remind_days_before 字段
+        // 忽略错误，数据库可能还没有这些列
       }
     }
 
@@ -813,6 +853,26 @@ export class PushService {
     if (updates.remindDaysBefore !== undefined) {
       fields.push('remind_days_before = ?');
       values.push(updates.remindDaysBefore);
+    }
+    if (updates.renewMonths !== undefined) {
+      fields.push('renew_months = ?');
+      values.push(updates.renewMonths);
+    }
+    if (updates.intervalDays !== undefined) {
+      fields.push('interval_days = ?');
+      values.push(updates.intervalDays);
+    }
+    if (updates.intervalHours !== undefined) {
+      fields.push('interval_hours = ?');
+      values.push(updates.intervalHours);
+    }
+    if (updates.intervalMonths !== undefined) {
+      fields.push('interval_months = ?');
+      values.push(updates.intervalMonths);
+    }
+    if (updates.intervalYears !== undefined) {
+      fields.push('interval_years = ?');
+      values.push(updates.intervalYears);
     }
     if (updates.abTestEnabled !== undefined) {
       fields.push('ab_test_enabled = ?');
@@ -940,6 +1000,28 @@ export class PushService {
     `
     )
       .bind(status, nextRunMinutes, new Date().toISOString(), id, this.userId)
+      .run();
+  }
+
+  /**
+   * 到期提醒自动续期：更新到期时间并重置下次执行时间
+   * @param newExpiryAt 新的到期时间（ISO）
+   * @param newNextRun 新一轮提醒开始时间（ISO）
+   */
+  async updateScheduledPushExpiryAndTime(
+    id: string,
+    newExpiryAt: string,
+    newNextRun: string
+  ): Promise<void> {
+    if (!this.env.DB) return;
+
+    const nextRunMinutes = Math.floor(new Date(newNextRun).getTime() / 60000);
+    await this.env.DB.prepare(
+      `
+      UPDATE scheduled_pushes SET expiry_at = ?, next_run = ?, status = 'pending', updated_at = ? WHERE id = ? AND user_id = ?
+    `
+    )
+      .bind(newExpiryAt, nextRunMinutes, new Date().toISOString(), id, this.userId)
       .run();
   }
 

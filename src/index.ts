@@ -246,13 +246,23 @@ export default {
               nextScheduledAt
             );
 
-            // 到期提醒模式：下次执行时间超过到期时间后停止循环任务
+            // 到期提醒模式：下次执行时间超过到期时间后自动续期（到期日 + 续期周期，重新开始提醒）
             if (message.payload.expiryAt) {
               const expiryDate = new Date(message.payload.expiryAt);
               if (!isNaN(expiryDate.getTime()) && new Date(nextScheduledAt) > expiryDate) {
-                await pushService.updateScheduledPushStatus(
+                const renewMonths = message.payload.renewMonths ?? 12;
+                const remindDaysBefore = message.payload.remindDaysBefore ?? 0;
+                // 新到期日 = 原到期日 + 续期周期（月）
+                const newExpiry = new Date(expiryDate);
+                newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+                // 新一轮提醒开始时间 = 新到期日 - 提前天数
+                const newStart = new Date(
+                  newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
+                );
+                await pushService.updateScheduledPushExpiryAndTime(
                   message.payload.scheduledPushId,
-                  'completed'
+                  newExpiry.toISOString(),
+                  newStart.toISOString()
                 );
               }
             }
@@ -475,11 +485,22 @@ async function processScheduledPushes(
         continue;
       }
 
-      // 到期提醒模式：计划执行时间已超过到期时间，停止循环任务不再推送
+      // 到期提醒模式：计划执行时间已超过到期时间，自动续期并重置提醒开始时间
       if (push.scheduleType === 'recurring' && push.expiryAt) {
         const expiryDate = new Date(push.expiryAt);
         if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
-          await pushService.updateScheduledPushStatus(push.id, 'completed');
+          const renewMonths = push.renewMonths ?? 12;
+          const remindDaysBefore = push.remindDaysBefore ?? 0;
+          const newExpiry = new Date(expiryDate);
+          newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+          const newStart = new Date(
+            newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
+          );
+          await pushService.updateScheduledPushExpiryAndTime(
+            push.id,
+            newExpiry.toISOString(),
+            newStart.toISOString()
+          );
           continue;
         }
       }
@@ -518,11 +539,14 @@ async function processScheduledPushes(
           selectedWeekDays: push.selectedWeekDays,
           selectedMonthDays: push.selectedMonthDays,
           yearlyDates: push.yearlyDates,
+          intervalDays: push.intervalDays,
           intervalHours: push.intervalHours,
           intervalMonths: push.intervalMonths,
           intervalYears: push.intervalYears,
           cronExpression: push.cronExpression,
           expiryAt: push.expiryAt,
+          remindDaysBefore: push.remindDaysBefore,
+          renewMonths: push.renewMonths,
         },
         createdAt: new Date().toISOString(),
       });
@@ -578,11 +602,22 @@ async function processScheduledPushesDirect(
       continue;
     }
 
-    // 到期提醒模式：计划执行时间已超过到期时间，停止循环任务不再推送
+    // 到期提醒模式：计划执行时间已超过到期时间，自动续期并重置提醒开始时间
     if (push.scheduleType === 'recurring' && push.expiryAt) {
       const expiryDate = new Date(push.expiryAt);
       if (!isNaN(expiryDate.getTime()) && scheduledTime > expiryDate) {
-        await pushService.updateScheduledPushStatus(push.id, 'completed');
+        const renewMonths = push.renewMonths ?? 12;
+        const remindDaysBefore = push.remindDaysBefore ?? 0;
+        const newExpiry = new Date(expiryDate);
+        newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+        const newStart = new Date(
+          newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
+        );
+        await pushService.updateScheduledPushExpiryAndTime(
+          push.id,
+          newExpiry.toISOString(),
+          newStart.toISOString()
+        );
         continue;
       }
     }
@@ -633,11 +668,24 @@ async function processScheduledPushesDirect(
       const nextScheduledAt = calculateNextScheduledAt(push, nowDate, userTimezone);
       await pushService.updateScheduledPushAndTime(push.id, 'pending', nextScheduledAt);
 
-      // 到期提醒模式：下次执行时间超过到期时间后停止循环任务
+      // 到期提醒模式：下次执行时间超过到期时间后自动续期（到期日 + 续期周期，重新开始提醒）
       if (push.expiryAt) {
         const expiryDate = new Date(push.expiryAt);
         if (!isNaN(expiryDate.getTime()) && new Date(nextScheduledAt) > expiryDate) {
-          await pushService.updateScheduledPushStatus(push.id, 'completed');
+          const renewMonths = push.renewMonths ?? 12;
+          const remindDaysBefore = push.remindDaysBefore ?? 0;
+          // 新到期日 = 原到期日 + 续期周期（月）
+          const newExpiry = new Date(expiryDate);
+          newExpiry.setMonth(newExpiry.getMonth() + renewMonths);
+          // 新一轮提醒开始时间 = 新到期日 - 提前天数
+          const newStart = new Date(
+            newExpiry.getTime() - remindDaysBefore * 24 * 60 * 60 * 1000
+          );
+          await pushService.updateScheduledPushExpiryAndTime(
+            push.id,
+            newExpiry.toISOString(),
+            newStart.toISOString()
+          );
         }
       }
     } else {
@@ -693,6 +741,16 @@ export function calculateNextScheduledAt(
       nextTime.setUTCHours(nextTime.getUTCHours() + intervalHours);
       while (nextTime <= nowDate) {
         nextTime.setUTCHours(nextTime.getUTCHours() + intervalHours);
+      }
+      return nextTime.toISOString();
+    }
+
+    case 'intervalDay': {
+      const intervalDays = push.intervalDays || 1;
+      const nextTime = new Date(baseTime);
+      nextTime.setUTCDate(nextTime.getUTCDate() + intervalDays);
+      while (nextTime <= nowDate) {
+        nextTime.setUTCDate(nextTime.getUTCDate() + intervalDays);
       }
       return nextTime.toISOString();
     }

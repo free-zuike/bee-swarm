@@ -168,13 +168,17 @@ const tools: MCPTool[] = [
         channels: { type: 'string', description: '目标渠道，逗号分隔' },
         scheduledAt: { type: 'string', description: '首次执行时间（ISO 8601 格式，如 2025-01-01T10:00:00+08:00）' },
         scheduleType: { type: 'string', description: '调度类型：once（一次性）或 recurring（循环）', enum: ['once', 'recurring'] },
-        recurringType: { type: 'string', description: '循环类型：daily / weekly / monthly / hourly / cron', enum: ['daily', 'weekly', 'monthly', 'hourly', 'cron'] },
+        recurringType: { type: 'string', description: '循环类型：daily / weekly / monthly / hourly / cron / intervalDay / intervalMonth / intervalYear', enum: ['daily', 'weekly', 'monthly', 'hourly', 'cron', 'intervalDay', 'intervalMonth', 'intervalYear'] },
         selectedWeekDays: { type: 'string', description: '每周执行日（仅 weekly 类型，0-6 逗号分隔，如 1,3,5 表示周一三五）' },
+        intervalDays: { type: 'number', description: '每几天执行一次（仅 intervalDay 类型）' },
+        intervalMonths: { type: 'number', description: '每几个月执行一次（仅 intervalMonth 类型）' },
+        intervalYears: { type: 'number', description: '每几年执行一次（仅 intervalYear 类型）' },
         cronExpression: { type: 'string', description: 'Cron 表达式（仅 cron 类型，5 字段格式）' },
         timezone: { type: 'string', description: '时区，默认 Asia/Shanghai' },
         url: { type: 'string', description: '点击跳转链接' },
         expiryAt: { type: 'string', description: '到期时间（ISO 8601，到期提醒模式）' },
         remindDaysBefore: { type: 'number', description: '提前多少天提醒（到期提醒模式，如 30 表示提前 30 天提醒）' },
+        renewMonths: { type: 'number', description: '续期周期（月），到期后自动 +N 个月重新提醒，默认 12' },
       },
       required: ['title', 'channels', 'scheduledAt'],
     },
@@ -191,13 +195,17 @@ const tools: MCPTool[] = [
         channels: { type: 'string', description: '目标渠道，逗号分隔' },
         scheduledAt: { type: 'string', description: '执行时间（ISO 8601）' },
         scheduleType: { type: 'string', description: '调度类型', enum: ['once', 'recurring'] },
-        recurringType: { type: 'string', description: '循环类型', enum: ['daily', 'weekly', 'monthly', 'hourly', 'cron'] },
+        recurringType: { type: 'string', description: '循环类型', enum: ['daily', 'weekly', 'monthly', 'hourly', 'cron', 'intervalDay', 'intervalMonth', 'intervalYear'] },
         selectedWeekDays: { type: 'string', description: '每周执行日，逗号分隔' },
+        intervalDays: { type: 'number', description: '每几天执行一次（仅 intervalDay 类型）' },
+        intervalMonths: { type: 'number', description: '每几个月执行一次（仅 intervalMonth 类型）' },
+        intervalYears: { type: 'number', description: '每几年执行一次（仅 intervalYear 类型）' },
         cronExpression: { type: 'string', description: 'Cron 表达式' },
         timezone: { type: 'string', description: '时区' },
         url: { type: 'string', description: '点击跳转链接' },
         expiryAt: { type: 'string', description: '到期时间（ISO 8601，到期提醒模式）' },
         remindDaysBefore: { type: 'number', description: '提前多少天提醒（到期提醒模式）' },
+        renewMonths: { type: 'number', description: '续期周期（月），到期后自动 +N 个月重新提醒' },
       },
       required: ['id'],
     },
@@ -619,6 +627,10 @@ async function handleCreateScheduledPush(
     expiryAt: args.expiryAt ? String(args.expiryAt) : undefined,
     remindDaysBefore:
       args.remindDaysBefore !== undefined ? Number(args.remindDaysBefore) : undefined,
+    renewMonths: args.renewMonths !== undefined ? Number(args.renewMonths) : undefined,
+    intervalDays: args.intervalDays !== undefined ? Number(args.intervalDays) : undefined,
+    intervalMonths: args.intervalMonths !== undefined ? Number(args.intervalMonths) : undefined,
+    intervalYears: args.intervalYears !== undefined ? Number(args.intervalYears) : undefined,
   });
 
   return {
@@ -634,6 +646,10 @@ async function handleCreateScheduledPush(
     timezone: push.timezone,
     expiryAt: push.expiryAt,
     remindDaysBefore: push.remindDaysBefore,
+    renewMonths: push.renewMonths,
+    intervalDays: push.intervalDays,
+    intervalMonths: push.intervalMonths,
+    intervalYears: push.intervalYears,
   };
 }
 
@@ -687,6 +703,10 @@ async function handleUpdateScheduledPush(
   }
   if (args.expiryAt !== undefined) updates.expiryAt = String(args.expiryAt);
   if (args.remindDaysBefore !== undefined) updates.remindDaysBefore = Number(args.remindDaysBefore);
+  if (args.renewMonths !== undefined) updates.renewMonths = Number(args.renewMonths);
+  if (args.intervalDays !== undefined) updates.intervalDays = Number(args.intervalDays);
+  if (args.intervalMonths !== undefined) updates.intervalMonths = Number(args.intervalMonths);
+  if (args.intervalYears !== undefined) updates.intervalYears = Number(args.intervalYears);
 
   const updated = await pushService.updateScheduledPush(id, updates as any);
   if (!updated) {
@@ -706,6 +726,10 @@ async function handleUpdateScheduledPush(
       timezone: updated.timezone,
       expiryAt: updated.expiryAt,
       remindDaysBefore: updated.remindDaysBefore,
+      renewMonths: updated.renewMonths,
+      intervalDays: updated.intervalDays,
+      intervalMonths: updated.intervalMonths,
+      intervalYears: updated.intervalYears,
     },
   };
 }

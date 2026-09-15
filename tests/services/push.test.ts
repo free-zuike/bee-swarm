@@ -424,11 +424,19 @@ class MockPreparedStatement {
               row.updated_at = this.params[2];
             }
             if (sqlLower.includes('expiry_at = ?')) {
-              // createScheduledPush 后的补充 UPDATE 不含 updated_at：expiry_at=params[0], remind_days_before=params[1]
-              // updateScheduledPush 的 UPDATE 含 updated_at：expiry_at=params[1], remind_days_before=params[2]
+              // createScheduledPush 后的补充 UPDATE 不含 updated_at：
+              //   expiry_at=params[0], remind_days_before=params[1], renew_months=params[2],
+              //   interval_days=params[3], interval_hours=params[4], interval_months=params[5], interval_years=params[6]
+              // updateScheduledPush 的 UPDATE 含 updated_at（值从 params[1] 开始）：
+              //   expiry_at=params[1], remind_days_before=params[2], renew_months=params[3], ...
               const offset = sqlLower.includes('updated_at') ? 1 : 0;
               row.expiry_at = this.params[offset];
               row.remind_days_before = this.params[offset + 1];
+              row.renew_months = this.params[offset + 2];
+              row.interval_days = this.params[offset + 3];
+              row.interval_hours = this.params[offset + 4];
+              row.interval_months = this.params[offset + 5];
+              row.interval_years = this.params[offset + 6];
             }
             table.set(id, row);
             this.tables.set('scheduled_pushes', table);
@@ -756,6 +764,37 @@ describe('PushService', () => {
       expect(saved?.recurringType).toBe('weekly');
       expect(saved?.expiryAt).toBe(expiryAt);
       expect(saved?.remindDaysBefore).toBe(30);
+    });
+
+    it('应该正确创建每N天+到期提醒任务并回读字段', async () => {
+      const expiryAt = '2027-05-25T00:00:00.000Z';
+      const push = await pushService.createScheduledPush({
+        title: '每3天到期提醒',
+        content: '每3天提醒续期',
+        channels: ['wework'] as PushChannel[],
+        scheduledAt: new Date(Date.now() + 3600000).toISOString(),
+        scheduleType: 'recurring',
+        recurringType: 'intervalDay',
+        intervalDays: 3,
+        expiryAt,
+        remindDaysBefore: 120,
+        renewMonths: 12,
+      });
+
+      expect(push.scheduleType).toBe('recurring');
+      expect(push.recurringType).toBe('intervalDay');
+      expect(push.intervalDays).toBe(3);
+      expect(push.expiryAt).toBe(expiryAt);
+      expect(push.remindDaysBefore).toBe(120);
+      expect(push.renewMonths).toBe(12);
+
+      const pushes = await pushService.getScheduledPushes();
+      const saved = pushes.find((p) => p.id === push.id);
+      expect(saved?.recurringType).toBe('intervalDay');
+      expect(saved?.intervalDays).toBe(3);
+      expect(saved?.expiryAt).toBe(expiryAt);
+      expect(saved?.remindDaysBefore).toBe(120);
+      expect(saved?.renewMonths).toBe(12);
     });
 
     it('应该正确批量启用定时推送', async () => {

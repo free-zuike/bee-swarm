@@ -2789,14 +2789,29 @@ adminApi.post('/scheduled', async (c) => {
     scheduledAt: string;
     templateId?: string;
     scheduleType?: 'once' | 'recurring';
-    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron';
+    recurringType?:
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'interval'
+      | 'intervalDay'
+      | 'cron'
+      | 'intervalMonth'
+      | 'yearly'
+      | 'intervalYear';
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
+    yearlyDates?: Array<{ month: number; day: number }>;
+    intervalDays?: number;
     intervalHours?: number;
+    intervalMonths?: number;
+    intervalYears?: number;
     cronExpression?: string;
     timezone?: string; // 自定义时区，例如 Asia/Shanghai, America/New_York, UTC
     expiryAt?: string; // 到期时间（到期提醒模式）
     remindDaysBefore?: number; // 提前多少天提醒（到期提醒模式）
+    renewMonths?: number; // 续期周期（月），默认 12
   };
 
   if (!body.title || !body.scheduledAt || !body.channels?.length) {
@@ -2839,11 +2854,16 @@ adminApi.post('/scheduled', async (c) => {
     recurringType: body.recurringType,
     selectedWeekDays: body.selectedWeekDays,
     selectedMonthDays: body.selectedMonthDays,
+    yearlyDates: body.yearlyDates,
+    intervalDays: body.intervalDays,
     intervalHours: body.intervalHours,
+    intervalMonths: body.intervalMonths,
+    intervalYears: body.intervalYears,
     cronExpression: body.cronExpression,
     timezone: body.timezone || 'Asia/Shanghai', // 默认与备份任务保持一致
     expiryAt: body.expiryAt,
     remindDaysBefore: body.remindDaysBefore,
+    renewMonths: body.renewMonths,
   });
 
   // 记录定时推送创建日志
@@ -2872,14 +2892,29 @@ adminApi.put('/scheduled/:id', async (c) => {
     scheduledAt?: string;
     templateId?: string;
     scheduleType?: 'once' | 'recurring';
-    recurringType?: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'interval' | 'cron';
+    recurringType?:
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'interval'
+      | 'intervalDay'
+      | 'cron'
+      | 'intervalMonth'
+      | 'yearly'
+      | 'intervalYear';
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
+    yearlyDates?: Array<{ month: number; day: number }>;
+    intervalDays?: number;
     intervalHours?: number;
+    intervalMonths?: number;
+    intervalYears?: number;
     cronExpression?: string;
     timezone?: string; // 自定义时区
     expiryAt?: string; // 到期时间（到期提醒模式）
     remindDaysBefore?: number; // 提前多少天提醒（到期提醒模式）
+    renewMonths?: number; // 续期周期（月），默认 12
   };
 
   const pushService = new PushService(c.env, username);

@@ -359,6 +359,7 @@ export interface ScheduledPush {
     | 'weekly'
     | 'monthly'
     | 'interval'
+    | 'intervalDay'
     | 'cron'
     | 'intervalMonth'
     | 'yearly'
@@ -367,6 +368,8 @@ export interface ScheduledPush {
   selectedWeekDays?: number[];
   /** 每月选择的日期（1-31） */
   selectedMonthDays?: number[];
+  /** 间隔天数（仅 intervalDay 类型） */
+  intervalDays?: number;
   /** 间隔小时数（仅 interval 类型） */
   intervalHours?: number;
   /** 间隔月数（仅 intervalMonth 类型） */
@@ -397,6 +400,8 @@ export interface ScheduledPush {
   expiryAt?: string;
   /** 提前多少天提醒（到期提醒模式） */
   remindDaysBefore?: number;
+  /** 续期周期（月），到期后自动将到期时间 +N 个月重新开始提醒，默认 12 */
+  renewMonths?: number;
   /** A/B 测试是否启用 */
   abTestEnabled?: boolean;
   /** A/B 测试变体列表 */

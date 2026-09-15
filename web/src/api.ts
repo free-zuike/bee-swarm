@@ -769,6 +769,7 @@ export async function updateScheduledPush(
       | 'weekly'
       | 'monthly'
       | 'interval'
+      | 'intervalDay'
       | 'cron'
       | 'intervalMonth'
       | 'yearly'
@@ -776,6 +777,7 @@ export async function updateScheduledPush(
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
     yearlyDates?: Array<{ month: number; day: number }>;
+    intervalDays?: number;
     intervalHours?: number;
     intervalMonths?: number;
     intervalYears?: number;
@@ -783,6 +785,7 @@ export async function updateScheduledPush(
     timezone?: string;
     expiryAt?: string;
     remindDaysBefore?: number;
+    renewMonths?: number;
     abTestEnabled?: boolean;
     abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   }
@@ -821,6 +824,7 @@ export async function createScheduledPush(
       | 'weekly'
       | 'monthly'
       | 'interval'
+      | 'intervalDay'
       | 'cron'
       | 'intervalMonth'
       | 'yearly'
@@ -828,6 +832,7 @@ export async function createScheduledPush(
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
     yearlyDates?: Array<{ month: number; day: number }>;
+    intervalDays?: number;
     intervalHours?: number;
     intervalMonths?: number;
     intervalYears?: number;
@@ -835,6 +840,7 @@ export async function createScheduledPush(
     timezone?: string;
     expiryAt?: string;
     remindDaysBefore?: number;
+    renewMonths?: number;
     abTestEnabled?: boolean;
     abTestVariants?: Array<{ name: string; content: string; weight: number }>;
   }

@@ -22,12 +22,15 @@ export interface PushQueueMessage {
     selectedWeekDays?: number[];
     selectedMonthDays?: number[];
     yearlyDates?: Array<{ month: number; day: number }>;
+    intervalDays?: number;
     intervalHours?: number;
     intervalMonths?: number;
     intervalYears?: number;
     cronExpression?: string;
     // 到期提醒模式：到期时间，循环任务超过该时间后自动停止
     expiryAt?: string;
+    remindDaysBefore?: number;
+    renewMonths?: number;
   };
   createdAt: string;
 }

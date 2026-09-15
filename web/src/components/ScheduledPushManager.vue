@@ -291,6 +291,14 @@
                 <button
                   type="button"
                   class="recurring-btn"
+                  :class="{ active: recurringType === 'intervalDay' }"
+                  @click="recurringType = 'intervalDay'"
+                >
+                  {{ t('scheduled.label.everyDays') }}
+                </button>
+                <button
+                  type="button"
+                  class="recurring-btn"
                   :class="{ active: recurringType === 'weekly' }"
                   @click="recurringType = 'weekly'"
                 >
@@ -416,6 +424,19 @@
                   </button>
                 </div>
                 <p class="selector-hint">{{ t('hint.yearly_dates') }}</p>
+              </div>
+
+              <div v-if="recurringType === 'intervalDay'" class="interval-input">
+                <label class="interval-label">{{ t('scheduled.label.every') }}</label>
+                <input
+                  v-model.number="intervalDays"
+                  type="number"
+                  min="1"
+                  max="365"
+                  class="interval-number"
+                  required
+                />
+                <span class="interval-label">{{ t('scheduled.label.daysOnce') }}</span>
               </div>
 
               <div v-if="recurringType === 'intervalMonth'" class="interval-input">
@@ -887,6 +908,7 @@ interface ScheduledPush {
     | 'weekly'
     | 'monthly'
     | 'interval'
+    | 'intervalDay'
     | 'cron'
     | 'intervalMonth'
     | 'yearly'
@@ -894,6 +916,7 @@ interface ScheduledPush {
   selectedWeekDays?: number[];
   selectedMonthDays?: number[];
   yearlyDates?: Array<{ month: number; day: number }>;
+  intervalDays?: number;
   intervalHours?: number;
   intervalMonths?: number;
   intervalYears?: number;
@@ -903,6 +926,7 @@ interface ScheduledPush {
   overdueAt?: string;
   expiryAt?: string;
   remindDaysBefore?: number;
+  renewMonths?: number;
   abTestEnabled?: boolean;
   abTestVariants?: Array<{ name: string; content: string; weight: number }>;
 }
@@ -949,7 +973,8 @@ const abTestVariants = ref<Array<{ name: string; content: string; weight: number
 
 const scheduleType = ref<'once' | 'recurring'>('once');
 const expiryReminderMode = ref(false); // 到期提醒模式（单次执行下可用）
-const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron' | 'intervalMonth' | 'intervalYear'>('daily');
+const recurringType = ref<'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'cron' | 'intervalDay' | 'intervalMonth' | 'intervalYear'>('daily');
+const intervalDays = ref(2);
 const intervalMonths = ref(3);
 const intervalYears = ref(1);
 const selectedWeekDays = ref<number[]>([1, 2, 3, 4, 5]);
@@ -1194,6 +1219,7 @@ function resetForm(): void {
   expiryReminderMode.value = false;
   scheduleType.value = 'once';
   recurringType.value = 'daily';
+  intervalDays.value = 2;
   intervalMonths.value = 3;
   intervalYears.value = 1;
   selectedWeekDays.value = [1, 2, 3, 4, 5];
@@ -1250,8 +1276,12 @@ function openEditModal(push: ScheduledPush): void {
       | 'monthly'
       | 'yearly'
       | 'cron'
+      | 'intervalDay'
       | 'intervalMonth'
       | 'intervalYear';
+  }
+  if (push.intervalDays) {
+    intervalDays.value = push.intervalDays;
   }
   if (push.intervalMonths) {
     intervalMonths.value = push.intervalMonths;
@@ -1450,6 +1480,7 @@ async function updateScheduledPushHandler(): Promise<void> {
       selectedMonthDays: recurringType.value === 'monthly' ? selectedMonthDays.value : undefined,
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
+      intervalDays: recurringType.value === 'intervalDay' ? intervalDays.value : undefined,
       intervalMonths: recurringType.value === 'intervalMonth' ? intervalMonths.value : undefined,
       intervalYears: recurringType.value === 'intervalYear' ? intervalYears.value : undefined,
       timezone: newPush.value.timezone,
@@ -1557,6 +1588,7 @@ async function createScheduledPushHandler(): Promise<void> {
       // 每年任务：使用 yearlyDates 数组（每个元素包含 month 和 day）
       yearlyDates: recurringType.value === 'yearly' ? yearlyDates.value : undefined,
       cronExpression: recurringType.value === 'cron' ? cronExpression.value : undefined,
+      intervalDays: recurringType.value === 'intervalDay' ? intervalDays.value : undefined,
       intervalMonths: recurringType.value === 'intervalMonth' ? intervalMonths.value : undefined,
       intervalYears: recurringType.value === 'intervalYear' ? intervalYears.value : undefined,
       timezone: newPush.value.timezone,
@@ -1617,6 +1649,15 @@ function calculateNextValidTime(scheduledTime: Date): Date {
       // 每天执行，明天同一时间
       const next = new Date(now);
       next.setDate(next.getDate() + 1);
+      next.setHours(hours, minutes, 0, 0);
+      return next;
+    }
+
+    case 'intervalDay': {
+      // 每 N 天执行
+      const days = intervalDays.value || 1;
+      const next = new Date(now);
+      next.setDate(next.getDate() + days);
       next.setHours(hours, minutes, 0, 0);
       return next;
     }
@@ -1762,6 +1803,20 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
       break;
     }
 
+    case 'intervalDay': {
+      const intervalDays = push.intervalDays || 1;
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setDate(current.getDate() + intervalDays);
+      }
+      for (let i = 0; i < count; i++) {
+        if (expiryDate && current > expiryDate) break;
+        executions.push(new Date(current));
+        current.setDate(current.getDate() + intervalDays);
+      }
+      break;
+    }
+
     case 'weekly': {
       const weekdays =
         push.selectedWeekDays && push.selectedWeekDays.length > 0
@@ -1824,6 +1879,21 @@ function getUpcomingExecutions(push: ScheduledPush, count: number = 10): Date[] 
         if (expiryDate && current > expiryDate) break;
         executions.push(new Date(current));
         current.setMonth(current.getMonth() + months);
+      }
+      break;
+    }
+
+    case 'intervalDay': {
+      const days = push.intervalDays || 1;
+      current.setHours(hours, minutes, 0, 0);
+      if (current <= now) {
+        current.setDate(current.getDate() + days);
+        current.setHours(hours, minutes, 0, 0);
+      }
+      for (let i = 0; i < count; i++) {
+        if (expiryDate && current > expiryDate) break;
+        executions.push(new Date(current));
+        current.setDate(current.getDate() + days);
       }
       break;
     }
@@ -2144,6 +2214,12 @@ function openRescheduleModal(push: ScheduledPush): void {
       case 'interval': {
         const hours = push.intervalHours || 2;
         nextDate.setHours(nextDate.getHours() + hours, 0, 0, 0);
+        break;
+      }
+      case 'intervalDay': {
+        const days = push.intervalDays || 1;
+        nextDate.setDate(nextDate.getDate() + days);
+        nextDate.setHours(hour, minute, 0, 0);
         break;
       }
       case 'intervalMonth': {

@@ -478,6 +478,11 @@ export async function exportUserData(
       overdue_reminder_sent?: number;
       expiry_at?: string;
       remind_days_before?: number;
+      renew_months?: number;
+      interval_days?: number;
+      interval_hours?: number;
+      interval_months?: number;
+      interval_years?: number;
       created_at: string;
       updated_at: string;
     }>();
@@ -507,6 +512,11 @@ export async function exportUserData(
         overdueReminderSent: r.overdue_reminder_sent === 1,
         expiryAt: r.expiry_at || undefined,
         remindDaysBefore: r.remind_days_before ?? undefined,
+        renewMonths: r.renew_months ?? 12,
+        intervalDays: r.interval_days ?? undefined,
+        intervalHours: r.interval_hours ?? undefined,
+        intervalMonths: r.interval_months ?? undefined,
+        intervalYears: r.interval_years ?? undefined,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       };

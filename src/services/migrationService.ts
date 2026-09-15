@@ -49,6 +49,13 @@ export class MigrationService {
       // 到期提醒:到期时间 + 提前提醒天数
       await this.addColumnIfNotExists('scheduled_pushes', 'expiry_at', 'TEXT');
       await this.addColumnIfNotExists('scheduled_pushes', 'remind_days_before', 'INTEGER DEFAULT 0');
+      // 循环间隔字段
+      await this.addColumnIfNotExists('scheduled_pushes', 'interval_days', 'INTEGER');
+      await this.addColumnIfNotExists('scheduled_pushes', 'interval_hours', 'INTEGER');
+      await this.addColumnIfNotExists('scheduled_pushes', 'interval_months', 'INTEGER');
+      await this.addColumnIfNotExists('scheduled_pushes', 'interval_years', 'INTEGER');
+      // 到期提醒自动续期:续期周期（月），到期后自动推进
+      await this.addColumnIfNotExists('scheduled_pushes', 'renew_months', 'INTEGER DEFAULT 12');
 
       // 检查 push_history 表是否有需要的列
       await this.addColumnIfNotExists('push_history', 'channels', 'TEXT');
