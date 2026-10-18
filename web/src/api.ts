@@ -1303,6 +1303,8 @@ export async function saveAISettings(
     custom_ai_providers?: CustomAIProvider[];
     ai_provider_configs?: Record<string, AIProviderConfig>;
     ai_tools?: AITool[];
+    // 显式清空自定义提供商（删除最后一个时传 true）
+    clear_custom_ai_providers?: boolean;
   }
 ): Promise<{ success: boolean; message: string; settings: UserSettings }> {
   const result = await tokenRequest<{ success: boolean; message: string; settings: UserSettings }>(

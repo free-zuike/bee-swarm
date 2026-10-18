@@ -1433,9 +1433,19 @@ adminApi.put('/me/settings/ai', async (c) => {
       }>;
       enabled: boolean;
     }>;
+    // 显式清空自定义提供商（删除最后一个时前端传 true）
+    clear_custom_ai_providers?: boolean;
   }>();
 
   const currentAISettings = await svc.getAISettings(user.id);
+  // 保护：前端未加载到数据时可能误传空数组，此时保留已有自定义提供商；
+  // 只有显式传 clear_custom_ai_providers=true 才允许清空
+  let mergedCustomProviders = currentAISettings.custom_ai_providers;
+  if (body.custom_ai_providers !== undefined) {
+    if (body.custom_ai_providers.length > 0 || body.clear_custom_ai_providers === true) {
+      mergedCustomProviders = body.custom_ai_providers;
+    }
+  }
   const newAISettings = {
     ...currentAISettings,
     ai_model: body.ai_model !== undefined ? body.ai_model : currentAISettings.ai_model,
@@ -1445,10 +1455,7 @@ adminApi.put('/me/settings/ai', async (c) => {
     ai_api_url: body.ai_api_url !== undefined ? body.ai_api_url : currentAISettings.ai_api_url,
     ai_model_name:
       body.ai_model_name !== undefined ? body.ai_model_name : currentAISettings.ai_model_name,
-    custom_ai_providers:
-      body.custom_ai_providers !== undefined
-        ? body.custom_ai_providers
-        : currentAISettings.custom_ai_providers,
+    custom_ai_providers: mergedCustomProviders,
     ai_provider_configs:
       body.ai_provider_configs !== undefined
         ? body.ai_provider_configs

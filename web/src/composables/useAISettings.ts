@@ -351,7 +351,7 @@ export function useAISettings(options: AISettingsOptions) {
     return !!userSettings.value.custom_ai_providers?.find((p) => p.id === providerId);
   }
 
-  async function saveCustomProviders() {
+  async function saveCustomProviders(clearFlag = false) {
     if (isSavingSettings.value) return;
 
     if (userSettings.value.ai_provider) {
@@ -369,6 +369,7 @@ export function useAISettings(options: AISettingsOptions) {
         ai_model_name: userSettings.value.ai_model_name,
         ai_provider_configs: userSettings.value.ai_provider_configs,
         custom_ai_providers: userSettings.value.custom_ai_providers,
+        clear_custom_ai_providers: clearFlag,
         ai_tools: aiTools.value.map((t) => ({
           id: t.id,
           name: t.name,
@@ -463,7 +464,12 @@ export function useAISettings(options: AISettingsOptions) {
       delete userSettings.value.ai_provider_configs[providerId];
     }
 
-    saveCustomProviders();
+    // 删除最后一个时显式标记清空，避免与服务端保护逻辑冲突
+    const clearedAll =
+      !userSettings.value.custom_ai_providers ||
+      userSettings.value.custom_ai_providers.length === 0;
+
+    saveCustomProviders(clearedAll);
     showToast(t('toast.provider_deleted'), 'success');
   }
 
