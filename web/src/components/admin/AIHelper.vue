@@ -400,6 +400,8 @@ onMounted(() => {
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-primary, #1a1a2e);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .message-data {
