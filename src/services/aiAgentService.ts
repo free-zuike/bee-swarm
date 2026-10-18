@@ -134,14 +134,18 @@ export class AIAgentService {
       const cleaned = response.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleaned);
       return parsed;
-    } catch {
-      // 解析失败，返回默认意图
-      return {
-        type: 'unknown',
-        description: query,
-        action: 'unknown',
-        params: { query },
-      };
+    } catch (error) {
+      // JSON 解析失败（模型返回了内容但无法解析）→ 保持"无法理解"兜底
+      if (error instanceof SyntaxError) {
+        return {
+          type: 'unknown',
+          description: query,
+          action: 'unknown',
+          params: { query },
+        };
+      }
+      // AI 调用失败（模型名/API Key/网络等）→ 抛出真实原因，让用户看到具体错误
+      throw new Error(`AI 模型调用失败：${(error as Error).message}，请检查模型配置`);
     }
   }
 

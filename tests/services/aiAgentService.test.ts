@@ -224,7 +224,7 @@ describe('AIAgentService', () => {
       expect(result.success).toBe(true);
     });
 
-    it('应该处理无法理解的请求', async () => {
+    it('AI 调用失败时应该返回明确错误信息', async () => {
       const result = await agentService.execute({
         query: 'asdfghjkl',
         userId: 'user1',
@@ -232,9 +232,9 @@ describe('AIAgentService', () => {
       });
 
       // 本地匹配返回 null，会尝试 AI 调用
-      // AI 调用失败会返回 unknown intent
-      expect(result).toBeDefined();
-      expect(result.steps.length).toBeGreaterThan(0);
+      // 无 AI 配置时调用失败，应返回明确错误而不是静默"无法理解"
+      expect(result.success).toBe(false);
+      expect(result.result).toContain('AI 模型调用失败');
     });
   });
 
